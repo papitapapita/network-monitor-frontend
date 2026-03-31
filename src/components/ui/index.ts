@@ -1,13 +1,7 @@
-/**
- * UI Components Index
- *
- * Centralized export for all reusable UI components
- */
-
 export { Button } from './Button';
 export type { ButtonVariant, ButtonSize } from './Button';
 
-export { Badge, getStatusBadgeVariant, getActivationStatusBadgeVariant } from './Badge';
+export { Badge, getDeviceStatusBadgeVariant, getPollingStatusBadgeVariant } from './Badge';
 export type { BadgeVariant } from './Badge';
 
 export { Card } from './Card';

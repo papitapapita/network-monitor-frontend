@@ -1,9 +1,3 @@
-/**
- * Badge Component
- *
- * Displays status indicators and labels
- */
-
 import React from 'react';
 
 export type BadgeVariant =
@@ -46,31 +40,28 @@ export function Badge({ variant = 'neutral', children, className = '' }: BadgePr
   );
 }
 
-/**
- * Helper function to get badge variant for device status
- */
-export function getStatusBadgeVariant(status: string): BadgeVariant {
+export function getDeviceStatusBadgeVariant(status: string): BadgeVariant {
   switch (status.toUpperCase()) {
-    case 'ONLINE':
+    case 'ACTIVE':
       return 'success';
-    case 'OFFLINE':
-      return 'danger';
     case 'MAINTENANCE':
       return 'warning';
+    case 'DAMAGED':
+      return 'danger';
+    case 'INVENTORY':
+    case 'DECOMMISSIONED':
     default:
       return 'neutral';
   }
 }
 
-/**
- * Helper function to get badge variant for activation status
- */
-export function getActivationStatusBadgeVariant(status: string): BadgeVariant {
+export function getPollingStatusBadgeVariant(status: string): BadgeVariant {
   switch (status.toUpperCase()) {
-    case 'ACTIVE':
-      return 'active';
-    case 'DRAFT':
-      return 'draft';
+    case 'ONLINE':
+      return 'success';
+    case 'OFFLINE':
+      return 'danger';
+    case 'UNKNOWN':
     default:
       return 'neutral';
   }

@@ -1,38 +1,13 @@
-/**
- * Header Component
- *
- * Main navigation header for the application
- */
-
 'use client';
 
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Badge, getStatusBadgeVariant } from '../ui';
-import { ConnectionState } from '@/services/websocket.service';
-import { useWebSocket } from '@/hooks/useWebSocket';
 
 export function Header() {
   const pathname = usePathname();
-  const { connectionState, isConnected } = useWebSocket({ autoConnect: true });
 
   const isActive = (path: string) => pathname.startsWith(path);
-
-  const getConnectionBadge = () => {
-    switch (connectionState) {
-      case ConnectionState.CONNECTED:
-        return <Badge variant="success">Connected</Badge>;
-      case ConnectionState.CONNECTING:
-        return <Badge variant="info">Connecting...</Badge>;
-      case ConnectionState.DISCONNECTED:
-        return <Badge variant="neutral">Disconnected</Badge>;
-      case ConnectionState.ERROR:
-        return <Badge variant="danger">Error</Badge>;
-      default:
-        return null;
-    }
-  };
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm">
@@ -57,7 +32,7 @@ export function Header() {
                 </svg>
               </div>
               <span className="text-xl font-bold text-gray-900">
-                Network Manager
+                Network Monitor
               </span>
             </Link>
 
@@ -65,71 +40,47 @@ export function Header() {
             <nav className="hidden md:flex items-center gap-6">
               <Link
                 href="/devices"
-                className={`
-                  text-sm font-medium transition-colors
-                  ${
-                    isActive('/devices')
-                      ? 'text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }
-                `}
+                className={`text-sm font-medium transition-colors ${
+                  isActive('/devices') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
                 Devices
               </Link>
               <Link
-                href="/monitoring"
-                className={`
-                  text-sm font-medium transition-colors
-                  ${
-                    isActive('/monitoring')
-                      ? 'text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }
-                `}
+                href="/locations"
+                className={`text-sm font-medium transition-colors ${
+                  isActive('/locations') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                Monitoring
+                Locations
               </Link>
               <Link
-                href="/reports"
-                className={`
-                  text-sm font-medium transition-colors
-                  ${
-                    isActive('/reports')
-                      ? 'text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }
-                `}
+                href="/device-models"
+                className={`text-sm font-medium transition-colors ${
+                  isActive('/device-models') ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                Reports
+                Device Models
               </Link>
             </nav>
           </div>
 
-          {/* Right Side */}
-          <div className="flex items-center gap-4">
-            {/* WebSocket Status */}
-            <div className="hidden md:flex items-center gap-2">
-              <span className="text-xs text-gray-500">Status:</span>
-              {getConnectionBadge()}
-            </div>
-
-            {/* User Menu (Placeholder) */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-gray-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
-                </svg>
-              </div>
+          {/* User Menu (Placeholder) */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+              <svg
+                className="w-5 h-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
             </div>
           </div>
         </div>

@@ -1,193 +1,272 @@
-/**
- * Network Device Types
- *
- * TypeScript definitions matching backend DTOs for REQ-002 Network Device CRUD
- */
-
+// ============================================================
 // Enums
-export enum NetworkDeviceType {
-  ROUTER = 'ROUTER',
-  SWITCH = 'SWITCH',
-  ACCESS_POINT = 'ACCESS_POINT',
-  FIREWALL = 'FIREWALL',
-  LOAD_BALANCER = 'LOAD_BALANCER',
-  UNKNOWN = 'UNKNOWN'
-}
+// ============================================================
 
-export enum NetworkDeviceStatus {
-  ONLINE = 'ONLINE',
-  OFFLINE = 'OFFLINE',
-  MAINTENANCE = 'MAINTENANCE',
-  UNKNOWN = 'UNKNOWN'
-}
+export type DeviceStatus =
+  | 'INVENTORY'
+  | 'ACTIVE'
+  | 'MAINTENANCE'
+  | 'DAMAGED'
+  | 'DECOMMISSIONED';
 
-export enum ConnectivityType {
-  ETHERNET = 'ETHERNET',
-  FIBER_OPTIC = 'FIBER_OPTIC',
-  WIRELESS = 'WIRELESS',
-  COPPER = 'COPPER'
-}
+export type DeviceCategory =
+  | 'CORE'
+  | 'DISTRIBUTION'
+  | 'POE'
+  | 'ACCESS_POINT'
+  | 'CLIENT_CPE';
 
-export enum ManagementProtocol {
-  SNMP = 'SNMP',
-  SSH = 'SSH',
-  TELNET = 'TELNET',
-  HTTP = 'HTTP',
-  HTTPS = 'HTTPS',
-  OTHER = 'OTHER'
-}
+export type DeviceOwnerType = 'COMPANY' | 'CLIENT';
 
-export enum ActivationStatus {
-  DRAFT = 'DRAFT',
-  ACTIVE = 'ACTIVE'
-}
+export type LocationType =
+  | 'TOWER'
+  | 'NODE'
+  | 'DATACENTER'
+  | 'POP'
+  | 'WAREHOUSE'
+  | 'OFFICE';
 
-// Polling Configuration
-export interface PollingConfiguration {
+export type DeviceType =
+  | 'ANTENNA'
+  | 'OTHER'
+  | 'RADIO'
+  | 'ROUTER'
+  | 'ROUTERBOARD'
+  | 'SERVER'
+  | 'SWITCH';
+
+export type Manufacturer =
+  | 'TP_LINK'
+  | 'MIKROTIK'
+  | 'UBIQUITI'
+  | 'MIMOSA'
+  | 'TENDA'
+  | 'OTHER';
+
+export type PollingStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+
+// ============================================================
+// Device
+// ============================================================
+
+export interface DeviceResponseDTO {
   id: string;
-  deviceId: string;
-  intervalSeconds: number;
-  retryAttempts: number;
-  enabled: boolean;
-}
-
-// Network Device Response DTO
-export interface NetworkDeviceResponseDTO {
-  id: string;
-  name: string | null;
-  deviceType: string;
-  status: string;
+  deviceModelId: string;
+  locationId: string | null;
+  status: DeviceStatus;
+  category: DeviceCategory | null;
+  ownerType: DeviceOwnerType;
+  name: string;
+  serialNumber: string | null;
+  macAddress: string | null;
+  ipAddress: string | null;
   description: string | null;
-  ipAddress: string;
-  macAddress: string;
-  connectivityType: string;
-  managementProtocol: string;
-  managementPort: number;
-  enabledRemoteAccess: boolean;
-  deviceId: string;
-  location: string | null;
-  activationStatus: string;
-  activatedAt: string | null;
-  activatedBy: string | null;
+  installedDate: string | null;
+  monitoringEnabled: boolean;
   createdAt: string;
   updatedAt: string;
-  deletedAt: string | null;
-  deletedBy: string | null;
-  deletionReason: string | null;
-  pollingConfiguration: PollingConfiguration;
 }
 
-// Create Network Device DTO
-export interface CreateNetworkDeviceDTO {
-  ipAddress: string;
-  macAddress: string;
-  deviceId: string;
-  activateImmediately?: boolean;
-
-  // Optional fields for ACTIVE mode
-  name?: string;
-  deviceType?: string;
-  description?: string;
-  location?: string;
-  connectivityType?: string;
-  managementProtocol?: string;
-  managementPort?: number;
-  enabledRemoteAccess?: boolean;
-}
-
-// Update Network Device DTO
-export interface UpdateNetworkDeviceDTO {
-  name?: string;
-  description?: string | null;
-  location?: string | null;
-  managementProtocol?: string;
-  managementPort?: number;
-  enabledRemoteAccess?: boolean;
-}
-
-// Activate Network Device DTO
-export interface ActivateNetworkDeviceDTO {
+export interface CreateDeviceDTO {
+  deviceModelId: string;
   name: string;
-  deviceType: string;
-  description?: string;
-  location?: string;
-  connectivityType?: string;
-  managementProtocol?: string;
-  managementPort?: number;
-  enabledRemoteAccess?: boolean;
+  ownerType: DeviceOwnerType;
+  status?: DeviceStatus;
+  category?: DeviceCategory | null;
+  locationId?: string | null;
+  serialNumber?: string | null;
+  macAddress?: string | null;
+  ipAddress?: string | null;
+  description?: string | null;
+  installedDate?: string | null;
+  monitoringEnabled?: boolean;
 }
 
-// Soft Delete DTO
-export interface SoftDeleteNetworkDeviceDTO {
-  reason?: string;
+export interface UpdateDeviceDTO {
+  name?: string;
+  status?: DeviceStatus;
+  category?: DeviceCategory | null;
+  ownerType?: DeviceOwnerType;
+  locationId?: string | null;
+  serialNumber?: string | null;
+  macAddress?: string | null;
+  ipAddress?: string | null;
+  description?: string | null;
+  installedDate?: string | null;
+  monitoringEnabled?: boolean;
 }
 
-// List Response DTO
-export interface NetworkDeviceListResponseDTO {
-  devices: NetworkDeviceResponseDTO[];
-  total: number;
-  limit: number;
-  offset: number;
-  hasMore: boolean;
-}
-
-// List Query Params
-export interface ListNetworkDevicesQuery {
+export interface ListDevicesQuery {
   limit?: number;
   offset?: number;
-  status?: string;
-  deviceType?: string;
-  activationStatus?: string;
+  status?: DeviceStatus;
+  category?: DeviceCategory;
+  owner?: DeviceOwnerType;
+  locationId?: string;
+  deviceModelId?: string;
+  monitoringEnabled?: boolean;
+  search?: string;
+  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'status';
+  sortOrder?: 'ASC' | 'DESC';
 }
 
-// Bulk Import Response DTO
-export interface BulkImportResponseDTO {
-  success: boolean;
-  created: number;
-  failed: number;
+export interface DeviceListResponse {
+  devices: DeviceResponseDTO[];
   total: number;
-  validationErrors?: Array<{
-    row: number;
-    field: string;
-    value: string;
-    error: string;
-  }>;
-  duration: number;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
 }
 
-// API Response Wrapper
+// ============================================================
+// Location
+// ============================================================
+
+export interface LocationResponseDTO {
+  id: string;
+  name: string;
+  type: LocationType;
+  municipality: string | null;
+  neighborhood: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLocationDTO {
+  name: string;
+  type: LocationType;
+  municipality?: string | null;
+  neighborhood?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  altitude?: number | null;
+}
+
+export interface UpdateLocationDTO {
+  name?: string;
+  type?: LocationType;
+  municipality?: string | null;
+  neighborhood?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  altitude?: number | null;
+}
+
+export interface ListLocationsQuery {
+  limit?: number;
+  offset?: number;
+  type?: LocationType;
+}
+
+export interface LocationListResponse {
+  locations: LocationResponseDTO[];
+  total: number;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+}
+
+// ============================================================
+// Device Model
+// ============================================================
+
+export interface DeviceModelResponseDTO {
+  id: string;
+  manufacturer: Manufacturer;
+  model: string;
+  deviceType: DeviceType;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeviceModelListResponse {
+  deviceModels: DeviceModelResponseDTO[];
+  total: number;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+}
+
+// ============================================================
+// Polling
+// ============================================================
+
+export interface PollingMetrics {
+  latencyMs: number;
+}
+
+export interface PollingResultDTO {
+  id: string;
+  deviceId: string;
+  timestamp: string;
+  status: 'SUCCESS' | 'FAILED';
+  metrics: PollingMetrics | null;
+  deviceStatus: PollingStatus;
+}
+
+export interface PollingStatusDTO {
+  deviceId: string;
+  pollingEnabled: boolean;
+  intervalSeconds: number;
+  failuresBeforeDown: number;
+  lastPolled: string | null;
+  nextScheduled: string | null;
+  currentStatus: PollingStatus;
+  lastResult: PollingResultDTO | null;
+  consecutiveFailures: number;
+}
+
+export interface PollingHistoryStats {
+  successRate: number;
+  averageResponseTime: number;
+  minResponseTime: number;
+  maxResponseTime: number;
+  uptimePercentage: number;
+}
+
+export interface PollingHistoryResponse {
+  deviceId: string;
+  results: PollingResultDTO[];
+  totalCount: number;
+  statistics: PollingHistoryStats;
+}
+
+export interface PollingHistoryQuery {
+  fromDate?: string;
+  toDate?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface UpdatePollingConfigDTO {
+  intervalSeconds?: number;
+  failuresBeforeDown?: number;
+  enabled?: boolean;
+}
+
+export interface ManualPollResultDTO {
+  deviceId: string;
+  status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  message: string;
+  timestamp: string;
+  metrics: PollingMetrics | null;
+  deviceStatus: PollingStatus;
+}
+
+// ============================================================
+// Shared
+// ============================================================
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
-}
-
-// WebSocket Message Types
-export enum WebSocketMessageType {
-  DEVICE_STATUS_CHANGED = 'DEVICE_STATUS_CHANGED',
-  DEVICE_CREATED = 'DEVICE_CREATED',
-  DEVICE_UPDATED = 'DEVICE_UPDATED',
-  DEVICE_DELETED = 'DEVICE_DELETED',
-  DEVICE_ACTIVATED = 'DEVICE_ACTIVATED',
-  DEVICE_RESTORED = 'DEVICE_RESTORED'
-}
-
-export interface WebSocketMessage<T = any> {
-  type: WebSocketMessageType;
-  payload: T;
-  timestamp: string;
-}
-
-export interface DeviceStatusChangedPayload {
-  deviceId: string;
-  previousStatus: string;
-  newStatus: string;
-  timestamp: string;
-}
-
-export interface DeviceLifecyclePayload {
-  deviceId: string;
-  deviceName: string | null;
-  ipAddress: string;
-  timestamp: string;
+  message?: string;
 }

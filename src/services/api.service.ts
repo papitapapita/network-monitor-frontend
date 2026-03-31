@@ -1,18 +1,21 @@
-/**
- * API Service
- *
- * Centralized API client for backend communication
- */
-
 import {
-  NetworkDeviceResponseDTO,
-  NetworkDeviceListResponseDTO,
-  CreateNetworkDeviceDTO,
-  UpdateNetworkDeviceDTO,
-  ActivateNetworkDeviceDTO,
-  SoftDeleteNetworkDeviceDTO,
-  ListNetworkDevicesQuery,
-  BulkImportResponseDTO,
+  DeviceResponseDTO,
+  DeviceListResponse,
+  CreateDeviceDTO,
+  UpdateDeviceDTO,
+  ListDevicesQuery,
+  LocationResponseDTO,
+  LocationListResponse,
+  CreateLocationDTO,
+  UpdateLocationDTO,
+  ListLocationsQuery,
+  DeviceModelResponseDTO,
+  DeviceModelListResponse,
+  PollingStatusDTO,
+  PollingHistoryResponse,
+  PollingHistoryQuery,
+  UpdatePollingConfigDTO,
+  ManualPollResultDTO,
   ApiResponse
 } from '../types/device.types';
 
@@ -25,9 +28,6 @@ class ApiService {
     this.baseUrl = baseUrl;
   }
 
-  /**
-   * Generic HTTP request handler
-   */
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -41,7 +41,6 @@ class ApiService {
         }
       });
 
-      // Handle 204 No Content
       if (response.status === 204) {
         return { success: true };
       }
@@ -64,185 +63,138 @@ class ApiService {
     }
   }
 
-  // ========================================
-  // Network Device CRUD Operations
-  // ========================================
-
-  /**
-   * Create a new network device
-   * POST /network-devices
-   */
-  async createDevice(
-    data: CreateNetworkDeviceDTO
-  ): Promise<ApiResponse<NetworkDeviceResponseDTO>> {
-    return this.request<NetworkDeviceResponseDTO>('/network-devices', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  }
-
-  /**
-   * Get all network devices with pagination
-   * GET /network-devices
-   */
-  async listDevices(
-    query?: ListNetworkDevicesQuery
-  ): Promise<ApiResponse<NetworkDeviceListResponseDTO>> {
-    const params = new URLSearchParams();
-    if (query?.limit) params.append('limit', query.limit.toString());
-    if (query?.offset) params.append('offset', query.offset.toString());
-    if (query?.status) params.append('status', query.status);
-    if (query?.deviceType) params.append('deviceType', query.deviceType);
-    if (query?.activationStatus) params.append('activationStatus', query.activationStatus);
-
-    const queryString = params.toString() ? `?${params.toString()}` : '';
-    return this.request<NetworkDeviceListResponseDTO>(`/network-devices${queryString}`);
-  }
-
-  /**
-   * Get device by ID
-   * GET /network-devices/:id
-   */
-  async getDeviceById(id: string): Promise<ApiResponse<NetworkDeviceResponseDTO>> {
-    return this.request<NetworkDeviceResponseDTO>(`/network-devices/${id}`);
-  }
-
-  /**
-   * Get device by IP address
-   * GET /network-devices/by-ip?ip=...
-   */
-  async getDeviceByIp(ipAddress: string): Promise<ApiResponse<NetworkDeviceResponseDTO>> {
-    return this.request<NetworkDeviceResponseDTO>(
-      `/network-devices/by-ip?ip=${encodeURIComponent(ipAddress)}`
-    );
-  }
-
-  /**
-   * Update device
-   * PUT /network-devices/:id
-   */
-  async updateDevice(
-    id: string,
-    data: UpdateNetworkDeviceDTO
-  ): Promise<ApiResponse<NetworkDeviceResponseDTO>> {
-    return this.request<NetworkDeviceResponseDTO>(`/network-devices/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-  }
-
-  /**
-   * Hard delete device
-   * DELETE /network-devices/:id
-   */
-  async deleteDevice(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/network-devices/${id}`, {
-      method: 'DELETE'
-    });
-  }
-
-  // ========================================
-  // REQ-002: Lifecycle Operations
-  // ========================================
-
-  /**
-   * Activate a DRAFT device to ACTIVE
-   * POST /network-devices/:id/activate
-   */
-  async activateDevice(
-    id: string,
-    data: ActivateNetworkDeviceDTO
-  ): Promise<ApiResponse<NetworkDeviceResponseDTO>> {
-    return this.request<NetworkDeviceResponseDTO>(`/network-devices/${id}/activate`, {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  }
-
-  /**
-   * Soft delete device with 7-day grace period
-   * DELETE /network-devices/:id/soft
-   */
-  async softDeleteDevice(
-    id: string,
-    data?: SoftDeleteNetworkDeviceDTO
-  ): Promise<ApiResponse<NetworkDeviceResponseDTO>> {
-    return this.request<NetworkDeviceResponseDTO>(`/network-devices/${id}/soft`, {
-      method: 'DELETE',
-      body: JSON.stringify(data || {})
-    });
-  }
-
-  /**
-   * Restore soft-deleted device
-   * POST /network-devices/:id/restore
-   */
-  async restoreDevice(id: string): Promise<ApiResponse<NetworkDeviceResponseDTO>> {
-    return this.request<NetworkDeviceResponseDTO>(`/network-devices/${id}/restore`, {
-      method: 'POST',
-      body: JSON.stringify({})
-    });
-  }
-
-  // ========================================
-  // REQ-002: Bulk Import
-  // ========================================
-
-  /**
-   * Bulk import devices from CSV
-   * POST /network-devices/bulk-import
-   */
-  async bulkImportDevices(
-    file: File,
-    activateImmediately: boolean = false
-  ): Promise<ApiResponse<BulkImportResponseDTO>> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('activateImmediately', activateImmediately.toString());
-
-    try {
-      const response = await fetch(`${this.baseUrl}/network-devices/bulk-import`, {
-        method: 'POST',
-        body: formData
-        // Don't set Content-Type header - browser will set it with boundary
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data.error || `HTTP ${response.status}: ${response.statusText}`
-        };
+  private buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+    const p = new URLSearchParams();
+    for (const [key, val] of Object.entries(params)) {
+      if (val !== undefined && val !== null && val !== '') {
+        p.append(key, String(val));
       }
-
-      return data;
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Network error'
-      };
     }
+    const str = p.toString();
+    return str ? `?${str}` : '';
   }
 
-  /**
-   * Download CSV template
-   * GET /network-devices/bulk-import/template
-   */
-  async downloadCSVTemplate(): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/network-devices/bulk-import/template`);
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'network-devices-template.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  // ============================================================
+  // Devices
+  // ============================================================
+
+  async createDevice(data: CreateDeviceDTO): Promise<ApiResponse<DeviceResponseDTO>> {
+    return this.request<DeviceResponseDTO>('/devices', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async listDevices(query?: ListDevicesQuery): Promise<ApiResponse<DeviceListResponse>> {
+    const qs = this.buildQuery({
+      limit: query?.limit,
+      offset: query?.offset,
+      status: query?.status,
+      category: query?.category,
+      owner: query?.owner,
+      locationId: query?.locationId,
+      deviceModelId: query?.deviceModelId,
+      monitoringEnabled: query?.monitoringEnabled,
+      search: query?.search,
+      sortBy: query?.sortBy,
+      sortOrder: query?.sortOrder
+    });
+    return this.request<DeviceListResponse>(`/devices${qs}`);
+  }
+
+  async getDevice(id: string): Promise<ApiResponse<DeviceResponseDTO>> {
+    return this.request<DeviceResponseDTO>(`/devices/${id}`);
+  }
+
+  async updateDevice(id: string, data: UpdateDeviceDTO): Promise<ApiResponse<DeviceResponseDTO>> {
+    return this.request<DeviceResponseDTO>(`/devices/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // ============================================================
+  // Locations
+  // ============================================================
+
+  async createLocation(data: CreateLocationDTO): Promise<ApiResponse<LocationResponseDTO>> {
+    return this.request<LocationResponseDTO>('/locations', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async listLocations(query?: ListLocationsQuery): Promise<ApiResponse<LocationListResponse>> {
+    const qs = this.buildQuery({
+      limit: query?.limit,
+      offset: query?.offset,
+      type: query?.type
+    });
+    return this.request<LocationListResponse>(`/locations${qs}`);
+  }
+
+  async getLocation(id: string): Promise<ApiResponse<LocationResponseDTO>> {
+    return this.request<LocationResponseDTO>(`/locations/${id}`);
+  }
+
+  async updateLocation(id: string, data: UpdateLocationDTO): Promise<ApiResponse<LocationResponseDTO>> {
+    return this.request<LocationResponseDTO>(`/locations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // ============================================================
+  // Device Models
+  // ============================================================
+
+  async listDeviceModels(query?: { limit?: number; offset?: number }): Promise<ApiResponse<DeviceModelListResponse>> {
+    const qs = this.buildQuery({ limit: query?.limit, offset: query?.offset });
+    return this.request<DeviceModelListResponse>(`/device-models${qs}`);
+  }
+
+  async getDeviceModel(id: string): Promise<ApiResponse<DeviceModelResponseDTO>> {
+    return this.request<DeviceModelResponseDTO>(`/device-models/${id}`);
+  }
+
+  // ============================================================
+  // Polling
+  // ============================================================
+
+  async getPollingStatus(deviceId: string): Promise<ApiResponse<PollingStatusDTO>> {
+    return this.request<PollingStatusDTO>(`/devices/${deviceId}/polling/status`);
+  }
+
+  async getPollingHistory(
+    deviceId: string,
+    query?: PollingHistoryQuery
+  ): Promise<ApiResponse<PollingHistoryResponse>> {
+    const qs = this.buildQuery({
+      fromDate: query?.fromDate,
+      toDate: query?.toDate,
+      status: query?.status,
+      limit: query?.limit,
+      offset: query?.offset
+    });
+    return this.request<PollingHistoryResponse>(`/devices/${deviceId}/polling/history${qs}`);
+  }
+
+  async updatePollingConfig(
+    deviceId: string,
+    data: UpdatePollingConfigDTO
+  ): Promise<ApiResponse<void>> {
+    return this.request<void>(`/devices/${deviceId}/polling/config`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async triggerPoll(deviceId: string): Promise<ApiResponse<ManualPollResultDTO>> {
+    return this.request<ManualPollResultDTO>(`/devices/${deviceId}/poll`, {
+      method: 'POST'
+    });
   }
 }
 
-// Export singleton instance
 export const apiService = new ApiService();
 export default apiService;
