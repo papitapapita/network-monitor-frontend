@@ -24,6 +24,7 @@ import {
   getDeviceStatusBadgeVariant,
   getPollingStatusBadgeVariant
 } from '@/components/ui';
+import { LocationCreateModal } from '@/components/LocationCreateModal';
 
 type Tab = 'details' | 'polling';
 
@@ -41,6 +42,7 @@ export default function DeviceDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -418,17 +420,29 @@ export default function DeviceDetailPage() {
                   <Input label="IP Address" name="ipAddress" value={formData.ipAddress} onChange={handleChange} fullWidth />
                   <Input label="MAC Address" name="macAddress" value={formData.macAddress} onChange={handleChange} fullWidth />
                   <Input label="Serial Number" name="serialNumber" value={formData.serialNumber} onChange={handleChange} fullWidth />
-                  <Select
-                    label="Location"
-                    name="locationId"
-                    value={formData.locationId}
-                    onChange={handleChange}
-                    options={[
-                      { value: '', label: 'No location' },
-                      ...locations.map((l) => ({ value: l.id, label: l.name }))
-                    ]}
-                    fullWidth
-                  />
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        name="locationId"
+                        value={formData.locationId}
+                        onChange={handleChange}
+                        options={[
+                          { value: '', label: 'No location' },
+                          ...locations.map((l) => ({ value: l.id, label: l.name }))
+                        ]}
+                        fullWidth
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationModal(true)}
+                        className="flex-shrink-0 w-9 h-9 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 flex items-center justify-center text-xl font-medium"
+                        title="Create new location"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                   <Input
                     label="Installed Date"
                     name="installedDate"
@@ -844,6 +858,15 @@ export default function DeviceDetailPage() {
           </Card>
         </div>
       )}
+      <LocationCreateModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onCreated={(loc) => {
+          setLocations((prev) => [...prev, loc]);
+          setFormData((prev) => ({ ...prev, locationId: loc.id }));
+          setShowLocationModal(false);
+        }}
+      />
     </div>
   );
 }

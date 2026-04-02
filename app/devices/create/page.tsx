@@ -12,6 +12,7 @@ import {
   DeviceOwnerType
 } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner } from '@/components/ui';
+import { LocationCreateModal } from '@/components/LocationCreateModal';
 
 export default function CreateDevicePage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function CreateDevicePage() {
   const [deviceModels, setDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
   const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const [formData, setFormData] = useState({
     deviceModelId: '',
@@ -273,17 +275,29 @@ export default function CreateDevicePage() {
             </Card.Header>
             <Card.Body>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select
-                  label="Location"
-                  name="locationId"
-                  value={formData.locationId}
-                  onChange={handleChange}
-                  options={[
-                    { value: '', label: 'No location' },
-                    ...locations.map((l) => ({ value: l.id, label: l.name }))
-                  ]}
-                  fullWidth
-                />
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      name="locationId"
+                      value={formData.locationId}
+                      onChange={handleChange}
+                      options={[
+                        { value: '', label: 'No location' },
+                        ...locations.map((l) => ({ value: l.id, label: l.name }))
+                      ]}
+                      fullWidth
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationModal(true)}
+                      className="flex-shrink-0 w-9 h-9 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 flex items-center justify-center text-xl font-medium"
+                      title="Create new location"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
                 <Input
                   label="Installed Date"
                   name="installedDate"
@@ -316,6 +330,16 @@ export default function CreateDevicePage() {
           </div>
         </form>
       )}
+
+      <LocationCreateModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onCreated={(loc) => {
+          setLocations((prev) => [...prev, loc]);
+          setFormData((prev) => ({ ...prev, locationId: loc.id }));
+          setShowLocationModal(false);
+        }}
+      />
     </div>
   );
 }

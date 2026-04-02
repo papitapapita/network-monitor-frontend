@@ -196,5 +196,9 @@ class ApiService {
   }
 }
 
-export const apiService = new ApiService();
+import { mockApiService } from './mock-api.service';
+
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+
+export const apiService = USE_MOCK ? mockApiService : new ApiService();
 export default apiService;

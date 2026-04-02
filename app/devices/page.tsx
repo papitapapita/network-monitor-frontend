@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
-import { DeviceResponseDTO, ListDevicesQuery, DeviceStatus, DeviceCategory } from '@/types/device.types';
+import {
+  DeviceResponseDTO,
+  ListDevicesQuery,
+  DeviceStatus,
+  DeviceCategory,
+  PollingStatus,
+} from '@/types/device.types';
 import {
   Table,
   TableEmptyState,
@@ -13,14 +19,18 @@ import {
   LoadingSpinner,
   Select,
   Input,
-  getDeviceStatusBadgeVariant
+  getDeviceStatusBadgeVariant,
+  getPollingStatusBadgeVariant,
 } from '@/components/ui';
 
 const LIMIT = 20;
 
 export default function DevicesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [devices, setDevices] = useState<DeviceResponseDTO[]>([]);
+  const [pollingStatuses, setPollingStatuses] = useState<Record<string, PollingStatus>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,33 +39,99 @@ export default function DevicesPage() {
 
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [connectivityFilter, setConnectivityFilter] = useState(
+    () => searchParams.get('connectivity') ?? ''
+  );
   const [search, setSearch] = useState('');
 
   const fetchDevices = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
-    const query: ListDevicesQuery = {
-      limit: LIMIT,
-      offset: (currentPage - 1) * LIMIT
-    };
+    if (connectivityFilter) {
+      // Fetch all monitoring-enabled devices, get their polling statuses, filter client-side
+      const allResult = await apiService.listDevices({ monitoringEnabled: true, limit: 500 });
+      if (!allResult.success || !allResult.data) {
+        setError(allResult.error || 'Failed to load devices');
+        setIsLoading(false);
+        return;
+      }
 
-    if (statusFilter) query.status = statusFilter as DeviceStatus;
-    if (categoryFilter) query.category = categoryFilter as DeviceCategory;
-    if (search) query.search = search;
+      const allDevices = allResult.data.devices;
+      const statusResults = await Promise.all(
+        allDevices.map((d) => apiService.getPollingStatus(d.id))
+      );
 
-    const result = await apiService.listDevices(query);
+      const statusMap: Record<string, PollingStatus> = {};
+      allDevices.forEach((d, i) => {
+        statusMap[d.id] =
+          statusResults[i].success && statusResults[i].data
+            ? statusResults[i].data!.currentStatus
+            : 'UNKNOWN';
+      });
 
-    if (result.success && result.data) {
-      setDevices(result.data.devices);
-      setTotalDevices(result.data.total);
-      setTotalPages(Math.ceil(result.data.total / LIMIT));
+      let filtered = allDevices.filter((d) => statusMap[d.id] === connectivityFilter);
+      if (statusFilter) filtered = filtered.filter((d) => d.status === (statusFilter as DeviceStatus));
+      if (categoryFilter) filtered = filtered.filter((d) => d.category === (categoryFilter as DeviceCategory));
+      if (search) {
+        const q = search.toLowerCase();
+        filtered = filtered.filter(
+          (d) =>
+            d.name.toLowerCase().includes(q) ||
+            d.ipAddress?.toLowerCase().includes(q) ||
+            d.macAddress?.toLowerCase().includes(q) ||
+            d.serialNumber?.toLowerCase().includes(q)
+        );
+      }
+
+      const total = filtered.length;
+      const offset = (currentPage - 1) * LIMIT;
+      setDevices(filtered.slice(offset, offset + LIMIT));
+      setPollingStatuses(statusMap);
+      setTotalDevices(total);
+      setTotalPages(Math.max(1, Math.ceil(total / LIMIT)));
     } else {
-      setError(result.error || 'Failed to load devices');
+      // Normal server-side paginated fetch
+      const query: ListDevicesQuery = {
+        limit: LIMIT,
+        offset: (currentPage - 1) * LIMIT,
+      };
+      if (statusFilter) query.status = statusFilter as DeviceStatus;
+      if (categoryFilter) query.category = categoryFilter as DeviceCategory;
+      if (search) query.search = search;
+
+      const result = await apiService.listDevices(query);
+      if (!result.success || !result.data) {
+        setError(result.error || 'Failed to load devices');
+        setIsLoading(false);
+        return;
+      }
+
+      const pageDevices = result.data.devices;
+      setDevices(pageDevices);
+      setTotalDevices(result.data.total);
+      setTotalPages(Math.max(1, Math.ceil(result.data.total / LIMIT)));
+
+      // Fetch polling statuses for monitoring-enabled devices on this page
+      const monDevices = pageDevices.filter((d) => d.monitoringEnabled);
+      if (monDevices.length > 0) {
+        const statusResults = await Promise.all(
+          monDevices.map((d) => apiService.getPollingStatus(d.id))
+        );
+        const statusMap: Record<string, PollingStatus> = {};
+        monDevices.forEach((d, i) => {
+          if (statusResults[i].success && statusResults[i].data) {
+            statusMap[d.id] = statusResults[i].data!.currentStatus;
+          }
+        });
+        setPollingStatuses(statusMap);
+      } else {
+        setPollingStatuses({});
+      }
     }
 
     setIsLoading(false);
-  }, [currentPage, statusFilter, categoryFilter, search]);
+  }, [currentPage, statusFilter, categoryFilter, connectivityFilter, search]);
 
   useEffect(() => {
     fetchDevices();
@@ -64,11 +140,12 @@ export default function DevicesPage() {
   const clearFilters = () => {
     setStatusFilter('');
     setCategoryFilter('');
+    setConnectivityFilter('');
     setSearch('');
     setCurrentPage(1);
   };
 
-  const hasFilters = statusFilter || categoryFilter || search;
+  const hasFilters = statusFilter || categoryFilter || connectivityFilter || search;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -76,17 +153,17 @@ export default function DevicesPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Devices</h1>
           <p className="text-gray-600 mt-1">
-            {totalDevices > 0 ? `${totalDevices} device${totalDevices !== 1 ? 's' : ''} total` : 'Manage your network devices'}
+            {totalDevices > 0
+              ? `${totalDevices} device${totalDevices !== 1 ? 's' : ''} total`
+              : 'Manage your network devices'}
           </p>
         </div>
-        <Button onClick={() => router.push('/devices/create')}>
-          Add Device
-        </Button>
+        <Button onClick={() => router.push('/devices/create')}>Add Device</Button>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Select
             label="Status"
             value={statusFilter}
@@ -97,7 +174,7 @@ export default function DevicesPage() {
               { value: 'ACTIVE', label: 'Active' },
               { value: 'MAINTENANCE', label: 'Maintenance' },
               { value: 'DAMAGED', label: 'Damaged' },
-              { value: 'DECOMMISSIONED', label: 'Decommissioned' }
+              { value: 'DECOMMISSIONED', label: 'Decommissioned' },
             ]}
             fullWidth
           />
@@ -111,7 +188,19 @@ export default function DevicesPage() {
               { value: 'DISTRIBUTION', label: 'Distribution' },
               { value: 'POE', label: 'PoE' },
               { value: 'ACCESS_POINT', label: 'Access Point' },
-              { value: 'CLIENT_CPE', label: 'Client CPE' }
+              { value: 'CLIENT_CPE', label: 'Client CPE' },
+            ]}
+            fullWidth
+          />
+          <Select
+            label="Connectivity"
+            value={connectivityFilter}
+            onChange={(e) => { setConnectivityFilter(e.target.value); setCurrentPage(1); }}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'ONLINE', label: 'Online' },
+              { value: 'OFFLINE', label: 'Offline' },
+              { value: 'UNKNOWN', label: 'Unknown' },
             ]}
             fullWidth
           />
@@ -154,10 +243,10 @@ export default function DevicesPage() {
             <Table.Header>
               <Table.Head>Name</Table.Head>
               <Table.Head>Status</Table.Head>
+              <Table.Head>Connectivity</Table.Head>
               <Table.Head>Category</Table.Head>
               <Table.Head>Owner</Table.Head>
               <Table.Head>IP Address</Table.Head>
-              <Table.Head>Monitoring</Table.Head>
               <Table.Head>Actions</Table.Head>
             </Table.Header>
             <Table.Body>
@@ -187,20 +276,30 @@ export default function DevicesPage() {
                       </Badge>
                     </Table.Cell>
                     <Table.Cell>
-                      {device.category
-                        ? device.category.replace(/_/g, ' ')
-                        : <span className="text-gray-400">—</span>}
+                      {device.monitoringEnabled ? (
+                        pollingStatuses[device.id] ? (
+                          <Badge variant={getPollingStatusBadgeVariant(pollingStatuses[device.id])}>
+                            {pollingStatuses[device.id]}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">—</span>
+                        )
+                      ) : (
+                        <span className="text-gray-400 text-sm">Not monitored</span>
+                      )}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {device.category ? (
+                        device.category.replace(/_/g, ' ')
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </Table.Cell>
                     <Table.Cell>{device.ownerType}</Table.Cell>
                     <Table.Cell>
                       <span className="font-mono text-sm">
                         {device.ipAddress || <span className="text-gray-400">—</span>}
                       </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Badge variant={device.monitoringEnabled ? 'success' : 'neutral'}>
-                        {device.monitoringEnabled ? 'Enabled' : 'Disabled'}
-                      </Badge>
                     </Table.Cell>
                     <Table.Cell>
                       <Button
