@@ -25,6 +25,20 @@ import {
 
 const LIMIT = 20;
 
+const STATUS_LABELS: Record<DeviceStatus, string> = {
+  ACTIVE: 'Activo',
+  INVENTORY: 'Inventario',
+  MAINTENANCE: 'Mantenimiento',
+  DAMAGED: 'Dañado',
+  DECOMMISSIONED: 'Descomisionado',
+};
+
+const CONNECTIVITY_LABELS: Record<string, string> = {
+  ONLINE: 'En línea',
+  OFFLINE: 'Desconectado',
+  UNKNOWN: 'Desconocido',
+};
+
 export default function DevicesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,10 +63,9 @@ export default function DevicesPage() {
     setError(null);
 
     if (connectivityFilter) {
-      // Fetch all monitoring-enabled devices, get their polling statuses, filter client-side
       const allResult = await apiService.listDevices({ monitoringEnabled: true, limit: 500 });
       if (!allResult.success || !allResult.data) {
-        setError(allResult.error || 'Failed to load devices');
+        setError(allResult.error || 'Error al cargar dispositivos');
         setIsLoading(false);
         return;
       }
@@ -91,7 +104,6 @@ export default function DevicesPage() {
       setTotalDevices(total);
       setTotalPages(Math.max(1, Math.ceil(total / LIMIT)));
     } else {
-      // Normal server-side paginated fetch
       const query: ListDevicesQuery = {
         limit: LIMIT,
         offset: (currentPage - 1) * LIMIT,
@@ -102,7 +114,7 @@ export default function DevicesPage() {
 
       const result = await apiService.listDevices(query);
       if (!result.success || !result.data) {
-        setError(result.error || 'Failed to load devices');
+        setError(result.error || 'Error al cargar dispositivos');
         setIsLoading(false);
         return;
       }
@@ -112,7 +124,6 @@ export default function DevicesPage() {
       setTotalDevices(result.data.total);
       setTotalPages(Math.max(1, Math.ceil(result.data.total / LIMIT)));
 
-      // Fetch polling statuses for monitoring-enabled devices on this page
       const monDevices = pageDevices.filter((d) => d.monitoringEnabled);
       if (monDevices.length > 0) {
         const statusResults = await Promise.all(
@@ -147,68 +158,68 @@ export default function DevicesPage() {
 
   const hasFilters = statusFilter || categoryFilter || connectivityFilter || search;
 
+  const deviceCountLabel = totalDevices > 0
+    ? `${totalDevices} ${totalDevices === 1 ? 'dispositivo' : 'dispositivos'} en total`
+    : 'Administra tus dispositivos de red';
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Devices</h1>
-          <p className="text-gray-600 mt-1">
-            {totalDevices > 0
-              ? `${totalDevices} device${totalDevices !== 1 ? 's' : ''} total`
-              : 'Manage your network devices'}
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dispositivos</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">{deviceCountLabel}</p>
         </div>
-        <Button onClick={() => router.push('/devices/create')}>Add Device</Button>
+        <Button onClick={() => router.push('/devices/create')}>Agregar Dispositivo</Button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Select
-            label="Status"
+            label="Estado"
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             options={[
-              { value: '', label: 'All Statuses' },
-              { value: 'INVENTORY', label: 'Inventory' },
-              { value: 'ACTIVE', label: 'Active' },
-              { value: 'MAINTENANCE', label: 'Maintenance' },
-              { value: 'DAMAGED', label: 'Damaged' },
-              { value: 'DECOMMISSIONED', label: 'Decommissioned' },
+              { value: '', label: 'Todos los Estados' },
+              { value: 'INVENTORY', label: 'Inventario' },
+              { value: 'ACTIVE', label: 'Activo' },
+              { value: 'MAINTENANCE', label: 'Mantenimiento' },
+              { value: 'DAMAGED', label: 'Dañado' },
+              { value: 'DECOMMISSIONED', label: 'Descomisionado' },
             ]}
             fullWidth
           />
           <Select
-            label="Category"
+            label="Categoría"
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
             options={[
-              { value: '', label: 'All Categories' },
-              { value: 'CORE', label: 'Core' },
-              { value: 'DISTRIBUTION', label: 'Distribution' },
+              { value: '', label: 'Todas las Categorías' },
+              { value: 'CORE', label: 'Núcleo' },
+              { value: 'DISTRIBUTION', label: 'Distribución' },
               { value: 'POE', label: 'PoE' },
-              { value: 'ACCESS_POINT', label: 'Access Point' },
-              { value: 'CLIENT_CPE', label: 'Client CPE' },
+              { value: 'ACCESS_POINT', label: 'Punto de Acceso' },
+              { value: 'CLIENT_CPE', label: 'CPE Cliente' },
             ]}
             fullWidth
           />
           <Select
-            label="Connectivity"
+            label="Conectividad"
             value={connectivityFilter}
             onChange={(e) => { setConnectivityFilter(e.target.value); setCurrentPage(1); }}
             options={[
-              { value: '', label: 'All' },
-              { value: 'ONLINE', label: 'Online' },
-              { value: 'OFFLINE', label: 'Offline' },
-              { value: 'UNKNOWN', label: 'Unknown' },
+              { value: '', label: 'Todos' },
+              { value: 'ONLINE', label: 'En línea' },
+              { value: 'OFFLINE', label: 'Desconectado' },
+              { value: 'UNKNOWN', label: 'Desconocido' },
             ]}
             fullWidth
           />
           <Input
-            label="Search"
+            label="Buscar"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            placeholder="Name, IP, MAC, serial..."
+            placeholder="Nombre, IP, MAC, serie..."
             fullWidth
           />
           <div className="flex items-end">
@@ -218,44 +229,44 @@ export default function DevicesPage() {
               onClick={clearFilters}
               disabled={!hasFilters}
             >
-              Clear Filters
+              Limpiar Filtros
             </Button>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+          <p className="text-red-800 dark:text-red-400">{error}</p>
           <Button variant="outline" size="sm" onClick={fetchDevices} className="mt-2">
-            Retry
+            Reintentar
           </Button>
         </div>
       )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <LoadingSpinner size="lg" message="Loading devices..." />
+          <LoadingSpinner size="lg" message="Cargando dispositivos..." />
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <Table>
             <Table.Header>
-              <Table.Head>Name</Table.Head>
-              <Table.Head>Status</Table.Head>
-              <Table.Head>Connectivity</Table.Head>
-              <Table.Head>Category</Table.Head>
-              <Table.Head>Owner</Table.Head>
-              <Table.Head>IP Address</Table.Head>
-              <Table.Head>Actions</Table.Head>
+              <Table.Head>Nombre</Table.Head>
+              <Table.Head>Estado</Table.Head>
+              <Table.Head>Conectividad</Table.Head>
+              <Table.Head>Categoría</Table.Head>
+              <Table.Head>Propietario</Table.Head>
+              <Table.Head>Dirección IP</Table.Head>
+              <Table.Head>Acciones</Table.Head>
             </Table.Header>
             <Table.Body>
               {devices.length === 0 ? (
                 <TableEmptyState
                   message={
                     hasFilters
-                      ? 'No devices match your filters'
-                      : 'No devices yet. Add your first device to get started.'
+                      ? 'Ningún dispositivo coincide con los filtros'
+                      : 'Sin dispositivos. Agrega el primero para comenzar.'
                   }
                 />
               ) : (
@@ -265,40 +276,46 @@ export default function DevicesPage() {
                     onClick={() => router.push(`/devices/${device.id}`)}
                   >
                     <Table.Cell>
-                      <div className="font-medium text-gray-900">{device.name}</div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{device.name}</div>
                       {device.serialNumber && (
-                        <div className="text-xs text-gray-500">{device.serialNumber}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{device.serialNumber}</div>
                       )}
                     </Table.Cell>
                     <Table.Cell>
                       <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
-                        {device.status}
+                        {STATUS_LABELS[device.status] ?? device.status}
                       </Badge>
                     </Table.Cell>
                     <Table.Cell>
                       {device.monitoringEnabled ? (
                         pollingStatuses[device.id] ? (
                           <Badge variant={getPollingStatusBadgeVariant(pollingStatuses[device.id])}>
-                            {pollingStatuses[device.id]}
+                            {CONNECTIVITY_LABELS[pollingStatuses[device.id]] ?? pollingStatuses[device.id]}
                           </Badge>
                         ) : (
-                          <span className="text-gray-400 text-sm">—</span>
+                          <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
                         )
                       ) : (
-                        <span className="text-gray-400 text-sm">Not monitored</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-sm">No monitoreado</span>
                       )}
                     </Table.Cell>
                     <Table.Cell>
                       {device.category ? (
-                        device.category.replace(/_/g, ' ')
+                        <span className="text-gray-900 dark:text-gray-100">
+                          {device.category.replace(/_/g, ' ')}
+                        </span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
                       )}
                     </Table.Cell>
-                    <Table.Cell>{device.ownerType}</Table.Cell>
+                    <Table.Cell>
+                      <span className="text-gray-900 dark:text-gray-100">
+                        {device.ownerType === 'COMPANY' ? 'Empresa' : 'Cliente'}
+                      </span>
+                    </Table.Cell>
                     <Table.Cell>
                       <span className="font-mono text-sm">
-                        {device.ipAddress || <span className="text-gray-400">—</span>}
+                        {device.ipAddress || <span className="text-gray-400 dark:text-gray-500">—</span>}
                       </span>
                     </Table.Cell>
                     <Table.Cell>
@@ -310,7 +327,7 @@ export default function DevicesPage() {
                           router.push(`/devices/${device.id}`);
                         }}
                       >
-                        View
+                        Ver
                       </Button>
                     </Table.Cell>
                   </Table.Row>

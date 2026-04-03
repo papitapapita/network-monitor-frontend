@@ -1,9 +1,3 @@
-/**
- * Loading Spinner Component
- *
- * Displays loading state with optional message
- */
-
 import React from 'react';
 
 interface LoadingSpinnerProps {
@@ -15,18 +9,18 @@ interface LoadingSpinnerProps {
 const sizeClasses = {
   sm: 'h-4 w-4',
   md: 'h-8 w-8',
-  lg: 'h-12 w-12'
+  lg: 'h-12 w-12',
 };
 
 export function LoadingSpinner({
   size = 'md',
   message,
-  fullScreen = false
+  fullScreen = false,
 }: LoadingSpinnerProps) {
   const spinner = (
     <div className="flex flex-col items-center justify-center gap-3">
       <svg
-        className={`animate-spin text-blue-600 ${sizeClasses[size]}`}
+        className={`animate-spin text-blue-600 dark:text-blue-400 ${sizeClasses[size]}`}
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
@@ -45,13 +39,13 @@ export function LoadingSpinner({
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         />
       </svg>
-      {message && <p className="text-sm text-gray-600">{message}</p>}
+      {message && <p className="text-sm text-gray-600 dark:text-gray-400">{message}</p>}
     </div>
   );
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
+      <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-75 z-50">
         {spinner}
       </div>
     );

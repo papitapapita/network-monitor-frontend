@@ -5,14 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { DeviceStatus } from '@/types/device.types';
-import { Card, Badge, LoadingSpinner, getDeviceStatusBadgeVariant, getPollingStatusBadgeVariant } from '@/components/ui';
+import { Card, Badge, LoadingSpinner, getDeviceStatusBadgeVariant } from '@/components/ui';
 
 const STATUS_LABELS: Record<DeviceStatus, string> = {
-  ACTIVE: 'Active',
-  INVENTORY: 'Inventory',
-  MAINTENANCE: 'Maintenance',
-  DAMAGED: 'Damaged',
-  DECOMMISSIONED: 'Decommissioned',
+  ACTIVE: 'Activo',
+  INVENTORY: 'Inventario',
+  MAINTENANCE: 'Mantenimiento',
+  DAMAGED: 'Dañado',
+  DECOMMISSIONED: 'Descomisionado',
 };
 
 const ALL_STATUSES: DeviceStatus[] = ['ACTIVE', 'INVENTORY', 'MAINTENANCE', 'DAMAGED', 'DECOMMISSIONED'];
@@ -55,12 +55,11 @@ export default function DashboardPage() {
       ]);
 
       if (!recentResult.success || !recentResult.data) {
-        setError(recentResult.error || 'Failed to load dashboard');
+        setError(recentResult.error || 'Error al cargar el panel');
         setIsLoading(false);
         return;
       }
 
-      // Fetch monitoring-enabled devices and their connectivity status
       const monResult = await apiService.listDevices({ monitoringEnabled: true, limit: 200 });
       const connectivity: ConnectivityStats = { total: 0, online: 0, offline: 0, unknown: 0 };
 
@@ -107,7 +106,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" message="Loading dashboard..." />
+        <LoadingSpinner size="lg" message="Cargando panel..." />
       </div>
     );
   }
@@ -115,8 +114,8 @@ export default function DashboardPage() {
   if (error || !stats) {
     return (
       <div className="p-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error || 'Unknown error'}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-800 dark:text-red-400">{error || 'Error desconocido'}</p>
         </div>
       </div>
     );
@@ -127,52 +126,57 @@ export default function DashboardPage() {
     (stats.byStatus.find((s) => s.status === 'MAINTENANCE')?.count ?? 0) +
     (stats.byStatus.find((s) => s.status === 'DAMAGED')?.count ?? 0);
   const inventory = stats.byStatus.find((s) => s.status === 'INVENTORY')?.count ?? 0;
+  const monLabel = stats.connectivity.total === 1
+    ? `1 dispositivo monitoreado`
+    : `${stats.connectivity.total} dispositivos monitoreados`;
 
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Network infrastructure overview</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Panel</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Resumen de infraestructura de red</p>
       </div>
 
-      {/* Device lifecycle stat cards */}
+      {/* Lifecycle stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Devices" value={stats.total} colorClass="text-blue-600 bg-blue-50" />
-        <StatCard label="Active" value={active} colorClass="text-green-600 bg-green-50" />
+        <StatCard label="Total de Dispositivos" value={stats.total} colorClass="text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400" />
+        <StatCard label="Activos" value={active} colorClass="text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400" />
         <StatCard
-          label="Needs Attention"
+          label="Requiere Atención"
           value={issues}
-          colorClass={issues > 0 ? 'text-red-600 bg-red-50' : 'text-gray-500 bg-gray-50'}
+          colorClass={issues > 0
+            ? 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400'
+            : 'text-gray-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-400'}
         />
-        <StatCard label="Inventory" value={inventory} colorClass="text-gray-600 bg-gray-50" />
+        <StatCard label="Inventario" value={inventory} colorClass="text-gray-600 bg-gray-50 dark:bg-gray-800 dark:text-gray-400" />
       </div>
 
       {/* Connectivity stat cards */}
       <div className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Connectivity — {stats.connectivity.total} monitored device{stats.connectivity.total !== 1 ? 's' : ''}
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+          Conectividad — {monLabel}
         </h2>
         <div className="grid grid-cols-3 gap-4">
           <button
             onClick={() => router.push('/devices?connectivity=ONLINE')}
-            className="rounded-lg p-5 bg-green-50 text-left hover:bg-green-100 transition-colors"
+            className="rounded-lg p-5 bg-green-50 dark:bg-green-900/20 text-left hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
           >
-            <p className="text-3xl font-bold text-green-600">{stats.connectivity.online}</p>
-            <p className="text-sm font-medium text-green-600 mt-1 opacity-75">Online</p>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.connectivity.online}</p>
+            <p className="text-sm font-medium text-green-600 dark:text-green-400 mt-1 opacity-75">En línea</p>
           </button>
           <button
             onClick={() => router.push('/devices?connectivity=OFFLINE')}
-            className="rounded-lg p-5 bg-red-50 text-left hover:bg-red-100 transition-colors"
+            className="rounded-lg p-5 bg-red-50 dark:bg-red-900/20 text-left hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
           >
-            <p className="text-3xl font-bold text-red-600">{stats.connectivity.offline}</p>
-            <p className="text-sm font-medium text-red-600 mt-1 opacity-75">Offline</p>
+            <p className="text-3xl font-bold text-red-600 dark:text-red-400">{stats.connectivity.offline}</p>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1 opacity-75">Desconectado</p>
           </button>
           <button
             onClick={() => router.push('/devices?connectivity=UNKNOWN')}
-            className="rounded-lg p-5 bg-gray-50 text-left hover:bg-gray-100 transition-colors"
+            className="rounded-lg p-5 bg-gray-50 dark:bg-gray-800 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <p className="text-3xl font-bold text-gray-500">{stats.connectivity.unknown}</p>
-            <p className="text-sm font-medium text-gray-500 mt-1 opacity-75">Unknown</p>
+            <p className="text-3xl font-bold text-gray-500 dark:text-gray-400">{stats.connectivity.unknown}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 opacity-75">Desconocido</p>
           </button>
         </div>
       </div>
@@ -181,24 +185,26 @@ export default function DashboardPage() {
         {/* Status breakdown */}
         <Card>
           <Card.Header>
-            <h2 className="font-semibold text-gray-900">Devices by Status</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Dispositivos por Estado</h2>
           </Card.Header>
           <Card.Body>
             <div className="space-y-3">
               {stats.byStatus.map(({ status, count }) => (
                 <div key={status} className="flex items-center gap-3">
-                  <div className="w-28 shrink-0">
+                  <div className="w-32 shrink-0">
                     <Badge variant={getDeviceStatusBadgeVariant(status)}>
                       {STATUS_LABELS[status]}
                     </Badge>
                   </div>
-                  <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                  <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                     <div
-                      className="bg-blue-400 h-1.5 rounded-full transition-all"
+                      className="bg-blue-400 dark:bg-blue-500 h-1.5 rounded-full transition-all"
                       style={{ width: stats.total > 0 ? `${(count / stats.total) * 100}%` : '0%' }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-gray-700 w-6 text-right">{count}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 w-6 text-right">
+                    {count}
+                  </span>
                 </div>
               ))}
             </div>
@@ -209,26 +215,28 @@ export default function DashboardPage() {
         <Card>
           <Card.Header>
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">Recent Devices</h2>
-              <Link href="/devices" className="text-sm text-blue-600 hover:text-blue-700">
-                View all →
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Dispositivos Recientes</h2>
+              <Link href="/devices" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                Ver todos →
               </Link>
             </div>
           </Card.Header>
           <Card.Body>
             {stats.recent.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">No devices yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">Sin dispositivos</p>
             ) : (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                 {stats.recent.map((device) => (
                   <li key={device.id}>
                     <Link
                       href={`/devices/${device.id}`}
-                      className="flex items-center justify-between py-2.5 hover:bg-gray-50 -mx-2 px-2 rounded"
+                      className="flex items-center justify-between py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 -mx-2 px-2 rounded transition-colors"
                     >
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{device.name}</p>
-                        <p className="text-xs text-gray-400">{device.ipAddress || 'No IP'}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{device.name}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          {device.ipAddress || 'Sin IP'}
+                        </p>
                       </div>
                       <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
                         {STATUS_LABELS[device.status]}

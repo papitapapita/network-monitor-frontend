@@ -64,9 +64,9 @@ export default function CreateDevicePage() {
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.deviceModelId) errors.deviceModelId = 'Device model is required';
-    if (!formData.name.trim()) errors.name = 'Name is required';
-    if (!formData.ownerType) errors.ownerType = 'Owner type is required';
+    if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
+    if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+    if (!formData.ownerType) errors.ownerType = 'El tipo de propietario es requerido';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -98,7 +98,7 @@ export default function CreateDevicePage() {
     if (result.success && result.data) {
       router.push(`/devices/${result.data.id}`);
     } else {
-      setError(result.error || 'Failed to create device');
+      setError(result.error || 'Error al crear el dispositivo');
       setIsSubmitting(false);
     }
   };
@@ -108,40 +108,40 @@ export default function CreateDevicePage() {
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-2">
           <Button variant="outline" size="sm" onClick={() => router.back()}>
-            ← Back
+            ← Atrás
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Add Device</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Dispositivo</h1>
         </div>
-        <p className="text-gray-600">Register a new device in the network</p>
+        <p className="text-gray-600 dark:text-gray-400">Registra un nuevo dispositivo en la red</p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+          <p className="text-red-800 dark:text-red-400">{error}</p>
         </div>
       )}
 
       {loadingOptions ? (
         <div className="flex justify-center py-8">
-          <LoadingSpinner message="Loading options..." />
+          <LoadingSpinner message="Cargando opciones..." />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Required */}
           <Card>
             <Card.Header>
-              <h2 className="text-lg font-semibold">Required Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información Requerida</h2>
             </Card.Header>
             <Card.Body>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <Select
-                    label="Device Model"
+                    label="Modelo de Dispositivo"
                     name="deviceModelId"
                     value={formData.deviceModelId}
                     onChange={handleChange}
                     options={[
-                      { value: '', label: 'Select a device model' },
+                      { value: '', label: 'Seleccionar modelo' },
                       ...deviceModels.map((m) => ({
                         value: m.id,
                         label: `${m.manufacturer.replace(/_/g, ' ')} — ${m.model} (${m.deviceType})`
@@ -153,7 +153,7 @@ export default function CreateDevicePage() {
                   />
                 </div>
                 <Input
-                  label="Name"
+                  label="Nombre"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
@@ -163,14 +163,14 @@ export default function CreateDevicePage() {
                   fullWidth
                 />
                 <Select
-                  label="Owner Type"
+                  label="Tipo de Propietario"
                   name="ownerType"
                   value={formData.ownerType}
                   onChange={handleChange}
                   options={[
-                    { value: '', label: 'Select owner type' },
-                    { value: 'COMPANY', label: 'Company' },
-                    { value: 'CLIENT', label: 'Client' }
+                    { value: '', label: 'Seleccionar tipo' },
+                    { value: 'COMPANY', label: 'Empresa' },
+                    { value: 'CLIENT', label: 'Cliente' }
                   ]}
                   error={formErrors.ownerType}
                   required
@@ -183,37 +183,37 @@ export default function CreateDevicePage() {
           {/* Classification */}
           <Card>
             <Card.Header>
-              <h2 className="text-lg font-semibold">Classification</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clasificación</h2>
             </Card.Header>
             <Card.Body>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select
-                  label="Status"
+                  label="Estado"
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
                   options={[
-                    { value: '', label: 'Default (Inventory)' },
-                    { value: 'INVENTORY', label: 'Inventory' },
-                    { value: 'ACTIVE', label: 'Active' },
-                    { value: 'MAINTENANCE', label: 'Maintenance' },
-                    { value: 'DAMAGED', label: 'Damaged' },
-                    { value: 'DECOMMISSIONED', label: 'Decommissioned' }
+                    { value: '', label: 'Por defecto (Inventario)' },
+                    { value: 'INVENTORY', label: 'Inventario' },
+                    { value: 'ACTIVE', label: 'Activo' },
+                    { value: 'MAINTENANCE', label: 'Mantenimiento' },
+                    { value: 'DAMAGED', label: 'Dañado' },
+                    { value: 'DECOMMISSIONED', label: 'Descomisionado' }
                   ]}
                   fullWidth
                 />
                 <Select
-                  label="Category"
+                  label="Categoría"
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
                   options={[
-                    { value: '', label: 'None' },
-                    { value: 'CORE', label: 'Core' },
-                    { value: 'DISTRIBUTION', label: 'Distribution' },
+                    { value: '', label: 'Ninguna' },
+                    { value: 'CORE', label: 'Núcleo' },
+                    { value: 'DISTRIBUTION', label: 'Distribución' },
                     { value: 'POE', label: 'PoE' },
-                    { value: 'ACCESS_POINT', label: 'Access Point' },
-                    { value: 'CLIENT_CPE', label: 'Client CPE' }
+                    { value: 'ACCESS_POINT', label: 'Punto de Acceso' },
+                    { value: 'CLIENT_CPE', label: 'CPE Cliente' }
                   ]}
                   fullWidth
                 />
@@ -224,10 +224,10 @@ export default function CreateDevicePage() {
                     name="monitoringEnabled"
                     checked={formData.monitoringEnabled}
                     onChange={handleChange}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
                   />
-                  <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700">
-                    Enable monitoring
+                  <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Habilitar monitoreo
                   </label>
                 </div>
               </div>
@@ -237,12 +237,12 @@ export default function CreateDevicePage() {
           {/* Network */}
           <Card>
             <Card.Header>
-              <h2 className="text-lg font-semibold">Network Details</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Detalles de Red</h2>
             </Card.Header>
             <Card.Body>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                  label="IP Address"
+                  label="Dirección IP"
                   name="ipAddress"
                   value={formData.ipAddress}
                   onChange={handleChange}
@@ -250,7 +250,7 @@ export default function CreateDevicePage() {
                   fullWidth
                 />
                 <Input
-                  label="MAC Address"
+                  label="Dirección MAC"
                   name="macAddress"
                   value={formData.macAddress}
                   onChange={handleChange}
@@ -258,7 +258,7 @@ export default function CreateDevicePage() {
                   fullWidth
                 />
                 <Input
-                  label="Serial Number"
+                  label="Número de Serie"
                   name="serialNumber"
                   value={formData.serialNumber}
                   onChange={handleChange}
@@ -271,19 +271,21 @@ export default function CreateDevicePage() {
           {/* Location & Metadata */}
           <Card>
             <Card.Header>
-              <h2 className="text-lg font-semibold">Location & Metadata</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Ubicación y Metadatos</h2>
             </Card.Header>
             <Card.Body>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="w-full">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Ubicación
+                  </label>
                   <div className="flex items-center gap-2">
                     <Select
                       name="locationId"
                       value={formData.locationId}
                       onChange={handleChange}
                       options={[
-                        { value: '', label: 'No location' },
+                        { value: '', label: 'Sin ubicación' },
                         ...locations.map((l) => ({ value: l.id, label: l.name }))
                       ]}
                       fullWidth
@@ -291,15 +293,15 @@ export default function CreateDevicePage() {
                     <button
                       type="button"
                       onClick={() => setShowLocationModal(true)}
-                      className="flex-shrink-0 w-9 h-9 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 flex items-center justify-center text-xl font-medium"
-                      title="Create new location"
+                      className="flex-shrink-0 w-9 h-9 rounded-md border border-gray-400 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center text-xl font-medium"
+                      title="Crear nueva ubicación"
                     >
                       +
                     </button>
                   </div>
                 </div>
                 <Input
-                  label="Installed Date"
+                  label="Fecha de Instalación"
                   name="installedDate"
                   type="date"
                   value={formData.installedDate}
@@ -308,11 +310,11 @@ export default function CreateDevicePage() {
                 />
                 <div className="md:col-span-2">
                   <Input
-                    label="Description"
+                    label="Descripción"
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Optional description"
+                    placeholder="Descripción opcional"
                     fullWidth
                   />
                 </div>
@@ -322,10 +324,10 @@ export default function CreateDevicePage() {
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
-              Cancel
+              Cancelar
             </Button>
             <Button type="submit" isLoading={isSubmitting}>
-              Create Device
+              Crear Dispositivo
             </Button>
           </div>
         </form>
