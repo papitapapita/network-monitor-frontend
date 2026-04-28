@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import {
@@ -39,7 +39,7 @@ const CONNECTIVITY_LABELS: Record<string, string> = {
   UNKNOWN: 'Desconocido',
 };
 
-export default function DevicesPage() {
+function DevicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -348,5 +348,13 @@ export default function DevicesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DevicesPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><span>Cargando...</span></div>}>
+      <DevicesPageContent />
+    </Suspense>
   );
 }

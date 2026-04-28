@@ -50,11 +50,15 @@ class ApiService {
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || `HTTP ${response.status}: ${response.statusText}`
+          error: data.error || data.message || `HTTP ${response.status}: ${response.statusText}`
         };
       }
 
-      return data;
+      // Some endpoints return a wrapped ApiResponse; others return the DTO directly.
+      if (data !== null && typeof data === 'object' && 'success' in data && typeof data.success === 'boolean') {
+        return data as ApiResponse<T>;
+      }
+      return { success: true, data: data as T };
     } catch (error) {
       return {
         success: false,

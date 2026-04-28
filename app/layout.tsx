@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <SettingsProvider>
           <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
             <Sidebar />

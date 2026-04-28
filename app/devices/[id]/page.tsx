@@ -230,6 +230,7 @@ export default function DeviceDetailPage() {
     setIsPolling(true);
     setPollResult(null);
     const result = await apiService.triggerPoll(deviceId);
+    console.log(result);
     if (result.success && result.data) {
       setPollResult(result.data);
       fetchPollingStatus();
