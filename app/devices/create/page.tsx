@@ -288,7 +288,7 @@ export default function CreateDevicePage() {
                         { value: '', label: 'Sin ubicación' },
                         ...locations.map((l) => ({ value: l.id, label: l.name }))
                       ]}
-                      fullWidthz
+                      fullWidth
                     />
                     <button
                       type="button"

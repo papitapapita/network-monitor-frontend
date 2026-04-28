@@ -141,6 +141,7 @@ export default function DeviceDetailPage() {
     setStatusLoading(true);
     setStatusError(null);
     const result = await apiService.getPollingStatus(deviceId);
+    console.log('[fetchPollingStatus] result:', result);
     if (result.success && result.data) {
       const s = result.data;
       setPollingStatus(s);
@@ -229,6 +230,7 @@ export default function DeviceDetailPage() {
   const handlePollNow = async () => {
     setIsPolling(true);
     setPollResult(null);
+    console.log('Hello there')
     const result = await apiService.triggerPoll(deviceId);
     console.log(result);
     if (result.success && result.data) {
