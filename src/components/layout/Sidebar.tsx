@@ -5,16 +5,28 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NavItem } from '../ui/NavItem';
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const isActive = (path: string) =>
     path === '/' ? pathname === '/' : pathname.startsWith(path);
 
   return (
-    <aside className="w-56 h-screen sticky top-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0">
+    <aside
+      className={[
+        'fixed inset-y-0 left-0 z-30 w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 transition-transform duration-200',
+        // On mobile: slide in/out. On desktop: always visible, position static.
+        'md:static md:translate-x-0',
+        isOpen ? 'translate-x-0' : '-translate-x-full',
+      ].join(' ')}
+    >
       {/* Brand */}
       <div className="h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2" onClick={onClose}>
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -32,6 +44,7 @@ export function Sidebar() {
         <NavItem
           href="/"
           active={isActive('/')}
+          onClick={onClose}
           icon={
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -43,6 +56,7 @@ export function Sidebar() {
         <NavItem
           href="/devices"
           active={isActive('/devices')}
+          onClick={onClose}
           icon={
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -58,6 +72,7 @@ export function Sidebar() {
         <NavItem
           href="/settings"
           active={isActive('/settings')}
+          onClick={onClose}
           icon={
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

@@ -245,6 +245,22 @@ export interface PollingHistoryQuery {
   offset?: number;
 }
 
+export interface CreatePollingConfigDTO {
+  ipAddress?: string | null;
+  intervalSeconds?: number;
+  failuresBeforeDown?: number;
+  enabled?: boolean;
+}
+
+export interface PollingConfigDTO {
+  id: string;
+  deviceId: string;
+  ipAddress: string | null;
+  intervalSeconds: number;
+  failuresBeforeDown: number;
+  enabled: boolean;
+}
+
 export interface UpdatePollingConfigDTO {
   intervalSeconds?: number;
   failuresBeforeDown?: number;

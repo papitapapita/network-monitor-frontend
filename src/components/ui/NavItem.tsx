@@ -5,15 +5,18 @@ export function NavItem({
   icon,
   label,
   active,
+  onClick,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
         active
           ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'

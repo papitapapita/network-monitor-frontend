@@ -63,7 +63,7 @@ function DevicesPageContent() {
     setError(null);
 
     if (connectivityFilter) {
-      const allResult = await apiService.listDevices({ monitoringEnabled: true, limit: 500 });
+      const allResult = await apiService.listDevices({ limit: 300 });
       if (!allResult.success || !allResult.data) {
         setError(allResult.error || 'Error al cargar dispositivos');
         setIsLoading(false);
@@ -71,12 +71,13 @@ function DevicesPageContent() {
       }
 
       const allDevices = allResult.data.devices;
+      const monitoredDevices = allDevices.filter((d) => d.monitoringEnabled);
       const statusResults = await Promise.all(
-        allDevices.map((d) => apiService.getPollingStatus(d.id))
+        monitoredDevices.map((d) => apiService.getPollingStatus(d.id))
       );
 
       const statusMap: Record<string, PollingStatus> = {};
-      allDevices.forEach((d, i) => {
+      monitoredDevices.forEach((d, i) => {
         statusMap[d.id] =
           statusResults[i].success && statusResults[i].data
             ? statusResults[i].data!.currentStatus

@@ -67,6 +67,7 @@ export default function CreateDevicePage() {
     if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
     if (!formData.ownerType) errors.ownerType = 'El tipo de propietario es requerido';
+    if (!formData.ipAddress.trim()) errors.ipAddress = 'La dirección IP es requerida';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -86,7 +87,7 @@ export default function CreateDevicePage() {
     if (formData.status) dto.status = formData.status as DeviceStatus;
     if (formData.category) dto.category = formData.category as DeviceCategory;
     dto.monitoringEnabled = formData.monitoringEnabled;
-    if (formData.ipAddress.trim()) dto.ipAddress = formData.ipAddress.trim();
+    dto.ipAddress = formData.ipAddress.trim();
     if (formData.macAddress.trim()) dto.macAddress = formData.macAddress.trim();
     if (formData.serialNumber.trim()) dto.serialNumber = formData.serialNumber.trim();
     if (formData.locationId) dto.locationId = formData.locationId;
@@ -96,6 +97,12 @@ export default function CreateDevicePage() {
     const result = await apiService.createDevice(dto);
 
     if (result.success && result.data) {
+      if (formData.monitoringEnabled) {
+        await apiService.createPollingConfig(result.data.id, {
+          enabled: true,
+          ipAddress: dto.ipAddress ?? null
+        });
+      }
       router.push(`/devices/${result.data.id}`);
     } else {
       setError(result.error || 'Error al crear el dispositivo');
@@ -247,6 +254,8 @@ export default function CreateDevicePage() {
                   value={formData.ipAddress}
                   onChange={handleChange}
                   placeholder="192.168.1.100"
+                  error={formErrors.ipAddress}
+                  required
                   fullWidth
                 />
                 <Input

@@ -20,6 +20,8 @@ import {
   PollingStatusDTO,
   PollingHistoryResponse,
   PollingHistoryQuery,
+  CreatePollingConfigDTO,
+  PollingConfigDTO,
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
   ApiResponse,
@@ -260,6 +262,36 @@ class MockApiService {
         uptimePercentage: total > 0 ? (successes.length / items.length) * 100 : 0,
       },
     });
+  }
+
+  async createPollingConfig(
+    deviceId: string,
+    data: CreatePollingConfigDTO
+  ): Promise<ApiResponse<PollingConfigDTO>> {
+    const device = devices.find((d) => d.id === deviceId);
+    if (!device) return err('Device not found');
+    pollingStatus[deviceId] = {
+      deviceId,
+      pollingEnabled: data.enabled ?? true,
+      intervalSeconds: data.intervalSeconds ?? 60,
+      failuresBeforeDown: data.failuresBeforeDown ?? 3,
+      lastPolled: null,
+      nextScheduled: null,
+      currentStatus: 'UNKNOWN',
+      lastResult: null,
+      consecutiveFailures: 0,
+    };
+    return {
+      success: true,
+      data: {
+        id: crypto.randomUUID(),
+        deviceId,
+        ipAddress: data.ipAddress ?? null,
+        intervalSeconds: data.intervalSeconds ?? 60,
+        failuresBeforeDown: data.failuresBeforeDown ?? 3,
+        enabled: data.enabled ?? true,
+      },
+    };
   }
 
   async updatePollingConfig(

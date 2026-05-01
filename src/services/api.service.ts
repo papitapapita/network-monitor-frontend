@@ -14,6 +14,8 @@ import {
   PollingStatusDTO,
   PollingHistoryResponse,
   PollingHistoryQuery,
+  CreatePollingConfigDTO,
+  PollingConfigDTO,
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
   ApiResponse
@@ -181,6 +183,16 @@ class ApiService {
       offset: query?.offset
     });
     return this.request<PollingHistoryResponse>(`/devices/${deviceId}/polling/history${qs}`);
+  }
+
+  async createPollingConfig(
+    deviceId: string,
+    data: CreatePollingConfigDTO
+  ): Promise<ApiResponse<PollingConfigDTO>> {
+    return this.request<PollingConfigDTO>(`/devices/${deviceId}/polling/config`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 
   async updatePollingConfig(
