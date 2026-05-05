@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant } from '@/components/ui';
+import { ConfirmModal } from '@/components/ui/Modal';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 
@@ -29,6 +30,8 @@ export default function DeviceDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('details');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchDevice = useCallback(async () => {
     setIsLoading(true);
@@ -68,27 +71,56 @@ export default function DeviceDetailPage() {
     );
   }
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    const result = await apiService.deleteDevice(deviceId);
+    setIsDeleting(false);
+    if (result.success) {
+      router.push('/devices');
+    } else {
+      setShowDeleteModal(false);
+      setError(result.error || 'Error al eliminar el dispositivo');
+    }
+  };
+
   if (!device) return null;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Eliminar dispositivo"
+        message={`¿Estás seguro de que deseas eliminar "${device.name}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isDeleting}
+      />
+
       {/* Header */}
-      <div className="flex items-start gap-4 mb-6">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{device.name}</h1>
-          <div className="flex items-center gap-2">
-            <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
-              {STATUS_LABELS[device.status] ?? device.status}
-            </Badge>
-            {device.category && (
-              <Badge variant="info">{device.category.replace(/_/g, ' ')}</Badge>
-            )}
-            <Badge variant={device.monitoringEnabled ? 'success' : 'neutral'}>
-              Monitoreo {device.monitoringEnabled ? 'ACTIVO' : 'INACTIVO'}
-            </Badge>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-start gap-4">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{device.name}</h1>
+            <div className="flex items-center gap-2">
+              <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
+                {STATUS_LABELS[device.status] ?? device.status}
+              </Badge>
+              {device.category && (
+                <Badge variant="info">{device.category.replace(/_/g, ' ')}</Badge>
+              )}
+              <Badge variant={device.monitoringEnabled ? 'success' : 'neutral'}>
+                Monitoreo {device.monitoringEnabled ? 'ACTIVO' : 'INACTIVO'}
+              </Badge>
+            </div>
           </div>
         </div>
+        <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
+          Eliminar
+        </Button>
       </div>
 
       {/* Tab bar */}

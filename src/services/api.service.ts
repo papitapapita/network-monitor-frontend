@@ -119,6 +119,10 @@ class ApiService {
     });
   }
 
+  async deleteDevice(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/devices/${id}`, { method: 'DELETE' });
+  }
+
   // ============================================================
   // Locations
   // ============================================================

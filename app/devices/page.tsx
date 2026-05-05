@@ -57,6 +57,8 @@ function DevicesPageContent() {
     () => searchParams.get('connectivity') ?? ''
   );
   const [search, setSearch] = useState('');
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const fetchDevices = useCallback(async () => {
     setIsLoading(true);
@@ -159,6 +161,42 @@ function DevicesPageContent() {
 
   const hasFilters = statusFilter || categoryFilter || connectivityFilter || search;
 
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedDevices = sortField
+    ? [...devices].sort((a, b) => {
+        let aVal: string;
+        let bVal: string;
+        if (sortField === 'name') {
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+        } else if (sortField === 'status') {
+          aVal = a.status;
+          bVal = b.status;
+        } else if (sortField === 'category') {
+          aVal = a.category ?? '';
+          bVal = b.category ?? '';
+        } else if (sortField === 'owner') {
+          aVal = a.ownerType;
+          bVal = b.ownerType;
+        } else if (sortField === 'ip') {
+          aVal = a.ipAddress ?? '';
+          bVal = b.ipAddress ?? '';
+        } else {
+          return 0;
+        }
+        const cmp = aVal.localeCompare(bVal);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      })
+    : devices;
+
   const deviceCountLabel = totalDevices > 0
     ? `${totalDevices} ${totalDevices === 1 ? 'dispositivo' : 'dispositivos'} en total`
     : 'Administra tus dispositivos de red';
@@ -253,16 +291,16 @@ function DevicesPageContent() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <Table>
             <Table.Header>
-              <Table.Head>Nombre</Table.Head>
-              <Table.Head>Estado</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('name')} sortDirection={sortField === 'name' ? sortDirection : null}>Nombre</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('status')} sortDirection={sortField === 'status' ? sortDirection : null}>Estado</Table.Head>
               <Table.Head>Conectividad</Table.Head>
-              <Table.Head>Categoría</Table.Head>
-              <Table.Head>Propietario</Table.Head>
-              <Table.Head>Dirección IP</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('category')} sortDirection={sortField === 'category' ? sortDirection : null}>Categoría</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('owner')} sortDirection={sortField === 'owner' ? sortDirection : null}>Propietario</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('ip')} sortDirection={sortField === 'ip' ? sortDirection : null}>Dirección IP</Table.Head>
               <Table.Head>Acciones</Table.Head>
             </Table.Header>
             <Table.Body>
-              {devices.length === 0 ? (
+              {sortedDevices.length === 0 ? (
                 <TableEmptyState
                   message={
                     hasFilters
@@ -271,7 +309,7 @@ function DevicesPageContent() {
                   }
                 />
               ) : (
-                devices.map((device) => (
+                sortedDevices.map((device) => (
                   <Table.Row
                     key={device.id}
                     onClick={() => router.push(`/devices/${device.id}`)}

@@ -132,6 +132,13 @@ class MockApiService {
     return ok(updated);
   }
 
+  async deleteDevice(id: string): Promise<ApiResponse<void>> {
+    const idx = devices.findIndex((d) => d.id === id);
+    if (idx === -1) return err('Device not found');
+    devices = devices.filter((d) => d.id !== id);
+    return { success: true };
+  }
+
   // ── Locations ──────────────────────────────────────────────
 
   async createLocation(data: CreateLocationDTO): Promise<ApiResponse<LocationResponseDTO>> {

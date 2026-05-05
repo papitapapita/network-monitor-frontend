@@ -274,6 +274,19 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 
 ---
 
+### `DELETE /api/devices/:id` — Delete
+**Status:** 204 | 400 | 404
+
+```ts
+// No request body
+
+// Response: 204 No Content (no body)
+```
+
+> Permanently removes the device. Returns 400 if the id is not a valid UUID v4, 404 if no device exists with that id.
+
+---
+
 ## Device Models `/api/device-models`
 
 These are read-only from the API (no create/update endpoints yet).
