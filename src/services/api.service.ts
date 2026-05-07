@@ -18,6 +18,8 @@ import {
   PollingConfigDTO,
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
+  AlertListResponse,
+  ListAlertsQuery,
   ApiResponse
 } from '../types/device.types';
 
@@ -213,6 +215,19 @@ class ApiService {
     return this.request<ManualPollResultDTO>(`/devices/${deviceId}/poll`, {
       method: 'POST'
     });
+  }
+
+  // ============================================================
+  // Alerts
+  // ============================================================
+
+  async listAlerts(query?: ListAlertsQuery): Promise<ApiResponse<AlertListResponse>> {
+    const qs = this.buildQuery({
+      deviceId: query?.deviceId,
+      limit: query?.limit,
+      offset: query?.offset
+    });
+    return this.request<AlertListResponse>(`/alerts${qs}`);
   }
 }
 

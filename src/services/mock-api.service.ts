@@ -24,6 +24,8 @@ import {
   PollingConfigDTO,
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
+  AlertListResponse,
+  ListAlertsQuery,
   ApiResponse,
 } from '../types/device.types';
 
@@ -367,6 +369,23 @@ class MockApiService {
       timestamp: now,
       metrics: latencyMs ? { latencyMs } : null,
       deviceStatus: newStatus,
+    });
+  }
+
+  // ============================================================
+  // Alerts
+  // ============================================================
+
+  async listAlerts(query?: ListAlertsQuery): Promise<ApiResponse<AlertListResponse>> {
+    const limit = query?.limit ?? 50;
+    const offset = query?.offset ?? 0;
+    const slice = Array<never>().slice(offset, offset + limit);
+    return ok({
+      alerts: slice,
+      total: 0,
+      hasMore: false,
+      limit,
+      offset,
     });
   }
 }

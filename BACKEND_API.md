@@ -34,8 +34,10 @@ type DeviceCategory = 'CORE' | 'DISTRIBUTION' | 'POE' | 'ACCESS_POINT' | 'CLIENT
 type DeviceOwner    = 'COMPANY' | 'CLIENT'
 type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
 type Vendor         = 'TP_LINK' | 'MIKROTIK' | 'UBIQUITI' | 'MIMOSA' | 'TENDA' | 'OTHER'
-type PollingStatus  = 'SUCCESS' | 'FAILED' | 'SKIPPED'
+type PollingStatus      = 'SUCCESS' | 'FAILED' | 'SKIPPED'
 type DeviceOnlineStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN'
+type AlertSeverity      = 'WARNING' | 'CRITICAL'
+type AlertStatus        = 'OPEN' | 'RESOLVED'
 ```
 
 ---
@@ -459,6 +461,49 @@ offset?:   number   // ≥0
 
 // Response: 204 No Content on success
 ```
+
+---
+
+## Alerts `/api/alerts`
+
+```ts
+interface AlertDTO {
+  id: string                        // UUID
+  deviceId: string                  // UUID
+  severity: AlertSeverity
+  status: AlertStatus
+  startedAt: string                 // ISO 8601
+  resolvedAt: string | null         // ISO 8601 — null while alert is open
+  notifiedAt: string | null         // ISO 8601 — null if Telegram send failed
+  recoveryNotifiedAt: string | null // ISO 8601 — null if not yet resolved/sent
+  durationSecs: number | null       // seconds device was offline; null while open
+}
+```
+
+### `GET /api/alerts` — List
+**Status:** 200
+
+```ts
+// Query params (all optional)
+deviceId?: string  // UUID — filter to a single device
+limit?:    number  // 1–300, default 50
+offset?:   number  // ≥0, default 0
+
+// Response
+{
+  success: true,
+  data: {
+    alerts: AlertDTO[]
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+> Results are ordered by `startedAt` descending (newest first).  
+> Omit `deviceId` to list alerts across all devices.
 
 ---
 
