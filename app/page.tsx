@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api.service';
-import { DeviceStatus } from '@/types/device.types';
+import { DeviceStatus, AlertDTO } from '@/types/device.types';
 import { Card, Badge, LoadingSpinner, getDeviceStatusBadgeVariant } from '@/components/ui';
+import type { BadgeVariant } from '@/components/ui';
 
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
@@ -16,6 +17,11 @@ const STATUS_LABELS: Record<DeviceStatus, string> = {
 };
 
 const ALL_STATUSES: DeviceStatus[] = ['ACTIVE', 'INVENTORY', 'MAINTENANCE', 'DAMAGED', 'DECOMMISSIONED'];
+
+const SEVERITY_LABELS: Record<string, string> = {
+  WARNING: 'Advertencia',
+  CRITICAL: 'Crítico',
+};
 
 interface RecentDevice {
   id: string;
@@ -38,9 +44,24 @@ interface Stats {
   connectivity: ConnectivityStats;
 }
 
+function getSeverityVariant(severity: string): BadgeVariant {
+  return severity === 'CRITICAL' ? 'danger' : 'warning';
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString('es', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [alerts, setAlerts] = useState<AlertDTO[]>([]);
+  const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +118,22 @@ export default function DashboardPage() {
         connectivity,
       });
 
+      // Load recent open alerts
+      const alertsResult = await apiService.listAlerts({ limit: 5 });
+      if (alertsResult.success && alertsResult.data) {
+        const openAlerts = alertsResult.data.alerts.filter((a) => a.status === 'OPEN').slice(0, 5);
+        setAlerts(openAlerts);
+
+        const uniqueIds = [...new Set(openAlerts.map((a) => a.deviceId))];
+        const nameEntries = await Promise.all(
+          uniqueIds.map(async (id) => {
+            const res = await apiService.getDevice(id);
+            return [id, res.success && res.data ? res.data.name : id] as [string, string];
+          })
+        );
+        setDeviceNames(Object.fromEntries(nameEntries));
+      }
+
       setIsLoading(false);
     }
 
@@ -139,16 +176,32 @@ export default function DashboardPage() {
 
       {/* Lifecycle stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total de Dispositivos" value={stats.total} colorClass="text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400" />
-        <StatCard label="Activos" value={active} colorClass="text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400" />
+        <StatCard
+          label="Total de Dispositivos"
+          value={stats.total}
+          colorClass="text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+          onClick={() => router.push('/devices')}
+        />
+        <StatCard
+          label="Activos"
+          value={active}
+          colorClass="text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30"
+          onClick={() => router.push('/devices?status=ACTIVE')}
+        />
         <StatCard
           label="Requiere Atención"
           value={issues}
           colorClass={issues > 0
-            ? 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400'
-            : 'text-gray-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-400'}
+            ? 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
+            : 'text-gray-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
+          onClick={() => router.push('/devices?status=MAINTENANCE')}
         />
-        <StatCard label="Inventario" value={inventory} colorClass="text-gray-600 bg-gray-50 dark:bg-gray-800 dark:text-gray-400" />
+        <StatCard
+          label="Inventario"
+          value={inventory}
+          colorClass="text-gray-600 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={() => router.push('/devices?status=INVENTORY')}
+        />
       </div>
 
       {/* Connectivity stat cards */}
@@ -181,7 +234,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Status breakdown */}
         <Card>
           <Card.Header>
@@ -249,6 +302,46 @@ export default function DashboardPage() {
           </Card.Body>
         </Card>
       </div>
+
+      {/* Recent open alerts */}
+      <Card>
+        <Card.Header>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Alertas Abiertas</h2>
+            <Link href="/alerts" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+              Ver todas →
+            </Link>
+          </div>
+        </Card.Header>
+        <Card.Body>
+          {alerts.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">Sin alertas abiertas</p>
+          ) : (
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+              {alerts.map((alert) => (
+                <li key={alert.id}>
+                  <Link
+                    href={`/devices/${alert.deviceId}`}
+                    className="flex items-center justify-between py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 -mx-2 px-2 rounded transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge variant={getSeverityVariant(alert.severity)}>
+                        {SEVERITY_LABELS[alert.severity]}
+                      </Badge>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {deviceNames[alert.deviceId] ?? alert.deviceId}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {formatDate(alert.startedAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card.Body>
+      </Card>
     </div>
   );
 }
@@ -257,15 +350,20 @@ function StatCard({
   label,
   value,
   colorClass,
+  onClick,
 }: {
   label: string;
   value: number;
   colorClass: string;
+  onClick: () => void;
 }) {
   return (
-    <div className={`rounded-lg p-5 ${colorClass}`}>
+    <button
+      onClick={onClick}
+      className={`rounded-lg p-5 text-left transition-colors cursor-pointer ${colorClass}`}
+    >
       <p className="text-3xl font-bold">{value}</p>
       <p className="text-sm font-medium mt-1 opacity-75">{label}</p>
-    </div>
+    </button>
   );
 }

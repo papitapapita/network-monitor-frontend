@@ -51,7 +51,9 @@ function DevicesPageContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
 
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(
+    () => searchParams.get('status') ?? ''
+  );
   const [categoryFilter, setCategoryFilter] = useState('');
   const [connectivityFilter, setConnectivityFilter] = useState(
     () => searchParams.get('connectivity') ?? ''
