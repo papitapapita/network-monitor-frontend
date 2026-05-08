@@ -1,10 +1,6 @@
-import {
-  DeviceResponseDTO,
-  LocationResponseDTO,
-  DeviceModelResponseDTO,
-  PollingStatusDTO,
-  PollingResultDTO,
-} from '../types/device.types';
+import { DeviceResponseDTO, DeviceModelResponseDTO } from '../types/device.types';
+import { LocationResponseDTO } from '../types/location.types';
+import { PollingStatusDTO, PollingResultDTO } from '../types/polling.types';
 
 const now = new Date().toISOString();
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();

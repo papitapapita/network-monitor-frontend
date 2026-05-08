@@ -8,8 +8,8 @@ import {
   ListDevicesQuery,
   DeviceStatus,
   DeviceCategory,
-  PollingStatus,
 } from '@/types/device.types';
+import { PollingStatus } from '@/types/polling.types';
 import {
   Table,
   TableEmptyState,

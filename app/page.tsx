@@ -103,30 +103,28 @@ export default function DashboardPage() {
       </div>
 
       {/* Connectivity stat cards */}
-      <div className="mb-8">
-        <div className="grid grid-cols-3 gap-4">
-          <button
-            onClick={() => router.push('/devices?connectivity=ONLINE')}
-            className="rounded-lg py-5 sm:p-5 text-center bg-green-50 dark:bg-green-900/20 sm:text-left hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-          >
-            <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.connectivity.online}</p>
-            <p className="text-sm font-medium text-green-600 dark:text-green-400 mt-1 opacity-75">En línea</p>
-          </button>
-          <button
-            onClick={() => router.push('/devices?connectivity=OFFLINE')}
-            className="rounded-lg py-5 sm:p-5 text-center bg-red-50 dark:bg-red-900/20 sm:text-left hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-          >
-            <p className="text-3xl font-bold text-red-600 dark:text-red-400">{stats.connectivity.offline}</p>
-            <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1 opacity-75">Desconectado</p>
-          </button>
-          <button
-            onClick={() => router.push('/devices?connectivity=UNKNOWN')}
-            className="rounded-lg py-5 sm:p-5 text-center bg-gray-50 dark:bg-gray-800 sm:text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <p className="text-3xl font-bold text-gray-500 dark:text-gray-400">{stats.connectivity.unknown}</p>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 opacity-75">Desconocido</p>
-          </button>
-        </div>
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <StatCard
+          label="En línea"
+          value={stats.connectivity.online}
+          colorClass="text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30"
+          onClick={() => router.push('/devices?connectivity=ONLINE')}
+          className="py-5 sm:p-5 text-center sm:text-left"
+        />
+        <StatCard
+          label="Desconectado"
+          value={stats.connectivity.offline}
+          colorClass="text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+          onClick={() => router.push('/devices?connectivity=OFFLINE')}
+          className="py-5 sm:p-5 text-center sm:text-left"
+        />
+        <StatCard
+          label="Desconocido"
+          value={stats.connectivity.unknown}
+          colorClass="text-gray-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={() => router.push('/devices?connectivity=UNKNOWN')}
+          className="py-5 sm:p-5 text-center sm:text-left"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -246,16 +244,18 @@ function StatCard({
   value,
   colorClass,
   onClick,
+  className,
 }: {
   label: string;
   value: number;
   colorClass: string;
   onClick: () => void;
+  className?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg p-5 text-left transition-colors cursor-pointer ${colorClass}`}
+      className={`rounded-lg p-5 text-left transition-colors cursor-pointer ${colorClass}${className ? ` ${className}` : ''}`}
     >
       <p className="text-3xl font-bold">{value}</p>
       <p className="text-sm font-medium mt-1 opacity-75">{label}</p>

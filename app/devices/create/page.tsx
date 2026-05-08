@@ -6,11 +6,11 @@ import { apiService } from '@/services/api.service';
 import {
   CreateDeviceDTO,
   DeviceModelResponseDTO,
-  LocationResponseDTO,
   DeviceStatus,
   DeviceCategory,
   DeviceOwnerType,
 } from '@/types/device.types';
+import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Select, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 

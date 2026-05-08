@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
-import { DeviceStatus, AlertDTO } from '@/types/device.types';
+import { DeviceStatus } from '@/types/device.types';
+import { AlertDTO } from '@/types/alert.types';
 
 const ALL_STATUSES: DeviceStatus[] = ['ACTIVE', 'INVENTORY', 'MAINTENANCE', 'DAMAGED', 'DECOMMISSIONED'];
 

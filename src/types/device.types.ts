@@ -1,7 +1,3 @@
-// ============================================================
-// Enums
-// ============================================================
-
 export type DeviceStatus =
   | 'INVENTORY'
   | 'ACTIVE'
@@ -18,14 +14,6 @@ export type DeviceCategory =
 
 export type DeviceOwnerType = 'COMPANY' | 'CLIENT';
 
-export type LocationType =
-  | 'TOWER'
-  | 'NODE'
-  | 'DATACENTER'
-  | 'POP'
-  | 'WAREHOUSE'
-  | 'OFFICE';
-
 export type DeviceType =
   | 'ANTENNA'
   | 'OTHER'
@@ -34,9 +22,6 @@ export type DeviceType =
   | 'ROUTERBOARD'
   | 'SERVER'
   | 'SWITCH';
-
-
-export type PollingStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
 
 // ============================================================
 // Device
@@ -112,60 +97,6 @@ export interface DeviceListResponse {
 }
 
 // ============================================================
-// Location
-// ============================================================
-
-export interface LocationResponseDTO {
-  id: string;
-  name: string;
-  type: LocationType;
-  municipality: string | null;
-  neighborhood: string | null;
-  address: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  altitude: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateLocationDTO {
-  name: string;
-  type: LocationType;
-  municipality?: string | null;
-  neighborhood?: string | null;
-  address?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  altitude?: number | null;
-}
-
-export interface UpdateLocationDTO {
-  name?: string;
-  type?: LocationType;
-  municipality?: string | null;
-  neighborhood?: string | null;
-  address?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  altitude?: number | null;
-}
-
-export interface ListLocationsQuery {
-  limit?: number;
-  offset?: number;
-  type?: LocationType;
-}
-
-export interface LocationListResponse {
-  locations: LocationResponseDTO[];
-  total: number;
-  hasMore: boolean;
-  limit: number;
-  offset: number;
-}
-
-// ============================================================
 // Vendor
 // ============================================================
 
@@ -231,153 +162,4 @@ export interface DeviceModelListResponse {
   hasMore: boolean;
   limit: number;
   offset: number;
-}
-
-// ============================================================
-// Polling
-// ============================================================
-
-export interface PollingMetrics {
-  latencyMs: number;
-}
-
-export interface PollingResultDTO {
-  id: string;
-  deviceId: string;
-  timestamp: string;
-  status: 'SUCCESS' | 'FAILED';
-  metrics: PollingMetrics | null;
-  deviceStatus: PollingStatus;
-}
-
-export interface PollingStatusDTO {
-  deviceId: string;
-  pollingEnabled: boolean;
-  intervalSeconds: number;
-  failuresBeforeDown: number;
-  lastPolled: string | null;
-  nextScheduled: string | null;
-  currentStatus: PollingStatus;
-  lastResult: PollingResultDTO | null;
-  consecutiveFailures: number;
-}
-
-export interface PollingHistoryStats {
-  successRate: number;
-  averageResponseTime: number;
-  minResponseTime: number;
-  maxResponseTime: number;
-  uptimePercentage: number;
-}
-
-export interface PollingHistoryResponse {
-  deviceId: string;
-  results: PollingResultDTO[];
-  totalCount: number;
-  statistics: PollingHistoryStats;
-}
-
-export interface PollingHistoryQuery {
-  fromDate?: string;
-  toDate?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface CreatePollingConfigDTO {
-  ipAddress?: string | null;
-  intervalSeconds?: number;
-  failuresBeforeDown?: number;
-  enabled?: boolean;
-}
-
-export interface PollingConfigDTO {
-  id: string;
-  deviceId: string;
-  ipAddress: string | null;
-  intervalSeconds: number;
-  failuresBeforeDown: number;
-  enabled: boolean;
-}
-
-export interface UpdatePollingConfigDTO {
-  intervalSeconds?: number;
-  failuresBeforeDown?: number;
-  enabled?: boolean;
-}
-
-export interface ManualPollResultDTO {
-  deviceId: string;
-  status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
-  message: string;
-  timestamp: string;
-  metrics: PollingMetrics | null;
-  deviceStatus: PollingStatus;
-}
-
-// ============================================================
-// Alerts
-// ============================================================
-
-export type AlertSeverity = 'WARNING' | 'CRITICAL';
-export type AlertStatus = 'OPEN' | 'RESOLVED';
-
-export interface AlertDTO {
-  id: string;
-  deviceId: string;
-  severity: AlertSeverity;
-  status: AlertStatus;
-  startedAt: string;
-  resolvedAt: string | null;
-  notifiedAt: string | null;
-  recoveryNotifiedAt: string | null;
-  durationSecs: number | null;
-}
-
-export interface AlertListResponse {
-  alerts: AlertDTO[];
-  total: number;
-  hasMore: boolean;
-  limit: number;
-  offset: number;
-}
-
-export interface ListAlertsQuery {
-  deviceId?: string;
-  limit?: number;
-  offset?: number;
-}
-
-// ============================================================
-// Network Scan
-// ============================================================
-
-export interface NetworkScanRequest {
-  segment: string;
-}
-
-export interface DiscoveredHost {
-  ipAddress: string;
-  latencyMs: number;
-  macAddress: string | null;
-  manufacturer: string | null;
-}
-
-export interface NetworkScanResult {
-  segment: string;
-  scannedCount: number;
-  responsiveCount: number;
-  discoveredHosts: DiscoveredHost[];
-}
-
-// ============================================================
-// Shared
-// ============================================================
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
 }

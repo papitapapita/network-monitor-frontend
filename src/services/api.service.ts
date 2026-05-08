@@ -4,11 +4,6 @@ import {
   CreateDeviceDTO,
   UpdateDeviceDTO,
   ListDevicesQuery,
-  LocationResponseDTO,
-  LocationListResponse,
-  CreateLocationDTO,
-  UpdateLocationDTO,
-  ListLocationsQuery,
   VendorDTO,
   VendorListResponse,
   CreateVendorDTO,
@@ -17,6 +12,15 @@ import {
   DeviceModelListResponse,
   CreateDeviceModelDTO,
   UpdateDeviceModelDTO,
+} from '../types/device.types';
+import {
+  LocationResponseDTO,
+  LocationListResponse,
+  CreateLocationDTO,
+  UpdateLocationDTO,
+  ListLocationsQuery,
+} from '../types/location.types';
+import {
   PollingStatusDTO,
   PollingHistoryResponse,
   PollingHistoryQuery,
@@ -24,12 +28,10 @@ import {
   PollingConfigDTO,
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
-  AlertListResponse,
-  ListAlertsQuery,
-  NetworkScanRequest,
-  NetworkScanResult,
-  ApiResponse
-} from '../types/device.types';
+} from '../types/polling.types';
+import { AlertListResponse, ListAlertsQuery } from '../types/alert.types';
+import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
+import { ApiResponse } from '../types/common.types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 

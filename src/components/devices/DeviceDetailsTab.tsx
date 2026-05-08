@@ -5,11 +5,11 @@ import { apiService } from '@/services/api.service';
 import {
   DeviceResponseDTO,
   UpdateDeviceDTO,
-  LocationResponseDTO,
   DeviceStatus,
   DeviceCategory,
-  DeviceOwnerType
+  DeviceOwnerType,
 } from '@/types/device.types';
+import { LocationResponseDTO } from '@/types/location.types';
 import {
   Card,
   Button,

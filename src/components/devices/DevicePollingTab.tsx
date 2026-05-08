@@ -5,8 +5,8 @@ import { apiService } from '@/services/api.service';
 import {
   PollingStatusDTO,
   PollingHistoryResponse,
-  ManualPollResultDTO
-} from '@/types/device.types';
+  ManualPollResultDTO,
+} from '@/types/polling.types';
 import {
   Card,
   Button,

@@ -4,12 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import {
-  DiscoveredHost,
-  NetworkScanResult,
   DeviceModelResponseDTO,
   DeviceOwnerType,
   CreateDeviceDTO,
 } from '@/types/device.types';
+import { DiscoveredHost, NetworkScanResult } from '@/types/network-scan.types';
 import {
   Button,
   Input,

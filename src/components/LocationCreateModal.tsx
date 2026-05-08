@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { apiService } from '@/services/api.service';
-import { CreateLocationDTO, LocationResponseDTO, LocationType } from '@/types/device.types';
+import { CreateLocationDTO, LocationResponseDTO, LocationType } from '@/types/location.types';
 import { Modal, Button, Input, Select } from '@/components/ui';
 
 interface LocationCreateModalProps {

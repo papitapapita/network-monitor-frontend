@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiService } from '@/services/api.service';
-import { AlertDTO, AlertSeverity, AlertStatus } from '@/types/device.types';
+import { AlertDTO, AlertSeverity, AlertStatus } from '@/types/alert.types';
 import {
   Table,
   TableEmptyState,
