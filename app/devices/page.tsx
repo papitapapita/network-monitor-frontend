@@ -50,6 +50,7 @@ function DevicesPageContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const [statusFilter, setStatusFilter] = useState(
     () => searchParams.get('status') ?? ''
@@ -146,6 +147,7 @@ function DevicesPageContent() {
       }
     }
 
+    setLastRefreshed(new Date());
     setIsLoading(false);
   }, [currentPage, statusFilter, categoryFilter, connectivityFilter, search]);
 
@@ -210,7 +212,41 @@ function DevicesPageContent() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dispositivos</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">{deviceCountLabel}</p>
         </div>
-        <Button onClick={() => router.push('/devices/create')}>Agregar Dispositivo</Button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchDevices}
+              isLoading={isLoading}
+              disabled={isLoading}
+            >
+              {!isLoading && (
+                <svg
+                  className="mr-1.5 h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              )}
+              Actualizar
+            </Button>
+            <Button onClick={() => router.push('/devices/create')}>Agregar Dispositivo</Button>
+          </div>
+          {lastRefreshed && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              Actualizado: {lastRefreshed.toLocaleTimeString('es')}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -294,11 +330,11 @@ function DevicesPageContent() {
           <Table>
             <Table.Header>
               <Table.Head sortable onSort={() => handleSort('name')} sortDirection={sortField === 'name' ? sortDirection : null}>Nombre</Table.Head>
-              <Table.Head sortable onSort={() => handleSort('status')} sortDirection={sortField === 'status' ? sortDirection : null}>Estado</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('ip')} sortDirection={sortField === 'ip' ? sortDirection : null}>Dirección IP</Table.Head>
               <Table.Head>Conectividad</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('status')} sortDirection={sortField === 'status' ? sortDirection : null}>Estado</Table.Head>
               <Table.Head sortable onSort={() => handleSort('category')} sortDirection={sortField === 'category' ? sortDirection : null}>Categoría</Table.Head>
               <Table.Head sortable onSort={() => handleSort('owner')} sortDirection={sortField === 'owner' ? sortDirection : null}>Propietario</Table.Head>
-              <Table.Head sortable onSort={() => handleSort('ip')} sortDirection={sortField === 'ip' ? sortDirection : null}>Dirección IP</Table.Head>
               <Table.Head>Acciones</Table.Head>
             </Table.Header>
             <Table.Body>
@@ -323,9 +359,19 @@ function DevicesPageContent() {
                       )}
                     </Table.Cell>
                     <Table.Cell>
-                      <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
-                        {STATUS_LABELS[device.status] ?? device.status}
-                      </Badge>
+                      {device.ipAddress ? (
+                        <a
+                          href={`http://${device.ipAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {device.ipAddress}
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                      )}
                     </Table.Cell>
                     <Table.Cell>
                       {device.monitoringEnabled ? (
@@ -341,6 +387,11 @@ function DevicesPageContent() {
                       )}
                     </Table.Cell>
                     <Table.Cell>
+                      <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
+                        {STATUS_LABELS[device.status] ?? device.status}
+                      </Badge>
+                    </Table.Cell>
+                    <Table.Cell>
                       {device.category ? (
                         <span className="text-gray-900 dark:text-gray-100">
                           {device.category.replace(/_/g, ' ')}
@@ -352,11 +403,6 @@ function DevicesPageContent() {
                     <Table.Cell>
                       <span className="text-gray-900 dark:text-gray-100">
                         {device.ownerType === 'COMPANY' ? 'Empresa' : 'Cliente'}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="font-mono text-sm">
-                        {device.ipAddress || <span className="text-gray-400 dark:text-gray-500">—</span>}
                       </span>
                     </Table.Cell>
                     <Table.Cell>

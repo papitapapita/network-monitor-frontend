@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { apiService } from '@/services/api.service';
-import { DeviceStatus, AlertDTO } from '@/types/device.types';
+import { DeviceStatus } from '@/types/device.types';
 import { Card, Badge, LoadingSpinner, getDeviceStatusBadgeVariant } from '@/components/ui';
 import type { BadgeVariant } from '@/components/ui';
+import { useDashboardData } from '@/hooks/useDashboardData';
 
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
@@ -16,33 +16,10 @@ const STATUS_LABELS: Record<DeviceStatus, string> = {
   DECOMMISSIONED: 'Descomisionado',
 };
 
-const ALL_STATUSES: DeviceStatus[] = ['ACTIVE', 'INVENTORY', 'MAINTENANCE', 'DAMAGED', 'DECOMMISSIONED'];
-
 const SEVERITY_LABELS: Record<string, string> = {
   WARNING: 'Advertencia',
   CRITICAL: 'Crítico',
 };
-
-interface RecentDevice {
-  id: string;
-  name: string;
-  status: DeviceStatus;
-  ipAddress: string | null;
-}
-
-interface ConnectivityStats {
-  total: number;
-  online: number;
-  offline: number;
-  unknown: number;
-}
-
-interface Stats {
-  total: number;
-  byStatus: { status: DeviceStatus; count: number }[];
-  recent: RecentDevice[];
-  connectivity: ConnectivityStats;
-}
 
 function getSeverityVariant(severity: string): BadgeVariant {
   return severity === 'CRITICAL' ? 'danger' : 'warning';
@@ -59,86 +36,7 @@ function formatDate(iso: string): string {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [alerts, setAlerts] = useState<AlertDTO[]>([]);
-  const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      setIsLoading(true);
-      setError(null);
-
-      const [recentResult, ...statusResults] = await Promise.all([
-        apiService.listDevices({ limit: 6 }),
-        ...ALL_STATUSES.map((s) => apiService.listDevices({ limit: 1, status: s })),
-      ]);
-
-      if (!recentResult.success || !recentResult.data) {
-        setError(recentResult.error || 'Error al cargar el panel');
-        setIsLoading(false);
-        return;
-      }
-
-      const monResult = await apiService.listDevices({ monitoringEnabled: true, limit: 200 });
-      const connectivity: ConnectivityStats = { total: 0, online: 0, offline: 0, unknown: 0 };
-
-      if (monResult.success && monResult.data) {
-        const monDevices = monResult.data.devices;
-        connectivity.total = monDevices.length;
-
-        const pollingResults = await Promise.all(
-          monDevices.map((d) => apiService.getPollingStatus(d.id))
-        );
-
-        pollingResults.forEach((r) => {
-          if (r.success && r.data) {
-            if (r.data.currentStatus === 'ONLINE') connectivity.online++;
-            else if (r.data.currentStatus === 'OFFLINE') connectivity.offline++;
-            else connectivity.unknown++;
-          } else {
-            connectivity.unknown++;
-          }
-        });
-      }
-
-      setStats({
-        total: recentResult.data.total,
-        byStatus: ALL_STATUSES.map((status, i) => ({
-          status,
-          count: statusResults[i].success ? (statusResults[i].data?.total ?? 0) : 0,
-        })),
-        recent: recentResult.data.devices.map((d) => ({
-          id: d.id,
-          name: d.name,
-          status: d.status,
-          ipAddress: d.ipAddress,
-        })),
-        connectivity,
-      });
-
-      // Load recent open alerts
-      const alertsResult = await apiService.listAlerts({ limit: 5 });
-      if (alertsResult.success && alertsResult.data) {
-        const openAlerts = alertsResult.data.alerts.filter((a) => a.status === 'OPEN').slice(0, 5);
-        setAlerts(openAlerts);
-
-        const uniqueIds = [...new Set(openAlerts.map((a) => a.deviceId))];
-        const nameEntries = await Promise.all(
-          uniqueIds.map(async (id) => {
-            const res = await apiService.getDevice(id);
-            return [id, res.success && res.data ? res.data.name : id] as [string, string];
-          })
-        );
-        setDeviceNames(Object.fromEntries(nameEntries));
-      }
-
-      setIsLoading(false);
-    }
-
-    load();
-  }, []);
+  const { stats, alerts, deviceNames, isLoading, error } = useDashboardData();
 
   if (isLoading) {
     return (
@@ -163,9 +61,9 @@ export default function DashboardPage() {
     (stats.byStatus.find((s) => s.status === 'MAINTENANCE')?.count ?? 0) +
     (stats.byStatus.find((s) => s.status === 'DAMAGED')?.count ?? 0);
   const inventory = stats.byStatus.find((s) => s.status === 'INVENTORY')?.count ?? 0;
-  const monLabel = stats.connectivity.total === 1
+/*  const monLabel = stats.connectivity.total === 1
     ? `1 dispositivo monitoreado`
-    : `${stats.connectivity.total} dispositivos monitoreados`;
+    : `${stats.connectivity.total} dispositivos monitoreados`;*/
 
   return (
     <div className="p-8">
@@ -206,27 +104,24 @@ export default function DashboardPage() {
 
       {/* Connectivity stat cards */}
       <div className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-          Conectividad — {monLabel}
-        </h2>
         <div className="grid grid-cols-3 gap-4">
           <button
             onClick={() => router.push('/devices?connectivity=ONLINE')}
-            className="rounded-lg p-5 bg-green-50 dark:bg-green-900/20 text-left hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+            className="rounded-lg py-5 sm:p-5 text-center bg-green-50 dark:bg-green-900/20 sm:text-left hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
           >
             <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.connectivity.online}</p>
             <p className="text-sm font-medium text-green-600 dark:text-green-400 mt-1 opacity-75">En línea</p>
           </button>
           <button
             onClick={() => router.push('/devices?connectivity=OFFLINE')}
-            className="rounded-lg p-5 bg-red-50 dark:bg-red-900/20 text-left hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+            className="rounded-lg py-5 sm:p-5 text-center bg-red-50 dark:bg-red-900/20 sm:text-left hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
           >
             <p className="text-3xl font-bold text-red-600 dark:text-red-400">{stats.connectivity.offline}</p>
             <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1 opacity-75">Desconectado</p>
           </button>
           <button
             onClick={() => router.push('/devices?connectivity=UNKNOWN')}
-            className="rounded-lg p-5 bg-gray-50 dark:bg-gray-800 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="rounded-lg py-5 sm:p-5 text-center bg-gray-50 dark:bg-gray-800 sm:text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             <p className="text-3xl font-bold text-gray-500 dark:text-gray-400">{stats.connectivity.unknown}</p>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 opacity-75">Desconocido</p>
