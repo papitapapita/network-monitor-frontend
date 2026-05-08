@@ -77,6 +77,30 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           }
           label="Alertas"
         />
+        <NavItem
+          href="/device-models"
+          active={isActive('/device-models')}
+          onClick={onClose}
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+            </svg>
+          }
+          label="Modelos"
+        />
+        <NavItem
+          href="/network-scan"
+          active={isActive('/network-scan')}
+          onClick={onClose}
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+            </svg>
+          }
+          label="Escaneo"
+        />
       </nav>
 
       {/* Settings — always visible at bottom */}

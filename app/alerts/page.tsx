@@ -66,6 +66,7 @@ export default function AlertsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAlerts, setTotalAlerts] = useState(0);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const [severityFilter, setSeverityFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -103,6 +104,7 @@ export default function AlertsPage() {
       })
     );
     setDeviceNames(Object.fromEntries(nameEntries));
+    setLastRefreshed(new Date());
 
     setIsLoading(false);
   }, [currentPage, severityFilter, statusFilter, deviceIdFilter]);
@@ -130,6 +132,38 @@ export default function AlertsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Alertas</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">{totalLabel}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchAlerts}
+            isLoading={isLoading}
+            disabled={isLoading}
+          >
+            {!isLoading && (
+              <svg
+                className="mr-1.5 h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            )}
+            Actualizar
+          </Button>
+          {lastRefreshed && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              Actualizado: {lastRefreshed.toLocaleTimeString('es')}
+            </span>
+          )}
         </div>
       </div>
 

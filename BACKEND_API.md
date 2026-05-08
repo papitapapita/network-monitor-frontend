@@ -33,7 +33,6 @@ type DeviceStatus   = 'ACTIVE' | 'DAMAGED' | 'DECOMMISSIONED' | 'INVENTORY' | 'M
 type DeviceCategory = 'CORE' | 'DISTRIBUTION' | 'POE' | 'ACCESS_POINT' | 'CLIENT_CPE'
 type DeviceOwner    = 'COMPANY' | 'CLIENT'
 type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
-type Vendor         = 'TP_LINK' | 'MIKROTIK' | 'UBIQUITI' | 'MIMOSA' | 'TENDA' | 'OTHER'
 type PollingStatus      = 'SUCCESS' | 'FAILED' | 'SKIPPED'
 type DeviceOnlineStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN'
 type AlertSeverity      = 'WARNING' | 'CRITICAL'
@@ -77,12 +76,23 @@ interface DeviceDTO {
   updatedAt: string
 }
 
+interface VendorDTO {
+  id: string            // UUID
+  name: string
+  slug: string          // URL-safe lowercase, e.g. "tp-link"
+  description: string | null
+  createdAt: string     // ISO 8601
+  updatedAt: string
+}
+
 interface DeviceModelDTO {
   id: string            // UUID
-  manufacturer: Vendor
+  vendorId: string      // UUID
+  vendorName: string    // e.g. "MikroTik"
+  vendorSlug: string    // e.g. "mikrotik"
   model: string
   deviceType: DeviceType
-  createdAt: string
+  createdAt: string     // ISO 8601
   updatedAt: string
 }
 
@@ -289,9 +299,111 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 
 ---
 
+## Vendors `/api/vendors`
+
+### `POST /api/vendors` — Create
+**Status:** 201 | 400 | 409
+
+```ts
+// Request body
+{
+  name: string              // required, 1–100 chars
+  slug: string              // required, 1–100 chars, lowercase letters/digits/hyphens only (e.g. "tp-link")
+  description?: string | null  // max 500 chars
+}
+
+// Response
+{ success: true, data: VendorDTO }
+```
+
+> Returns 409 if a vendor with the same slug already exists.
+
+---
+
+### `GET /api/vendors` — List
+**Status:** 200
+
+```ts
+// Query params (all optional)
+limit?:  number  // 1–100, default 20
+offset?: number  // ≥0, default 0
+
+// Response
+{
+  success: true,
+  data: {
+    vendors: VendorDTO[]
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+---
+
+### `GET /api/vendors/:id` — Get by ID
+**Status:** 200 | 404
+
+```ts
+// Response
+{ success: true, data: VendorDTO }
+```
+
+---
+
+### `PUT /api/vendors/:id` — Update
+**Status:** 200 | 400 | 404 | 409
+
+```ts
+// Request body (at least one field required)
+{
+  name?: string
+  slug?: string
+  description?: string | null
+}
+
+// Response
+{ success: true, data: VendorDTO }
+```
+
+> Returns 409 if the new slug is already taken by another vendor.
+
+---
+
+### `DELETE /api/vendors/:id` — Delete
+**Status:** 204 | 404 | 409
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+> Returns 409 if the vendor has associated device models. Remove all device models first.
+
+---
+
 ## Device Models `/api/device-models`
 
-These are read-only from the API (no create/update endpoints yet).
+### `POST /api/device-models` — Create
+**Status:** 201 | 400 | 409
+
+```ts
+// Request body
+{
+  vendorId: string    // required, UUID
+  model: string       // required, 1–150 chars
+  deviceType: DeviceType  // required
+}
+
+// Response
+{ success: true, data: DeviceModelDTO }
+```
+
+> Returns 409 if a model with the same name already exists for that vendor.
+
+---
 
 ### `GET /api/device-models` — List
 **Status:** 200
@@ -323,6 +435,35 @@ offset?: number  // ≥0, default 0
 // Response
 { success: true, data: DeviceModelDTO }
 ```
+
+---
+
+### `PUT /api/device-models/:id` — Update
+**Status:** 200 | 400 | 404
+
+```ts
+// Request body (at least one field required)
+{
+  vendorId?: string    // UUID
+  model?: string       // 1–150 chars
+  deviceType?: DeviceType
+}
+
+// Response
+{ success: true, data: DeviceModelDTO }
+```
+
+---
+
+### `DELETE /api/device-models/:id` — Delete
+**Status:** 204 | 404 | 409
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+> Returns 409 if devices are assigned to this model. Reassign or remove those devices first.
 
 ---
 
@@ -507,6 +648,40 @@ offset?:   number  // ≥0, default 0
 
 ---
 
+## Network Scan `/api/network/scan`
+
+### `POST /api/network/scan` — Scan a network segment
+**Status:** 200 | 400 | 404 | 500
+
+```ts
+// Request body
+{
+  segment: string   // required — IPv4 CIDR block, e.g. "192.168.1.0/24"; max range /22
+}
+
+// Response
+{
+  success: true,
+  data: {
+    segment: string            // the CIDR block that was scanned
+    scannedCount: number       // total IP addresses probed
+    responsiveCount: number    // hosts that replied to ICMP ping
+    discoveredHosts: Array<{
+      ipAddress: string
+      latencyMs: number
+      macAddress: string | null     // null when ARP resolution failed
+      manufacturer: string | null   // null when MAC is unknown
+    }>
+  }
+}
+```
+
+> Probes every host in the CIDR range via ICMP ping and returns all responsive hosts with their latency, MAC address, and manufacturer (where resolvable).  
+> Returns 400 if the segment is invalid or the range exceeds /22 (1 024 usable hosts).  
+> Returns 500 on unexpected infrastructure errors.
+
+---
+
 ## Other
 
 ### `GET /health`
@@ -529,6 +704,7 @@ offset?:   number  // ≥0, default 0
 |------|---------|
 | 400 | Validation error or business rule violation (e.g. duplicate MAC/IP) |
 | 404 | Resource not found |
+| 409 | Conflict — resource already exists or cannot be deleted (e.g. vendor has models, model has devices) |
 | 500 | Unexpected server error |
 
 Error body: `{ success: false, error: string }`

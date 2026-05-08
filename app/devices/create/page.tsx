@@ -9,7 +9,7 @@ import {
   LocationResponseDTO,
   DeviceStatus,
   DeviceCategory,
-  DeviceOwnerType
+  DeviceOwnerType,
 } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
@@ -151,7 +151,7 @@ export default function CreateDevicePage() {
                       { value: '', label: 'Seleccionar modelo' },
                       ...deviceModels.map((m) => ({
                         value: m.id,
-                        label: `${m.manufacturer.replace(/_/g, ' ')} — ${m.model} (${m.deviceType})`
+                        label: `${m.vendorName} — ${m.model} (${m.deviceType})`
                       }))
                     ]}
                     error={formErrors.deviceModelId}

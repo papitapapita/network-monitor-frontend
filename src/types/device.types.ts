@@ -35,13 +35,6 @@ export type DeviceType =
   | 'SERVER'
   | 'SWITCH';
 
-export type Manufacturer =
-  | 'TP_LINK'
-  | 'MIKROTIK'
-  | 'UBIQUITI'
-  | 'MIMOSA'
-  | 'TENDA'
-  | 'OTHER';
 
 export type PollingStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
 
@@ -173,16 +166,63 @@ export interface LocationListResponse {
 }
 
 // ============================================================
+// Vendor
+// ============================================================
+
+export interface VendorDTO {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VendorListResponse {
+  vendors: VendorDTO[];
+  total: number;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+}
+
+export interface CreateVendorDTO {
+  name: string;
+  slug: string;
+  description?: string | null;
+}
+
+export interface UpdateVendorDTO {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+}
+
+// ============================================================
 // Device Model
 // ============================================================
 
 export interface DeviceModelResponseDTO {
   id: string;
-  manufacturer: Manufacturer;
+  vendorId: string;
+  vendorName: string;
+  vendorSlug: string;
   model: string;
   deviceType: DeviceType;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateDeviceModelDTO {
+  vendorId: string;
+  model: string;
+  deviceType: DeviceType;
+}
+
+export interface UpdateDeviceModelDTO {
+  vendorId?: string;
+  model?: string;
+  deviceType?: DeviceType;
 }
 
 export interface DeviceModelListResponse {
@@ -307,6 +347,28 @@ export interface ListAlertsQuery {
   deviceId?: string;
   limit?: number;
   offset?: number;
+}
+
+// ============================================================
+// Network Scan
+// ============================================================
+
+export interface NetworkScanRequest {
+  segment: string;
+}
+
+export interface DiscoveredHost {
+  ipAddress: string;
+  latencyMs: number;
+  macAddress: string | null;
+  manufacturer: string | null;
+}
+
+export interface NetworkScanResult {
+  segment: string;
+  scannedCount: number;
+  responsiveCount: number;
+  discoveredHosts: DiscoveredHost[];
 }
 
 // ============================================================

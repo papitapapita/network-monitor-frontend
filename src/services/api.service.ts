@@ -9,8 +9,14 @@ import {
   CreateLocationDTO,
   UpdateLocationDTO,
   ListLocationsQuery,
+  VendorDTO,
+  VendorListResponse,
+  CreateVendorDTO,
+  UpdateVendorDTO,
   DeviceModelResponseDTO,
   DeviceModelListResponse,
+  CreateDeviceModelDTO,
+  UpdateDeviceModelDTO,
   PollingStatusDTO,
   PollingHistoryResponse,
   PollingHistoryQuery,
@@ -20,6 +26,8 @@ import {
   ManualPollResultDTO,
   AlertListResponse,
   ListAlertsQuery,
+  NetworkScanRequest,
+  NetworkScanResult,
   ApiResponse
 } from '../types/device.types';
 
@@ -157,6 +165,37 @@ class ApiService {
   }
 
   // ============================================================
+  // Vendors
+  // ============================================================
+
+  async listVendors(query?: { limit?: number; offset?: number }): Promise<ApiResponse<VendorListResponse>> {
+    const qs = this.buildQuery({ limit: query?.limit, offset: query?.offset });
+    return this.request<VendorListResponse>(`/vendors${qs}`);
+  }
+
+  async getVendor(id: string): Promise<ApiResponse<VendorDTO>> {
+    return this.request<VendorDTO>(`/vendors/${id}`);
+  }
+
+  async createVendor(data: CreateVendorDTO): Promise<ApiResponse<VendorDTO>> {
+    return this.request<VendorDTO>('/vendors', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async updateVendor(id: string, data: UpdateVendorDTO): Promise<ApiResponse<VendorDTO>> {
+    return this.request<VendorDTO>(`/vendors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async deleteVendor(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/vendors/${id}`, { method: 'DELETE' });
+  }
+
+  // ============================================================
   // Device Models
   // ============================================================
 
@@ -167,6 +206,24 @@ class ApiService {
 
   async getDeviceModel(id: string): Promise<ApiResponse<DeviceModelResponseDTO>> {
     return this.request<DeviceModelResponseDTO>(`/device-models/${id}`);
+  }
+
+  async createDeviceModel(data: CreateDeviceModelDTO): Promise<ApiResponse<DeviceModelResponseDTO>> {
+    return this.request<DeviceModelResponseDTO>('/device-models', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async updateDeviceModel(id: string, data: UpdateDeviceModelDTO): Promise<ApiResponse<DeviceModelResponseDTO>> {
+    return this.request<DeviceModelResponseDTO>(`/device-models/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async deleteDeviceModel(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/device-models/${id}`, { method: 'DELETE' });
   }
 
   // ============================================================
@@ -228,6 +285,17 @@ class ApiService {
       offset: query?.offset
     });
     return this.request<AlertListResponse>(`/alerts${qs}`);
+  }
+
+  // ============================================================
+  // Network Scan
+  // ============================================================
+
+  async scanNetwork(data: NetworkScanRequest): Promise<ApiResponse<NetworkScanResult>> {
+    return this.request<NetworkScanResult>('/network/scan', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 }
 

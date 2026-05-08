@@ -15,8 +15,14 @@ import {
   CreateLocationDTO,
   UpdateLocationDTO,
   ListLocationsQuery,
+  VendorDTO,
+  VendorListResponse,
+  CreateVendorDTO,
+  UpdateVendorDTO,
   DeviceModelResponseDTO,
   DeviceModelListResponse,
+  CreateDeviceModelDTO,
+  UpdateDeviceModelDTO,
   PollingStatusDTO,
   PollingHistoryResponse,
   PollingHistoryQuery,
@@ -26,6 +32,8 @@ import {
   ManualPollResultDTO,
   AlertListResponse,
   ListAlertsQuery,
+  NetworkScanRequest,
+  NetworkScanResult,
   ApiResponse,
 } from '../types/device.types';
 
@@ -40,7 +48,15 @@ import {
 // Mutable in-memory stores (seeded once from mock data)
 let devices: DeviceResponseDTO[] = [...MOCK_DEVICES];
 let locations: LocationResponseDTO[] = [...MOCK_LOCATIONS];
-const deviceModels: DeviceModelResponseDTO[] = [...MOCK_DEVICE_MODELS];
+let deviceModels: DeviceModelResponseDTO[] = [...MOCK_DEVICE_MODELS];
+
+const MOCK_VENDORS: VendorDTO[] = [
+  { id: 'v-1', name: 'MikroTik', slug: 'mikrotik', description: null, createdAt: new Date(Date.now() - 90 * 86_400_000).toISOString(), updatedAt: new Date(Date.now() - 90 * 86_400_000).toISOString() },
+  { id: 'v-2', name: 'Ubiquiti', slug: 'ubiquiti', description: null, createdAt: new Date(Date.now() - 90 * 86_400_000).toISOString(), updatedAt: new Date(Date.now() - 90 * 86_400_000).toISOString() },
+  { id: 'v-3', name: 'Mimosa', slug: 'mimosa', description: null, createdAt: new Date(Date.now() - 90 * 86_400_000).toISOString(), updatedAt: new Date(Date.now() - 90 * 86_400_000).toISOString() },
+  { id: 'v-4', name: 'TP-Link', slug: 'tp-link', description: null, createdAt: new Date(Date.now() - 90 * 86_400_000).toISOString(), updatedAt: new Date(Date.now() - 90 * 86_400_000).toISOString() },
+];
+let vendors: VendorDTO[] = [...MOCK_VENDORS];
 const pollingStatus: Record<string, PollingStatusDTO> = { ...MOCK_POLLING_STATUS };
 const pollingHistory: Record<string, ReturnType<typeof MOCK_POLLING_HISTORY[string]['slice']>> = {};
 for (const [k, v] of Object.entries(MOCK_POLLING_HISTORY)) pollingHistory[k] = [...v];
@@ -195,6 +211,49 @@ class MockApiService {
     return ok(updated);
   }
 
+  // ── Vendors ────────────────────────────────────────────────
+
+  async listVendors(query?: { limit?: number; offset?: number }): Promise<ApiResponse<VendorListResponse>> {
+    const limit = query?.limit ?? 20;
+    const offset = query?.offset ?? 0;
+    const { items, total } = paginate(vendors, limit, offset);
+    return ok({ vendors: items, total, hasMore: offset + items.length < total, limit, offset });
+  }
+
+  async getVendor(id: string): Promise<ApiResponse<VendorDTO>> {
+    const vendor = vendors.find((v) => v.id === id);
+    return vendor ? ok(vendor) : err('Vendor not found');
+  }
+
+  async createVendor(data: CreateVendorDTO): Promise<ApiResponse<VendorDTO>> {
+    const now = new Date().toISOString();
+    const vendor: VendorDTO = {
+      id: `v-${uid()}`,
+      name: data.name,
+      slug: data.slug,
+      description: data.description ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    vendors = [vendor, ...vendors];
+    return ok(vendor);
+  }
+
+  async updateVendor(id: string, data: UpdateVendorDTO): Promise<ApiResponse<VendorDTO>> {
+    const idx = vendors.findIndex((v) => v.id === id);
+    if (idx === -1) return err('Vendor not found');
+    const updated = { ...vendors[idx], ...data, updatedAt: new Date().toISOString() };
+    vendors[idx] = updated;
+    return ok(updated);
+  }
+
+  async deleteVendor(id: string): Promise<ApiResponse<void>> {
+    const idx = vendors.findIndex((v) => v.id === id);
+    if (idx === -1) return err('Vendor not found');
+    vendors = vendors.filter((v) => v.id !== id);
+    return { success: true };
+  }
+
   // ── Device Models ──────────────────────────────────────────
 
   async listDeviceModels(query?: {
@@ -216,6 +275,55 @@ class MockApiService {
   async getDeviceModel(id: string): Promise<ApiResponse<DeviceModelResponseDTO>> {
     const model = deviceModels.find((m) => m.id === id);
     return model ? ok(model) : err('Device model not found');
+  }
+
+  async createDeviceModel(data: CreateDeviceModelDTO): Promise<ApiResponse<DeviceModelResponseDTO>> {
+    const vendor = vendors.find((v) => v.id === data.vendorId);
+    if (!vendor) return err('Vendor not found');
+    const now = new Date().toISOString();
+    const model: DeviceModelResponseDTO = {
+      id: `dm-${uid()}`,
+      vendorId: vendor.id,
+      vendorName: vendor.name,
+      vendorSlug: vendor.slug,
+      model: data.model,
+      deviceType: data.deviceType,
+      createdAt: now,
+      updatedAt: now,
+    };
+    deviceModels = [model, ...deviceModels];
+    return ok(model);
+  }
+
+  async updateDeviceModel(id: string, data: UpdateDeviceModelDTO): Promise<ApiResponse<DeviceModelResponseDTO>> {
+    const idx = deviceModels.findIndex((m) => m.id === id);
+    if (idx === -1) return err('Device model not found');
+
+    let vendorName = deviceModels[idx].vendorName;
+    let vendorSlug = deviceModels[idx].vendorSlug;
+    if (data.vendorId) {
+      const vendor = vendors.find((v) => v.id === data.vendorId);
+      if (!vendor) return err('Vendor not found');
+      vendorName = vendor.name;
+      vendorSlug = vendor.slug;
+    }
+
+    const updated: DeviceModelResponseDTO = {
+      ...deviceModels[idx],
+      ...data,
+      vendorName,
+      vendorSlug,
+      updatedAt: new Date().toISOString(),
+    };
+    deviceModels[idx] = updated;
+    return ok(updated);
+  }
+
+  async deleteDeviceModel(id: string): Promise<ApiResponse<void>> {
+    const idx = deviceModels.findIndex((m) => m.id === id);
+    if (idx === -1) return err('Device model not found');
+    deviceModels = deviceModels.filter((m) => m.id !== id);
+    return { success: true };
   }
 
   // ── Polling ────────────────────────────────────────────────
@@ -386,6 +494,37 @@ class MockApiService {
       hasMore: false,
       limit,
       offset,
+    });
+  }
+
+  // ── Network Scan ───────────────────────────────────────────
+
+  async scanNetwork(data: NetworkScanRequest): Promise<ApiResponse<NetworkScanResult>> {
+    const [baseIp] = data.segment.split('/');
+    const parts = baseIp.split('.').slice(0, 3).join('.');
+    const count = 8 + Math.floor(Math.random() * 8);
+    const usedLast = new Set<number>();
+
+    const manufacturers = ['MikroTik', 'Ubiquiti', 'Cisco', 'TP-Link', null];
+    const discoveredHosts = Array.from({ length: count }, () => {
+      let last: number;
+      do { last = 1 + Math.floor(Math.random() * 254); } while (usedLast.has(last));
+      usedLast.add(last);
+      return {
+        ipAddress: `${parts}.${last}`,
+        latencyMs: 1 + Math.floor(Math.random() * 30),
+        macAddress: Array.from({ length: 6 }, () =>
+          Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase()
+        ).join(':'),
+        manufacturer: manufacturers[Math.floor(Math.random() * manufacturers.length)],
+      };
+    });
+
+    return ok({
+      segment: data.segment,
+      scannedCount: 256,
+      responsiveCount: count,
+      discoveredHosts,
     });
   }
 }
