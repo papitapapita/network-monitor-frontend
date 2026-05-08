@@ -103,7 +103,7 @@ export default function CreateDevicePage() {
           ipAddress: dto.ipAddress ?? null
         });
       }
-      router.push(`/devices/${result.data.id}`);
+      router.replace(`/devices/${result.data.id}`);
     } else {
       setError(result.error || 'Error al crear el dispositivo');
       setIsSubmitting(false);

@@ -132,8 +132,24 @@ export function useDevices() {
     }
   };
 
+  const CONNECTIVITY_ORDER: Record<string, number> = { ONLINE: 0, OFFLINE: 1, UNKNOWN: 2 };
+
   const sortedDevices = sortField
     ? [...devices].sort((a, b) => {
+        if (sortField === 'connectivity') {
+          const aOrder = a.monitoringEnabled
+            ? (CONNECTIVITY_ORDER[pollingStatuses[a.id]] ?? 2)
+            : 3;
+          const bOrder = b.monitoringEnabled
+            ? (CONNECTIVITY_ORDER[pollingStatuses[b.id]] ?? 2)
+            : 3;
+          if (aOrder === 3 && bOrder === 3) return 0;
+          if (aOrder === 3) return 1;
+          if (bOrder === 3) return -1;
+          const cmp = aOrder - bOrder;
+          return sortDirection === 'asc' ? cmp : -cmp;
+        }
+
         let aVal: string;
         let bVal: string;
         if (sortField === 'name') {

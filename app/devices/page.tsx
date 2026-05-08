@@ -127,7 +127,7 @@ function DevicesPageContent() {
             <Table.Header>
               <Table.Head sortable onSort={() => handleSort('name')} sortDirection={sortField === 'name' ? sortDirection : null}>Nombre</Table.Head>
               <Table.Head sortable onSort={() => handleSort('ip')} sortDirection={sortField === 'ip' ? sortDirection : null}>Dirección IP</Table.Head>
-              <Table.Head>Conectividad</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('connectivity')} sortDirection={sortField === 'connectivity' ? sortDirection : null}>Conectividad</Table.Head>
               <Table.Head sortable onSort={() => handleSort('status')} sortDirection={sortField === 'status' ? sortDirection : null}>Estado</Table.Head>
               <Table.Head sortable onSort={() => handleSort('category')} sortDirection={sortField === 'category' ? sortDirection : null}>Categoría</Table.Head>
               <Table.Head sortable onSort={() => handleSort('owner')} sortDirection={sortField === 'owner' ? sortDirection : null}>Propietario</Table.Head>
