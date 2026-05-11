@@ -64,7 +64,7 @@ interface DeviceDTO {
   locationId: string | null
   status: DeviceStatus
   category: DeviceCategory | null
-  ownerType: DeviceOwner
+  ownerType: DeviceOwner | null
   name: string
   serialNumber: string | null
   macAddress: string | null
@@ -199,7 +199,7 @@ type?:   LocationType
 {
   deviceModelId: string        // required, UUID
   name: string                 // required, 1–150 chars
-  ownerType: DeviceOwner       // required
+  ownerType?: DeviceOwner      // optional
   status?: DeviceStatus        // default: INVENTORY
   category?: DeviceCategory | null
   locationId?: string | null   // UUID

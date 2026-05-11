@@ -90,7 +90,7 @@ class MockApiService {
       locationId: data.locationId ?? null,
       status: data.status ?? 'INVENTORY',
       category: data.category ?? null,
-      ownerType: data.ownerType,
+      ownerType: data.ownerType ?? null,
       name: data.name,
       serialNumber: data.serialNumber ?? null,
       macAddress: data.macAddress ?? null,

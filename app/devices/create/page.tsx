@@ -9,10 +9,25 @@ import {
   DeviceStatus,
   DeviceCategory,
   DeviceOwnerType,
+  VendorDTO,
+  DeviceType,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Select, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
+
+const CREATE_MODEL_SENTINEL = '__create_new__';
+
+const DEVICE_TYPE_OPTIONS = [
+  { value: '', label: 'Seleccionar tipo' },
+  { value: 'ANTENNA', label: 'Antena' },
+  { value: 'OTHER', label: 'Otro' },
+  { value: 'RADIO', label: 'Radio' },
+  { value: 'ROUTER', label: 'Router' },
+  { value: 'ROUTERBOARD', label: 'Routerboard' },
+  { value: 'SERVER', label: 'Servidor' },
+  { value: 'SWITCH', label: 'Switch' },
+];
 
 export default function CreateDevicePage() {
   const router = useRouter();
@@ -20,12 +35,21 @@ export default function CreateDevicePage() {
   const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const [deviceModels, setDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
+  const [vendors, setVendors] = useState<VendorDTO[]>([]);
+  const [allDeviceModels, setAllDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
   const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
+  // Inline "create model" form state
+  const [showInlineModelForm, setShowInlineModelForm] = useState(false);
+  const [inlineModelForm, setInlineModelForm] = useState({ model: '', deviceType: '' as DeviceType | '' });
+  const [inlineModelErrors, setInlineModelErrors] = useState<Record<string, string>>({});
+  const [isCreatingModel, setIsCreatingModel] = useState(false);
+  const [inlineModelError, setInlineModelError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
+    selectedVendorId: '',
     deviceModelId: '',
     name: '',
     ownerType: '' as DeviceOwnerType | '',
@@ -37,21 +61,27 @@ export default function CreateDevicePage() {
     serialNumber: '',
     locationId: '',
     installedDate: '',
-    description: ''
+    description: '',
   });
 
   useEffect(() => {
     const loadOptions = async () => {
-      const [modelsRes, locationsRes] = await Promise.all([
+      const [vendorsRes, modelsRes, locationsRes] = await Promise.all([
+        apiService.listVendors({ limit: 100 }),
         apiService.listDeviceModels({ limit: 100 }),
-        apiService.listLocations({ limit: 100 })
+        apiService.listLocations({ limit: 100 }),
       ]);
-      if (modelsRes.success && modelsRes.data) setDeviceModels(modelsRes.data.deviceModels);
+      if (vendorsRes.success && vendorsRes.data) setVendors(vendorsRes.data.vendors);
+      if (modelsRes.success && modelsRes.data) setAllDeviceModels(modelsRes.data.deviceModels);
       if (locationsRes.success && locationsRes.data) setLocations(locationsRes.data.locations);
       setLoadingOptions(false);
     };
     loadOptions();
   }, []);
+
+  const filteredModels = formData.selectedVendorId
+    ? allDeviceModels.filter((m) => m.vendorId === formData.selectedVendorId)
+    : [];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -62,11 +92,77 @@ export default function CreateDevicePage() {
     }
   };
 
+  const handleVendorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const vendorId = e.target.value;
+    setFormData((prev) => ({ ...prev, selectedVendorId: vendorId, deviceModelId: '' }));
+    setShowInlineModelForm(false);
+    setInlineModelForm({ model: '', deviceType: '' });
+    setInlineModelErrors({});
+    setInlineModelError(null);
+    if (formErrors.selectedVendorId) {
+      setFormErrors((prev) => { const n = { ...prev }; delete n.selectedVendorId; return n; });
+    }
+  };
+
+  const handleModelSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === CREATE_MODEL_SENTINEL) {
+      setShowInlineModelForm(true);
+      setFormData((prev) => ({ ...prev, deviceModelId: '' }));
+    } else {
+      setShowInlineModelForm(false);
+      setInlineModelForm({ model: '', deviceType: '' });
+      setInlineModelErrors({});
+      setInlineModelError(null);
+      setFormData((prev) => ({ ...prev, deviceModelId: value }));
+    }
+    if (formErrors.deviceModelId) {
+      setFormErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
+    }
+  };
+
+  const handleInlineModelChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setInlineModelForm((prev) => ({ ...prev, [name]: value }));
+    if (inlineModelErrors[name]) {
+      setInlineModelErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
+    }
+  };
+
+  const handleCreateModel = async () => {
+    const errors: Record<string, string> = {};
+    if (!inlineModelForm.model.trim()) errors.model = 'El nombre del modelo es requerido';
+    if (!inlineModelForm.deviceType) errors.deviceType = 'El tipo de dispositivo es requerido';
+    setInlineModelErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setIsCreatingModel(true);
+    setInlineModelError(null);
+
+    const result = await apiService.createDeviceModel({
+      vendorId: formData.selectedVendorId,
+      model: inlineModelForm.model.trim(),
+      deviceType: inlineModelForm.deviceType as DeviceType,
+    });
+
+    if (result.success && result.data) {
+      const newModel = result.data;
+      setAllDeviceModels((prev) => [...prev, newModel]);
+      setFormData((prev) => ({ ...prev, deviceModelId: newModel.id }));
+      setShowInlineModelForm(false);
+      setInlineModelForm({ model: '', deviceType: '' });
+      setInlineModelErrors({});
+    } else {
+      setInlineModelError(result.error || 'Error al crear el modelo');
+    }
+    setIsCreatingModel(false);
+  };
+
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
-    if (!formData.ownerType) errors.ownerType = 'El tipo de propietario es requerido';
+    if (!formData.selectedVendorId) errors.selectedVendorId = 'El fabricante es requerido';
+    if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
     if (!formData.ipAddress.trim()) errors.ipAddress = 'La dirección IP es requerida';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -81,8 +177,8 @@ export default function CreateDevicePage() {
     const dto: CreateDeviceDTO = {
       deviceModelId: formData.deviceModelId,
       name: formData.name.trim(),
-      ownerType: formData.ownerType as DeviceOwnerType
     };
+    if (formData.ownerType) dto.ownerType = formData.ownerType as DeviceOwnerType;
 
     if (formData.status) dto.status = formData.status as DeviceStatus;
     if (formData.category) dto.category = formData.category as DeviceCategory;
@@ -100,7 +196,7 @@ export default function CreateDevicePage() {
       if (formData.monitoringEnabled) {
         await apiService.createPollingConfig(result.data.id, {
           enabled: true,
-          ipAddress: dto.ipAddress ?? null
+          ipAddress: dto.ipAddress ?? null,
         });
       }
       router.replace(`/devices/${result.data.id}`);
@@ -109,6 +205,18 @@ export default function CreateDevicePage() {
       setIsSubmitting(false);
     }
   };
+
+  // Build model select options: models for selected vendor + create option
+  const modelSelectOptions = [
+    { value: '', label: formData.selectedVendorId ? 'Seleccionar modelo' : 'Primero selecciona un fabricante' },
+    ...filteredModels.map((m) => ({ value: m.id, label: `${m.model} (${m.deviceType})` })),
+    ...(formData.selectedVendorId
+      ? [{ value: CREATE_MODEL_SENTINEL, label: '+ Crear nuevo modelo' }]
+      : []),
+  ];
+
+  // Value shown in model select when inline form is open
+  const modelSelectValue = showInlineModelForm ? CREATE_MODEL_SENTINEL : formData.deviceModelId;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -134,31 +242,14 @@ export default function CreateDevicePage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Required */}
+          {/* Información Requerida */}
           <Card>
             <Card.Header>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información Requerida</h2>
             </Card.Header>
             <Card.Body>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <Select
-                    label="Modelo de Dispositivo"
-                    name="deviceModelId"
-                    value={formData.deviceModelId}
-                    onChange={handleChange}
-                    options={[
-                      { value: '', label: 'Seleccionar modelo' },
-                      ...deviceModels.map((m) => ({
-                        value: m.id,
-                        label: `${m.vendorName} — ${m.model} (${m.deviceType})`
-                      }))
-                    ]}
-                    error={formErrors.deviceModelId}
-                    required
-                    fullWidth
-                  />
-                </div>
+              <div className="space-y-4">
+                {/* Name — full width */}
                 <Input
                   label="Nombre"
                   name="name"
@@ -169,17 +260,105 @@ export default function CreateDevicePage() {
                   required
                   fullWidth
                 />
+
+                {/* Vendor — full width */}
                 <Select
-                  label="Tipo de Propietario"
-                  name="ownerType"
-                  value={formData.ownerType}
-                  onChange={handleChange}
+                  label="Fabricante"
+                  name="selectedVendorId"
+                  value={formData.selectedVendorId}
+                  onChange={handleVendorChange}
                   options={[
-                    { value: '', label: 'Seleccionar tipo' },
-                    { value: 'COMPANY', label: 'Empresa' },
-                    { value: 'CLIENT', label: 'Cliente' }
+                    { value: '', label: 'Seleccionar fabricante' },
+                    ...vendors.map((v) => ({ value: v.id, label: v.name })),
                   ]}
-                  error={formErrors.ownerType}
+                  error={formErrors.selectedVendorId}
+                  required
+                  fullWidth
+                />
+
+                {/* Model — full width */}
+                <div className="w-full">
+                  <Select
+                    label="Modelo"
+                    name="deviceModelId"
+                    value={modelSelectValue}
+                    onChange={handleModelSelectChange}
+                    options={modelSelectOptions}
+                    error={formErrors.deviceModelId}
+                    required
+                    disabled={!formData.selectedVendorId}
+                    fullWidth
+                  />
+
+                  {/* Inline create model form */}
+                  {showInlineModelForm && (
+                    <div className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo para este fabricante</p>
+
+                      {inlineModelError && (
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2">
+                          <p className="text-sm text-red-800 dark:text-red-400">{inlineModelError}</p>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input
+                          label="Nombre del modelo"
+                          name="model"
+                          value={inlineModelForm.model}
+                          onChange={handleInlineModelChange}
+                          placeholder="RB450G"
+                          error={inlineModelErrors.model}
+                          fullWidth
+                        />
+                        <Select
+                          label="Tipo de dispositivo"
+                          name="deviceType"
+                          value={inlineModelForm.deviceType}
+                          onChange={handleInlineModelChange}
+                          options={DEVICE_TYPE_OPTIONS}
+                          error={inlineModelErrors.deviceType}
+                          fullWidth
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleCreateModel}
+                          isLoading={isCreatingModel}
+                        >
+                          Crear Modelo
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setShowInlineModelForm(false);
+                            setInlineModelForm({ model: '', deviceType: '' });
+                            setInlineModelErrors({});
+                            setInlineModelError(null);
+                            setFormData((prev) => ({ ...prev, deviceModelId: '' }));
+                          }}
+                          disabled={isCreatingModel}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* IP Address — full width */}
+                <Input
+                  label="Dirección IP"
+                  name="ipAddress"
+                  value={formData.ipAddress}
+                  onChange={handleChange}
+                  placeholder="192.168.1.100"
+                  error={formErrors.ipAddress}
                   required
                   fullWidth
                 />
@@ -187,7 +366,7 @@ export default function CreateDevicePage() {
             </Card.Body>
           </Card>
 
-          {/* Classification */}
+          {/* Clasificación */}
           <Card>
             <Card.Header>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clasificación</h2>
@@ -205,7 +384,7 @@ export default function CreateDevicePage() {
                     { value: 'ACTIVE', label: 'Activo' },
                     { value: 'MAINTENANCE', label: 'Mantenimiento' },
                     { value: 'DAMAGED', label: 'Dañado' },
-                    { value: 'DECOMMISSIONED', label: 'Descomisionado' }
+                    { value: 'DECOMMISSIONED', label: 'Descomisionado' },
                   ]}
                   fullWidth
                 />
@@ -220,8 +399,21 @@ export default function CreateDevicePage() {
                     { value: 'DISTRIBUTION', label: 'Distribución' },
                     { value: 'POE', label: 'PoE' },
                     { value: 'ACCESS_POINT', label: 'Punto de Acceso' },
-                    { value: 'CLIENT_CPE', label: 'CPE Cliente' }
+                    { value: 'CLIENT_CPE', label: 'CPE Cliente' },
                   ]}
+                  fullWidth
+                />
+                <Select
+                  label="Tipo de Propietario"
+                  name="ownerType"
+                  value={formData.ownerType}
+                  onChange={handleChange}
+                  options={[
+                    { value: '', label: 'Seleccionar tipo' },
+                    { value: 'COMPANY', label: 'Empresa' },
+                    { value: 'CLIENT', label: 'Cliente' },
+                  ]}
+                  error={formErrors.ownerType}
                   fullWidth
                 />
                 <div className="flex items-center gap-2 pt-6">
@@ -234,30 +426,20 @@ export default function CreateDevicePage() {
                     className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
                   />
                   <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Habilitar monitoreo
+                    Monitoreo
                   </label>
                 </div>
               </div>
             </Card.Body>
           </Card>
 
-          {/* Network */}
+          {/* Detalles de Red */}
           <Card>
             <Card.Header>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Detalles de Red</h2>
             </Card.Header>
             <Card.Body>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Dirección IP"
-                  name="ipAddress"
-                  value={formData.ipAddress}
-                  onChange={handleChange}
-                  placeholder="192.168.1.100"
-                  error={formErrors.ipAddress}
-                  required
-                  fullWidth
-                />
                 <Input
                   label="Dirección MAC"
                   name="macAddress"
@@ -277,7 +459,7 @@ export default function CreateDevicePage() {
             </Card.Body>
           </Card>
 
-          {/* Location & Metadata */}
+          {/* Ubicación y Metadatos */}
           <Card>
             <Card.Header>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Ubicación y Metadatos</h2>
@@ -295,7 +477,7 @@ export default function CreateDevicePage() {
                       onChange={handleChange}
                       options={[
                         { value: '', label: 'Sin ubicación' },
-                        ...locations.map((l) => ({ value: l.id, label: l.name }))
+                        ...locations.map((l) => ({ value: l.id, label: l.name })),
                       ]}
                       fullWidth
                     />

@@ -33,7 +33,7 @@ export interface DeviceResponseDTO {
   locationId: string | null;
   status: DeviceStatus;
   category: DeviceCategory | null;
-  ownerType: DeviceOwnerType;
+  ownerType: DeviceOwnerType | null;
   name: string;
   serialNumber: string | null;
   macAddress: string | null;
@@ -48,7 +48,7 @@ export interface DeviceResponseDTO {
 export interface CreateDeviceDTO {
   deviceModelId: string;
   name: string;
-  ownerType: DeviceOwnerType;
+  ownerType?: DeviceOwnerType | null;
   status?: DeviceStatus;
   category?: DeviceCategory | null;
   locationId?: string | null;

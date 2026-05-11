@@ -162,8 +162,8 @@ export function useDevices() {
           aVal = a.category ?? '';
           bVal = b.category ?? '';
         } else if (sortField === 'owner') {
-          aVal = a.ownerType;
-          bVal = b.ownerType;
+          aVal = a.ownerType ?? '';
+          bVal = b.ownerType ?? '';
         } else if (sortField === 'ip') {
           aVal = a.ipAddress ?? '';
           bVal = b.ipAddress ?? '';
