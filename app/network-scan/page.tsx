@@ -1,13 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import {
   DeviceModelResponseDTO,
+  DeviceResponseDTO,
   DeviceOwnerType,
+  DeviceStatus,
+  DeviceCategory,
+  DeviceType,
   CreateDeviceDTO,
+  VendorDTO,
 } from '@/types/device.types';
+import { LocationResponseDTO } from '@/types/location.types';
 import { DiscoveredHost, NetworkScanResult } from '@/types/network-scan.types';
 import {
   Button,
@@ -18,6 +25,11 @@ import {
   LoadingSpinner,
   Modal,
 } from '@/components/ui';
+import { LocationCreateModal } from '@/components/LocationCreateModal';
+
+function normalizeMac(mac: string): string {
+  return mac.replace(/[:\-\.]/g, '').toUpperCase();
+}
 
 function isValidCidr(value: string): boolean {
   const cidrRe = /^(\d{1,3}\.){3}\d{1,3}\/(\d|[1-2]\d|3[0-2])$/;
@@ -28,35 +40,204 @@ function isValidCidr(value: string): boolean {
   return Number(prefix) >= 0 && Number(prefix) <= 32;
 }
 
+const CREATE_MODEL_SENTINEL = '__create_new__';
+
+const DEVICE_TYPE_OPTIONS = [
+  { value: '', label: 'Seleccionar tipo' },
+  { value: 'ANTENNA', label: 'Antena' },
+  { value: 'OTHER', label: 'Otro' },
+  { value: 'RADIO', label: 'Radio' },
+  { value: 'ROUTER', label: 'Router' },
+  { value: 'ROUTERBOARD', label: 'Routerboard' },
+  { value: 'SERVER', label: 'Servidor' },
+  { value: 'SWITCH', label: 'Switch' },
+];
+
+const MANUFACTURER_ALIASES: Record<string, string> = {
+  'routerboard': 'mikrotik',
+  'mikrotik': 'mikrotik',
+  'ubiquiti': 'ubiquiti',
+  'mimosa': 'mimosa',
+  'cambium': 'cambium',
+  'cisco': 'cisco',
+  'tp-link': 'tp-link',
+  'tplink': 'tp-link',
+  'huawei': 'huawei',
+  'zyxel': 'zyxel',
+  'netgear': 'netgear',
+  'ligowave': 'ligowave',
+  'radwin': 'radwin',
+  'siklu': 'siklu',
+};
+
+function guessVendorId(manufacturer: string | null, vendors: VendorDTO[]): string {
+  if (!manufacturer || vendors.length === 0) return '';
+  const raw = manufacturer.toLowerCase();
+
+  for (const [keyword, target] of Object.entries(MANUFACTURER_ALIASES)) {
+    if (raw.includes(keyword)) {
+      const match = vendors.find((v) => v.name.toLowerCase().includes(target));
+      if (match) return match.id;
+    }
+  }
+
+  const found = vendors.find((v) => raw.includes(v.name.toLowerCase()));
+  return found?.id ?? '';
+}
+
+interface SectionProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function Section({ title, children }: SectionProps) {
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2.5 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{title}</h3>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
 interface AddDeviceModalProps {
   host: DiscoveredHost;
+  vendors: VendorDTO[];
   deviceModels: DeviceModelResponseDTO[];
+  locations: LocationResponseDTO[];
+  onLocationCreated: (loc: LocationResponseDTO) => void;
   onClose: () => void;
   onAdded: (ip: string) => void;
 }
 
-function AddDeviceModal({ host, deviceModels, onClose, onAdded }: AddDeviceModalProps) {
+function AddDeviceModal({
+  host,
+  vendors,
+  deviceModels,
+  locations,
+  onLocationCreated,
+  onClose,
+  onAdded,
+}: AddDeviceModalProps) {
   const router = useRouter();
+
+  const [selectedVendorId, setSelectedVendorId] = useState(() =>
+    guessVendorId(host.manufacturer, vendors)
+  );
+
   const [form, setForm] = useState({
     name: '',
     deviceModelId: '',
+    ipAddress: host.ipAddress,
+    macAddress: host.macAddress ?? '',
     ownerType: '' as DeviceOwnerType | '',
+    status: 'ACTIVE' as DeviceStatus | '',
+    category: '' as DeviceCategory | '',
+    monitoringEnabled: false,
+    serialNumber: '',
+    locationId: '',
+    installedDate: '',
+    description: '',
   });
+
+  const [showInlineModelForm, setShowInlineModelForm] = useState(false);
+  const [inlineModelForm, setInlineModelForm] = useState({ model: '', deviceType: '' as DeviceType | '' });
+  const [inlineModelErrors, setInlineModelErrors] = useState<Record<string, string>>({});
+  const [isCreatingModel, setIsCreatingModel] = useState(false);
+  const [inlineModelError, setInlineModelError] = useState<string | null>(null);
+
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const filteredModels = selectedVendorId
+    ? deviceModels.filter((m) => m.vendorId === selectedVendorId)
+    : deviceModels;
+
+  const modelSelectOptions = [
+    { value: '', label: selectedVendorId ? 'Seleccionar modelo' : 'Seleccionar modelo (todos)' },
+    ...filteredModels.map((m) => ({
+      value: m.id,
+      label: selectedVendorId ? `${m.model} (${m.deviceType})` : `${m.vendorName} — ${m.model}`,
+    })),
+    ...(selectedVendorId ? [{ value: CREATE_MODEL_SENTINEL, label: '+ Crear nuevo modelo' }] : []),
+  ];
+
+  const modelSelectValue = showInlineModelForm ? CREATE_MODEL_SENTINEL : form.deviceModelId;
+
+  const handleVendorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedVendorId(e.target.value);
+    setForm((prev) => ({ ...prev, deviceModelId: '' }));
+    setShowInlineModelForm(false);
+    setInlineModelForm({ model: '', deviceType: '' });
+    setInlineModelErrors({});
+    setInlineModelError(null);
+    if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
+  };
+
+  const handleModelSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === CREATE_MODEL_SENTINEL) {
+      setShowInlineModelForm(true);
+      setForm((prev) => ({ ...prev, deviceModelId: '' }));
+    } else {
+      setShowInlineModelForm(false);
+      setInlineModelForm({ model: '', deviceType: '' });
+      setInlineModelErrors({});
+      setInlineModelError(null);
+      setForm((prev) => ({ ...prev, deviceModelId: value }));
+    }
+    if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
+  };
+
+  const handleInlineModelChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setInlineModelForm((prev) => ({ ...prev, [name]: value }));
+    if (inlineModelErrors[name]) setInlineModelErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
+  };
+
+  const handleCreateModel = async () => {
+    const errs: Record<string, string> = {};
+    if (!inlineModelForm.model.trim()) errs.model = 'El nombre del modelo es requerido';
+    if (!inlineModelForm.deviceType) errs.deviceType = 'El tipo de dispositivo es requerido';
+    setInlineModelErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    setIsCreatingModel(true);
+    setInlineModelError(null);
+
+    const result = await apiService.createDeviceModel({
+      vendorId: selectedVendorId,
+      model: inlineModelForm.model.trim(),
+      deviceType: inlineModelForm.deviceType as DeviceType,
+    });
+
+    if (result.success && result.data) {
+      const newModel = result.data;
+      setForm((prev) => ({ ...prev, deviceModelId: newModel.id }));
+      setShowInlineModelForm(false);
+      setInlineModelForm({ model: '', deviceType: '' });
+      setInlineModelErrors({});
+    } else {
+      setInlineModelError(result.error || 'Error al crear el modelo');
+    }
+    setIsCreatingModel(false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     if (errors[name]) setErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
   };
 
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'El nombre es requerido';
+    if (!selectedVendorId) e.selectedVendorId = 'El fabricante es requerido';
     if (!form.deviceModelId) e.deviceModelId = 'El modelo es requerido';
-    if (!form.ownerType) e.ownerType = 'El tipo de propietario es requerido';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -70,14 +251,26 @@ function AddDeviceModal({ host, deviceModels, onClose, onAdded }: AddDeviceModal
     const dto: CreateDeviceDTO = {
       name: form.name.trim(),
       deviceModelId: form.deviceModelId,
-      ownerType: form.ownerType as DeviceOwnerType,
-      ipAddress: host.ipAddress,
-      macAddress: host.macAddress ?? undefined,
-      status: 'ACTIVE',
+      ipAddress: form.ipAddress.trim() || undefined,
+      macAddress: form.macAddress.trim() || undefined,
+      status: (form.status || 'ACTIVE') as DeviceStatus,
     };
+    if (form.ownerType) dto.ownerType = form.ownerType as DeviceOwnerType;
+    if (form.category) dto.category = form.category as DeviceCategory;
+    dto.monitoringEnabled = form.monitoringEnabled;
+    if (form.serialNumber.trim()) dto.serialNumber = form.serialNumber.trim();
+    if (form.locationId) dto.locationId = form.locationId;
+    if (form.installedDate) dto.installedDate = new Date(form.installedDate).toISOString();
+    if (form.description.trim()) dto.description = form.description.trim();
 
     const res = await apiService.createDevice(dto);
     if (res.success && res.data) {
+      if (form.monitoringEnabled) {
+        await apiService.createPollingConfig(res.data.id, {
+          enabled: true,
+          ipAddress: dto.ipAddress ?? null,
+        });
+      }
       onAdded(host.ipAddress);
       router.push(`/devices/${res.data.id}`);
     } else {
@@ -87,72 +280,282 @@ function AddDeviceModal({ host, deviceModels, onClose, onAdded }: AddDeviceModal
   };
 
   return (
-    <Modal isOpen onClose={onClose} title="Agregar Dispositivo" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {apiError && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-            <p className="text-sm text-red-800 dark:text-red-400">{apiError}</p>
+    <>
+      <Modal isOpen onClose={onClose} title="Agregar Dispositivo" size="xl">
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          {/* Scrollable body */}
+          <div className="overflow-y-auto max-h-[calc(100vh-16rem)] space-y-4 pr-1">
+            {apiError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                <p className="text-sm text-red-800 dark:text-red-400">{apiError}</p>
+              </div>
+            )}
+
+            {/* Información Requerida */}
+            <Section title="Información Requerida">
+              <div className="space-y-4">
+                <Input
+                  label="Nombre"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder="Router-Core-01"
+                  error={errors.name}
+                  required
+                  fullWidth
+                />
+
+                <Select
+                  label="Fabricante"
+                  value={selectedVendorId}
+                  onChange={handleVendorChange}
+                  options={[
+                    { value: '', label: 'Seleccionar fabricante' },
+                    ...vendors.map((v) => ({ value: v.id, label: v.name })),
+                  ]}
+                  error={errors.selectedVendorId}
+                  required
+                  fullWidth
+                />
+
+                {host.manufacturer && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+                    Detectado: <span className="font-medium text-gray-700 dark:text-gray-300">{host.manufacturer}</span>
+                  </p>
+                )}
+
+                <div>
+                  <Select
+                    label="Modelo"
+                    value={modelSelectValue}
+                    onChange={handleModelSelectChange}
+                    options={modelSelectOptions}
+                    error={errors.deviceModelId}
+                    required
+                    disabled={!selectedVendorId}
+                    fullWidth
+                  />
+
+                  {showInlineModelForm && (
+                    <div className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo para este fabricante</p>
+
+                      {inlineModelError && (
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2">
+                          <p className="text-sm text-red-800 dark:text-red-400">{inlineModelError}</p>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input
+                          label="Nombre del modelo"
+                          name="model"
+                          value={inlineModelForm.model}
+                          onChange={handleInlineModelChange}
+                          placeholder="RB450G"
+                          error={inlineModelErrors.model}
+                          fullWidth
+                        />
+                        <Select
+                          label="Tipo de dispositivo"
+                          name="deviceType"
+                          value={inlineModelForm.deviceType}
+                          onChange={handleInlineModelChange}
+                          options={DEVICE_TYPE_OPTIONS}
+                          error={inlineModelErrors.deviceType}
+                          fullWidth
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button type="button" size="sm" onClick={handleCreateModel} isLoading={isCreatingModel}>
+                          Crear Modelo
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setShowInlineModelForm(false);
+                            setInlineModelForm({ model: '', deviceType: '' });
+                            setInlineModelErrors({});
+                            setInlineModelError(null);
+                            setForm((prev) => ({ ...prev, deviceModelId: '' }));
+                          }}
+                          disabled={isCreatingModel}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Section>
+
+            {/* Clasificación */}
+            <Section title="Clasificación">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select
+                  label="Estado"
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  options={[
+                    { value: 'ACTIVE', label: 'Activo' },
+                    { value: 'INVENTORY', label: 'Inventario' },
+                    { value: 'DAMAGED', label: 'Dañado' },
+                  ]}
+                  fullWidth
+                />
+                <Select
+                  label="Categoría"
+                  name="category"
+                  value={form.category}
+                  onChange={handleChange}
+                  options={[
+                    { value: '', label: 'Ninguna' },
+                    { value: 'CPE', label: 'CPE (Cliente)' },
+                    { value: 'AP', label: 'Punto de Acceso (AP)' },
+                    { value: 'ROUTERBOARD', label: 'Routerboard' },
+                    { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
+                    { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
+                    { value: 'OTHER', label: 'Otro' },
+                  ]}
+                  fullWidth
+                />
+                <Select
+                  label="Tipo de Propietario"
+                  name="ownerType"
+                  value={form.ownerType}
+                  onChange={handleChange}
+                  options={[
+                    { value: '', label: 'Seleccionar tipo' },
+                    { value: 'COMPANY', label: 'Empresa' },
+                    { value: 'CLIENT', label: 'Cliente' },
+                  ]}
+                  error={errors.ownerType}
+                  fullWidth
+                />
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="monitoringEnabled"
+                    name="monitoringEnabled"
+                    checked={form.monitoringEnabled}
+                    onChange={handleChange}
+                    className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Monitoreo
+                  </label>
+                </div>
+              </div>
+            </Section>
+
+            {/* Detalles de Red */}
+            <Section title="Detalles de Red">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Dirección IP"
+                  name="ipAddress"
+                  value={form.ipAddress}
+                  onChange={handleChange}
+                  placeholder="192.168.1.100"
+                  disabled={!!host.ipAddress}
+                  fullWidth
+                />
+                <Input
+                  label="Dirección MAC"
+                  name="macAddress"
+                  value={form.macAddress}
+                  onChange={handleChange}
+                  placeholder="AA:BB:CC:DD:EE:FF"
+                  disabled={!!host.macAddress}
+                  fullWidth
+                />
+                <Input
+                  label="Número de Serie"
+                  name="serialNumber"
+                  value={form.serialNumber}
+                  onChange={handleChange}
+                  fullWidth
+                />
+              </div>
+            </Section>
+
+            {/* Ubicación y Metadatos */}
+            <Section title="Ubicación y Metadatos">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Ubicación
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      name="locationId"
+                      value={form.locationId}
+                      onChange={handleChange}
+                      options={[
+                        { value: '', label: 'Sin ubicación' },
+                        ...locations.map((l) => ({ value: l.id, label: l.name })),
+                      ]}
+                      fullWidth
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationModal(true)}
+                      className="flex-shrink-0 w-9 h-9 rounded-md border border-gray-400 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center text-xl font-medium"
+                      title="Crear nueva ubicación"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <Input
+                  label="Fecha de Instalación"
+                  name="installedDate"
+                  type="date"
+                  value={form.installedDate}
+                  onChange={handleChange}
+                  fullWidth
+                />
+                <div className="sm:col-span-2">
+                  <Input
+                    label="Descripción"
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    placeholder="Descripción opcional"
+                    fullWidth
+                  />
+                </div>
+              </div>
+            </Section>
           </div>
-        )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Dirección IP" value={host.ipAddress} disabled fullWidth />
-          <Input label="MAC" value={host.macAddress ?? '—'} disabled fullWidth />
-        </div>
+          {/* Pinned footer */}
+          <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" isLoading={submitting}>
+              Crear Dispositivo
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-        <Input
-          label="Nombre"
-          name="name"
-          value={form.name}
-          onChange={handleChange}
-          placeholder="Router-01"
-          error={errors.name}
-          required
-          fullWidth
-        />
-
-        <Select
-          label="Modelo de Dispositivo"
-          name="deviceModelId"
-          value={form.deviceModelId}
-          onChange={handleChange}
-          options={[
-            { value: '', label: 'Seleccionar modelo' },
-            ...deviceModels.map((m) => ({
-              value: m.id,
-              label: `${m.vendorName} — ${m.model}`,
-            })),
-          ]}
-          error={errors.deviceModelId}
-          required
-          fullWidth
-        />
-
-        <Select
-          label="Tipo de Propietario"
-          name="ownerType"
-          value={form.ownerType}
-          onChange={handleChange}
-          options={[
-            { value: '', label: 'Seleccionar tipo' },
-            { value: 'COMPANY', label: 'Empresa' },
-            { value: 'CLIENT', label: 'Cliente' },
-          ]}
-          error={errors.ownerType}
-          required
-          fullWidth
-        />
-
-        <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button type="submit" isLoading={submitting}>
-            Crear Dispositivo
-          </Button>
-        </div>
-      </form>
-    </Modal>
+      <LocationCreateModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onCreated={(loc) => {
+          onLocationCreated(loc);
+          setForm((prev) => ({ ...prev, locationId: loc.id }));
+          setShowLocationModal(false);
+        }}
+      />
+    </>
   );
 }
 
@@ -163,13 +566,24 @@ export default function NetworkScanPage() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [result, setResult] = useState<NetworkScanResult | null>(null);
 
+  const [vendors, setVendors] = useState<VendorDTO[]>([]);
   const [deviceModels, setDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
+  const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
   const [addingHost, setAddingHost] = useState<DiscoveredHost | null>(null);
   const [addedIps, setAddedIps] = useState<Set<string>>(new Set());
+  // Maps for detecting already-registered devices: ip → device, normalizedMac → device
+  const [devicesByIp, setDevicesByIp] = useState<Map<string, DeviceResponseDTO>>(new Map());
+  const [devicesByMac, setDevicesByMac] = useState<Map<string, DeviceResponseDTO>>(new Map());
 
   useEffect(() => {
-    apiService.listDeviceModels({ limit: 100 }).then((res) => {
-      if (res.success && res.data) setDeviceModels(res.data.deviceModels);
+    Promise.all([
+      apiService.listVendors({ limit: 100 }),
+      apiService.listDeviceModels({ limit: 100 }),
+      apiService.listLocations({ limit: 100 }),
+    ]).then(([vendorsRes, modelsRes, locationsRes]) => {
+      if (vendorsRes.success && vendorsRes.data) setVendors(vendorsRes.data.vendors);
+      if (modelsRes.success && modelsRes.data) setDeviceModels(modelsRes.data.deviceModels);
+      if (locationsRes.success && locationsRes.data) setLocations(locationsRes.data.locations);
     });
   }, []);
 
@@ -183,11 +597,26 @@ export default function NetworkScanPage() {
     setScanError(null);
     setResult(null);
     setAddedIps(new Set());
+    setDevicesByIp(new Map());
+    setDevicesByMac(new Map());
     setIsScanning(true);
 
     const res = await apiService.scanNetwork({ segment: segment.trim() });
     if (res.success && res.data) {
       setResult(res.data);
+
+      // Fetch all registered devices to detect duplicates
+      const devRes = await apiService.listDevices({ limit: 1000 });
+      if (devRes.success && devRes.data) {
+        const byIp = new Map<string, DeviceResponseDTO>();
+        const byMac = new Map<string, DeviceResponseDTO>();
+        for (const d of devRes.data.devices) {
+          if (d.ipAddress) byIp.set(d.ipAddress, d);
+          if (d.macAddress) byMac.set(normalizeMac(d.macAddress), d);
+        }
+        setDevicesByIp(byIp);
+        setDevicesByMac(byMac);
+      }
     } else {
       setScanError(res.error || 'Error al escanear la red');
     }
@@ -281,19 +710,40 @@ export default function NetworkScanPage() {
                         </span>
                       </Table.Cell>
                       <Table.Cell>
-                        {addedIps.has(host.ipAddress) ? (
-                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                            Agregado
-                          </span>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setAddingHost(host)}
-                          >
-                            Agregar
-                          </Button>
-                        )}
+                        {(() => {
+                          const existingByIp = devicesByIp.get(host.ipAddress);
+                          const existingByMac = host.macAddress
+                            ? devicesByMac.get(normalizeMac(host.macAddress))
+                            : undefined;
+                          const existing = existingByIp ?? existingByMac;
+
+                          if (existing) {
+                            return (
+                              <Link
+                                href={`/devices/${existing.id}`}
+                                className="text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline"
+                              >
+                                Registrado →
+                              </Link>
+                            );
+                          }
+                          if (addedIps.has(host.ipAddress)) {
+                            return (
+                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                Agregado
+                              </span>
+                            );
+                          }
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAddingHost(host)}
+                            >
+                              Agregar
+                            </Button>
+                          );
+                        })()}
                       </Table.Cell>
                     </Table.Row>
                   ))
@@ -307,7 +757,10 @@ export default function NetworkScanPage() {
       {addingHost && (
         <AddDeviceModal
           host={addingHost}
+          vendors={vendors}
           deviceModels={deviceModels}
+          locations={locations}
+          onLocationCreated={(loc) => setLocations((prev) => [...prev, loc])}
           onClose={() => setAddingHost(null)}
           onAdded={(ip) => {
             setAddedIps((prev) => new Set(prev).add(ip));

@@ -53,13 +53,13 @@ function DevicesPageContent() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dispositivos</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">{deviceCountLabel}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -126,12 +126,12 @@ function DevicesPageContent() {
           <Table>
             <Table.Header>
               <Table.Head sortable onSort={() => handleSort('name')} sortDirection={sortField === 'name' ? sortDirection : null}>Nombre</Table.Head>
-              <Table.Head sortable onSort={() => handleSort('ip')} sortDirection={sortField === 'ip' ? sortDirection : null}>Dirección IP</Table.Head>
-              <Table.Head sortable onSort={() => handleSort('connectivity')} sortDirection={sortField === 'connectivity' ? sortDirection : null}>Conectividad</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('ip')} sortDirection={sortField === 'ip' ? sortDirection : null} className="hidden sm:table-cell">Dirección IP</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('connectivity')} sortDirection={sortField === 'connectivity' ? sortDirection : null} className="hidden md:table-cell">Conectividad</Table.Head>
               <Table.Head sortable onSort={() => handleSort('status')} sortDirection={sortField === 'status' ? sortDirection : null}>Estado</Table.Head>
-              <Table.Head sortable onSort={() => handleSort('category')} sortDirection={sortField === 'category' ? sortDirection : null}>Categoría</Table.Head>
-              <Table.Head sortable onSort={() => handleSort('owner')} sortDirection={sortField === 'owner' ? sortDirection : null}>Propietario</Table.Head>
-              <Table.Head>Acciones</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('category')} sortDirection={sortField === 'category' ? sortDirection : null} className="hidden lg:table-cell">Categoría</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('owner')} sortDirection={sortField === 'owner' ? sortDirection : null} className="hidden lg:table-cell">Propietario</Table.Head>
+              <Table.Head className="hidden sm:table-cell">Acciones</Table.Head>
             </Table.Header>
             <Table.Body>
               {sortedDevices.length === 0 ? (

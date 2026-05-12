@@ -14,9 +14,7 @@ import {
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Activo',
   INVENTORY: 'Inventario',
-  MAINTENANCE: 'Mantenimiento',
   DAMAGED: 'Dañado',
-  DECOMMISSIONED: 'Descomisionado',
 };
 
 const CONNECTIVITY_LABELS: Record<string, string> = {
@@ -41,7 +39,7 @@ export function DeviceTableRow({ device, pollingStatuses }: DeviceTableRowProps)
           <div className="text-xs text-gray-500 dark:text-gray-400">{device.serialNumber}</div>
         )}
       </Table.Cell>
-      <Table.Cell>
+      <Table.Cell className="hidden sm:table-cell">
         {device.ipAddress ? (
           <a
             href={`http://${device.ipAddress}`}
@@ -56,7 +54,7 @@ export function DeviceTableRow({ device, pollingStatuses }: DeviceTableRowProps)
           <span className="text-gray-400 dark:text-gray-500">—</span>
         )}
       </Table.Cell>
-      <Table.Cell>
+      <Table.Cell className="hidden md:table-cell">
         {device.monitoringEnabled ? (
           pollingStatuses[device.id] ? (
             <Badge variant={getPollingStatusBadgeVariant(pollingStatuses[device.id])}>
@@ -74,7 +72,7 @@ export function DeviceTableRow({ device, pollingStatuses }: DeviceTableRowProps)
           {STATUS_LABELS[device.status] ?? device.status}
         </Badge>
       </Table.Cell>
-      <Table.Cell>
+      <Table.Cell className="hidden lg:table-cell">
         {device.category ? (
           <span className="text-gray-900 dark:text-gray-100">
             {device.category.replace(/_/g, ' ')}
@@ -83,12 +81,12 @@ export function DeviceTableRow({ device, pollingStatuses }: DeviceTableRowProps)
           <span className="text-gray-400 dark:text-gray-500">—</span>
         )}
       </Table.Cell>
-      <Table.Cell>
+      <Table.Cell className="hidden lg:table-cell">
         <span className="text-gray-900 dark:text-gray-100">
-          {device.ownerType === 'COMPANY' ? 'Empresa' : 'Cliente'}
+          {device.ownerType === 'COMPANY' ? 'Empresa' : device.ownerType === 'CLIENT' ? 'Cliente' : '—'}
         </span>
       </Table.Cell>
-      <Table.Cell>
+      <Table.Cell className="hidden sm:table-cell">
         <Button
           size="sm"
           variant="outline"
