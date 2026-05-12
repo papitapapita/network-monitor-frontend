@@ -163,7 +163,19 @@ export default function CreateDevicePage() {
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
     if (!formData.selectedVendorId) errors.selectedVendorId = 'El fabricante es requerido';
     if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
-    if (!formData.ipAddress.trim()) errors.ipAddress = 'La dirección IP es requerida';
+
+    const status = (formData.status || 'INVENTORY') as DeviceStatus;
+    const hasCategory = !!formData.category;
+    const hasIp = !!formData.ipAddress.trim();
+    if ((hasCategory || status === 'ACTIVE') && !hasIp) {
+      errors.ipAddress = 'La dirección IP es requerida';
+    }
+    if (!hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
+      if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
+        errors.serialNumber = 'Se requiere número de serie o dirección MAC';
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -183,7 +195,7 @@ export default function CreateDevicePage() {
     if (formData.status) dto.status = formData.status as DeviceStatus;
     if (formData.category) dto.category = formData.category as DeviceCategory;
     dto.monitoringEnabled = formData.monitoringEnabled;
-    dto.ipAddress = formData.ipAddress.trim();
+    if (formData.ipAddress.trim()) dto.ipAddress = formData.ipAddress.trim();
     if (formData.macAddress.trim()) dto.macAddress = formData.macAddress.trim();
     if (formData.serialNumber.trim()) dto.serialNumber = formData.serialNumber.trim();
     if (formData.locationId) dto.locationId = formData.locationId;
@@ -351,7 +363,7 @@ export default function CreateDevicePage() {
                   )}
                 </div>
 
-                {/* IP Address — full width */}
+                {/* IP Address — required for ACTIVE status or any category */}
                 <Input
                   label="Dirección IP"
                   name="ipAddress"
@@ -359,7 +371,6 @@ export default function CreateDevicePage() {
                   onChange={handleChange}
                   placeholder="192.168.1.100"
                   error={formErrors.ipAddress}
-                  required
                   fullWidth
                 />
               </div>
@@ -382,9 +393,7 @@ export default function CreateDevicePage() {
                     { value: '', label: 'Por defecto (Inventario)' },
                     { value: 'INVENTORY', label: 'Inventario' },
                     { value: 'ACTIVE', label: 'Activo' },
-                    { value: 'MAINTENANCE', label: 'Mantenimiento' },
                     { value: 'DAMAGED', label: 'Dañado' },
-                    { value: 'DECOMMISSIONED', label: 'Descomisionado' },
                   ]}
                   fullWidth
                 />
@@ -395,11 +404,12 @@ export default function CreateDevicePage() {
                   onChange={handleChange}
                   options={[
                     { value: '', label: 'Ninguna' },
-                    { value: 'CORE', label: 'Núcleo' },
-                    { value: 'DISTRIBUTION', label: 'Distribución' },
-                    { value: 'POE', label: 'PoE' },
-                    { value: 'ACCESS_POINT', label: 'Punto de Acceso' },
-                    { value: 'CLIENT_CPE', label: 'CPE Cliente' },
+                    { value: 'CPE', label: 'CPE (Cliente)' },
+                    { value: 'AP', label: 'Punto de Acceso (AP)' },
+                    { value: 'ROUTERBOARD', label: 'Routerboard' },
+                    { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
+                    { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
+                    { value: 'OTHER', label: 'Otro' },
                   ]}
                   fullWidth
                 />
@@ -453,6 +463,7 @@ export default function CreateDevicePage() {
                   name="serialNumber"
                   value={formData.serialNumber}
                   onChange={handleChange}
+                  error={formErrors.serialNumber}
                   fullWidth
                 />
               </div>

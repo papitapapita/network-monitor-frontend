@@ -3,7 +3,7 @@ import { apiService } from '@/services/api.service';
 import { DeviceStatus } from '@/types/device.types';
 import { AlertDTO } from '@/types/alert.types';
 
-const ALL_STATUSES: DeviceStatus[] = ['ACTIVE', 'INVENTORY', 'MAINTENANCE', 'DAMAGED', 'DECOMMISSIONED'];
+const ALL_STATUSES: DeviceStatus[] = ['ACTIVE', 'INVENTORY', 'DAMAGED'];
 
 interface RecentDevice {
   id: string;

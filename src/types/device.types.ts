@@ -1,16 +1,15 @@
 export type DeviceStatus =
   | 'INVENTORY'
   | 'ACTIVE'
-  | 'MAINTENANCE'
-  | 'DAMAGED'
-  | 'DECOMMISSIONED';
+  | 'DAMAGED';
 
 export type DeviceCategory =
-  | 'CORE'
-  | 'DISTRIBUTION'
-  | 'POE'
-  | 'ACCESS_POINT'
-  | 'CLIENT_CPE';
+  | 'CPE'
+  | 'AP'
+  | 'ROUTERBOARD'
+  | 'SMART_SWITCH'
+  | 'SMART_SWITCH_POE'
+  | 'OTHER';
 
 export type DeviceOwnerType = 'COMPANY' | 'CLIENT';
 

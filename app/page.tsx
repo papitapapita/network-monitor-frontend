@@ -11,9 +11,7 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
   INVENTORY: 'Inventario',
-  MAINTENANCE: 'Mantenimiento',
   DAMAGED: 'Dañado',
-  DECOMMISSIONED: 'Descomisionado',
 };
 
 const SEVERITY_LABELS: Record<string, string> = {
@@ -57,9 +55,7 @@ export default function DashboardPage() {
   }
 
   const active = stats.byStatus.find((s) => s.status === 'ACTIVE')?.count ?? 0;
-  const issues =
-    (stats.byStatus.find((s) => s.status === 'MAINTENANCE')?.count ?? 0) +
-    (stats.byStatus.find((s) => s.status === 'DAMAGED')?.count ?? 0);
+  const issues = stats.byStatus.find((s) => s.status === 'DAMAGED')?.count ?? 0;
   const inventory = stats.byStatus.find((s) => s.status === 'INVENTORY')?.count ?? 0;
 /*  const monLabel = stats.connectivity.total === 1
     ? `1 dispositivo monitoreado`

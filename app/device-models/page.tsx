@@ -30,12 +30,10 @@ const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
 function DeviceModelsPageContent() {
   const router = useRouter();
 
-  const [models, setModels] = useState<DeviceModelResponseDTO[]>([]);
+  const [allModels, setAllModels] = useState<DeviceModelResponseDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalModels, setTotalModels] = useState(0);
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -45,20 +43,26 @@ function DeviceModelsPageContent() {
   const fetchModels = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const result = await apiService.listDeviceModels({
-      limit: LIMIT,
-      offset: (currentPage - 1) * LIMIT,
-    });
-    if (!result.success || !result.data) {
-      setError(result.error || 'Error al cargar modelos');
-      setIsLoading(false);
-      return;
+
+    const batches: DeviceModelResponseDTO[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const result = await apiService.listDeviceModels({ limit: 100, offset });
+      if (!result.success || !result.data) {
+        setError(result.error || 'Error al cargar modelos');
+        setIsLoading(false);
+        return;
+      }
+      batches.push(...result.data.deviceModels);
+      hasMore = result.data.hasMore;
+      offset += 100;
     }
-    setModels(result.data.deviceModels);
-    setTotalModels(result.data.total);
-    setTotalPages(Math.max(1, Math.ceil(result.data.total / LIMIT)));
+
+    setAllModels(batches);
     setIsLoading(false);
-  }, [currentPage]);
+  }, []);
 
   useEffect(() => {
     fetchModels();
@@ -70,7 +74,7 @@ function DeviceModelsPageContent() {
     setCurrentPage(1);
   };
 
-  const hasFilters = search || typeFilter;
+  const hasFilters = !!(search || typeFilter);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -79,11 +83,12 @@ function DeviceModelsPageContent() {
       setSortField(field);
       setSortDirection('asc');
     }
+    setCurrentPage(1);
   };
 
   const filtered = typeFilter
-    ? models.filter((m) => m.deviceType === typeFilter)
-    : models;
+    ? allModels.filter((m) => m.deviceType === typeFilter)
+    : allModels;
 
   const searched = search
     ? filtered.filter((m) =>
@@ -104,8 +109,12 @@ function DeviceModelsPageContent() {
       })
     : searched;
 
-  const countLabel = totalModels > 0
-    ? `${totalModels} ${totalModels === 1 ? 'modelo' : 'modelos'} en total`
+  const totalFiltered = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / LIMIT));
+  const paginated = sorted.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
+
+  const countLabel = allModels.length > 0
+    ? `${allModels.length} ${allModels.length === 1 ? 'modelo' : 'modelos'} en total`
     : 'Administra los modelos de dispositivos';
 
   return (
@@ -197,7 +206,7 @@ function DeviceModelsPageContent() {
               <Table.Head>Acciones</Table.Head>
             </Table.Header>
             <Table.Body>
-              {sorted.length === 0 ? (
+              {paginated.length === 0 ? (
                 <TableEmptyState
                   message={
                     hasFilters
@@ -206,7 +215,7 @@ function DeviceModelsPageContent() {
                   }
                 />
               ) : (
-                sorted.map((model) => (
+                paginated.map((model) => (
                   <Table.Row
                     key={model.id}
                     onClick={() => router.push(`/device-models/${model.id}`)}
@@ -240,11 +249,11 @@ function DeviceModelsPageContent() {
             </Table.Body>
           </Table>
 
-          {models.length > 0 && (
+          {totalFiltered > LIMIT && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              totalItems={totalModels}
+              totalItems={totalFiltered}
               itemsPerPage={LIMIT}
               onPageChange={setCurrentPage}
             />

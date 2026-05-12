@@ -16,6 +16,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showCloseButton?: boolean;
+  transparentBackdrop?: boolean;
 }
 
 interface ModalFooterProps {
@@ -36,7 +37,8 @@ export function Modal({
   title,
   children,
   size = 'md',
-  showCloseButton = true
+  showCloseButton = true,
+  transparentBackdrop = false,
 }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -72,7 +74,11 @@ export function Modal({
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+        className={`fixed inset-0 transition-opacity ${
+          transparentBackdrop
+            ? 'bg-black/40'
+            : 'bg-gray-500/75 dark:bg-gray-900/80'
+        }`}
         onClick={onClose}
       />
 
@@ -80,17 +86,18 @@ export function Modal({
       <div className="flex min-h-full items-center justify-center p-4">
         <div
           className={`
-            relative transform overflow-hidden rounded-lg bg-white
+            relative transform overflow-hidden rounded-lg
+            bg-white dark:bg-gray-800
             text-left shadow-xl transition-all w-full
             ${sizeClasses[size]}
           `}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="bg-white px-6 py-4 border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h3
-                className="text-lg font-semibold text-gray-900"
+                className="text-lg font-semibold text-gray-900 dark:text-gray-100"
                 id="modal-title"
               >
                 {title}
@@ -98,10 +105,10 @@ export function Modal({
               {showCloseButton && (
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors"
                   onClick={onClose}
                 >
-                  <span className="sr-only">Close</span>
+                  <span className="sr-only">Cerrar</span>
                   <svg
                     className="h-6 w-6"
                     fill="none"
@@ -121,7 +128,7 @@ export function Modal({
           </div>
 
           {/* Body */}
-          <div className="bg-white px-6 py-4">{children}</div>
+          <div className="bg-white dark:bg-gray-800 px-6 py-4">{children}</div>
         </div>
       </div>
     </div>
@@ -132,7 +139,8 @@ export function ModalFooter({ children, className = '' }: ModalFooterProps) {
   return (
     <div
       className={`
-        bg-gray-50 px-6 py-4 border-t border-gray-200
+        bg-gray-50 dark:bg-gray-800/50 px-6 py-4
+        border-t border-gray-200 dark:border-gray-700
         flex items-center justify-end gap-3
         ${className}
       `}

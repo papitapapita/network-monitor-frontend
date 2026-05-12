@@ -23,9 +23,7 @@ import { LocationCreateModal } from '@/components/LocationCreateModal';
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
   INVENTORY: 'Inventario',
-  MAINTENANCE: 'Mantenimiento',
   DAMAGED: 'Dañado',
-  DECOMMISSIONED: 'Descomisionado',
 };
 
 interface Props {
@@ -75,6 +73,19 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+
+    const status = (formData.status || 'INVENTORY') as DeviceStatus;
+    const hasCategory = !!formData.category;
+    const hasIp = !!formData.ipAddress.trim();
+    if ((hasCategory || status === 'ACTIVE') && !hasIp) {
+      errors.ipAddress = 'La dirección IP es requerida';
+    }
+    if (!hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
+      if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
+        errors.serialNumber = 'Se requiere número de serie o dirección MAC';
+      }
+    }
+
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -170,9 +181,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 options={[
                   { value: 'INVENTORY', label: 'Inventario' },
                   { value: 'ACTIVE', label: 'Activo' },
-                  { value: 'MAINTENANCE', label: 'Mantenimiento' },
                   { value: 'DAMAGED', label: 'Dañado' },
-                  { value: 'DECOMMISSIONED', label: 'Descomisionado' }
                 ]}
                 fullWidth
               />
@@ -183,17 +192,18 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 onChange={handleChange}
                 options={[
                   { value: '', label: 'Ninguna' },
-                  { value: 'CORE', label: 'Núcleo' },
-                  { value: 'DISTRIBUTION', label: 'Distribución' },
-                  { value: 'POE', label: 'PoE' },
-                  { value: 'ACCESS_POINT', label: 'Punto de Acceso' },
-                  { value: 'CLIENT_CPE', label: 'CPE Cliente' }
+                  { value: 'CPE', label: 'CPE (Cliente)' },
+                  { value: 'AP', label: 'Punto de Acceso (AP)' },
+                  { value: 'ROUTERBOARD', label: 'Routerboard' },
+                  { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
+                  { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
+                  { value: 'OTHER', label: 'Otro' },
                 ]}
                 fullWidth
               />
-              <Input label="Dirección IP" name="ipAddress" value={formData.ipAddress} onChange={handleChange} fullWidth />
+              <Input label="Dirección IP" name="ipAddress" value={formData.ipAddress} onChange={handleChange} error={formErrors.ipAddress} fullWidth />
               <Input label="Dirección MAC" name="macAddress" value={formData.macAddress} onChange={handleChange} fullWidth />
-              <Input label="Número de Serie" name="serialNumber" value={formData.serialNumber} onChange={handleChange} fullWidth />
+              <Input label="Número de Serie" name="serialNumber" value={formData.serialNumber} onChange={handleChange} error={formErrors.serialNumber} fullWidth />
               <div className="w-full">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación</label>
                 <div className="flex items-center gap-2">

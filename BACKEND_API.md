@@ -29,8 +29,8 @@ All API responses are wrapped:
 
 ```ts
 type LocationType   = 'TOWER' | 'NODE' | 'DATACENTER' | 'POP' | 'WAREHOUSE' | 'OFFICE'
-type DeviceStatus   = 'ACTIVE' | 'DAMAGED' | 'DECOMMISSIONED' | 'INVENTORY' | 'MAINTENANCE'
-type DeviceCategory = 'CORE' | 'DISTRIBUTION' | 'POE' | 'ACCESS_POINT' | 'CLIENT_CPE'
+type DeviceStatus   = 'ACTIVE' | 'DAMAGED' | 'INVENTORY'
+type DeviceCategory = 'CPE' | 'AP' | 'ROUTERBOARD' | 'SMART_SWITCH' | 'SMART_SWITCH_POE' | 'OTHER'
 type DeviceOwner    = 'COMPANY' | 'CLIENT'
 type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
 type PollingStatus      = 'SUCCESS' | 'FAILED' | 'SKIPPED'
@@ -199,18 +199,25 @@ type?:   LocationType
 {
   deviceModelId: string        // required, UUID
   name: string                 // required, 1–150 chars
-  ownerType?: DeviceOwner      // optional
+  ownerType?: DeviceOwner      // optional; omit or pass null → stored as null
   status?: DeviceStatus        // default: INVENTORY
   category?: DeviceCategory | null
   locationId?: string | null   // UUID
   serialNumber?: string | null // max 100 chars
-  macAddress?: string | null   // format AA:BB:CC:DD:EE:FF
+  macAddress?: string | null   // format AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF
   ipAddress?: string | null    // IPv4 or IPv6
   description?: string | null
   installedDate?: string | null // ISO 8601
   monitoringEnabled?: boolean  // default: false
 }
+```
 
+**Business rules:**
+- `INVENTORY` / `DAMAGED` status → at least one of `serialNumber` or `macAddress` required (status defaults to `INVENTORY`, so a minimal request must include at least one)
+- `ACTIVE` status → `ipAddress` required
+- Any `category` set → `ipAddress` required
+
+```ts
 // Response
 { success: true, data: DeviceDTO }
 ```

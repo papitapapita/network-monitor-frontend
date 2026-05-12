@@ -38,9 +38,7 @@ export function DeviceFilters({
             { value: '', label: 'Todos los Estados' },
             { value: 'INVENTORY', label: 'Inventario' },
             { value: 'ACTIVE', label: 'Activo' },
-            { value: 'MAINTENANCE', label: 'Mantenimiento' },
             { value: 'DAMAGED', label: 'Dañado' },
-            { value: 'DECOMMISSIONED', label: 'Descomisionado' },
           ]}
           fullWidth
         />
@@ -50,11 +48,12 @@ export function DeviceFilters({
           onChange={(e) => onCategoryChange(e.target.value)}
           options={[
             { value: '', label: 'Todas las Categorías' },
-            { value: 'CORE', label: 'Núcleo' },
-            { value: 'DISTRIBUTION', label: 'Distribución' },
-            { value: 'POE', label: 'PoE' },
-            { value: 'ACCESS_POINT', label: 'Punto de Acceso' },
-            { value: 'CLIENT_CPE', label: 'CPE Cliente' },
+            { value: 'CPE', label: 'CPE (Cliente)' },
+            { value: 'AP', label: 'Punto de Acceso (AP)' },
+            { value: 'ROUTERBOARD', label: 'Routerboard' },
+            { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
+            { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
+            { value: 'OTHER', label: 'Otro' },
           ]}
           fullWidth
         />

@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
-import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant } from '@/components/ui';
+import { PollingStatus } from '@/types/polling.types';
+import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant, getPollingStatusBadgeVariant } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
@@ -14,9 +15,14 @@ type Tab = 'details' | 'polling';
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
   INVENTORY: 'Inventario',
-  MAINTENANCE: 'Mantenimiento',
   DAMAGED: 'Dañado',
-  DECOMMISSIONED: 'Descomisionado',
+};
+
+const ONLINE_STATUS_LABELS: Record<PollingStatus | 'NOT_ACTIVATED', string> = {
+  ONLINE: 'En línea',
+  OFFLINE: 'Fuera de línea',
+  UNKNOWN: 'Monitoreo desconocido',
+  NOT_ACTIVATED: 'No activado',
 };
 
 const TAB_LABELS: Record<Tab, string> = { details: 'Detalles', polling: 'Sondeo' };
@@ -27,6 +33,7 @@ export default function DeviceDetailPage() {
   const deviceId = params.id as string;
 
   const [device, setDevice] = useState<DeviceResponseDTO | null>(null);
+  const [onlineStatus, setOnlineStatus] = useState<PollingStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('details');
@@ -36,11 +43,17 @@ export default function DeviceDetailPage() {
   const fetchDevice = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const result = await apiService.getDevice(deviceId);
-    if (result.success && result.data) {
-      setDevice(result.data);
+    const [deviceResult, pollingResult] = await Promise.all([
+      apiService.getDevice(deviceId),
+      apiService.getPollingStatus(deviceId),
+    ]);
+    if (deviceResult.success && deviceResult.data) {
+      setDevice(deviceResult.data);
     } else {
-      setError(result.error || 'Error al cargar el dispositivo');
+      setError(deviceResult.error || 'Error al cargar el dispositivo');
+    }
+    if (pollingResult.success && pollingResult.data) {
+      setOnlineStatus(pollingResult.data.currentStatus);
     }
     setIsLoading(false);
   }, [deviceId]);
@@ -112,9 +125,11 @@ export default function DeviceDetailPage() {
               {device.category && (
                 <Badge variant="info">{device.category.replace(/_/g, ' ')}</Badge>
               )}
-              <Badge variant={device.monitoringEnabled ? 'success' : 'neutral'}>
-                Monitoreo {device.monitoringEnabled ? 'ACTIVO' : 'INACTIVO'}
-              </Badge>
+              {(() => {
+                const key = !device.monitoringEnabled ? 'NOT_ACTIVATED' : (onlineStatus ?? 'UNKNOWN');
+                const variant = key === 'NOT_ACTIVATED' ? 'neutral' : getPollingStatusBadgeVariant(key);
+                return <Badge variant={variant}>{ONLINE_STATUS_LABELS[key]}</Badge>;
+              })()}
             </div>
           </div>
         </div>

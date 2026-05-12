@@ -51,12 +51,9 @@ export function getDeviceStatusBadgeVariant(status: string): BadgeVariant {
   switch (status.toUpperCase()) {
     case 'ACTIVE':
       return 'success';
-    case 'MAINTENANCE':
-      return 'warning';
     case 'DAMAGED':
       return 'danger';
     case 'INVENTORY':
-    case 'DECOMMISSIONED':
     default:
       return 'neutral';
   }
