@@ -58,6 +58,9 @@ function formatDuration(secs: number | null): string {
   return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
 }
 
+type SortColumn = 'severity' | 'status' | 'device' | 'startedAt' | 'resolvedAt' | 'durationSecs';
+type SortDirection = 'asc' | 'desc';
+
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertDTO[]>([]);
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
@@ -71,6 +74,9 @@ export default function AlertsPage() {
   const [severityFilter, setSeverityFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [deviceIdFilter, setDeviceIdFilter] = useState('');
+
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const fetchAlerts = useCallback(async () => {
     setIsLoading(true);
@@ -119,6 +125,49 @@ export default function AlertsPage() {
     setDeviceIdFilter('');
     setCurrentPage(1);
   };
+
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(col);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedAlerts = React.useMemo(() => {
+    if (!sortColumn) return alerts;
+    return [...alerts].sort((a, b) => {
+      let cmp = 0;
+      switch (sortColumn) {
+        case 'severity':
+          cmp = a.severity.localeCompare(b.severity);
+          break;
+        case 'status':
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case 'device':
+          cmp = (deviceNames[a.deviceId] ?? a.deviceId).localeCompare(deviceNames[b.deviceId] ?? b.deviceId);
+          break;
+        case 'startedAt':
+          cmp = (a.startedAt ?? '').localeCompare(b.startedAt ?? '');
+          break;
+        case 'resolvedAt':
+          if (!a.resolvedAt && !b.resolvedAt) cmp = 0;
+          else if (!a.resolvedAt) cmp = 1;
+          else if (!b.resolvedAt) cmp = -1;
+          else cmp = a.resolvedAt.localeCompare(b.resolvedAt);
+          break;
+        case 'durationSecs':
+          if (a.durationSecs === null && b.durationSecs === null) cmp = 0;
+          else if (a.durationSecs === null) cmp = 1;
+          else if (b.durationSecs === null) cmp = -1;
+          else cmp = a.durationSecs - b.durationSecs;
+          break;
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [alerts, sortColumn, sortDirection, deviceNames]);
 
   const hasFilters = severityFilter || statusFilter || deviceIdFilter;
 
@@ -229,15 +278,15 @@ export default function AlertsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <Table>
             <Table.Header>
-              <Table.Head>Severidad</Table.Head>
-              <Table.Head>Estado</Table.Head>
-              <Table.Head>Dispositivo</Table.Head>
-              <Table.Head>Inicio</Table.Head>
-              <Table.Head>Resolución</Table.Head>
-              <Table.Head>Duración</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('severity')} sortDirection={sortColumn === 'severity' ? sortDirection : null}>Severidad</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('status')} sortDirection={sortColumn === 'status' ? sortDirection : null}>Estado</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('device')} sortDirection={sortColumn === 'device' ? sortDirection : null}>Dispositivo</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('startedAt')} sortDirection={sortColumn === 'startedAt' ? sortDirection : null}>Inicio</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('resolvedAt')} sortDirection={sortColumn === 'resolvedAt' ? sortDirection : null}>Resolución</Table.Head>
+              <Table.Head sortable onSort={() => handleSort('durationSecs')} sortDirection={sortColumn === 'durationSecs' ? sortDirection : null}>Duración</Table.Head>
             </Table.Header>
             <Table.Body>
-              {alerts.length === 0 ? (
+              {sortedAlerts.length === 0 ? (
                 <TableEmptyState
                   message={
                     hasFilters
@@ -246,7 +295,7 @@ export default function AlertsPage() {
                   }
                 />
               ) : (
-                alerts.map((alert) => (
+                sortedAlerts.map((alert) => (
                   <Table.Row key={alert.id}>
                     <Table.Cell>
                       <Badge variant={getSeverityVariant(alert.severity)}>
