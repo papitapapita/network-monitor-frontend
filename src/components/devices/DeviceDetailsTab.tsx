@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import {
   DeviceResponseDTO,
@@ -8,6 +9,7 @@ import {
   DeviceStatus,
   DeviceCategory,
   DeviceOwnerType,
+  DeviceModelResponseDTO,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
 import {
@@ -36,6 +38,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
+  const [deviceModel, setDeviceModel] = useState<DeviceModelResponseDTO | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const makeFormData = (d: DeviceResponseDTO) => ({
@@ -59,7 +62,10 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     apiService.listLocations({ limit: 100 }).then((r) => {
       if (r.success && r.data) setLocations(r.data.locations);
     });
-  }, []);
+    apiService.getDeviceModel(device.deviceModelId).then((r) => {
+      if (r.success && r.data) setDeviceModel(r.data);
+    });
+  }, [device.deviceModelId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -295,12 +301,37 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                     label: 'Fecha de Instalación',
                     value: device.installedDate ? new Date(device.installedDate).toLocaleDateString('es') : '—'
                   },
-                  { label: 'ID de Ubicación', value: device.locationId || '—', mono: true, xs: true },
-                  { label: 'ID de Modelo', value: device.deviceModelId, mono: true, xs: true },
-                ].map(({ label, value, mono, xs }) => (
+                  {
+                    label: 'Ubicación',
+                    value: device.locationId
+                      ? (() => {
+                          const loc = locations.find((l) => l.id === device.locationId);
+                          return (
+                            <Link
+                              href={`/locations/${device.locationId}`}
+                              className="text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              {loc ? loc.name : device.locationId}
+                            </Link>
+                          );
+                        })()
+                      : '—',
+                  },
+                  {
+                    label: 'Modelo',
+                    value: (
+                      <Link
+                        href={`/device-models/${device.deviceModelId}`}
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {deviceModel ? `${deviceModel.vendorName} ${deviceModel.model}` : device.deviceModelId}
+                      </Link>
+                    ),
+                  },
+                ].map(({ label, value, mono }) => (
                   <div key={label}>
                     <dt className="font-medium text-gray-500 dark:text-gray-400">{label}</dt>
-                    <dd className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''} ${xs ? 'text-xs' : ''}`}>
+                    <dd className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''}`}>
                       {value}
                     </dd>
                   </div>

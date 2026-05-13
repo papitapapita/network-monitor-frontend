@@ -264,6 +264,7 @@ function AddDeviceModal({
                   onChange={handleChange}
                   placeholder="Router-Core-01"
                   error={errors.name}
+                  autoComplete="off"
                   required
                   fullWidth
                 />
@@ -481,6 +482,7 @@ function AddDeviceModal({
                   onChange={handleChange}
                   placeholder="192.168.1.100"
                   disabled={!!host.ipAddress}
+                  autoComplete="off"
                   fullWidth
                 />
                 <Input

@@ -9,7 +9,7 @@ import {
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
 
-const LIMIT = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 async function buildPollingStatusMap(
   devices: DeviceResponseDTO[]
@@ -40,6 +40,7 @@ export function useDevices() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalDevices, setTotalDevices] = useState(0);
+  const [limit, setLimitState] = useState(20);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const [statusFilter, setStatusFilter] = useState(
@@ -83,15 +84,15 @@ export function useDevices() {
       }
 
       const total = filtered.length;
-      const offset = (currentPage - 1) * LIMIT;
-      setDevices(filtered.slice(offset, offset + LIMIT));
+      const offset = (currentPage - 1) * limit;
+      setDevices(filtered.slice(offset, offset + limit));
       setPollingStatuses(statusMap);
       setTotalDevices(total);
-      setTotalPages(Math.max(1, Math.ceil(total / LIMIT)));
+      setTotalPages(Math.max(1, Math.ceil(total / limit)));
     } else {
       const query: ListDevicesQuery = {
-        limit: LIMIT,
-        offset: (currentPage - 1) * LIMIT,
+        limit: limit,
+        offset: (currentPage - 1) * limit,
       };
       if (statusFilter) query.status = statusFilter as DeviceStatus;
       if (categoryFilter) query.category = categoryFilter as DeviceCategory;
@@ -107,13 +108,18 @@ export function useDevices() {
       const pageDevices = result.data.devices;
       setDevices(pageDevices);
       setTotalDevices(result.data.total);
-      setTotalPages(Math.max(1, Math.ceil(result.data.total / LIMIT)));
+      setTotalPages(Math.max(1, Math.ceil(result.data.total / limit)));
       setPollingStatuses(await buildPollingStatusMap(pageDevices));
     }
 
     setLastRefreshed(new Date());
     setIsLoading(false);
-  }, [currentPage, statusFilter, categoryFilter, connectivityFilter, search]);
+  }, [currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search]);
+
+  const setLimit = (n: number) => {
+    setLimitState(n);
+    setCurrentPage(1);
+  };
 
   const clearFilters = () => {
     setStatusFilter('');
@@ -204,6 +210,8 @@ export function useDevices() {
     handleSort,
     clearFilters,
     fetchDevices,
-    LIMIT,
+    limit,
+    setLimit,
+    PAGE_SIZE_OPTIONS,
   };
 }

@@ -117,7 +117,13 @@ export default function CreateDevicePage() {
     });
 
     if (result.success && result.data) {
-      const newModel = result.data;
+      const vendor = vendors.find((v) => v.id === formData.selectedVendorId);
+      const newModel: DeviceModelResponseDTO = {
+        ...result.data,
+        vendorId: formData.selectedVendorId,
+        vendorName: vendor?.name ?? '',
+        vendorSlug: vendor?.slug ?? '',
+      };
       setAllDeviceModels((prev) => [...prev, newModel]);
       setFormData((prev) => ({ ...prev, deviceModelId: newModel.id }));
       setShowInlineModelForm(false);
@@ -230,6 +236,7 @@ export default function CreateDevicePage() {
                   onChange={handleChange}
                   placeholder="Router-Core-01"
                   error={formErrors.name}
+                  autoComplete="off"
                   required
                   fullWidth
                 />
@@ -352,6 +359,7 @@ export default function CreateDevicePage() {
                   onChange={handleChange}
                   placeholder="192.168.1.100"
                   error={formErrors.ipAddress}
+                  autoComplete="off"
                   fullWidth
                 />
               </div>

@@ -10,6 +10,8 @@ interface PaginationProps {
   totalItems?: number;
   itemsPerPage?: number;
   showPageNumbers?: boolean;
+  pageSizeOptions?: readonly number[];
+  onPageSizeChange?: (size: number) => void;
 }
 
 export function Pagination({
@@ -19,6 +21,8 @@ export function Pagination({
   totalItems,
   itemsPerPage,
   showPageNumbers = true,
+  pageSizeOptions,
+  onPageSizeChange,
 }: PaginationProps) {
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
@@ -74,7 +78,23 @@ export function Pagination({
 
       {/* Desktop */}
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-        <div>
+        <div className="flex items-center gap-4">
+          {pageSizeOptions && onPageSizeChange && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                Por página
+              </label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                className="text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <p className="text-sm text-gray-700 dark:text-gray-300">
             {totalItems !== undefined && itemsPerPage !== undefined ? (
               <>

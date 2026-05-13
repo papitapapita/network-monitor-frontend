@@ -19,8 +19,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <aside
       className={[
         'fixed inset-y-0 left-0 z-30 w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 transition-transform duration-200',
-        // On mobile: slide in/out. On desktop: always visible, position static.
-        'md:static md:translate-x-0',
+        // On mobile: slide in/out. On desktop: fixed to the left edge.
+        'md:fixed md:translate-x-0',
         isOpen ? 'translate-x-0' : '-translate-x-full',
       ].join(' ')}
     >

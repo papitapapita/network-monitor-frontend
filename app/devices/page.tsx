@@ -39,7 +39,9 @@ function DevicesPageContent() {
     handleSort,
     clearFilters,
     fetchDevices,
-    LIMIT,
+    limit,
+    setLimit,
+    PAGE_SIZE_OPTIONS,
   } = useDevices();
 
   useEffect(() => {
@@ -159,8 +161,10 @@ function DevicesPageContent() {
               currentPage={currentPage}
               totalPages={totalPages}
               totalItems={totalDevices}
-              itemsPerPage={LIMIT}
+              itemsPerPage={limit}
               onPageChange={setCurrentPage}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              onPageSizeChange={setLimit}
             />
           )}
         </div>

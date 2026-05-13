@@ -37,7 +37,7 @@ export function Combobox({
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -51,7 +51,26 @@ export function Combobox({
   const updatePosition = useCallback(() => {
     if (inputRef.current) {
       const rect = inputRef.current.getBoundingClientRect();
-      setDropdownRect({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      const maxDropdownHeight = 240;
+      const gap = 4;
+      const spaceBelow = window.innerHeight - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      if (spaceBelow >= maxDropdownHeight || spaceBelow >= spaceAbove) {
+        setDropdownRect({
+          top: rect.bottom + gap,
+          left: rect.left,
+          width: rect.width,
+          maxHeight: Math.min(maxDropdownHeight, spaceBelow),
+        });
+      } else {
+        const height = Math.min(maxDropdownHeight, spaceAbove);
+        setDropdownRect({
+          top: rect.top - height - gap,
+          left: rect.left,
+          width: rect.width,
+          maxHeight: height,
+        });
+      }
     }
   }, []);
 
@@ -143,9 +162,10 @@ export function Combobox({
               top: dropdownRect.top,
               left: dropdownRect.left,
               width: dropdownRect.width,
+              maxHeight: dropdownRect.maxHeight,
               zIndex: 9999,
             }}
-            className="max-h-60 overflow-auto rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-lg"
+            className="overflow-auto rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-lg"
           >
             {filtered.length === 0 && !onCreateNew && (
               <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Sin resultados</li>
