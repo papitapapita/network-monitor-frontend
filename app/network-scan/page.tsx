@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import {
   DeviceModelResponseDTO,
@@ -20,6 +19,7 @@ import {
   Button,
   Input,
   Select,
+  Combobox,
   Table,
   TableEmptyState,
   LoadingSpinner,
@@ -39,8 +39,6 @@ function isValidCidr(value: string): boolean {
   if (parts.some((p) => p > 255)) return false;
   return Number(prefix) >= 0 && Number(prefix) <= 32;
 }
-
-const CREATE_MODEL_SENTINEL = '__create_new__';
 
 const DEVICE_TYPE_OPTIONS = [
   { value: '', label: 'Seleccionar tipo' },
@@ -120,8 +118,6 @@ function AddDeviceModal({
   onClose,
   onAdded,
 }: AddDeviceModalProps) {
-  const router = useRouter();
-
   const [selectedVendorId, setSelectedVendorId] = useState(() =>
     guessVendorId(host.manufacturer, vendors)
   );
@@ -157,42 +153,6 @@ function AddDeviceModal({
   const filteredModels = selectedVendorId
     ? deviceModels.filter((m) => m.vendorId === selectedVendorId)
     : deviceModels;
-
-  const modelSelectOptions = [
-    { value: '', label: selectedVendorId ? 'Seleccionar modelo' : 'Seleccionar modelo (todos)' },
-    ...filteredModels.map((m) => ({
-      value: m.id,
-      label: selectedVendorId ? `${m.model} (${m.deviceType})` : `${m.vendorName} — ${m.model}`,
-    })),
-    ...(selectedVendorId ? [{ value: CREATE_MODEL_SENTINEL, label: '+ Crear nuevo modelo' }] : []),
-  ];
-
-  const modelSelectValue = showInlineModelForm ? CREATE_MODEL_SENTINEL : form.deviceModelId;
-
-  const handleVendorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedVendorId(e.target.value);
-    setForm((prev) => ({ ...prev, deviceModelId: '' }));
-    setShowInlineModelForm(false);
-    setInlineModelForm({ model: '', deviceType: '' });
-    setInlineModelErrors({});
-    setInlineModelError(null);
-    if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
-  };
-
-  const handleModelSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (value === CREATE_MODEL_SENTINEL) {
-      setShowInlineModelForm(true);
-      setForm((prev) => ({ ...prev, deviceModelId: '' }));
-    } else {
-      setShowInlineModelForm(false);
-      setInlineModelForm({ model: '', deviceType: '' });
-      setInlineModelErrors({});
-      setInlineModelError(null);
-      setForm((prev) => ({ ...prev, deviceModelId: value }));
-    }
-    if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
-  };
 
   const handleInlineModelChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -276,7 +236,6 @@ function AddDeviceModal({
         });
       }
       onAdded(host.ipAddress);
-      router.push(`/devices/${res.data.id}`);
     } else {
       setApiError(res.error || 'Error al crear el dispositivo');
       setSubmitting(false);
@@ -309,14 +268,21 @@ function AddDeviceModal({
                   fullWidth
                 />
 
-                <Select
+                <Combobox
                   label="Fabricante"
+                  options={vendors.map((v) => ({ value: v.id, label: v.name }))}
                   value={selectedVendorId}
-                  onChange={handleVendorChange}
-                  options={[
-                    { value: '', label: 'Seleccionar fabricante' },
-                    ...vendors.map((v) => ({ value: v.id, label: v.name })),
-                  ]}
+                  onChange={(vendorId) => {
+                    setSelectedVendorId(vendorId);
+                    setForm((prev) => ({ ...prev, deviceModelId: '' }));
+                    setShowInlineModelForm(false);
+                    setInlineModelForm({ model: '', deviceType: '' });
+                    setInlineModelErrors({});
+                    setInlineModelError(null);
+                    if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
+                    if (errors.selectedVendorId) setErrors((prev) => { const n = { ...prev }; delete n.selectedVendorId; return n; });
+                  }}
+                  placeholder="Escribir fabricante..."
                   error={errors.selectedVendorId}
                   required
                   fullWidth
@@ -329,14 +295,30 @@ function AddDeviceModal({
                 )}
 
                 <div>
-                  <Select
+                  <Combobox
                     label="Modelo"
-                    value={modelSelectValue}
-                    onChange={handleModelSelectChange}
-                    options={modelSelectOptions}
+                    options={filteredModels.map((m) => ({
+                      value: m.id,
+                      label: selectedVendorId ? `${m.model} (${m.deviceType})` : `${m.vendorName} — ${m.model}`,
+                    }))}
+                    value={form.deviceModelId}
+                    onChange={(modelId) => {
+                      setShowInlineModelForm(false);
+                      setInlineModelForm({ model: '', deviceType: '' });
+                      setInlineModelErrors({});
+                      setInlineModelError(null);
+                      setForm((prev) => ({ ...prev, deviceModelId: modelId }));
+                      if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
+                    }}
+                    placeholder={selectedVendorId ? 'Escribir modelo...' : 'Primero selecciona un fabricante'}
                     error={errors.deviceModelId}
                     required
                     disabled={!selectedVendorId}
+                    createLabel="+ Crear nuevo modelo"
+                    onCreateNew={() => {
+                      setShowInlineModelForm(true);
+                      setForm((prev) => ({ ...prev, deviceModelId: '' }));
+                    }}
                     fullWidth
                   />
 
@@ -528,14 +510,11 @@ function AddDeviceModal({
                     Ubicación
                   </label>
                   <div className="flex items-center gap-2">
-                    <Select
-                      name="locationId"
+                    <Combobox
+                      options={locations.map((l) => ({ value: l.id, label: l.name }))}
                       value={form.locationId}
-                      onChange={handleChange}
-                      options={[
-                        { value: '', label: 'Sin ubicación' },
-                        ...locations.map((l) => ({ value: l.id, label: l.name })),
-                      ]}
+                      onChange={(locId) => setForm((prev) => ({ ...prev, locationId: locId }))}
+                      placeholder="Escribir ubicación..."
                       fullWidth
                     />
                     <button

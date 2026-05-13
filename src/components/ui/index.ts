@@ -20,3 +20,5 @@ export { Pagination } from './Pagination';
 export { Input } from './Input';
 
 export { Select } from './Select';
+
+export { Combobox } from './Combobox';

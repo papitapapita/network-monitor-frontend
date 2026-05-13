@@ -13,10 +13,8 @@ import {
   DeviceType,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
-import { Card, Button, Input, Select, LoadingSpinner } from '@/components/ui';
+import { Card, Button, Input, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-
-const CREATE_MODEL_SENTINEL = '__create_new__';
 
 const DEVICE_TYPE_OPTIONS = [
   { value: '', label: 'Seleccionar tipo' },
@@ -91,35 +89,6 @@ export default function CreateDevicePage() {
     setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     if (formErrors[name]) {
       setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
-    }
-  };
-
-  const handleVendorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const vendorId = e.target.value;
-    setFormData((prev) => ({ ...prev, selectedVendorId: vendorId, deviceModelId: '' }));
-    setShowInlineModelForm(false);
-    setInlineModelForm({ model: '', deviceType: '' });
-    setInlineModelErrors({});
-    setInlineModelError(null);
-    if (formErrors.selectedVendorId) {
-      setFormErrors((prev) => { const n = { ...prev }; delete n.selectedVendorId; return n; });
-    }
-  };
-
-  const handleModelSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (value === CREATE_MODEL_SENTINEL) {
-      setShowInlineModelForm(true);
-      setFormData((prev) => ({ ...prev, deviceModelId: '' }));
-    } else {
-      setShowInlineModelForm(false);
-      setInlineModelForm({ model: '', deviceType: '' });
-      setInlineModelErrors({});
-      setInlineModelError(null);
-      setFormData((prev) => ({ ...prev, deviceModelId: value }));
-    }
-    if (formErrors.deviceModelId) {
-      setFormErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
     }
   };
 
@@ -222,18 +191,6 @@ export default function CreateDevicePage() {
     }
   };
 
-  // Build model select options: models for selected vendor + create option
-  const modelSelectOptions = [
-    { value: '', label: formData.selectedVendorId ? 'Seleccionar modelo' : 'Primero selecciona un fabricante' },
-    ...filteredModels.map((m) => ({ value: m.id, label: `${m.model} (${m.deviceType})` })),
-    ...(formData.selectedVendorId
-      ? [{ value: CREATE_MODEL_SENTINEL, label: '+ Crear nuevo modelo' }]
-      : []),
-  ];
-
-  // Value shown in model select when inline form is open
-  const modelSelectValue = showInlineModelForm ? CREATE_MODEL_SENTINEL : formData.deviceModelId;
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="mb-6">
@@ -278,15 +235,21 @@ export default function CreateDevicePage() {
                 />
 
                 {/* Vendor — full width */}
-                <Select
+                <Combobox
                   label="Fabricante"
-                  name="selectedVendorId"
+                  options={vendors.map((v) => ({ value: v.id, label: v.name }))}
                   value={formData.selectedVendorId}
-                  onChange={handleVendorChange}
-                  options={[
-                    { value: '', label: 'Seleccionar fabricante' },
-                    ...vendors.map((v) => ({ value: v.id, label: v.name })),
-                  ]}
+                  onChange={(vendorId) => {
+                    setFormData((prev) => ({ ...prev, selectedVendorId: vendorId, deviceModelId: '' }));
+                    setShowInlineModelForm(false);
+                    setInlineModelForm({ model: '', deviceType: '' });
+                    setInlineModelErrors({});
+                    setInlineModelError(null);
+                    if (formErrors.selectedVendorId) {
+                      setFormErrors((prev) => { const n = { ...prev }; delete n.selectedVendorId; return n; });
+                    }
+                  }}
+                  placeholder="Escribir fabricante..."
                   error={formErrors.selectedVendorId}
                   required
                   fullWidth
@@ -294,15 +257,29 @@ export default function CreateDevicePage() {
 
                 {/* Model — full width */}
                 <div className="w-full">
-                  <Select
+                  <Combobox
                     label="Modelo"
-                    name="deviceModelId"
-                    value={modelSelectValue}
-                    onChange={handleModelSelectChange}
-                    options={modelSelectOptions}
+                    options={filteredModels.map((m) => ({ value: m.id, label: `${m.model} (${m.deviceType})` }))}
+                    value={formData.deviceModelId}
+                    onChange={(modelId) => {
+                      setShowInlineModelForm(false);
+                      setInlineModelForm({ model: '', deviceType: '' });
+                      setInlineModelErrors({});
+                      setInlineModelError(null);
+                      setFormData((prev) => ({ ...prev, deviceModelId: modelId }));
+                      if (formErrors.deviceModelId) {
+                        setFormErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
+                      }
+                    }}
+                    placeholder={formData.selectedVendorId ? 'Escribir modelo...' : 'Primero selecciona un fabricante'}
                     error={formErrors.deviceModelId}
                     required
                     disabled={!formData.selectedVendorId}
+                    createLabel="+ Crear nuevo modelo"
+                    onCreateNew={() => {
+                      setShowInlineModelForm(true);
+                      setFormData((prev) => ({ ...prev, deviceModelId: '' }));
+                    }}
                     fullWidth
                   />
 
@@ -518,14 +495,11 @@ export default function CreateDevicePage() {
                     Ubicación
                   </label>
                   <div className="flex items-center gap-2">
-                    <Select
-                      name="locationId"
+                    <Combobox
+                      options={locations.map((l) => ({ value: l.id, label: l.name }))}
                       value={formData.locationId}
-                      onChange={handleChange}
-                      options={[
-                        { value: '', label: 'Sin ubicación' },
-                        ...locations.map((l) => ({ value: l.id, label: l.name })),
-                      ]}
+                      onChange={(locId) => setFormData((prev) => ({ ...prev, locationId: locId }))}
+                      placeholder="Escribir ubicación..."
                       fullWidth
                     />
                     <button

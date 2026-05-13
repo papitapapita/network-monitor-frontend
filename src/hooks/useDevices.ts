@@ -165,8 +165,12 @@ export function useDevices() {
           aVal = a.ownerType ?? '';
           bVal = b.ownerType ?? '';
         } else if (sortField === 'ip') {
-          aVal = a.ipAddress ?? '';
-          bVal = b.ipAddress ?? '';
+          const toNum = (ip: string) =>
+            ip.split('.').reduce((acc, octet) => acc * 256 + parseInt(octet, 10), 0);
+          const aIp = a.ipAddress ?? '';
+          const bIp = b.ipAddress ?? '';
+          const cmpIp = toNum(aIp) - toNum(bIp);
+          return sortDirection === 'asc' ? cmpIp : -cmpIp;
         } else {
           return 0;
         }
