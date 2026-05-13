@@ -17,6 +17,8 @@ import {
   Badge,
   LoadingSpinner,
   Pagination,
+  Table,
+  TableEmptyState,
 } from '@/components/ui';
 import type { BadgeVariant } from '@/components/ui';
 
@@ -387,6 +389,31 @@ export default function LocationsPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<LocationResponseDTO | null>(null);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedLocations = sortField
+    ? [...locations].sort((a, b) => {
+        let aVal = '';
+        let bVal = '';
+        if (sortField === 'name') { aVal = a.name; bVal = b.name; }
+        else if (sortField === 'type') { aVal = a.type; bVal = b.type; }
+        else if (sortField === 'municipality') { aVal = a.municipality ?? ''; bVal = b.municipality ?? ''; }
+        else if (sortField === 'neighborhood') { aVal = a.neighborhood ?? ''; bVal = b.neighborhood ?? ''; }
+        else if (sortField === 'address') { aVal = a.address ?? ''; bVal = b.address ?? ''; }
+        const cmp = aVal.localeCompare(bVal);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      })
+    : locations;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
 
@@ -453,93 +480,53 @@ export default function LocationsPage() {
           <div className="flex justify-center py-16">
             <LoadingSpinner message="Cargando ubicaciones..." />
           </div>
-        ) : locations.length === 0 ? (
-          <div className="text-center py-16">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-            <p className="mt-4 text-gray-500 dark:text-gray-400 text-sm">
-              No hay ubicaciones registradas
-            </p>
-            <Button className="mt-4" size="sm" onClick={() => setShowCreateModal(true)}>
-              Crear primera ubicación
-            </Button>
-          </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-900/50">
-                  <tr>
-                    {['Nombre', 'Tipo', 'Municipio', 'Barrio', 'Dirección', 'Acciones'].map(
-                      (col) => (
-                        <th
-                          key={col}
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                        >
-                          {col}
-                        </th>
-                      )
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {locations.map((loc) => (
-                    <tr
-                      key={loc.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {loc.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+            <Table>
+              <Table.Header>
+                <Table.Head sortable onSort={() => handleSort('name')} sortDirection={sortField === 'name' ? sortDirection : null}>Nombre</Table.Head>
+                <Table.Head sortable onSort={() => handleSort('type')} sortDirection={sortField === 'type' ? sortDirection : null}>Tipo</Table.Head>
+                <Table.Head sortable onSort={() => handleSort('municipality')} sortDirection={sortField === 'municipality' ? sortDirection : null} className="hidden sm:table-cell">Municipio</Table.Head>
+                <Table.Head sortable onSort={() => handleSort('neighborhood')} sortDirection={sortField === 'neighborhood' ? sortDirection : null} className="hidden md:table-cell">Barrio</Table.Head>
+                <Table.Head sortable onSort={() => handleSort('address')} sortDirection={sortField === 'address' ? sortDirection : null} className="hidden lg:table-cell">Dirección</Table.Head>
+                <Table.Head>Acciones</Table.Head>
+              </Table.Header>
+              <Table.Body>
+                {sortedLocations.length === 0 ? (
+                  <TableEmptyState message="No hay ubicaciones registradas" />
+                ) : (
+                  sortedLocations.map((loc) => (
+                    <Table.Row key={loc.id}>
+                      <Table.Cell>
+                        <span className="font-medium">{loc.name}</span>
+                        {loc.address && (
+                          <div className="text-xs text-gray-400 dark:text-gray-500 lg:hidden truncate max-w-[12rem]">{loc.address}</div>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell>
                         <Badge variant={LOCATION_TYPE_BADGE_VARIANTS[loc.type]}>
                           {LOCATION_TYPE_LABELS[loc.type]}
                         </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                      </Table.Cell>
+                      <Table.Cell className="hidden sm:table-cell text-gray-600 dark:text-gray-300">
                         {loc.municipality ?? '—'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                      </Table.Cell>
+                      <Table.Cell className="hidden md:table-cell text-gray-600 dark:text-gray-300">
                         {loc.neighborhood ?? '—'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate">
-                        {loc.address ?? '—'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingLocation(loc)}
-                          >
-                            Editar
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </Table.Cell>
+                      <Table.Cell className="hidden lg:table-cell text-gray-600 dark:text-gray-300 max-w-xs">
+                        <span className="block truncate">{loc.address ?? '—'}</span>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Button size="sm" variant="outline" onClick={() => setEditingLocation(loc)}>
+                          Editar
+                        </Button>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))
+                )}
+              </Table.Body>
+            </Table>
 
             {totalPages > 1 && (
               <Pagination

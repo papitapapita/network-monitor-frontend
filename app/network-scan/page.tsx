@@ -135,6 +135,8 @@ function AddDeviceModal({
     status: 'ACTIVE' as DeviceStatus | '',
     category: '' as DeviceCategory | '',
     monitoringEnabled: false,
+    pollingIntervalSeconds: 60,
+    pollingFailuresBeforeDown: 3,
     serialNumber: '',
     locationId: '',
     installedDate: '',
@@ -269,6 +271,8 @@ function AddDeviceModal({
         await apiService.createPollingConfig(res.data.id, {
           enabled: true,
           ipAddress: dto.ipAddress ?? null,
+          intervalSeconds: form.pollingIntervalSeconds,
+          failuresBeforeDown: form.pollingFailuresBeforeDown,
         });
       }
       onAdded(host.ipAddress);
@@ -437,18 +441,50 @@ function AddDeviceModal({
                   error={errors.ownerType}
                   fullWidth
                 />
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    type="checkbox"
-                    id="monitoringEnabled"
-                    name="monitoringEnabled"
-                    checked={form.monitoringEnabled}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Monitoreo
-                  </label>
+                <div className="sm:col-span-2 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="monitoringEnabled"
+                      name="monitoringEnabled"
+                      checked={form.monitoringEnabled}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Habilitar Monitoreo
+                    </label>
+                  </div>
+
+                  {form.monitoringEnabled && (
+                    <div className="p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Configuración de Polling</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Select
+                          label="Intervalo de polling"
+                          name="pollingIntervalSeconds"
+                          value={String(form.pollingIntervalSeconds)}
+                          onChange={(e) => setForm((prev) => ({ ...prev, pollingIntervalSeconds: Number(e.target.value) }))}
+                          options={[
+                            { value: '30', label: '30 segundos' },
+                            { value: '60', label: '1 minuto (recomendado)' },
+                            { value: '120', label: '2 minutos' },
+                            { value: '300', label: '5 minutos' },
+                            { value: '600', label: '10 minutos' },
+                          ]}
+                          fullWidth
+                        />
+                        <Input
+                          label="Fallos antes de desconectar"
+                          name="pollingFailuresBeforeDown"
+                          type="number"
+                          value={String(form.pollingFailuresBeforeDown)}
+                          onChange={(e) => setForm((prev) => ({ ...prev, pollingFailuresBeforeDown: Math.max(1, Number(e.target.value)) }))}
+                          fullWidth
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </Section>
@@ -559,12 +595,22 @@ function AddDeviceModal({
   );
 }
 
+const SCAN_CACHE_KEY = 'nms_last_scan';
+
+interface ScanCache {
+  segment: string;
+  result: NetworkScanResult;
+  addedIps: string[];
+  scannedAt: number;
+}
+
 export default function NetworkScanPage() {
   const [segment, setSegment] = useState('');
   const [segmentError, setSegmentError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [result, setResult] = useState<NetworkScanResult | null>(null);
+  const [scannedAt, setScannedAt] = useState<number | null>(null);
 
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
   const [deviceModels, setDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
@@ -574,6 +620,20 @@ export default function NetworkScanPage() {
   // Maps for detecting already-registered devices: ip → device, normalizedMac → device
   const [devicesByIp, setDevicesByIp] = useState<Map<string, DeviceResponseDTO>>(new Map());
   const [devicesByMac, setDevicesByMac] = useState<Map<string, DeviceResponseDTO>>(new Map());
+
+  const loadDeviceMaps = async () => {
+    const devRes = await apiService.listDevices({ limit: 1000 });
+    if (devRes.success && devRes.data) {
+      const byIp = new Map<string, DeviceResponseDTO>();
+      const byMac = new Map<string, DeviceResponseDTO>();
+      for (const d of devRes.data.devices) {
+        if (d.ipAddress) byIp.set(d.ipAddress, d);
+        if (d.macAddress) byMac.set(normalizeMac(d.macAddress), d);
+      }
+      setDevicesByIp(byIp);
+      setDevicesByMac(byMac);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -585,6 +645,21 @@ export default function NetworkScanPage() {
       if (modelsRes.success && modelsRes.data) setDeviceModels(modelsRes.data.deviceModels);
       if (locationsRes.success && locationsRes.data) setLocations(locationsRes.data.locations);
     });
+
+    // Restore last scan from cache
+    try {
+      const raw = localStorage.getItem(SCAN_CACHE_KEY);
+      if (raw) {
+        const cached: ScanCache = JSON.parse(raw);
+        setSegment(cached.segment);
+        setResult(cached.result);
+        setAddedIps(new Set(cached.addedIps));
+        setScannedAt(cached.scannedAt);
+        loadDeviceMaps();
+      }
+    } catch {
+      // ignore corrupt cache
+    }
   }, []);
 
   const handleScan = async (e: React.FormEvent) => {
@@ -603,24 +678,32 @@ export default function NetworkScanPage() {
 
     const res = await apiService.scanNetwork({ segment: segment.trim() });
     if (res.success && res.data) {
+      const now = Date.now();
       setResult(res.data);
+      setScannedAt(now);
 
-      // Fetch all registered devices to detect duplicates
-      const devRes = await apiService.listDevices({ limit: 1000 });
-      if (devRes.success && devRes.data) {
-        const byIp = new Map<string, DeviceResponseDTO>();
-        const byMac = new Map<string, DeviceResponseDTO>();
-        for (const d of devRes.data.devices) {
-          if (d.ipAddress) byIp.set(d.ipAddress, d);
-          if (d.macAddress) byMac.set(normalizeMac(d.macAddress), d);
-        }
-        setDevicesByIp(byIp);
-        setDevicesByMac(byMac);
-      }
+      // Persist scan to cache
+      try {
+        const cache: ScanCache = { segment: segment.trim(), result: res.data, addedIps: [], scannedAt: now };
+        localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify(cache));
+      } catch { /* ignore */ }
+
+      await loadDeviceMaps();
     } else {
       setScanError(res.error || 'Error al escanear la red');
     }
     setIsScanning(false);
+  };
+
+  const updateCacheAddedIps = (ips: Set<string>) => {
+    try {
+      const raw = localStorage.getItem(SCAN_CACHE_KEY);
+      if (raw) {
+        const cached: ScanCache = JSON.parse(raw);
+        cached.addedIps = [...ips];
+        localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify(cached));
+      }
+    } catch { /* ignore */ }
   };
 
   return (
@@ -665,13 +748,18 @@ export default function NetworkScanPage() {
 
       {result && !isScanning && (
         <>
-          <div className="flex items-center gap-6 mb-4 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-4 text-sm text-gray-600 dark:text-gray-400">
             <span>Segmento: <strong className="text-gray-900 dark:text-gray-100">{result.segment}</strong></span>
             <span>IPs escaneadas: <strong className="text-gray-900 dark:text-gray-100">{result.scannedCount}</strong></span>
             <span>
               Hosts encontrados:{' '}
               <strong className="text-green-700 dark:text-green-400">{result.responsiveCount}</strong>
             </span>
+            {scannedAt && (
+              <span className="text-gray-400 dark:text-gray-500">
+                Escaneado: {new Date(scannedAt).toLocaleString('es', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -763,7 +851,11 @@ export default function NetworkScanPage() {
           onLocationCreated={(loc) => setLocations((prev) => [...prev, loc])}
           onClose={() => setAddingHost(null)}
           onAdded={(ip) => {
-            setAddedIps((prev) => new Set(prev).add(ip));
+            setAddedIps((prev) => {
+              const next = new Set(prev).add(ip);
+              updateCacheAddedIps(next);
+              return next;
+            });
             setAddingHost(null);
           }}
         />

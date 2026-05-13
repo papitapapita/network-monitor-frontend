@@ -39,7 +39,7 @@ export function DeviceTableRow({ device, pollingStatuses }: DeviceTableRowProps)
           <div className="text-xs text-gray-500 dark:text-gray-400">{device.serialNumber}</div>
         )}
       </Table.Cell>
-      <Table.Cell className="hidden sm:table-cell">
+      <Table.Cell>
         {device.ipAddress ? (
           <a
             href={`http://${device.ipAddress}`}
@@ -52,6 +52,18 @@ export function DeviceTableRow({ device, pollingStatuses }: DeviceTableRowProps)
           </a>
         ) : (
           <span className="text-gray-400 dark:text-gray-500">—</span>
+        )}
+        {/* Polling status shown inline on small screens where the Conectividad column is hidden */}
+        {device.monitoringEnabled && (
+          <div className="mt-1 md:hidden">
+            {pollingStatuses[device.id] ? (
+              <Badge variant={getPollingStatusBadgeVariant(pollingStatuses[device.id])}>
+                {CONNECTIVITY_LABELS[pollingStatuses[device.id]] ?? pollingStatuses[device.id]}
+              </Badge>
+            ) : (
+              <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+            )}
+          </div>
         )}
       </Table.Cell>
       <Table.Cell className="hidden md:table-cell">

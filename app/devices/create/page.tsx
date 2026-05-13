@@ -56,6 +56,8 @@ export default function CreateDevicePage() {
     status: '' as DeviceStatus | '',
     category: '' as DeviceCategory | '',
     monitoringEnabled: false,
+    pollingIntervalSeconds: 60,
+    pollingFailuresBeforeDown: 3,
     ipAddress: '',
     macAddress: '',
     serialNumber: '',
@@ -209,6 +211,8 @@ export default function CreateDevicePage() {
         await apiService.createPollingConfig(result.data.id, {
           enabled: true,
           ipAddress: dto.ipAddress ?? null,
+          intervalSeconds: formData.pollingIntervalSeconds,
+          failuresBeforeDown: formData.pollingFailuresBeforeDown,
         });
       }
       router.replace(`/devices/${result.data.id}`);
@@ -426,18 +430,50 @@ export default function CreateDevicePage() {
                   error={formErrors.ownerType}
                   fullWidth
                 />
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    type="checkbox"
-                    id="monitoringEnabled"
-                    name="monitoringEnabled"
-                    checked={formData.monitoringEnabled}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Monitoreo
-                  </label>
+                <div className="md:col-span-2 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="monitoringEnabled"
+                      name="monitoringEnabled"
+                      checked={formData.monitoringEnabled}
+                      onChange={handleChange}
+                      className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Habilitar Monitoreo
+                    </label>
+                  </div>
+
+                  {formData.monitoringEnabled && (
+                    <div className="p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Configuración de Polling</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Select
+                          label="Intervalo de polling"
+                          name="pollingIntervalSeconds"
+                          value={String(formData.pollingIntervalSeconds)}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, pollingIntervalSeconds: Number(e.target.value) }))}
+                          options={[
+                            { value: '30', label: '30 segundos' },
+                            { value: '60', label: '1 minuto (recomendado)' },
+                            { value: '120', label: '2 minutos' },
+                            { value: '300', label: '5 minutos' },
+                            { value: '600', label: '10 minutos' },
+                          ]}
+                          fullWidth
+                        />
+                        <Input
+                          label="Fallos antes de desconectar"
+                          name="pollingFailuresBeforeDown"
+                          type="number"
+                          value={String(formData.pollingFailuresBeforeDown)}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, pollingFailuresBeforeDown: Math.max(1, Number(e.target.value)) }))}
+                          fullWidth
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card.Body>

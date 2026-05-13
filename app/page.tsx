@@ -99,27 +99,24 @@ export default function DashboardPage() {
       </div>
 
       {/* Connectivity stat cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard
           label="En línea"
           value={stats.connectivity.online}
           colorClass="text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30"
           onClick={() => router.push('/devices?connectivity=ONLINE')}
-          className="py-5 sm:p-5 text-center sm:text-left"
         />
         <StatCard
           label="Desconectado"
           value={stats.connectivity.offline}
           colorClass="text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
           onClick={() => router.push('/devices?connectivity=OFFLINE')}
-          className="py-5 sm:p-5 text-center sm:text-left"
         />
         <StatCard
           label="Desconocido"
           value={stats.connectivity.unknown}
           colorClass="text-gray-500 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
           onClick={() => router.push('/devices?connectivity=UNKNOWN')}
-          className="py-5 sm:p-5 text-center sm:text-left"
         />
       </div>
 
@@ -251,10 +248,10 @@ function StatCard({
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg p-5 text-left transition-colors cursor-pointer ${colorClass}${className ? ` ${className}` : ''}`}
+      className={`rounded-lg p-3 sm:p-5 text-left transition-colors cursor-pointer overflow-hidden ${colorClass}${className ? ` ${className}` : ''}`}
     >
-      <p className="text-3xl font-bold">{value}</p>
-      <p className="text-sm font-medium mt-1 opacity-75">{label}</p>
+      <p className="text-2xl sm:text-3xl font-bold">{value}</p>
+      <p className="text-xs sm:text-sm font-medium mt-1 opacity-75 leading-tight">{label}</p>
     </button>
   );
 }
