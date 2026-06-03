@@ -1,4 +1,4 @@
-export type WirelessDeviceType = 'CPE' | 'ACCESS_POINT';
+export type WirelessDeviceType = 'STATION' | 'ACCESS_POINT';
 export type WirelessCollectionMethod = 'snmp' | 'http_api' | 'mixed';
 export type WirelessAlertSeverity = 'WARNING' | 'CRITICAL';
 
@@ -48,16 +48,34 @@ export interface WirelessAlertDTO {
 
 export interface WirelessClientDTO {
   macAddress: string;
-  signalRxDbm: number | null;
-  signalTxDbm: number | null;
-  snrDb: number | null;
-  txRateMbps: number | null;
-  rxRateMbps: number | null;
-  throughputTxBps: number | null;
-  throughputRxBps: number | null;
-  ccqPercent: number | null;
-  uptimeSeconds: number | null;
   ipAddress: string | null;
+  signalRxDbm: number | null;
+  noiseFloorDbm: number | null;
+  distanceM: number | null;
+  uptimeSeconds: number | null;
+  txLatencyMs: number | null;
+  dlLinkScore: number | null;
+  ulLinkScore: number | null;
+  dlCapacityKbps: number | null;
+  ulCapacityKbps: number | null;
+  dlCinr: number | null;
+  ulCinr: number | null;
+  txBytesTotal: string | null;
+  rxBytesTotal: string | null;
+  txPps: number | null;
+  rxPps: number | null;
+  remoteHostname: string | null;
+  remotePlatform: string | null;
+  remoteVersion: string | null;
+  remoteCpuLoad: number | null;
+  remoteTotalRam: number | null;
+  remoteFreeRam: number | null;
+  remoteSignal: number | null;
+  remoteNoiseFloor: number | null;
+  remoteTxPower: number | null;
+  remoteTxThroughputKbps: number | null;
+  remoteRxThroughputKbps: number | null;
+  remoteIpAddresses: string[];
 }
 
 export interface WirelessStatusDTO {

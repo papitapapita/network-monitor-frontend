@@ -160,7 +160,7 @@ class ApiService {
   async setDeviceCredentials(deviceId: string, data: SetDeviceCredentialsDTO): Promise<ApiResponse<DeviceCredentialsResponseDTO>> {
     return this.request<DeviceCredentialsResponseDTO>(`/devices/${deviceId}/credentials`, {
       method: 'PUT',
-      body: JSON.stringify(data)
+      body: JSON.stringify({ snmpVersion: 1, snmpCommunity: 'public', ...data })
     });
   }
 
