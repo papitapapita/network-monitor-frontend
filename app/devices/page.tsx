@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDevices } from '@/hooks/useDevices';
 import { DeviceFilters } from '@/components/devices/DeviceFilters';
@@ -19,6 +19,7 @@ function DevicesPageContent() {
     sortedDevices,
     pollingStatuses,
     isLoading,
+    isFetching,
     error,
     currentPage,
     totalPages,
@@ -44,10 +45,6 @@ function DevicesPageContent() {
     PAGE_SIZE_OPTIONS,
   } = useDevices();
 
-  useEffect(() => {
-    fetchDevices();
-  }, [fetchDevices]);
-
   const deviceCountLabel =
     totalDevices > 0
       ? `${totalDevices} ${totalDevices === 1 ? 'dispositivo' : 'dispositivos'} en total`
@@ -65,9 +62,9 @@ function DevicesPageContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchDevices}
-              isLoading={isLoading}
-              disabled={isLoading}
+              onClick={() => fetchDevices()}
+              isLoading={isFetching}
+              disabled={isFetching}
             >
               {!isLoading && (
                 <svg
@@ -113,13 +110,13 @@ function DevicesPageContent() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
           <p className="text-red-800 dark:text-red-400">{error}</p>
-          <Button variant="outline" size="sm" onClick={fetchDevices} className="mt-2">
+          <Button variant="outline" size="sm" onClick={() => fetchDevices()} className="mt-2">
             Reintentar
           </Button>
         </div>
       )}
 
-      {isLoading ? (
+      {isLoading && sortedDevices.length === 0 ? (
         <div className="flex justify-center py-12">
           <LoadingSpinner size="lg" message="Cargando dispositivos..." />
         </div>

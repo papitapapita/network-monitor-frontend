@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { SettingsProvider } from "@/contexts/settings.context";
+import { QueryProvider } from "@/components/layout/QueryProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,9 +22,11 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <SettingsProvider>
-          <AppShell>{children}</AppShell>
-        </SettingsProvider>
+        <QueryProvider>
+          <SettingsProvider>
+            <AppShell>{children}</AppShell>
+          </SettingsProvider>
+        </QueryProvider>
       </body>
     </html>
   );

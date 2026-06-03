@@ -14,7 +14,7 @@
 | API prefix | `/api` |
 | Content-Type | `application/json` |
 
-All API responses are wrapped:
+Most API responses are wrapped:
 ```ts
 // Success
 { success: true, data: T }
@@ -23,14 +23,17 @@ All API responses are wrapped:
 { success: false, error: string }
 ```
 
+> **Exceptions:** Credentials, Polling, and Wireless endpoints return **raw data** — no `{ success, data }` wrapper.  
+> Their error responses use `{ error: string }` (no `success` field).
+
 ---
 
 ## Enums
 
 ```ts
-type LocationType   = 'TOWER' | 'NODE' | 'DATACENTER' | 'POP' | 'WAREHOUSE' | 'OFFICE'
+type LocationType   = 'TOWER' | 'NODE' | 'DATACENTER' | 'POP' | 'WAREHOUSE' | 'OFFICE' | 'OTHER'
 type DeviceStatus   = 'ACTIVE' | 'DAMAGED' | 'INVENTORY'
-type DeviceCategory = 'CPE' | 'AP' | 'ROUTERBOARD' | 'SMART_SWITCH' | 'SMART_SWITCH_POE' | 'OTHER'
+type DeviceCategory = 'CPE' | 'WIRELESS_CPE' | 'AP' | 'ROUTERBOARD' | 'SMART_SWITCH' | 'SMART_SWITCH_POE' | 'OTHER'
 type DeviceOwner    = 'COMPANY' | 'CLIENT'
 type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
 type PollingStatus      = 'SUCCESS' | 'FAILED' | 'SKIPPED'
@@ -306,6 +309,99 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 
 ---
 
+## Device Credentials `/api/devices/:id/credentials`
+
+> **Response envelope:** Credentials endpoints return raw data directly — **no `{ success, data }` wrapper**.  
+> Success: the DTO object directly (or 204 No Content).  
+> Error: `{ error: string }`.
+
+Sensitive fields (`snmpCommunity`, `snmpV3AuthKey`, `snmpV3PrivKey`, `httpPassword`) are **never returned in plaintext** — they are always masked as `'***'` in responses.
+
+```ts
+interface DeviceCredentialsResponseDTO {
+  deviceId: string               // UUID
+  snmpVersion: 1 | 2 | 3
+  snmpCommunity: '***' | null    // masked; null if not set
+  snmpV3AuthUser: string | null
+  snmpV3AuthProto: 'MD5' | 'SHA' | null
+  snmpV3AuthKey: '***' | null    // masked; null if not set
+  snmpV3PrivProto: 'DES' | 'AES' | null
+  snmpV3PrivKey: '***' | null    // masked; null if not set
+  snmpPort: number               // default 161
+  httpUsername: string | null
+  httpPassword: '***' | null     // masked; null if not set
+  httpPort: number               // default 80
+  hasSnmpCredentials: boolean    // true if the effective SNMP secret is present
+  hasHttpCredentials: boolean    // true if both httpUsername and httpPassword are set
+}
+```
+
+---
+
+### `PUT /api/devices/:id/credentials` — Set Credentials
+**Status:** 200 | 400 | 404
+
+Fully replaces the stored credentials for the device (upsert).
+
+```ts
+// Request body
+{
+  snmpVersion: 1 | 2 | 3         // required
+
+  // SNMP v1/v2 fields
+  snmpCommunity?: string | null  // required when snmpVersion = 1 or 2
+
+  // SNMP v3 fields
+  snmpV3AuthUser?: string | null   // required when snmpVersion = 3
+  snmpV3AuthProto?: 'MD5' | 'SHA' | null  // required when snmpVersion = 3
+  snmpV3AuthKey?: string | null    // required when snmpVersion = 3
+  snmpV3PrivProto?: 'DES' | 'AES' | null  // optional privacy protocol
+  snmpV3PrivKey?: string | null    // required when snmpV3PrivProto is set
+
+  // HTTP / web-UI credentials (optional for all SNMP versions)
+  httpUsername?: string | null
+  httpPassword?: string | null
+
+  // Ports
+  snmpPort?: number   // 1–65535; default 161
+  httpPort?: number   // 1–65535; default 80
+}
+
+// Response — DeviceCredentialsResponseDTO (raw, no wrapper)
+```
+
+**Business rules:**
+- `snmpVersion = 1` or `2` → `snmpCommunity` is required.
+- `snmpVersion = 3` → `snmpV3AuthUser`, `snmpV3AuthProto`, and `snmpV3AuthKey` are required.
+- `snmpV3PrivKey` is required when `snmpV3PrivProto` is provided.
+- Port values must be in range 1–65535.
+- Returns 404 if the device does not exist.
+
+---
+
+### `GET /api/devices/:id/credentials` — Get Credentials
+**Status:** 200 | 404
+
+```ts
+// Response — DeviceCredentialsResponseDTO (raw, no wrapper)
+```
+
+> Returns 404 with `{ error: 'No credentials configured for this device' }` if no credentials have been saved yet.
+
+---
+
+### `DELETE /api/devices/:id/credentials` — Delete Credentials
+**Status:** 204 | 404
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+> Removes all stored credentials for the device. Returns 404 if the device does not exist.
+
+---
+
 ## Vendors `/api/vendors`
 
 ### `POST /api/vendors` — Create
@@ -476,6 +572,9 @@ offset?: number  // ≥0, default 0
 
 ## Polling `/api/devices/:id/polling/*`
 
+> **Response envelope:** Polling endpoints return **raw data** — no `{ success, data }` wrapper.  
+> Error: `{ error: string }`.
+
 ### `POST /api/devices/:id/poll` — Trigger Manual Poll
 **Status:** 200 | 404
 
@@ -484,15 +583,12 @@ offset?: number  // ≥0, default 0
 
 // Response
 {
-  success: true,
-  data: {
-    deviceId: string
-    status: PollingStatus
-    message: string
-    timestamp: string           // ISO 8601
-    metrics: { latencyMs: number } | null
-    deviceStatus: DeviceOnlineStatus
-  }
+  deviceId: string
+  status: PollingStatus
+  message: string
+  timestamp: string           // ISO 8601
+  metrics: { latencyMs: number } | null
+  deviceStatus: DeviceOnlineStatus
 }
 ```
 
@@ -504,25 +600,22 @@ offset?: number  // ≥0, default 0
 ```ts
 // Response
 {
-  success: true,
-  data: {
+  deviceId: string
+  pollingEnabled: boolean
+  intervalSeconds: number
+  failuresBeforeDown: number
+  lastPolled: string | null          // ISO 8601
+  nextScheduled: string | null       // lastPolled + intervalSeconds
+  currentStatus: DeviceOnlineStatus
+  consecutiveFailures: number
+  lastResult: {
+    id: string
     deviceId: string
-    pollingEnabled: boolean
-    intervalSeconds: number
-    failuresBeforeDown: number
-    lastPolled: string | null          // ISO 8601
-    nextScheduled: string | null       // lastPolled + intervalSeconds
-    currentStatus: DeviceOnlineStatus
-    consecutiveFailures: number
-    lastResult: {
-      id: string
-      deviceId: string
-      timestamp: string
-      status: 'SUCCESS' | 'FAILED'
-      metrics: { latencyMs: number } | null
-      deviceStatus: DeviceOnlineStatus
-    } | null
-  }
+    timestamp: string
+    status: 'SUCCESS' | 'FAILED'
+    metrics: { latencyMs: number } | null
+    deviceStatus: DeviceOnlineStatus
+  } | null
 }
 ```
 
@@ -541,25 +634,22 @@ offset?:   number   // ≥0
 
 // Response
 {
-  success: true,
-  data: {
+  deviceId: string
+  results: Array<{
+    id: string
     deviceId: string
-    results: Array<{
-      id: string
-      deviceId: string
-      timestamp: string
-      status: 'SUCCESS' | 'FAILED'
-      metrics: { latencyMs: number } | null
-      deviceStatus: DeviceOnlineStatus
-    }>
-    totalCount: number
-    statistics: {
-      successRate: number        // 0–100 %
-      averageResponseTime: number // ms
-      minResponseTime: number
-      maxResponseTime: number
-      uptimePercentage: number   // 0–100 %
-    }
+    timestamp: string
+    status: 'SUCCESS' | 'FAILED'
+    metrics: { latencyMs: number } | null
+    deviceStatus: DeviceOnlineStatus
+  }>
+  totalCount: number
+  statistics: {
+    successRate: number        // 0–100 %
+    averageResponseTime: number // ms
+    minResponseTime: number
+    maxResponseTime: number
+    uptimePercentage: number   // 0–100 %
   }
 }
 ```
@@ -580,15 +670,12 @@ offset?:   number   // ≥0
 
 // Response
 {
-  success: true,
-  data: {
-    id: string               // UUID
-    deviceId: string         // UUID
-    ipAddress: string | null
-    intervalSeconds: number
-    failuresBeforeDown: number
-    enabled: boolean
-  }
+  id: string               // UUID
+  deviceId: string         // UUID
+  ipAddress: string | null
+  intervalSeconds: number
+  failuresBeforeDown: number
+  enabled: boolean
 }
 ```
 
@@ -689,6 +776,329 @@ offset?:   number  // ≥0, default 0
 
 ---
 
+## Wireless Monitoring
+
+> **Response envelope:** Wireless endpoints return raw data directly — **no `{ success, data }` wrapper**.  
+> Success: the DTO object or array directly.  
+> Error: `{ error: string }`.
+
+```ts
+type WirelessDeviceType      = 'STATION' | 'ACCESS_POINT'
+type WirelessCollectionMethod = 'snmp' | 'http_api' | 'mixed'
+type WirelessAlertSeverity   = 'WARNING' | 'CRITICAL'
+```
+
+```ts
+interface WirelessMetricsDTO {
+  signalRxDbm: number | null
+  signalTxDbm: number | null
+  noiseFloorDbm: number | null
+  snrDb: number | null
+  ccqPercent: number | null
+  txRateMbps: number | null
+  rxRateMbps: number | null
+  frequencyMhz: number | null
+  channelWidthMhz: number | null
+  txPowerDbm: number | null
+  throughputTxBps: number | null
+  throughputRxBps: number | null
+  throughputTxPps: number | null
+  throughputRxPps: number | null
+  lanStatus: string | null
+  lanSpeedMbps: number | null
+  lanDuplex: string | null
+  uptimeSeconds: number | null
+  cpuLoadPercent: number | null
+  memoryUsedPercent: number | null
+  firmwareVersion: string | null
+  deviceName: string | null
+  remoteApMac: string | null
+  remoteApName: string | null
+  distanceM: number | null
+  latencyMs: number | null
+  clientsConnected: number | null
+  clientsProvisioned: number | null
+}
+
+interface WirelessStatusDTO {
+  deviceId: string                        // UUID
+  deviceType: WirelessDeviceType
+  collectedAt: string                     // ISO 8601
+  collectionMethod: WirelessCollectionMethod
+  metrics: WirelessMetricsDTO
+  activeAlerts: WirelessAlertDTO[]
+  clients: WirelessClientDTO[]
+}
+
+interface WirelessAlertDTO {
+  id: string                // UUID
+  deviceId: string          // UUID
+  metric: string            // e.g. "signal_rx_dbm"
+  severity: WirelessAlertSeverity
+  threshold: number
+  lastValue: number
+  message: string
+  triggeredAt: string       // ISO 8601
+  clearedAt: string | null  // ISO 8601 — null while active
+  isActive: boolean
+}
+
+interface WirelessClientDTO {
+  macAddress: string
+  ipAddress: string | null           // last known IP (sta[].lastip)
+  signalRxDbm: number | null         // signal AP receives from this client (dBm)
+  noiseFloorDbm: number | null       // client-side noise floor (dBm)
+  distanceM: number | null           // distance to AP (m)
+  uptimeSeconds: number | null       // association uptime (s)
+  txLatencyMs: number | null         // TX latency (ms)
+  dlLinkScore: number | null         // downlink link score 0–100
+  ulLinkScore: number | null         // uplink link score 0–100
+  dlCapacityKbps: number | null      // airMAX downlink capacity (kbps)
+  ulCapacityKbps: number | null      // airMAX uplink capacity (kbps)
+  dlCinr: number | null              // downlink CINR (dB)
+  ulCinr: number | null              // uplink CINR (dB)
+  txBytesTotal: string | null        // cumulative TX bytes since association (serialised bigint)
+  rxBytesTotal: string | null        // cumulative RX bytes since association (serialised bigint)
+  txPps: number | null               // current TX packets/s
+  rxPps: number | null               // current RX packets/s
+  // Remote CPE info (from sta[].remote — AP-side view of the CPE)
+  remoteHostname: string | null
+  remotePlatform: string | null      // CPE model string
+  remoteVersion: string | null       // CPE firmware version
+  remoteCpuLoad: number | null       // CPE CPU load %
+  remoteTotalRam: number | null      // CPE total RAM (bytes)
+  remoteFreeRam: number | null       // CPE free RAM (bytes)
+  remoteSignal: number | null        // signal CPE receives from AP (dBm)
+  remoteNoiseFloor: number | null    // CPE noise floor (dBm)
+  remoteTxPower: number | null       // CPE TX power (dBm)
+  remoteTxThroughputKbps: number | null
+  remoteRxThroughputKbps: number | null
+  remoteIpAddresses: string[]        // CPE IP addresses
+}
+```
+
+---
+
+### `POST /api/devices/:id/wireless/config` — Register Wireless Config
+**Status:** 201 | 400 | 404 | 409
+
+```ts
+// Request body
+{
+  deviceType: 'STATION' | 'ACCESS_POINT'   // required
+  ipAddress?: string | null             // IPv4 or IPv6; used for HTTP API polling
+  intervalSecs?: number                 // 60–86400; default 3600
+  enabled?: boolean                     // default true
+  linkCapacityBps?: number | null       // link capacity for throughput alerts
+  clientsProvisionedLimit?: number | null // AP only — max expected clients
+}
+
+// Response
+{
+  id: string
+  deviceId: string
+  ipAddress: string | null
+  enabled: boolean
+  intervalSecs: number
+  deviceType: 'STATION' | 'ACCESS_POINT'
+  linkCapacityBps: number | null
+  clientsProvisionedLimit: number | null
+  lastPolledAt: string | null   // ISO 8601 — null until first poll
+}
+```
+
+> Returns 404 if the device does not exist.  
+> Returns 409 if a wireless config already exists for this device — use `PATCH` to update it.
+
+---
+
+### `GET /api/devices/:id/wireless/config` — Get Config
+**Status:** 200 | 400 | 404
+
+```ts
+// Response — same shape as POST 201 above
+```
+
+> Returns 404 if the device exists but has no wireless config registered.
+
+---
+
+### `PATCH /api/devices/:id/wireless/config` — Update Config
+**Status:** 200 | 400 | 404
+
+```ts
+// Request body (at least one field required)
+{
+  ipAddress?: string | null
+  intervalSecs?: number       // 60–86400
+  enabled?: boolean
+  linkCapacityBps?: number | null
+  clientsProvisionedLimit?: number | null
+}
+
+// Response — same shape as POST 201 above
+```
+
+> Returns 404 if no config exists for this device — use `POST` to create it first.
+
+---
+
+### `DELETE /api/devices/:id/wireless/config` — Remove Config
+**Status:** 204 | 400 | 404
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+> Removes wireless monitoring from the device. The device record itself is not affected.  
+> Returns 404 if no config exists.
+
+---
+
+### `GET /api/devices/:id/wireless/status` — Latest Snapshot
+**Status:** 200 | 400 | 404
+
+```ts
+// Response — WirelessStatusDTO (raw, no wrapper)
+{
+  deviceId: string
+  deviceType: WirelessDeviceType
+  collectedAt: string
+  collectionMethod: WirelessCollectionMethod
+  metrics: WirelessMetricsDTO
+  activeAlerts: WirelessAlertDTO[]
+  clients: WirelessClientDTO[]
+}
+```
+
+> Returns 404 if the device has never been polled (no snapshot exists) or does not exist.
+
+---
+
+### `GET /api/devices/:id/wireless/history` — Historical Snapshots
+**Status:** 200 | 400
+
+```ts
+// Query params (from and to are required)
+from: string   // ISO 8601 with offset, e.g. "2026-01-01T00:00:00Z"
+to:   string   // ISO 8601 with offset
+limit?: number // 1–1000
+
+// Response
+{
+  snapshots: WirelessStatusDTO[]
+  total: number
+}
+```
+
+---
+
+### `GET /api/devices/:id/wireless/clients` — Client List
+**Status:** 200 | 400 | 404
+
+```ts
+// Response
+{
+  deviceId: string
+  collectedAt: string        // ISO 8601
+  clients: WirelessClientDTO[]
+}
+```
+
+> Returns the connected client list from the most recent snapshot (AP devices only).  
+> Returns 404 if no snapshot exists for this device.
+
+---
+
+### `GET /api/devices/:id/wireless/alerts` — Active Alerts for Device
+**Status:** 200 | 400
+
+```ts
+// Response — raw array
+WirelessAlertDTO[]
+```
+
+> Returns all currently active wireless alerts for the given device.  
+> Returns an empty array if the device has no active alerts (does not 404 on unknown device IDs).
+
+---
+
+### `GET /api/devices/:id/wireless/alerts/history` — Alert History for Device
+**Status:** 200 | 400
+
+```ts
+// Query params (all optional)
+from?:  string  // ISO 8601 with offset
+to?:    string  // ISO 8601 with offset
+limit?: number  // 1–500
+
+// Response — raw array
+WirelessAlertDTO[]
+```
+
+> Returns all alerts (active and cleared) for the device within the optional time window.  
+> Returns an empty array for unknown device IDs.
+
+---
+
+### `POST /api/devices/:id/wireless/poll` — Trigger Immediate Poll
+**Status:** 202 | 400 | 404
+
+```ts
+// No request body
+
+// Response
+{
+  deviceId: string
+  collectedAt: string         // ISO 8601
+  metricsCollected: boolean
+  alertsTriggered: number
+  alertsCleared: number
+  collectionMethod: string
+  skipped?: boolean           // true if polling was disabled and forceExecution not set
+}
+```
+
+> Triggers an on-demand poll. Returns 404 if the device has no wireless polling configuration.  
+> The poll attempts real device connectivity — expect 400/500 in environments without reachable devices.
+
+---
+
+### `GET /api/wireless/alerts` — All Active Alerts (Global)
+**Status:** 200 | 400
+
+```ts
+// Query params (all optional)
+deviceId?: string  // UUID — filter to a single device
+
+// Response — raw array
+WirelessAlertDTO[]
+```
+
+> Returns all currently active wireless alerts across all devices, or filtered by deviceId.
+
+---
+
+### `GET /api/wireless/alerts/history` — Alert History (Global, filtered by device)
+**Status:** 200 | 400
+
+```ts
+// Query params
+deviceId: string   // UUID — required (use /api/devices/:id/wireless/alerts/history for the same)
+from?:    string   // ISO 8601 with offset
+to?:      string   // ISO 8601 with offset
+limit?:   number   // 1–500
+
+// Response — raw array
+WirelessAlertDTO[]
+```
+
+> Note: `deviceId` is **required** even though the route appears global. Omitting it returns 400.  
+> Prefer `GET /api/devices/:id/wireless/alerts/history` for per-device history.
+
+---
+
 ## Other
 
 ### `GET /health`
@@ -714,4 +1124,4 @@ offset?:   number  // ≥0, default 0
 | 409 | Conflict — resource already exists or cannot be deleted (e.g. vendor has models, model has devices) |
 | 500 | Unexpected server error |
 
-Error body: `{ success: false, error: string }`
+Error body: `{ success: false, error: string }` (standard endpoints) / `{ error: string }` (credentials, polling, wireless)

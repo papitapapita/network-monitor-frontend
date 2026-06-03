@@ -12,6 +12,8 @@ import {
   DeviceModelListResponse,
   CreateDeviceModelDTO,
   UpdateDeviceModelDTO,
+  DeviceCredentialsResponseDTO,
+  SetDeviceCredentialsDTO,
 } from '../types/device.types';
 import {
   LocationResponseDTO,
@@ -31,6 +33,18 @@ import {
 } from '../types/polling.types';
 import { AlertListResponse, ListAlertsQuery } from '../types/alert.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
+import {
+  WirelessConfigDTO,
+  WirelessStatusDTO,
+  WirelessAlertDTO,
+  WirelessClientsResponse,
+  WirelessPollResult,
+  WirelessHistoryResponse,
+  WirelessHistoryQuery,
+  WirelessAlertHistoryQuery,
+  CreateWirelessConfigDTO,
+  UpdateWirelessConfigDTO,
+} from '../types/wireless.types';
 import { ApiResponse } from '../types/common.types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
@@ -133,6 +147,25 @@ class ApiService {
 
   async deleteDevice(id: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/devices/${id}`, { method: 'DELETE' });
+  }
+
+  // ============================================================
+  // Device Credentials
+  // ============================================================
+
+  async getDeviceCredentials(deviceId: string): Promise<ApiResponse<DeviceCredentialsResponseDTO>> {
+    return this.request<DeviceCredentialsResponseDTO>(`/devices/${deviceId}/credentials`);
+  }
+
+  async setDeviceCredentials(deviceId: string, data: SetDeviceCredentialsDTO): Promise<ApiResponse<DeviceCredentialsResponseDTO>> {
+    return this.request<DeviceCredentialsResponseDTO>(`/devices/${deviceId}/credentials`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async deleteDeviceCredentials(deviceId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/devices/${deviceId}/credentials`, { method: 'DELETE' });
   }
 
   // ============================================================
@@ -298,6 +331,92 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data)
     });
+  }
+
+  // ============================================================
+  // Wireless Monitoring
+  // ============================================================
+
+  async getWirelessConfig(deviceId: string): Promise<ApiResponse<WirelessConfigDTO>> {
+    return this.request<WirelessConfigDTO>(`/devices/${deviceId}/wireless/config`);
+  }
+
+  async createWirelessConfig(deviceId: string, data: CreateWirelessConfigDTO): Promise<ApiResponse<WirelessConfigDTO>> {
+    return this.request<WirelessConfigDTO>(`/devices/${deviceId}/wireless/config`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async updateWirelessConfig(deviceId: string, data: UpdateWirelessConfigDTO): Promise<ApiResponse<WirelessConfigDTO>> {
+    return this.request<WirelessConfigDTO>(`/devices/${deviceId}/wireless/config`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async deleteWirelessConfig(deviceId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/devices/${deviceId}/wireless/config`, { method: 'DELETE' });
+  }
+
+  async getWirelessStatus(deviceId: string): Promise<ApiResponse<WirelessStatusDTO>> {
+    return this.request<WirelessStatusDTO>(`/devices/${deviceId}/wireless/status`);
+  }
+
+  async getWirelessClients(deviceId: string): Promise<ApiResponse<WirelessClientsResponse>> {
+    return this.request<WirelessClientsResponse>(`/devices/${deviceId}/wireless/clients`);
+  }
+
+  async getWirelessAlerts(deviceId: string): Promise<ApiResponse<WirelessAlertDTO[]>> {
+    return this.request<WirelessAlertDTO[]>(`/devices/${deviceId}/wireless/alerts`);
+  }
+
+  async triggerWirelessPoll(deviceId: string): Promise<ApiResponse<WirelessPollResult>> {
+    return this.request<WirelessPollResult>(`/devices/${deviceId}/wireless/poll`, {
+      method: 'POST'
+    });
+  }
+
+  async getWirelessHistory(
+    deviceId: string,
+    query: WirelessHistoryQuery
+  ): Promise<ApiResponse<WirelessHistoryResponse>> {
+    const qs = this.buildQuery({
+      from: query.from,
+      to: query.to,
+      limit: query.limit
+    });
+    return this.request<WirelessHistoryResponse>(`/devices/${deviceId}/wireless/history${qs}`);
+  }
+
+  async getWirelessAlertHistory(
+    deviceId: string,
+    query?: WirelessAlertHistoryQuery
+  ): Promise<ApiResponse<WirelessAlertDTO[]>> {
+    const qs = this.buildQuery({
+      from: query?.from,
+      to: query?.to,
+      limit: query?.limit
+    });
+    return this.request<WirelessAlertDTO[]>(`/devices/${deviceId}/wireless/alerts/history${qs}`);
+  }
+
+  async getGlobalWirelessAlerts(deviceId?: string): Promise<ApiResponse<WirelessAlertDTO[]>> {
+    const qs = this.buildQuery({ deviceId });
+    return this.request<WirelessAlertDTO[]>(`/wireless/alerts${qs}`);
+  }
+
+  async getGlobalWirelessAlertHistory(
+    deviceId: string,
+    query?: WirelessAlertHistoryQuery
+  ): Promise<ApiResponse<WirelessAlertDTO[]>> {
+    const qs = this.buildQuery({
+      deviceId,
+      from: query?.from,
+      to: query?.to,
+      limit: query?.limit
+    });
+    return this.request<WirelessAlertDTO[]>(`/wireless/alerts/history${qs}`);
   }
 }
 

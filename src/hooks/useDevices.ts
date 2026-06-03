@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   DeviceResponseDTO,
@@ -30,19 +31,76 @@ async function buildPollingStatusMap(
   return map;
 }
 
+async function fetchDevicesData(params: {
+  currentPage: number;
+  limit: number;
+  statusFilter: string;
+  categoryFilter: string;
+  connectivityFilter: string;
+  search: string;
+}) {
+  const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search } = params;
+
+  if (connectivityFilter) {
+    const allResult = await apiService.listDevices({ limit: 300 });
+    if (!allResult.success || !allResult.data) {
+      throw new Error(allResult.error || 'Error al cargar dispositivos');
+    }
+
+    const allDevices = allResult.data.devices;
+    const statusMap = await buildPollingStatusMap(allDevices);
+
+    let filtered = allDevices.filter((d) => statusMap[d.id] === connectivityFilter);
+    if (statusFilter) filtered = filtered.filter((d) => d.status === (statusFilter as DeviceStatus));
+    if (categoryFilter) filtered = filtered.filter((d) => d.category === (categoryFilter as DeviceCategory));
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(
+        (d) =>
+          d.name.toLowerCase().includes(q) ||
+          d.ipAddress?.toLowerCase().includes(q) ||
+          d.macAddress?.toLowerCase().includes(q) ||
+          d.serialNumber?.toLowerCase().includes(q)
+      );
+    }
+
+    const total = filtered.length;
+    const offset = (currentPage - 1) * limit;
+    return {
+      devices: filtered.slice(offset, offset + limit),
+      pollingStatuses: statusMap,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
+  const query: ListDevicesQuery = {
+    limit,
+    offset: (currentPage - 1) * limit,
+  };
+  if (statusFilter) query.status = statusFilter as DeviceStatus;
+  if (categoryFilter) query.category = categoryFilter as DeviceCategory;
+  if (search) query.search = search;
+
+  const result = await apiService.listDevices(query);
+  if (!result.success || !result.data) {
+    throw new Error(result.error || 'Error al cargar dispositivos');
+  }
+
+  const pageDevices = result.data.devices;
+  return {
+    devices: pageDevices,
+    pollingStatuses: await buildPollingStatusMap(pageDevices),
+    total: result.data.total,
+    totalPages: Math.max(1, Math.ceil(result.data.total / limit)),
+  };
+}
+
 export function useDevices() {
   const searchParams = useSearchParams();
 
-  const [devices, setDevices] = useState<DeviceResponseDTO[]>([]);
-  const [pollingStatuses, setPollingStatuses] = useState<Record<string, PollingStatus>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalDevices, setTotalDevices] = useState(0);
   const [limit, setLimitState] = useState(20);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-
   const [statusFilter, setStatusFilter] = useState(
     () => searchParams.get('status') ?? ''
   );
@@ -54,67 +112,18 @@ export function useDevices() {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const fetchDevices = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search];
 
-    if (connectivityFilter) {
-      const allResult = await apiService.listDevices({ limit: 300 });
-      if (!allResult.success || !allResult.data) {
-        setError(allResult.error || 'Error al cargar dispositivos');
-        setIsLoading(false);
-        return;
-      }
+  const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = useQuery({
+    queryKey,
+    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search }),
+  });
 
-      const allDevices = allResult.data.devices;
-      const statusMap = await buildPollingStatusMap(allDevices);
-
-      let filtered = allDevices.filter((d) => statusMap[d.id] === connectivityFilter);
-      if (statusFilter) filtered = filtered.filter((d) => d.status === (statusFilter as DeviceStatus));
-      if (categoryFilter) filtered = filtered.filter((d) => d.category === (categoryFilter as DeviceCategory));
-      if (search) {
-        const q = search.toLowerCase();
-        filtered = filtered.filter(
-          (d) =>
-            d.name.toLowerCase().includes(q) ||
-            d.ipAddress?.toLowerCase().includes(q) ||
-            d.macAddress?.toLowerCase().includes(q) ||
-            d.serialNumber?.toLowerCase().includes(q)
-        );
-      }
-
-      const total = filtered.length;
-      const offset = (currentPage - 1) * limit;
-      setDevices(filtered.slice(offset, offset + limit));
-      setPollingStatuses(statusMap);
-      setTotalDevices(total);
-      setTotalPages(Math.max(1, Math.ceil(total / limit)));
-    } else {
-      const query: ListDevicesQuery = {
-        limit: limit,
-        offset: (currentPage - 1) * limit,
-      };
-      if (statusFilter) query.status = statusFilter as DeviceStatus;
-      if (categoryFilter) query.category = categoryFilter as DeviceCategory;
-      if (search) query.search = search;
-
-      const result = await apiService.listDevices(query);
-      if (!result.success || !result.data) {
-        setError(result.error || 'Error al cargar dispositivos');
-        setIsLoading(false);
-        return;
-      }
-
-      const pageDevices = result.data.devices;
-      setDevices(pageDevices);
-      setTotalDevices(result.data.total);
-      setTotalPages(Math.max(1, Math.ceil(result.data.total / limit)));
-      setPollingStatuses(await buildPollingStatusMap(pageDevices));
-    }
-
-    setLastRefreshed(new Date());
-    setIsLoading(false);
-  }, [currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search]);
+  const devices = data?.devices ?? [];
+  const pollingStatuses = data?.pollingStatuses ?? {};
+  const totalDevices = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const lastRefreshed = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
   const setLimit = (n: number) => {
     setLimitState(n);
@@ -189,8 +198,9 @@ export function useDevices() {
     devices,
     sortedDevices,
     pollingStatuses,
-    isLoading,
-    error,
+    isLoading: isLoading,
+    isFetching,
+    error: error ? (error as Error).message : null,
     currentPage,
     totalPages,
     totalDevices,
@@ -209,7 +219,7 @@ export function useDevices() {
     setCurrentPage,
     handleSort,
     clearFilters,
-    fetchDevices,
+    fetchDevices: refetch,
     limit,
     setLimit,
     PAGE_SIZE_OPTIONS,

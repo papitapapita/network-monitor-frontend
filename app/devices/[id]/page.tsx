@@ -9,8 +9,12 @@ import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant, getPollingS
 import { ConfirmModal } from '@/components/ui/Modal';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
+import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
+import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab';
 
-type Tab = 'details' | 'polling';
+const WIRELESS_CATEGORIES = new Set(['CPE', 'WIRELESS_CPE', 'AP']);
+
+type Tab = 'details' | 'polling' | 'wireless' | 'credentials';
 
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
@@ -25,7 +29,7 @@ const ONLINE_STATUS_LABELS: Record<PollingStatus | 'NOT_ACTIVATED', string> = {
   NOT_ACTIVATED: 'No activado',
 };
 
-const TAB_LABELS: Record<Tab, string> = { details: 'Detalles', polling: 'Sondeo' };
+const TAB_LABELS: Record<Tab, string> = { details: 'Detalles', polling: 'Sondeo', wireless: 'Inalámbrico', credentials: 'Credenciales' };
 
 export default function DeviceDetailPage() {
   const router = useRouter();
@@ -141,7 +145,7 @@ export default function DeviceDetailPage() {
       {/* Tab bar */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="flex gap-6">
-          {(['details', 'polling'] as Tab[]).map((tab) => (
+          {(['details', 'polling', ...(device.category && WIRELESS_CATEGORIES.has(device.category) ? ['wireless' as Tab] : []), 'credentials'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -166,6 +170,14 @@ export default function DeviceDetailPage() {
 
       {activeTab === 'polling' && (
         <DevicePollingTab deviceId={deviceId} />
+      )}
+
+      {activeTab === 'wireless' && (
+        <DeviceWirelessTab deviceId={deviceId} category={device.category} deviceIpAddress={device.ipAddress} />
+      )}
+
+      {activeTab === 'credentials' && (
+        <DeviceCredentialsTab deviceId={deviceId} />
       )}
     </div>
   );

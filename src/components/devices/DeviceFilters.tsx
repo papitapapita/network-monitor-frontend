@@ -49,6 +49,7 @@ export function DeviceFilters({
           options={[
             { value: '', label: 'Todas las Categorías' },
             { value: 'CPE', label: 'CPE (Cliente)' },
+            { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
             { value: 'AP', label: 'Punto de Acceso (AP)' },
             { value: 'ROUTERBOARD', label: 'Routerboard' },
             { value: 'SMART_SWITCH', label: 'Switch Gestionable' },

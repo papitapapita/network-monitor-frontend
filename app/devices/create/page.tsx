@@ -10,22 +10,12 @@ import {
   DeviceCategory,
   DeviceOwnerType,
   VendorDTO,
-  DeviceType,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
+import { InlineModelForm } from '@/components/devices/InlineModelForm';
 
-const DEVICE_TYPE_OPTIONS = [
-  { value: '', label: 'Seleccionar tipo' },
-  { value: 'ANTENNA', label: 'Antena' },
-  { value: 'OTHER', label: 'Otro' },
-  { value: 'RADIO', label: 'Radio' },
-  { value: 'ROUTER', label: 'Router' },
-  { value: 'ROUTERBOARD', label: 'Routerboard' },
-  { value: 'SERVER', label: 'Servidor' },
-  { value: 'SWITCH', label: 'Switch' },
-];
 
 export default function CreateDevicePage() {
   const router = useRouter();
@@ -39,12 +29,7 @@ export default function CreateDevicePage() {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
-  // Inline "create model" form state
   const [showInlineModelForm, setShowInlineModelForm] = useState(false);
-  const [inlineModelForm, setInlineModelForm] = useState({ model: '', deviceType: '' as DeviceType | '' });
-  const [inlineModelErrors, setInlineModelErrors] = useState<Record<string, string>>({});
-  const [isCreatingModel, setIsCreatingModel] = useState(false);
-  const [inlineModelError, setInlineModelError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     selectedVendorId: '',
@@ -92,48 +77,6 @@ export default function CreateDevicePage() {
     }
   };
 
-  const handleInlineModelChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setInlineModelForm((prev) => ({ ...prev, [name]: value }));
-    if (inlineModelErrors[name]) {
-      setInlineModelErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
-    }
-  };
-
-  const handleCreateModel = async () => {
-    const errors: Record<string, string> = {};
-    if (!inlineModelForm.model.trim()) errors.model = 'El nombre del modelo es requerido';
-    if (!inlineModelForm.deviceType) errors.deviceType = 'El tipo de dispositivo es requerido';
-    setInlineModelErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setIsCreatingModel(true);
-    setInlineModelError(null);
-
-    const result = await apiService.createDeviceModel({
-      vendorId: formData.selectedVendorId,
-      model: inlineModelForm.model.trim(),
-      deviceType: inlineModelForm.deviceType as DeviceType,
-    });
-
-    if (result.success && result.data) {
-      const vendor = vendors.find((v) => v.id === formData.selectedVendorId);
-      const newModel: DeviceModelResponseDTO = {
-        ...result.data,
-        vendorId: formData.selectedVendorId,
-        vendorName: vendor?.name ?? '',
-        vendorSlug: vendor?.slug ?? '',
-      };
-      setAllDeviceModels((prev) => [...prev, newModel]);
-      setFormData((prev) => ({ ...prev, deviceModelId: newModel.id }));
-      setShowInlineModelForm(false);
-      setInlineModelForm({ model: '', deviceType: '' });
-      setInlineModelErrors({});
-    } else {
-      setInlineModelError(result.error || 'Error al crear el modelo');
-    }
-    setIsCreatingModel(false);
-  };
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
@@ -187,7 +130,7 @@ export default function CreateDevicePage() {
           enabled: true,
           ipAddress: dto.ipAddress ?? null,
           intervalSeconds: formData.pollingIntervalSeconds,
-          failuresBeforeDown: formData.pollingFailuresBeforeDown,
+          failuresBeforeDown: Math.max(1, formData.pollingFailuresBeforeDown || 1),
         });
       }
       router.replace(`/devices/${result.data.id}`);
@@ -249,9 +192,6 @@ export default function CreateDevicePage() {
                   onChange={(vendorId) => {
                     setFormData((prev) => ({ ...prev, selectedVendorId: vendorId, deviceModelId: '' }));
                     setShowInlineModelForm(false);
-                    setInlineModelForm({ model: '', deviceType: '' });
-                    setInlineModelErrors({});
-                    setInlineModelError(null);
                     if (formErrors.selectedVendorId) {
                       setFormErrors((prev) => { const n = { ...prev }; delete n.selectedVendorId; return n; });
                     }
@@ -270,9 +210,6 @@ export default function CreateDevicePage() {
                     value={formData.deviceModelId}
                     onChange={(modelId) => {
                       setShowInlineModelForm(false);
-                      setInlineModelForm({ model: '', deviceType: '' });
-                      setInlineModelErrors({});
-                      setInlineModelError(null);
                       setFormData((prev) => ({ ...prev, deviceModelId: modelId }));
                       if (formErrors.deviceModelId) {
                         setFormErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
@@ -290,64 +227,20 @@ export default function CreateDevicePage() {
                     fullWidth
                   />
 
-                  {/* Inline create model form */}
                   {showInlineModelForm && (
-                    <div className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo para este fabricante</p>
-
-                      {inlineModelError && (
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2">
-                          <p className="text-sm text-red-800 dark:text-red-400">{inlineModelError}</p>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Input
-                          label="Nombre del modelo"
-                          name="model"
-                          value={inlineModelForm.model}
-                          onChange={handleInlineModelChange}
-                          placeholder="RB450G"
-                          error={inlineModelErrors.model}
-                          fullWidth
-                        />
-                        <Select
-                          label="Tipo de dispositivo"
-                          name="deviceType"
-                          value={inlineModelForm.deviceType}
-                          onChange={handleInlineModelChange}
-                          options={DEVICE_TYPE_OPTIONS}
-                          error={inlineModelErrors.deviceType}
-                          fullWidth
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={handleCreateModel}
-                          isLoading={isCreatingModel}
-                        >
-                          Crear Modelo
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setShowInlineModelForm(false);
-                            setInlineModelForm({ model: '', deviceType: '' });
-                            setInlineModelErrors({});
-                            setInlineModelError(null);
-                            setFormData((prev) => ({ ...prev, deviceModelId: '' }));
-                          }}
-                          disabled={isCreatingModel}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    </div>
+                    <InlineModelForm
+                      vendorId={formData.selectedVendorId}
+                      vendor={vendors.find((v) => v.id === formData.selectedVendorId)}
+                      onCreated={(newModel) => {
+                        setAllDeviceModels((prev) => [...prev, newModel]);
+                        setFormData((prev) => ({ ...prev, deviceModelId: newModel.id }));
+                        setShowInlineModelForm(false);
+                      }}
+                      onCancel={() => {
+                        setShowInlineModelForm(false);
+                        setFormData((prev) => ({ ...prev, deviceModelId: '' }));
+                      }}
+                    />
                   )}
                 </div>
 
@@ -394,6 +287,7 @@ export default function CreateDevicePage() {
                   options={[
                     { value: '', label: 'Ninguna' },
                     { value: 'CPE', label: 'CPE (Cliente)' },
+                    { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
                     { value: 'AP', label: 'Punto de Acceso (AP)' },
                     { value: 'ROUTERBOARD', label: 'Routerboard' },
                     { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
@@ -452,8 +346,9 @@ export default function CreateDevicePage() {
                           label="Fallos antes de desconectar"
                           name="pollingFailuresBeforeDown"
                           type="number"
-                          value={String(formData.pollingFailuresBeforeDown)}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, pollingFailuresBeforeDown: Math.max(1, Number(e.target.value)) }))}
+                          min={1}
+                          value={formData.pollingFailuresBeforeDown || ''}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, pollingFailuresBeforeDown: Number(e.target.value) }))}
                           fullWidth
                         />
                       </div>

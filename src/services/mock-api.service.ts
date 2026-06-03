@@ -499,6 +499,18 @@ class MockApiService {
     });
   }
 
+  // ── Device Credentials ────────────────────────────────────
+
+  async getDeviceCredentials() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async setDeviceCredentials() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async deleteDeviceCredentials() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+
   // ── Network Scan ───────────────────────────────────────────
 
   async scanNetwork(data: NetworkScanRequest): Promise<ApiResponse<NetworkScanResult>> {
@@ -528,6 +540,47 @@ class MockApiService {
       responsiveCount: count,
       discoveredHosts,
     });
+  }
+
+  // ============================================================
+  // Wireless Monitoring (stubs — not available in mock mode)
+  // ============================================================
+
+  async getWirelessConfig() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async createWirelessConfig() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async updateWirelessConfig() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async deleteWirelessConfig() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getWirelessStatus() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getWirelessClients() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getWirelessAlerts() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async triggerWirelessPoll() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getWirelessHistory() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getWirelessAlertHistory() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getGlobalWirelessAlerts() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getGlobalWirelessAlertHistory() {
+    return { success: false as const, error: 'No disponible en modo mock' };
   }
 }
 

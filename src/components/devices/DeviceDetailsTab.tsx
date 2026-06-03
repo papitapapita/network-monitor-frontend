@@ -199,6 +199,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 options={[
                   { value: '', label: 'Ninguna' },
                   { value: 'CPE', label: 'CPE (Cliente)' },
+                  { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
                   { value: 'AP', label: 'Punto de Acceso (AP)' },
                   { value: 'ROUTERBOARD', label: 'Routerboard' },
                   { value: 'SMART_SWITCH', label: 'Switch Gestionable' },

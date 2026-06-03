@@ -5,6 +5,7 @@ export type DeviceStatus =
 
 export type DeviceCategory =
   | 'CPE'
+  | 'WIRELESS_CPE'
   | 'AP'
   | 'ROUTERBOARD'
   | 'SMART_SWITCH'
@@ -161,4 +162,39 @@ export interface DeviceModelListResponse {
   hasMore: boolean;
   limit: number;
   offset: number;
+}
+
+// ============================================================
+// Device Credentials
+// ============================================================
+
+export interface DeviceCredentialsResponseDTO {
+  deviceId: string;
+  snmpVersion: 1 | 2 | 3;
+  snmpCommunity: '***' | null;
+  snmpV3AuthUser: string | null;
+  snmpV3AuthProto: 'MD5' | 'SHA' | null;
+  snmpV3AuthKey: '***' | null;
+  snmpV3PrivProto: 'DES' | 'AES' | null;
+  snmpV3PrivKey: '***' | null;
+  snmpPort: number;
+  httpUsername: string | null;
+  httpPassword: '***' | null;
+  httpPort: number;
+  hasSnmpCredentials: boolean;
+  hasHttpCredentials: boolean;
+}
+
+export interface SetDeviceCredentialsDTO {
+  snmpVersion: 1 | 2 | 3;
+  snmpCommunity?: string | null;
+  snmpV3AuthUser?: string | null;
+  snmpV3AuthProto?: 'MD5' | 'SHA' | null;
+  snmpV3AuthKey?: string | null;
+  snmpV3PrivProto?: 'DES' | 'AES' | null;
+  snmpV3PrivKey?: string | null;
+  httpUsername?: string | null;
+  httpPassword?: string | null;
+  snmpPort?: number;
+  httpPort?: number;
 }

@@ -9,7 +9,6 @@ import {
   DeviceOwnerType,
   DeviceStatus,
   DeviceCategory,
-  DeviceType,
   CreateDeviceDTO,
   VendorDTO,
 } from '@/types/device.types';
@@ -26,6 +25,7 @@ import {
   Modal,
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
+import { InlineModelForm } from '@/components/devices/InlineModelForm';
 
 function normalizeMac(mac: string): string {
   return mac.replace(/[:\-\.]/g, '').toUpperCase();
@@ -40,16 +40,6 @@ function isValidCidr(value: string): boolean {
   return Number(prefix) >= 0 && Number(prefix) <= 32;
 }
 
-const DEVICE_TYPE_OPTIONS = [
-  { value: '', label: 'Seleccionar tipo' },
-  { value: 'ANTENNA', label: 'Antena' },
-  { value: 'OTHER', label: 'Otro' },
-  { value: 'RADIO', label: 'Radio' },
-  { value: 'ROUTER', label: 'Router' },
-  { value: 'ROUTERBOARD', label: 'Routerboard' },
-  { value: 'SERVER', label: 'Servidor' },
-  { value: 'SWITCH', label: 'Switch' },
-];
 
 const MANUFACTURER_ALIASES: Record<string, string> = {
   'routerboard': 'mikrotik',
@@ -105,6 +95,7 @@ interface AddDeviceModalProps {
   deviceModels: DeviceModelResponseDTO[];
   locations: LocationResponseDTO[];
   onLocationCreated: (loc: LocationResponseDTO) => void;
+  onModelCreated: (model: DeviceModelResponseDTO) => void;
   onClose: () => void;
   onAdded: (ip: string) => void;
 }
@@ -112,15 +103,17 @@ interface AddDeviceModalProps {
 function AddDeviceModal({
   host,
   vendors,
-  deviceModels,
+  deviceModels: initialDeviceModels,
   locations,
   onLocationCreated,
+  onModelCreated,
   onClose,
   onAdded,
 }: AddDeviceModalProps) {
   const [selectedVendorId, setSelectedVendorId] = useState(() =>
     guessVendorId(host.manufacturer, vendors)
   );
+  const [localModels, setLocalModels] = useState<DeviceModelResponseDTO[]>(initialDeviceModels);
 
   const [form, setForm] = useState({
     name: '',
@@ -140,53 +133,14 @@ function AddDeviceModal({
   });
 
   const [showInlineModelForm, setShowInlineModelForm] = useState(false);
-  const [inlineModelForm, setInlineModelForm] = useState({ model: '', deviceType: '' as DeviceType | '' });
-  const [inlineModelErrors, setInlineModelErrors] = useState<Record<string, string>>({});
-  const [isCreatingModel, setIsCreatingModel] = useState(false);
-  const [inlineModelError, setInlineModelError] = useState<string | null>(null);
-
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const filteredModels = selectedVendorId
-    ? deviceModels.filter((m) => m.vendorId === selectedVendorId)
-    : deviceModels;
-
-  const handleInlineModelChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setInlineModelForm((prev) => ({ ...prev, [name]: value }));
-    if (inlineModelErrors[name]) setInlineModelErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
-  };
-
-  const handleCreateModel = async () => {
-    const errs: Record<string, string> = {};
-    if (!inlineModelForm.model.trim()) errs.model = 'El nombre del modelo es requerido';
-    if (!inlineModelForm.deviceType) errs.deviceType = 'El tipo de dispositivo es requerido';
-    setInlineModelErrors(errs);
-    if (Object.keys(errs).length > 0) return;
-
-    setIsCreatingModel(true);
-    setInlineModelError(null);
-
-    const result = await apiService.createDeviceModel({
-      vendorId: selectedVendorId,
-      model: inlineModelForm.model.trim(),
-      deviceType: inlineModelForm.deviceType as DeviceType,
-    });
-
-    if (result.success && result.data) {
-      const newModel = result.data;
-      setForm((prev) => ({ ...prev, deviceModelId: newModel.id }));
-      setShowInlineModelForm(false);
-      setInlineModelForm({ model: '', deviceType: '' });
-      setInlineModelErrors({});
-    } else {
-      setInlineModelError(result.error || 'Error al crear el modelo');
-    }
-    setIsCreatingModel(false);
-  };
+    ? localModels.filter((m) => m.vendorId === selectedVendorId)
+    : localModels;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -277,9 +231,6 @@ function AddDeviceModal({
                     setSelectedVendorId(vendorId);
                     setForm((prev) => ({ ...prev, deviceModelId: '' }));
                     setShowInlineModelForm(false);
-                    setInlineModelForm({ model: '', deviceType: '' });
-                    setInlineModelErrors({});
-                    setInlineModelError(null);
                     if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
                     if (errors.selectedVendorId) setErrors((prev) => { const n = { ...prev }; delete n.selectedVendorId; return n; });
                   }}
@@ -305,9 +256,6 @@ function AddDeviceModal({
                     value={form.deviceModelId}
                     onChange={(modelId) => {
                       setShowInlineModelForm(false);
-                      setInlineModelForm({ model: '', deviceType: '' });
-                      setInlineModelErrors({});
-                      setInlineModelError(null);
                       setForm((prev) => ({ ...prev, deviceModelId: modelId }));
                       if (errors.deviceModelId) setErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
                     }}
@@ -324,57 +272,20 @@ function AddDeviceModal({
                   />
 
                   {showInlineModelForm && (
-                    <div className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo para este fabricante</p>
-
-                      {inlineModelError && (
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2">
-                          <p className="text-sm text-red-800 dark:text-red-400">{inlineModelError}</p>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Input
-                          label="Nombre del modelo"
-                          name="model"
-                          value={inlineModelForm.model}
-                          onChange={handleInlineModelChange}
-                          placeholder="RB450G"
-                          error={inlineModelErrors.model}
-                          fullWidth
-                        />
-                        <Select
-                          label="Tipo de dispositivo"
-                          name="deviceType"
-                          value={inlineModelForm.deviceType}
-                          onChange={handleInlineModelChange}
-                          options={DEVICE_TYPE_OPTIONS}
-                          error={inlineModelErrors.deviceType}
-                          fullWidth
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button type="button" size="sm" onClick={handleCreateModel} isLoading={isCreatingModel}>
-                          Crear Modelo
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setShowInlineModelForm(false);
-                            setInlineModelForm({ model: '', deviceType: '' });
-                            setInlineModelErrors({});
-                            setInlineModelError(null);
-                            setForm((prev) => ({ ...prev, deviceModelId: '' }));
-                          }}
-                          disabled={isCreatingModel}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    </div>
+                    <InlineModelForm
+                      vendorId={selectedVendorId}
+                      vendor={vendors.find((v) => v.id === selectedVendorId)}
+                      onCreated={(newModel) => {
+                        setLocalModels((prev) => [...prev, newModel]);
+                        onModelCreated(newModel);
+                        setForm((prev) => ({ ...prev, deviceModelId: newModel.id }));
+                        setShowInlineModelForm(false);
+                      }}
+                      onCancel={() => {
+                        setShowInlineModelForm(false);
+                        setForm((prev) => ({ ...prev, deviceModelId: '' }));
+                      }}
+                    />
                   )}
                 </div>
               </div>
@@ -830,6 +741,7 @@ export default function NetworkScanPage() {
           deviceModels={deviceModels}
           locations={locations}
           onLocationCreated={(loc) => setLocations((prev) => [...prev, loc])}
+          onModelCreated={(model) => setDeviceModels((prev) => [...prev, model])}
           onClose={() => setAddingHost(null)}
           onAdded={(ip) => {
             setAddedIps((prev) => {

@@ -4,41 +4,29 @@ import React, { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { DeviceModelResponseDTO, DeviceType } from '@/types/device.types';
+import { VendorDTO } from '@/types/device.types';
 import {
   Table,
   TableEmptyState,
   Pagination,
   Button,
-  Badge,
   LoadingSpinner,
-  Select,
   Input,
 } from '@/components/ui';
 
 const LIMIT = 20;
 
-const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
-  ANTENNA: 'Antena',
-  OTHER: 'Otro',
-  RADIO: 'Radio',
-  ROUTER: 'Router',
-  ROUTERBOARD: 'RouterBoard',
-  SERVER: 'Servidor',
-  SWITCH: 'Switch',
-};
-
-async function fetchAllModels(): Promise<DeviceModelResponseDTO[]> {
-  const batches: DeviceModelResponseDTO[] = [];
+async function fetchAllVendors(): Promise<VendorDTO[]> {
+  const batches: VendorDTO[] = [];
   let offset = 0;
   let hasMore = true;
 
   while (hasMore) {
-    const result = await apiService.listDeviceModels({ limit: 100, offset });
+    const result = await apiService.listVendors({ limit: 100, offset });
     if (!result.success || !result.data) {
-      throw new Error(result.error || 'Error al cargar modelos');
+      throw new Error(result.error || 'Error al cargar proveedores');
     }
-    batches.push(...result.data.deviceModels);
+    batches.push(...result.data.vendors);
     hasMore = result.data.hasMore;
     offset += 100;
   }
@@ -46,27 +34,18 @@ async function fetchAllModels(): Promise<DeviceModelResponseDTO[]> {
   return batches;
 }
 
-function DeviceModelsPageContent() {
+function VendorsPageContent() {
   const router = useRouter();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const { data: allModels = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['deviceModels'],
-    queryFn: fetchAllModels,
+  const { data: allVendors = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['vendors'],
+    queryFn: fetchAllVendors,
   });
-
-  const clearFilters = () => {
-    setSearch('');
-    setTypeFilter('');
-    setCurrentPage(1);
-  };
-
-  const hasFilters = !!(search || typeFilter);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -78,24 +57,19 @@ function DeviceModelsPageContent() {
     setCurrentPage(1);
   };
 
-  const filtered = typeFilter
-    ? allModels.filter((m) => m.deviceType === typeFilter)
-    : allModels;
-
   const searched = search
-    ? filtered.filter((m) =>
-        m.model.toLowerCase().includes(search.toLowerCase()) ||
-        m.vendorName.toLowerCase().includes(search.toLowerCase())
+    ? allVendors.filter((v) =>
+        v.name.toLowerCase().includes(search.toLowerCase()) ||
+        v.slug.toLowerCase().includes(search.toLowerCase())
       )
-    : filtered;
+    : allVendors;
 
   const sorted = sortField
     ? [...searched].sort((a, b) => {
         let aVal = '';
         let bVal = '';
-        if (sortField === 'model') { aVal = a.model; bVal = b.model; }
-        else if (sortField === 'vendor') { aVal = a.vendorName; bVal = b.vendorName; }
-        else if (sortField === 'type') { aVal = a.deviceType; bVal = b.deviceType; }
+        if (sortField === 'name') { aVal = a.name; bVal = b.name; }
+        else if (sortField === 'slug') { aVal = a.slug; bVal = b.slug; }
         const cmp = aVal.localeCompare(bVal);
         return sortDirection === 'asc' ? cmp : -cmp;
       })
@@ -105,18 +79,18 @@ function DeviceModelsPageContent() {
   const totalPages = Math.max(1, Math.ceil(totalFiltered / LIMIT));
   const paginated = sorted.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
 
-  const countLabel = allModels.length > 0
-    ? `${allModels.length} ${allModels.length === 1 ? 'modelo' : 'modelos'} en total`
-    : 'Administra los modelos de dispositivos';
+  const countLabel = allVendors.length > 0
+    ? `${allVendors.length} ${allVendors.length === 1 ? 'proveedor' : 'proveedores'} en total`
+    : 'Administra los proveedores de dispositivos';
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Modelos de Dispositivo</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Proveedores</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">{countLabel}</p>
         </div>
-        <Button onClick={() => router.push('/device-models/create')}>Agregar Modelo</Button>
+        <Button onClick={() => router.push('/vendors/create')}>Agregar Proveedor</Button>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
@@ -125,31 +99,15 @@ function DeviceModelsPageContent() {
             label="Buscar"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            placeholder="Proveedor o modelo..."
-            fullWidth
-          />
-          <Select
-            label="Tipo de Dispositivo"
-            value={typeFilter}
-            onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
-            options={[
-              { value: '', label: 'Todos los Tipos' },
-              { value: 'ANTENNA', label: 'Antena' },
-              { value: 'OTHER', label: 'Otro' },
-              { value: 'RADIO', label: 'Radio' },
-              { value: 'ROUTER', label: 'Router' },
-              { value: 'ROUTERBOARD', label: 'RouterBoard' },
-              { value: 'SERVER', label: 'Servidor' },
-              { value: 'SWITCH', label: 'Switch' },
-            ]}
+            placeholder="Nombre o slug..."
             fullWidth
           />
           <div className="flex items-end">
             <Button
               variant="outline"
               fullWidth
-              onClick={clearFilters}
-              disabled={!hasFilters}
+              onClick={() => { setSearch(''); setCurrentPage(1); }}
+              disabled={!search}
             >
               Limpiar Filtros
             </Button>
@@ -168,7 +126,7 @@ function DeviceModelsPageContent() {
 
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <LoadingSpinner size="lg" message="Cargando modelos..." />
+          <LoadingSpinner size="lg" message="Cargando proveedores..." />
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -176,52 +134,46 @@ function DeviceModelsPageContent() {
             <Table.Header>
               <Table.Head
                 sortable
-                onSort={() => handleSort('vendor')}
-                sortDirection={sortField === 'vendor' ? sortDirection : null}
+                onSort={() => handleSort('name')}
+                sortDirection={sortField === 'name' ? sortDirection : null}
               >
-                Proveedor
+                Nombre
               </Table.Head>
               <Table.Head
                 sortable
-                onSort={() => handleSort('model')}
-                sortDirection={sortField === 'model' ? sortDirection : null}
+                onSort={() => handleSort('slug')}
+                sortDirection={sortField === 'slug' ? sortDirection : null}
               >
-                Modelo
+                Slug
               </Table.Head>
-              <Table.Head
-                sortable
-                onSort={() => handleSort('type')}
-                sortDirection={sortField === 'type' ? sortDirection : null}
-              >
-                Tipo
-              </Table.Head>
+              <Table.Head>Descripción</Table.Head>
               <Table.Head>Acciones</Table.Head>
             </Table.Header>
             <Table.Body>
               {paginated.length === 0 ? (
                 <TableEmptyState
                   message={
-                    hasFilters
-                      ? 'Ningún modelo coincide con los filtros'
-                      : 'Sin modelos. Agrega el primero para comenzar.'
+                    search
+                      ? 'Ningún proveedor coincide con la búsqueda'
+                      : 'Sin proveedores. Agrega el primero para comenzar.'
                   }
                 />
               ) : (
-                paginated.map((model) => (
+                paginated.map((vendor) => (
                   <Table.Row
-                    key={model.id}
-                    onClick={() => router.push(`/device-models/${model.id}`)}
+                    key={vendor.id}
+                    onClick={() => router.push(`/vendors/${vendor.id}`)}
                   >
                     <Table.Cell>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{model.vendorName}</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{vendor.name}</span>
                     </Table.Cell>
                     <Table.Cell>
-                      <span className="text-gray-900 dark:text-gray-100">{model.model}</span>
+                      <span className="font-mono text-xs text-gray-600 dark:text-gray-400">{vendor.slug}</span>
                     </Table.Cell>
                     <Table.Cell>
-                      <Badge variant="info">
-                        {DEVICE_TYPE_LABELS[model.deviceType] ?? model.deviceType}
-                      </Badge>
+                      <span className="text-gray-600 dark:text-gray-400 text-sm">
+                        {vendor.description ?? <span className="italic text-gray-400 dark:text-gray-600">—</span>}
+                      </span>
                     </Table.Cell>
                     <Table.Cell>
                       <Button
@@ -229,7 +181,7 @@ function DeviceModelsPageContent() {
                         variant="outline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push(`/device-models/${model.id}`);
+                          router.push(`/vendors/${vendor.id}`);
                         }}
                       >
                         Ver
@@ -256,10 +208,10 @@ function DeviceModelsPageContent() {
   );
 }
 
-export default function DeviceModelsPage() {
+export default function VendorsPage() {
   return (
     <Suspense fallback={<div className="flex justify-center py-12"><span>Cargando...</span></div>}>
-      <DeviceModelsPageContent />
+      <VendorsPageContent />
     </Suspense>
   );
 }
