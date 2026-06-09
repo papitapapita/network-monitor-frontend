@@ -95,7 +95,7 @@ export interface WirelessConfigDTO {
   enabled: boolean;
   intervalSecs: number;
   deviceType: WirelessDeviceType;
-  linkCapacityBps: number | null;
+  linkCapacityKbps: number | null;
   clientsProvisionedLimit: number | null;
   lastPolledAt: string | null;
 }
@@ -105,7 +105,7 @@ export interface CreateWirelessConfigDTO {
   ipAddress?: string | null;
   intervalSecs?: number;
   enabled?: boolean;
-  linkCapacityBps?: number | null;
+  linkCapacityKbps?: number | null;
   clientsProvisionedLimit?: number | null;
 }
 
@@ -113,7 +113,7 @@ export interface UpdateWirelessConfigDTO {
   ipAddress?: string | null;
   intervalSecs?: number;
   enabled?: boolean;
-  linkCapacityBps?: number | null;
+  linkCapacityKbps?: number | null;
   clientsProvisionedLimit?: number | null;
 }
 

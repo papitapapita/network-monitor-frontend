@@ -26,13 +26,24 @@ const CONNECTIVITY_LABELS: Record<string, string> = {
 interface DeviceTableRowProps {
   device: DeviceResponseDTO;
   pollingStatuses: Record<string, PollingStatus>;
+  selected: boolean;
+  onSelect: (id: string, checked: boolean) => void;
 }
 
-export function DeviceTableRow({ device, pollingStatuses }: DeviceTableRowProps) {
+export function DeviceTableRow({ device, pollingStatuses, selected, onSelect }: DeviceTableRowProps) {
   const router = useRouter();
 
   return (
     <Table.Row onClick={() => router.push(`/devices/${device.id}`)}>
+      <Table.Cell className="w-10">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => onSelect(device.id, e.target.checked)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
+        />
+      </Table.Cell>
       <Table.Cell>
         <div className="font-medium text-gray-900 dark:text-gray-100">{device.name}</div>
         {device.serialNumber && (

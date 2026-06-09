@@ -55,6 +55,12 @@ function fmtRam(bytes: number | null): string {
   return `${(bytes / 1_024).toFixed(0)} KB`;
 }
 
+function fmtDistance(meters: number | null): string {
+  if (meters === null) return '—';
+  if (meters >= 1000) return `${(meters / 1000).toFixed(2)} km`;
+  return `${meters} m`;
+}
+
 function fmtUptime(seconds: number | null): string {
   if (seconds === null) return '—';
   const d = Math.floor(seconds / 86400);
@@ -135,7 +141,7 @@ function ClientRow({ client }: { client: WirelessClientDTO }) {
         </td>
         {/* Distance */}
         <td className="py-2 pr-3 text-sm text-gray-900 dark:text-gray-100">
-          {client.distanceM !== null ? `${client.distanceM} m` : '—'}
+          {fmtDistance(client.distanceM)}
         </td>
         {/* DL / UL Score */}
         <td className="py-2 pr-3">
@@ -249,7 +255,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
   const [configForm, setConfigForm] = useState({
     intervalSecs: '3600',
     enabled: 'true',
-    linkCapacityBps: '',
+    linkCapacityKbps: '',
     clientsProvisionedLimit: '',
   });
   const [configSaving, setConfigSaving] = useState(false);
@@ -268,7 +274,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
       setConfigForm({
         intervalSecs: String(c.intervalSecs),
         enabled: String(c.enabled),
-        linkCapacityBps: c.linkCapacityBps !== null ? String(c.linkCapacityBps) : '',
+        linkCapacityKbps: c.linkCapacityKbps != null ? String(c.linkCapacityKbps) : '',
         clientsProvisionedLimit: c.clientsProvisionedLimit !== null ? String(c.clientsProvisionedLimit) : '',
       });
     } else {
@@ -341,7 +347,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
       ipAddress: deviceIpAddress,
       intervalSecs: configForm.intervalSecs ? parseInt(configForm.intervalSecs) : undefined,
       enabled: configForm.enabled === 'true',
-      linkCapacityBps: configForm.linkCapacityBps ? parseInt(configForm.linkCapacityBps) : null,
+      linkCapacityKbps: configForm.linkCapacityKbps ? parseInt(configForm.linkCapacityKbps) : null,
       clientsProvisionedLimit: configForm.clientsProvisionedLimit ? parseInt(configForm.clientsProvisionedLimit) : null,
     };
 
@@ -391,7 +397,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuración Inalámbrica</h2>
             {!noConfig && config && (
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => setShowConfigForm((v) => !v)}>
+                <Button size="sm" variant="outline" onClick={() => { setShowConfigForm((v) => !v); setConfigSaveSuccess(false); setConfigSaveError(null); }}>
                   {showConfigForm ? 'Cancelar' : 'Editar'}
                 </Button>
                 <Button size="sm" variant="danger" onClick={handleDeleteConfig}>
@@ -414,7 +420,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                 Este dispositivo no tiene configuración de monitoreo inalámbrico.
               </p>
               {!showConfigForm && (
-                <Button size="sm" onClick={() => setShowConfigForm(true)}>
+                <Button size="sm" onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}>
                   Crear Configuración
                 </Button>
               )}
@@ -449,13 +455,13 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                   {config.lastPolledAt ? new Date(config.lastPolledAt).toLocaleString('es') : '—'}
                 </dd>
               </div>
-              {config.linkCapacityBps !== null && (
+              {!isAP && config.linkCapacityKbps != null && (
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Cap. de enlace</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtBps(config.linkCapacityBps)}</dd>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtKbps(config.linkCapacityKbps)}</dd>
                 </div>
               )}
-              {config.clientsProvisionedLimit !== null && (
+              {isAP && config.clientsProvisionedLimit !== null && (
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Límite clientes</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.clientsProvisionedLimit}</dd>
@@ -494,13 +500,15 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                   ]}
                   fullWidth
                 />
-                <Input
-                  label="Capacidad de enlace (bps)"
-                  type="number"
-                  value={configForm.linkCapacityBps}
-                  onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityBps: e.target.value }))}
-                  fullWidth
-                />
+                {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
+                  <Input
+                    label="Capacidad de enlace (kbps)"
+                    type="number"
+                    value={configForm.linkCapacityKbps}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityKbps: e.target.value }))}
+                    fullWidth
+                  />
+                )}
                 {(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
                   <Input
                     label="Límite de estaciones provisionadas"
@@ -569,30 +577,30 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
 
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Señal</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        {isAP ? 'Señal RX' : 'Señal RX (del AP)'}
-                      </dt>
-                      <dd className="mt-1">
-                        {metrics.signalRxDbm !== null ? (
-                          <Badge variant={signalBadgeVariant(metrics.signalRxDbm)}>
-                            {metrics.signalRxDbm} dBm
-                          </Badge>
-                        ) : '—'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        {isAP ? 'Señal TX' : 'Señal TX (al AP)'}
-                      </dt>
-                      <dd className="mt-1">
-                        {metrics.signalTxDbm !== null ? (
-                          <Badge variant={signalBadgeVariant(metrics.signalTxDbm)}>
-                            {metrics.signalTxDbm} dBm
-                          </Badge>
-                        ) : '—'}
-                      </dd>
-                    </div>
+                    {!isAP && (
+                      <div>
+                        <dt className="text-gray-500 dark:text-gray-400">Señal RX (del AP)</dt>
+                        <dd className="mt-1">
+                          {metrics.signalRxDbm !== null ? (
+                            <Badge variant={signalBadgeVariant(metrics.signalRxDbm)}>
+                              {metrics.signalRxDbm} dBm
+                            </Badge>
+                          ) : '—'}
+                        </dd>
+                      </div>
+                    )}
+                    {!isAP && (
+                      <div>
+                        <dt className="text-gray-500 dark:text-gray-400">Señal TX (al AP)</dt>
+                        <dd className="mt-1">
+                          {metrics.signalTxDbm !== null ? (
+                            <Badge variant={signalBadgeVariant(metrics.signalTxDbm)}>
+                              {metrics.signalTxDbm} dBm
+                            </Badge>
+                          ) : '—'}
+                        </dd>
+                      </div>
+                    )}
                     <div>
                       <dt className="text-gray-500 dark:text-gray-400">Piso de ruido</dt>
                       <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmt(metrics.noiseFloorDbm, 'dBm', 0)}</dd>
@@ -624,7 +632,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                     {!isAP && metrics.distanceM !== null && (
                       <div>
                         <dt className="text-gray-500 dark:text-gray-400">Distancia al AP</dt>
-                        <dd className="mt-1 text-gray-900 dark:text-gray-100">{metrics.distanceM} m</dd>
+                        <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtDistance(metrics.distanceM)}</dd>
                       </div>
                     )}
                     {!isAP && metrics.remoteApName && (

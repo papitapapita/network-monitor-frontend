@@ -886,11 +886,11 @@ interface WirelessClientDTO {
 // Request body
 {
   deviceType: 'STATION' | 'ACCESS_POINT'   // required
-  ipAddress?: string | null             // IPv4 or IPv6; used for HTTP API polling
-  intervalSecs?: number                 // 60–86400; default 3600
-  enabled?: boolean                     // default true
-  linkCapacityBps?: number | null       // link capacity for throughput alerts
-  clientsProvisionedLimit?: number | null // AP only — max expected clients
+  ipAddress?: string | null                // IPv4 or IPv6; used for HTTP API polling
+  intervalSecs?: number                    // 30–86400; default 3600
+  enabled?: boolean                        // default true
+  linkCapacityKbps?: number | null          // STATION only — provisioned uplink capacity (bps)
+  clientsProvisionedLimit?: number | null  // ACCESS_POINT only — max expected clients
 }
 
 // Response
@@ -901,11 +901,15 @@ interface WirelessClientDTO {
   enabled: boolean
   intervalSecs: number
   deviceType: 'STATION' | 'ACCESS_POINT'
-  linkCapacityBps: number | null
+  linkCapacityKbps: number | null
   clientsProvisionedLimit: number | null
   lastPolledAt: string | null   // ISO 8601 — null until first poll
 }
 ```
+
+**Business rules:**
+- `linkCapacityKbps` may only be set (non-null) for `STATION` devices — returns 400 for `ACCESS_POINT`.
+- `clientsProvisionedLimit` may only be set (non-null) for `ACCESS_POINT` devices — returns 400 for `STATION`.
 
 > Returns 404 if the device does not exist.  
 > Returns 409 if a wireless config already exists for this device — use `PATCH` to update it.
@@ -930,10 +934,10 @@ interface WirelessClientDTO {
 // Request body (at least one field required)
 {
   ipAddress?: string | null
-  intervalSecs?: number       // 60–86400
+  intervalSecs?: number                   // 30–86400
   enabled?: boolean
-  linkCapacityBps?: number | null
-  clientsProvisionedLimit?: number | null
+  linkCapacityKbps?: number | null         // STATION only — returns 400 if device is ACCESS_POINT
+  clientsProvisionedLimit?: number | null // ACCESS_POINT only — returns 400 if device is STATION
 }
 
 // Response — same shape as POST 201 above
@@ -1048,7 +1052,7 @@ WirelessAlertDTO[]
 ```ts
 // No request body
 
-// Response
+// Response (202)
 {
   deviceId: string
   collectedAt: string         // ISO 8601
