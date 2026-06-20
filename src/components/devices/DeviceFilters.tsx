@@ -1,6 +1,7 @@
 'use client';
 
 import { Select, Input, Button } from '@/components/ui';
+import { DEVICE_CATEGORY_FILTER_OPTIONS, DEVICE_STATUS_FILTER_OPTIONS } from '@/constants/device.constants';
 
 interface DeviceFiltersProps {
   statusFilter: string;
@@ -34,28 +35,14 @@ export function DeviceFilters({
           label="Estado"
           value={statusFilter}
           onChange={(e) => onStatusChange(e.target.value)}
-          options={[
-            { value: '', label: 'Todos los Estados' },
-            { value: 'INVENTORY', label: 'Inventario' },
-            { value: 'ACTIVE', label: 'Activo' },
-            { value: 'DAMAGED', label: 'Dañado' },
-          ]}
+          options={DEVICE_STATUS_FILTER_OPTIONS}
           fullWidth
         />
         <Select
           label="Categoría"
           value={categoryFilter}
           onChange={(e) => onCategoryChange(e.target.value)}
-          options={[
-            { value: '', label: 'Todas las Categorías' },
-            { value: 'CPE', label: 'CPE (Cliente)' },
-            { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
-            { value: 'AP', label: 'Punto de Acceso (AP)' },
-            { value: 'ROUTERBOARD', label: 'Routerboard' },
-            { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
-            { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
-            { value: 'OTHER', label: 'Otro' },
-          ]}
+          options={DEVICE_CATEGORY_FILTER_OPTIONS}
           fullWidth
         />
         <Select

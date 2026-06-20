@@ -17,16 +17,12 @@ import {
   Button,
   Input,
   Select,
+  Combobox,
   Badge,
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-
-const STATUS_LABELS: Record<DeviceStatus, string> = {
-  ACTIVE: 'Activo',
-  INVENTORY: 'Inventario',
-  DAMAGED: 'Dañado',
-};
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS } from '@/constants/device.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -83,7 +79,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     const status = (formData.status || 'INVENTORY') as DeviceStatus;
     const hasCategory = !!formData.category;
     const hasIp = !!formData.ipAddress.trim();
-    if ((hasCategory || status === 'ACTIVE') && !hasIp) {
+    if ((hasCategory || status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
       errors.ipAddress = 'La dirección IP es requerida';
     }
     if (!hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
@@ -112,7 +108,26 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       monitoringEnabled: formData.monitoringEnabled
     };
 
-    const result = await apiService.updateDevice(device.id, dto);
+    // Backend validates current locationId before applying the update, so activating a device
+    // that has no location while simultaneously assigning one requires two sequential requests.
+    const needsTwoSteps =
+      !device.locationId &&
+      !!dto.locationId &&
+      dto.status === 'ACTIVE';
+
+    let result;
+    if (needsTwoSteps) {
+      const locationResult = await apiService.updateDevice(device.id, { locationId: dto.locationId });
+      if (!locationResult.success) {
+        setError(locationResult.error || 'Error al actualizar el dispositivo');
+        setIsSaving(false);
+        return;
+      }
+      result = await apiService.updateDevice(device.id, dto);
+    } else {
+      result = await apiService.updateDevice(device.id, dto);
+    }
+
     if (result.success && result.data) {
       if (formData.monitoringEnabled !== device.monitoringEnabled) {
         await apiService.createPollingConfig(device.id, {
@@ -184,11 +199,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                options={[
-                  { value: 'INVENTORY', label: 'Inventario' },
-                  { value: 'ACTIVE', label: 'Activo' },
-                  { value: 'DAMAGED', label: 'Dañado' },
-                ]}
+                options={DEVICE_STATUS_OPTIONS}
                 fullWidth
               />
               <Select
@@ -196,44 +207,25 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                options={[
-                  { value: '', label: 'Ninguna' },
-                  { value: 'CPE', label: 'CPE (Cliente)' },
-                  { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
-                  { value: 'AP', label: 'Punto de Acceso (AP)' },
-                  { value: 'ROUTERBOARD', label: 'Routerboard' },
-                  { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
-                  { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
-                  { value: 'OTHER', label: 'Otro' },
-                ]}
+                options={DEVICE_CATEGORY_OPTIONS}
                 fullWidth
               />
               <Input label="Dirección IP" name="ipAddress" value={formData.ipAddress} onChange={handleChange} error={formErrors.ipAddress} fullWidth />
               <Input label="Dirección MAC" name="macAddress" value={formData.macAddress} onChange={handleChange} fullWidth />
               <Input label="Número de Serie" name="serialNumber" value={formData.serialNumber} onChange={handleChange} error={formErrors.serialNumber} fullWidth />
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación</label>
-                <div className="flex items-center gap-2">
-                  <Select
-                    name="locationId"
-                    value={formData.locationId}
-                    onChange={handleChange}
-                    options={[
-                      { value: '', label: 'Sin ubicación' },
-                      ...locations.map((l) => ({ value: l.id, label: l.name }))
-                    ]}
-                    fullWidth
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLocationModal(true)}
-                    className="flex-shrink-0 w-9 h-9 rounded-md border border-gray-400 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center text-xl font-medium"
-                    title="Crear nueva ubicación"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+              <Combobox
+                label="Ubicación"
+                options={[
+                  { value: '', label: 'Sin ubicación' },
+                  ...locations.map((l) => ({ value: l.id, label: l.name }))
+                ]}
+                value={formData.locationId}
+                onChange={(locId) => setFormData((prev) => ({ ...prev, locationId: locId }))}
+                placeholder="Escribir para buscar ubicación..."
+                createLabel="+ Crear nueva ubicación"
+                onCreateNew={() => setShowLocationModal(true)}
+                fullWidth
+              />
               <Input
                 label="Fecha de Instalación"
                 name="installedDate"
