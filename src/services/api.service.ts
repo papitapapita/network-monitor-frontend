@@ -103,6 +103,10 @@ class ApiService {
         return { success: false, error: 'No tienes permisos suficientes para realizar esta acción.' };
       }
 
+      if (response.status === 429) {
+        return { success: false, error: 'Demasiadas solicitudes. Por favor espera un momento e inténtalo de nuevo.' };
+      }
+
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
