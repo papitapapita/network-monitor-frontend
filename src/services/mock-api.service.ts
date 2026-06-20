@@ -39,6 +39,20 @@ import {
 import { AlertListResponse, ListAlertsQuery } from '../types/alert.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
+import {
+  CustomerDTO,
+  CustomerListResponse,
+  CreateCustomerDTO,
+  UpdateCustomerDTO,
+  ServicePlanDTO,
+  ServicePlanListResponse,
+  CreateServicePlanDTO,
+  UpdateServicePlanDTO,
+  ContractedServiceDTO,
+  ContractedServiceListResponse,
+  CreateContractedServiceDTO,
+  UpdateContractedServiceDTO,
+} from '../types/customer.types';
 
 import {
   MOCK_DEVICES,
@@ -46,11 +60,17 @@ import {
   MOCK_DEVICE_MODELS,
   MOCK_POLLING_STATUS,
   MOCK_POLLING_HISTORY,
+  MOCK_CUSTOMERS,
+  MOCK_SERVICE_PLANS,
+  MOCK_CONTRACTED_SERVICES,
 } from './mock.data';
 
 // Mutable in-memory stores (seeded once from mock data)
 let devices: DeviceResponseDTO[] = [...MOCK_DEVICES];
 let locations: LocationResponseDTO[] = [...MOCK_LOCATIONS];
+let customers: CustomerDTO[] = [...MOCK_CUSTOMERS];
+let servicePlans: ServicePlanDTO[] = [...MOCK_SERVICE_PLANS];
+let contractedServices: ContractedServiceDTO[] = [...MOCK_CONTRACTED_SERVICES];
 let deviceModels: DeviceModelResponseDTO[] = [...MOCK_DEVICE_MODELS];
 
 const MOCK_VENDORS: VendorDTO[] = [
@@ -630,6 +650,115 @@ class MockApiService {
         user: { id: 'mock-user', email, role: 'ADMIN' },
       },
     };
+  }
+
+  // ── Customers ──────────────────────────────────────────────
+
+  async listCustomers(query?: { limit?: number; offset?: number }): Promise<ApiResponse<CustomerListResponse>> {
+    const limit = query?.limit ?? 20;
+    const offset = query?.offset ?? 0;
+    const { items, total } = paginate(customers, limit, offset);
+    return ok({ customers: items, total, hasMore: offset + items.length < total, limit, offset });
+  }
+
+  async getCustomer(id: string): Promise<ApiResponse<CustomerDTO>> {
+    const c = customers.find((x) => x.id === id);
+    return c ? ok(c) : err('Customer not found');
+  }
+
+  async createCustomer(data: CreateCustomerDTO): Promise<ApiResponse<CustomerDTO>> {
+    const now = new Date().toISOString();
+    const c: CustomerDTO = { id: `cust-${uid()}`, fullName: data.fullName, phone: data.phone, email: data.email ?? null, cedula: data.cedula ?? null, createdAt: now, updatedAt: now };
+    customers = [c, ...customers];
+    return ok(c);
+  }
+
+  async updateCustomer(id: string, data: UpdateCustomerDTO): Promise<ApiResponse<CustomerDTO>> {
+    const idx = customers.findIndex((x) => x.id === id);
+    if (idx === -1) return err('Customer not found');
+    const updated = { ...customers[idx], ...data, updatedAt: new Date().toISOString() };
+    customers[idx] = updated;
+    return ok(updated);
+  }
+
+  async deleteCustomer(id: string): Promise<ApiResponse<void>> {
+    const idx = customers.findIndex((x) => x.id === id);
+    if (idx === -1) return err('Customer not found');
+    customers = customers.filter((x) => x.id !== id);
+    return { success: true };
+  }
+
+  // ── Service Plans ──────────────────────────────────────────
+
+  async listServicePlans(query?: { limit?: number; offset?: number }): Promise<ApiResponse<ServicePlanListResponse>> {
+    const limit = query?.limit ?? 20;
+    const offset = query?.offset ?? 0;
+    const { items, total } = paginate(servicePlans, limit, offset);
+    return ok({ servicePlans: items, total, hasMore: offset + items.length < total, limit, offset });
+  }
+
+  async getServicePlan(id: string): Promise<ApiResponse<ServicePlanDTO>> {
+    const p = servicePlans.find((x) => x.id === id);
+    return p ? ok(p) : err('Service plan not found');
+  }
+
+  async createServicePlan(data: CreateServicePlanDTO): Promise<ApiResponse<ServicePlanDTO>> {
+    const now = new Date().toISOString();
+    const p: ServicePlanDTO = { id: `plan-${uid()}`, name: data.name, downloadMbps: data.downloadMbps, uploadMbps: data.uploadMbps, monthlyPrice: data.monthlyPrice, description: data.description ?? null, isActive: data.isActive ?? true, createdAt: now, updatedAt: now };
+    servicePlans = [p, ...servicePlans];
+    return ok(p);
+  }
+
+  async updateServicePlan(id: string, data: UpdateServicePlanDTO): Promise<ApiResponse<ServicePlanDTO>> {
+    const idx = servicePlans.findIndex((x) => x.id === id);
+    if (idx === -1) return err('Service plan not found');
+    const updated = { ...servicePlans[idx], ...data, updatedAt: new Date().toISOString() };
+    servicePlans[idx] = updated;
+    return ok(updated);
+  }
+
+  async deleteServicePlan(id: string): Promise<ApiResponse<void>> {
+    const idx = servicePlans.findIndex((x) => x.id === id);
+    if (idx === -1) return err('Service plan not found');
+    servicePlans = servicePlans.filter((x) => x.id !== id);
+    return { success: true };
+  }
+
+  // ── Contracted Services ────────────────────────────────────
+
+  async listContractedServices(query?: { customerId?: string; limit?: number; offset?: number }): Promise<ApiResponse<ContractedServiceListResponse>> {
+    const limit = query?.limit ?? 20;
+    const offset = query?.offset ?? 0;
+    const filtered = query?.customerId ? contractedServices.filter((x) => x.customerId === query.customerId) : contractedServices;
+    const { items, total } = paginate(filtered, limit, offset);
+    return ok({ contractedServices: items, total, hasMore: offset + items.length < total, limit, offset });
+  }
+
+  async getContractedService(id: string): Promise<ApiResponse<ContractedServiceDTO>> {
+    const cs = contractedServices.find((x) => x.id === id);
+    return cs ? ok(cs) : err('Contracted service not found');
+  }
+
+  async createContractedService(data: CreateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {
+    const now = new Date().toISOString();
+    const cs: ContractedServiceDTO = { id: `cs-${uid()}`, customerId: data.customerId, servicePlanId: data.servicePlanId, deviceId: data.deviceId ?? null, status: 'ACTIVE', startDate: data.startDate ?? now, createdAt: now, updatedAt: now };
+    contractedServices = [cs, ...contractedServices];
+    return ok(cs);
+  }
+
+  async updateContractedService(id: string, data: UpdateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {
+    const idx = contractedServices.findIndex((x) => x.id === id);
+    if (idx === -1) return err('Contracted service not found');
+    const updated = { ...contractedServices[idx], ...data, updatedAt: new Date().toISOString() };
+    contractedServices[idx] = updated;
+    return ok(updated);
+  }
+
+  async deleteContractedService(id: string): Promise<ApiResponse<void>> {
+    const idx = contractedServices.findIndex((x) => x.id === id);
+    if (idx === -1) return err('Contracted service not found');
+    contractedServices = contractedServices.filter((x) => x.id !== id);
+    return { success: true };
   }
 }
 

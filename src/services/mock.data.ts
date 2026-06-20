@@ -1,6 +1,7 @@
 import { DeviceResponseDTO, DeviceModelResponseDTO } from '../types/device.types';
 import { LocationResponseDTO } from '../types/location.types';
 import { PollingStatusDTO, PollingResultDTO } from '../types/polling.types';
+import { CustomerDTO, ServicePlanDTO, ContractedServiceDTO } from '../types/customer.types';
 
 const now = new Date().toISOString();
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
@@ -183,5 +184,24 @@ export const MOCK_POLLING_HISTORY: Record<string, PollingResultDTO[]> = {
   'dev-4': buildHistory('dev-4', 0.40),
   'dev-6': buildHistory('dev-6', 0.90),
 };
+
+export const MOCK_CUSTOMERS: CustomerDTO[] = [
+  { id: 'cust-1', fullName: 'Juan Pérez', phone: '3001234567', email: 'juan@example.com', cedula: '1234567890', createdAt: daysAgo(30), updatedAt: daysAgo(30) },
+  { id: 'cust-2', fullName: 'María García', phone: '3109876543', email: null, cedula: null, createdAt: daysAgo(20), updatedAt: daysAgo(20) },
+  { id: 'cust-3', fullName: 'Carlos Rodríguez', phone: '3205551234', email: 'carlos.r@mail.com', cedula: '9876543210', createdAt: daysAgo(10), updatedAt: daysAgo(10) },
+];
+
+export const MOCK_SERVICE_PLANS: ServicePlanDTO[] = [
+  { id: 'plan-1', name: 'Básico 10MB', downloadMbps: 10, uploadMbps: 2, monthlyPrice: 29990, description: null, isActive: true, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'plan-2', name: 'Estándar 50MB', downloadMbps: 50, uploadMbps: 10, monthlyPrice: 59990, description: 'Incluye soporte 24h', isActive: true, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'plan-3', name: 'Premium 100MB', downloadMbps: 100, uploadMbps: 20, monthlyPrice: 89990, description: 'Plan premium con IP fija', isActive: true, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'plan-4', name: 'Legacy 5MB', downloadMbps: 5, uploadMbps: 1, monthlyPrice: 19990, description: null, isActive: false, createdAt: daysAgo(180), updatedAt: daysAgo(60) },
+];
+
+export const MOCK_CONTRACTED_SERVICES: ContractedServiceDTO[] = [
+  { id: 'cs-1', customerId: 'cust-1', servicePlanId: 'plan-2', deviceId: 'dev-6', status: 'ACTIVE', startDate: daysAgo(25), createdAt: daysAgo(25), updatedAt: daysAgo(25) },
+  { id: 'cs-2', customerId: 'cust-2', servicePlanId: 'plan-1', deviceId: null, status: 'ACTIVE', startDate: daysAgo(15), createdAt: daysAgo(15), updatedAt: daysAgo(15) },
+  { id: 'cs-3', customerId: 'cust-3', servicePlanId: 'plan-3', deviceId: null, status: 'SUSPENDED', startDate: daysAgo(8), createdAt: daysAgo(8), updatedAt: daysAgo(2) },
+];
 
 export { now };
