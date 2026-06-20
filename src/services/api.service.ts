@@ -22,6 +22,7 @@ import {
   UpdateLocationDTO,
   ListLocationsQuery,
 } from '../types/location.types';
+import { LocationMapResponse } from '../types/map.types';
 import {
   PollingStatusDTO,
   PollingHistoryResponse,
@@ -46,14 +47,20 @@ import {
   UpdateWirelessConfigDTO,
 } from '../types/wireless.types';
 import { ApiResponse } from '../types/common.types';
+import { LoginResponseDTO } from '../types/auth.types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 class ApiService {
   private baseUrl: string;
+  private token: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  setToken(token: string | null) {
+    this.token = token;
   }
 
   private async request<T>(
@@ -61,16 +68,31 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string>),
+      };
+      if (this.token) {
+        headers['Authorization'] = `Bearer ${this.token}`;
+      }
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers
-        }
+        headers,
       });
 
       if (response.status === 204) {
         return { success: true };
+      }
+
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('nms_token');
+          localStorage.removeItem('nms_user');
+          window.dispatchEvent(new Event('nms:unauthorized'));
+        }
+        return { success: false, error: 'Sesión expirada. Por favor inicia sesión nuevamente.' };
       }
 
       const data = await response.json();
@@ -93,6 +115,13 @@ class ApiService {
         error: error instanceof Error ? error.message : 'Network error'
       };
     }
+  }
+
+  async login(email: string, password: string): Promise<ApiResponse<LoginResponseDTO>> {
+    return this.request<LoginResponseDTO>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
   }
 
   private buildQuery(params: Record<string, string | number | boolean | undefined>): string {
@@ -160,7 +189,7 @@ class ApiService {
   async setDeviceCredentials(deviceId: string, data: SetDeviceCredentialsDTO): Promise<ApiResponse<DeviceCredentialsResponseDTO>> {
     return this.request<DeviceCredentialsResponseDTO>(`/devices/${deviceId}/credentials`, {
       method: 'PUT',
-      body: JSON.stringify({ snmpVersion: 1, snmpCommunity: 'public', ...data })
+      body: JSON.stringify(data)
     });
   }
 
@@ -197,6 +226,14 @@ class ApiService {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
+  }
+
+  async deleteLocation(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/locations/${id}`, { method: 'DELETE' });
+  }
+
+  async getLocationMapPins(): Promise<ApiResponse<LocationMapResponse>> {
+    return this.request<LocationMapResponse>('/locations/map');
   }
 
   // ============================================================

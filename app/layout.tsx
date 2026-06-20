@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { SettingsProvider } from "@/contexts/settings.context";
 import { QueryProvider } from "@/components/layout/QueryProvider";
+import { AuthProvider } from "@/contexts/auth.context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,9 +24,11 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <QueryProvider>
-          <SettingsProvider>
-            <AppShell>{children}</AppShell>
-          </SettingsProvider>
+          <AuthProvider>
+            <SettingsProvider>
+              <AppShell>{children}</AppShell>
+            </SettingsProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

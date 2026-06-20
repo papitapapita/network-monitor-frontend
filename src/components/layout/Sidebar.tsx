@@ -2,8 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { NavItem } from '../ui/NavItem';
+import { useAuth } from '@/contexts/auth.context';
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrador',
+  OPERATOR: 'Operador',
+  VIEWER: 'Lector',
+};
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -12,8 +19,15 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const isActive = (path: string) =>
     path === '/' ? pathname === '/' : pathname.startsWith(path);
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
 
   return (
     <aside
@@ -78,6 +92,18 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           label="Ubicaciones"
         />
         <NavItem
+          href="/map"
+          active={isActive('/map')}
+          onClick={onClose}
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+          }
+          label="Mapa"
+        />
+        <NavItem
           href="/alerts"
           active={isActive('/alerts')}
           onClick={onClose}
@@ -111,7 +137,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           }
-          label="Proveedores"
+          label="Fabricantes"
         />
         <NavItem
           href="/network-scan"
@@ -127,8 +153,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         />
       </nav>
 
-      {/* Settings — always visible at bottom */}
-      <div className="shrink-0 px-2 pb-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+      {/* Bottom: settings + user */}
+      <div className="shrink-0 px-2 pb-4 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-0.5">
         <NavItem
           href="/settings"
           active={isActive('/settings')}
@@ -143,6 +169,26 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           }
           label="Configuración"
         />
+
+        {/* User info + logout */}
+        {user && (
+          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <div className="px-3 py-2">
+              <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{user.email}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{ROLE_LABELS[user.role] ?? user.role}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Cerrar sesión
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

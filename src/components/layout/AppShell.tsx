@@ -1,10 +1,49 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
+import { useAuth } from '@/contexts/auth.context';
+import { LoadingSpinner } from '@/components/ui';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated, isLoading, logout } = useAuth();
+
+  const isLoginPage = pathname === '/login';
+
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && !isLoginPage) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, isLoading, isLoginPage, router]);
+
+  // Handle token expiry from API service
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+      router.replace('/login');
+    };
+    window.addEventListener('nms:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('nms:unauthorized', handleUnauthorized);
+  }, [logout, router]);
+
+  // Login page: render without shell
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  // While checking auth state
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
