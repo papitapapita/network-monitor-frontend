@@ -8,11 +8,8 @@ export interface WirelessMetricsDTO {
   noiseFloorDbm: number | null;
   snrDb: number | null;
   ccqPercent: number | null;
-  txRateMbps: number | null;
-  rxRateMbps: number | null;
   frequencyMhz: number | null;
   channelWidthMhz: number | null;
-  txPowerDbm: number | null;
   throughputTxBps: number | null;
   throughputRxBps: number | null;
   throughputTxPps: number | null;
@@ -30,7 +27,6 @@ export interface WirelessMetricsDTO {
   distanceM: number | null;
   latencyMs: number | null;
   clientsConnected: number | null;
-  clientsProvisioned: number | null;
 }
 
 export interface WirelessAlertDTO {

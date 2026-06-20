@@ -486,6 +486,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                 <Input
                   label="Intervalo (segundos)"
                   type="number"
+                  min={60}
                   value={configForm.intervalSecs}
                   onChange={(e) => setConfigForm((p) => ({ ...p, intervalSecs: e.target.value }))}
                   fullWidth
@@ -625,10 +626,6 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                         {metrics.channelWidthMhz !== null ? `${metrics.channelWidthMhz} MHz` : '—'}
                       </dd>
                     </div>
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">Potencia TX</dt>
-                      <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmt(metrics.txPowerDbm, 'dBm', 0)}</dd>
-                    </div>
                     {!isAP && metrics.distanceM !== null && (
                       <div>
                         <dt className="text-gray-500 dark:text-gray-400">Distancia al AP</dt>
@@ -648,14 +645,6 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
 
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Rendimiento</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">Tasa TX</dt>
-                      <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmt(metrics.txRateMbps, 'Mbps')}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">Tasa RX</dt>
-                      <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmt(metrics.rxRateMbps, 'Mbps')}</dd>
-                    </div>
                     <div>
                       <dt className="text-gray-500 dark:text-gray-400">Throughput TX</dt>
                       <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtBps(metrics.throughputTxBps)}</dd>
@@ -705,7 +694,6 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                         <dt className="text-gray-500 dark:text-gray-400">Estaciones conectadas</dt>
                         <dd className="mt-1 text-gray-900 dark:text-gray-100">
                           {metrics.clientsConnected}
-                          {metrics.clientsProvisioned !== null ? ` / ${metrics.clientsProvisioned}` : ''}
                         </dd>
                       </div>
                     )}
