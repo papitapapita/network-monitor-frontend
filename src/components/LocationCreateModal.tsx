@@ -2,18 +2,16 @@
 
 import React, { useState } from 'react';
 import { apiService } from '@/services/api.service';
-import { CreateLocationDTO, LocationResponseDTO, LocationType } from '@/types/location.types';
-import { Modal, Button, Input, Select } from '@/components/ui';
-
-const LOCATION_TYPE_OPTIONS = [
-  { value: '', label: 'Seleccionar tipo' },
-  { value: 'TOWER', label: 'Torre' },
-  { value: 'NODE', label: 'Nodo' },
-  { value: 'DATACENTER', label: 'Datacenter' },
-  { value: 'POP', label: 'POP' },
-  { value: 'WAREHOUSE', label: 'Bodega' },
-  { value: 'OFFICE', label: 'Oficina' },
-];
+import { LocationResponseDTO } from '@/types/location.types';
+import { Modal, Button } from '@/components/ui';
+import {
+  LocationForm,
+  LocationFormData,
+  EMPTY_LOCATION_FORM,
+  validateLocationForm,
+  buildLocationDTO,
+  inferLocationFromCoords,
+} from '@/components/locations/LocationForm';
 
 interface LocationCreateModalProps {
   isOpen: boolean;
@@ -23,19 +21,10 @@ interface LocationCreateModalProps {
 
 export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCreateModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  const [formData, setFormData] = useState({
-    name: '',
-    type: '' as LocationType | '',
-    municipality: '',
-    neighborhood: '',
-    address: '',
-    latitude: '',
-    longitude: '',
-    altitude: '',
-  });
+  const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -46,7 +35,7 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
   };
 
   const handleClose = () => {
-    setFormData({ name: '', type: '', municipality: '', neighborhood: '', address: '', latitude: '', longitude: '', altitude: '' });
+    setFormData(EMPTY_LOCATION_FORM);
     setFormErrors({});
     setError(null);
     onClose();
@@ -54,34 +43,14 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errors: Record<string, string> = {};
-    if (!formData.name.trim()) errors.name = 'El nombre es requerido';
-    if (!formData.type) errors.type = 'El tipo es requerido';
-    const lat = parseFloat(formData.latitude);
-    const lon = parseFloat(formData.longitude);
-    if ((formData.latitude && !formData.longitude) || (!formData.latitude && formData.longitude)) {
-      errors.latitude = 'Latitud y longitud deben indicarse juntas';
-    }
-    if (formData.latitude && (lat < -90 || lat > 90)) errors.latitude = 'Debe estar entre -90 y 90';
-    if (formData.longitude && (lon < -180 || lon > 180)) errors.longitude = 'Debe estar entre -180 y 180';
+    const errors = validateLocationForm(formData);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setIsSubmitting(true);
     setError(null);
 
-    const dto: CreateLocationDTO = {
-      name: formData.name.trim(),
-      type: formData.type as LocationType,
-    };
-    if (formData.municipality.trim()) dto.municipality = formData.municipality.trim();
-    if (formData.neighborhood.trim()) dto.neighborhood = formData.neighborhood.trim();
-    if (formData.address.trim()) dto.address = formData.address.trim();
-    if (formData.latitude) dto.latitude = parseFloat(formData.latitude);
-    if (formData.longitude) dto.longitude = parseFloat(formData.longitude);
-    if (formData.altitude) dto.altitude = parseFloat(formData.altitude);
-
-    const result = await apiService.createLocation(dto);
+    const result = await apiService.createLocation(buildLocationDTO(formData));
     if (result.success && result.data) {
       onCreated(result.data);
       handleClose();
@@ -105,85 +74,26 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
             <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
           </div>
         )}
-
-        <div className="space-y-4 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Nombre"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              error={formErrors.name}
-              required
-              fullWidth
-            />
-            <Select
-              label="Tipo"
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              options={LOCATION_TYPE_OPTIONS}
-              error={formErrors.type}
-              required
-              fullWidth
-            />
-          </div>
-
-          <Input
-            label="Dirección"
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            fullWidth
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Municipio"
-              name="municipality"
-              value={formData.municipality}
-              onChange={handleChange}
-              fullWidth
-            />
-            <Input
-              label="Barrio"
-              name="neighborhood"
-              value={formData.neighborhood}
-              onChange={handleChange}
-              fullWidth
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <Input
-              label="Latitud"
-              name="latitude"
-              type="number"
-              value={formData.latitude}
-              onChange={handleChange}
-              error={formErrors.latitude}
-              fullWidth
-            />
-            <Input
-              label="Longitud"
-              name="longitude"
-              type="number"
-              value={formData.longitude}
-              onChange={handleChange}
-              error={formErrors.longitude}
-              fullWidth
-            />
-            <Input
-              label="Altitud (m)"
-              name="altitude"
-              type="number"
-              value={formData.altitude}
-              onChange={handleChange}
-              fullWidth
-            />
-          </div>
-        </div>
-
+        <LocationForm
+          formData={formData}
+          formErrors={formErrors}
+          onChange={handleChange}
+          isGeocoding={isGeocoding}
+          onCoordsPaste={async (lat, lon) => {
+            setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }));
+            setIsGeocoding(true);
+            try {
+              const inferred = await inferLocationFromCoords(lat, lon);
+              setFormData((prev) => ({
+                ...prev,
+                ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
+                ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
+              }));
+            } finally {
+              setIsGeocoding(false);
+            }
+          }}
+        />
         <Modal.Footer>
           <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancelar

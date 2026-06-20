@@ -26,6 +26,7 @@ import {
   UpdateLocationDTO,
   ListLocationsQuery,
 } from '../types/location.types';
+import { LocationMapResponse, MapPin } from '../types/map.types';
 import {
   PollingStatusDTO,
   PollingHistoryResponse,
@@ -211,6 +212,41 @@ class MockApiService {
     const updated = { ...locations[idx], ...data, updatedAt: new Date().toISOString() };
     locations[idx] = updated;
     return ok(updated);
+  }
+
+  async deleteLocation(id: string): Promise<ApiResponse<void>> {
+    const idx = locations.findIndex((l) => l.id === id);
+    if (idx === -1) return err('Location not found');
+    locations = locations.filter((l) => l.id !== id);
+    return { success: true };
+  }
+
+  async getLocationMapPins(): Promise<ApiResponse<LocationMapResponse>> {
+    const pins: MapPin[] = locations
+      .filter((l) => l.latitude !== null && l.longitude !== null)
+      .map((loc) => ({
+        id: loc.id,
+        name: loc.name,
+        locationType: loc.type,
+        latitude: loc.latitude!,
+        longitude: loc.longitude!,
+        altitude: loc.altitude,
+        municipality: loc.municipality,
+        neighborhood: loc.neighborhood,
+        address: loc.address,
+        devices: devices
+          .filter((d) => d.locationId === loc.id)
+          .map((d) => ({
+            id: d.id,
+            name: d.name,
+            status: d.status,
+            category: d.category,
+            ipAddress: d.ipAddress,
+            macAddress: d.macAddress,
+            monitoringEnabled: d.monitoringEnabled,
+          })),
+      }));
+    return ok({ total: pins.length, pins });
   }
 
   // ── Vendors ────────────────────────────────────────────────
@@ -581,6 +617,19 @@ class MockApiService {
   }
   async getGlobalWirelessAlertHistory() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setToken(_token: string | null) {}
+
+  async login(email: string, _password: string): Promise<ApiResponse<{ token: string; user: { id: string; email: string; role: 'ADMIN' | 'OPERATOR' | 'VIEWER' } }>> {
+    return {
+      success: true,
+      data: {
+        token: 'mock-token',
+        user: { id: 'mock-user', email, role: 'ADMIN' },
+      },
+    };
   }
 }
 

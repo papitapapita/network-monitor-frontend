@@ -35,13 +35,13 @@ export const MOCK_LOCATIONS: LocationResponseDTO[] = [
     createdAt: daysAgo(60), updatedAt: daysAgo(60),
   },
   {
-    id: 'loc-4', name: 'East Distribution Node', type: 'NODE',
+    id: 'loc-4', name: 'East Distribution Node', type: 'POINT_OF_PRESENCE',
     municipality: 'East Side', neighborhood: 'Jardim Leste', address: null,
     latitude: -23.5450, longitude: -46.5900, altitude: 18,
     createdAt: daysAgo(45), updatedAt: daysAgo(45),
   },
   {
-    id: 'loc-5', name: 'Warehouse A', type: 'WAREHOUSE',
+    id: 'loc-5', name: 'Warehouse A', type: 'OTHER',
     municipality: 'Industrial Zone', neighborhood: null, address: 'Rua Industrial 200',
     latitude: null, longitude: null, altitude: null,
     createdAt: daysAgo(45), updatedAt: daysAgo(45),

@@ -1,10 +1,10 @@
 export type LocationType =
   | 'TOWER'
-  | 'NODE'
   | 'DATACENTER'
-  | 'POP'
-  | 'WAREHOUSE'
-  | 'OFFICE';
+  | 'POINT_OF_PRESENCE'
+  | 'OFFICE'
+  | 'CUSTOMER_PREMISES'
+  | 'OTHER';
 
 export interface LocationResponseDTO {
   id: string;
