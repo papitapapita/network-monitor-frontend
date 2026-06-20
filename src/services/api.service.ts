@@ -48,6 +48,20 @@ import {
 } from '../types/wireless.types';
 import { ApiResponse } from '../types/common.types';
 import { LoginResponseDTO } from '../types/auth.types';
+import {
+  CustomerDTO,
+  CustomerListResponse,
+  CreateCustomerDTO,
+  UpdateCustomerDTO,
+  ServicePlanDTO,
+  ServicePlanListResponse,
+  CreateServicePlanDTO,
+  UpdateServicePlanDTO,
+  ContractedServiceDTO,
+  ContractedServiceListResponse,
+  CreateContractedServiceDTO,
+  UpdateContractedServiceDTO,
+} from '../types/customer.types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -83,6 +97,10 @@ class ApiService {
 
       if (response.status === 204) {
         return { success: true };
+      }
+
+      if (response.status === 403) {
+        return { success: false, error: 'No tienes permisos suficientes para realizar esta acción.' };
       }
 
       if (response.status === 401) {
@@ -454,6 +472,81 @@ class ApiService {
       limit: query?.limit
     });
     return this.request<WirelessAlertDTO[]>(`/wireless/alerts/history${qs}`);
+  }
+
+  // ============================================================
+  // Customers
+  // ============================================================
+
+  async listCustomers(query?: { limit?: number; offset?: number }): Promise<ApiResponse<CustomerListResponse>> {
+    const qs = this.buildQuery({ limit: query?.limit, offset: query?.offset });
+    return this.request<CustomerListResponse>(`/customers${qs}`);
+  }
+
+  async getCustomer(id: string): Promise<ApiResponse<CustomerDTO>> {
+    return this.request<CustomerDTO>(`/customers/${id}`);
+  }
+
+  async createCustomer(data: CreateCustomerDTO): Promise<ApiResponse<CustomerDTO>> {
+    return this.request<CustomerDTO>('/customers', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateCustomer(id: string, data: UpdateCustomerDTO): Promise<ApiResponse<CustomerDTO>> {
+    return this.request<CustomerDTO>(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async deleteCustomer(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/customers/${id}`, { method: 'DELETE' });
+  }
+
+  // ============================================================
+  // Service Plans
+  // ============================================================
+
+  async listServicePlans(query?: { limit?: number; offset?: number }): Promise<ApiResponse<ServicePlanListResponse>> {
+    const qs = this.buildQuery({ limit: query?.limit, offset: query?.offset });
+    return this.request<ServicePlanListResponse>(`/service-plans${qs}`);
+  }
+
+  async getServicePlan(id: string): Promise<ApiResponse<ServicePlanDTO>> {
+    return this.request<ServicePlanDTO>(`/service-plans/${id}`);
+  }
+
+  async createServicePlan(data: CreateServicePlanDTO): Promise<ApiResponse<ServicePlanDTO>> {
+    return this.request<ServicePlanDTO>('/service-plans', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateServicePlan(id: string, data: UpdateServicePlanDTO): Promise<ApiResponse<ServicePlanDTO>> {
+    return this.request<ServicePlanDTO>(`/service-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async deleteServicePlan(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/service-plans/${id}`, { method: 'DELETE' });
+  }
+
+  // ============================================================
+  // Contracted Services
+  // ============================================================
+
+  async listContractedServices(query?: { customerId?: string; limit?: number; offset?: number }): Promise<ApiResponse<ContractedServiceListResponse>> {
+    const qs = this.buildQuery({ customerId: query?.customerId, limit: query?.limit, offset: query?.offset });
+    return this.request<ContractedServiceListResponse>(`/contracted-services${qs}`);
+  }
+
+  async getContractedService(id: string): Promise<ApiResponse<ContractedServiceDTO>> {
+    return this.request<ContractedServiceDTO>(`/contracted-services/${id}`);
+  }
+
+  async createContractedService(data: CreateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {
+    return this.request<ContractedServiceDTO>('/contracted-services', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateContractedService(id: string, data: UpdateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {
+    return this.request<ContractedServiceDTO>(`/contracted-services/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async deleteContractedService(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/contracted-services/${id}`, { method: 'DELETE' });
   }
 }
 
