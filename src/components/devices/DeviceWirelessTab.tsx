@@ -19,20 +19,20 @@ interface Props {
   deviceIpAddress: string | null;
 }
 
-function fmt(val: number | null, unit: string, decimals = 1): string {
-  if (val === null) return '—';
+function fmt(val: number | null | undefined, unit: string, decimals = 1): string {
+  if (val == null) return '—';
   return `${val.toFixed(decimals)} ${unit}`;
 }
 
-function fmtBps(val: number | null): string {
-  if (val === null) return '—';
+function fmtBps(val: number | null | undefined): string {
+  if (val == null) return '—';
   if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)} Mbps`;
   if (val >= 1_000) return `${(val / 1_000).toFixed(1)} Kbps`;
   return `${val} bps`;
 }
 
-function fmtKbps(val: number | null): string {
-  if (val === null) return '—';
+function fmtKbps(val: number | null | undefined): string {
+  if (val == null) return '—';
   if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)} Gbps`;
   if (val >= 1_000) return `${(val / 1_000).toFixed(1)} Mbps`;
   return `${val} Kbps`;
