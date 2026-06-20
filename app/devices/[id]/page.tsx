@@ -18,6 +18,7 @@ type Tab = 'details' | 'polling' | 'wireless' | 'credentials';
 
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
+  COMMISSIONING: 'Comisionamiento',
   INVENTORY: 'Inventario',
   DAMAGED: 'Dañado',
 };

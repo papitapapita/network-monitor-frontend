@@ -13,6 +13,7 @@ import {
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Activo',
+  COMMISSIONING: 'Comisionamiento',
   INVENTORY: 'Inventario',
   DAMAGED: 'Dañado',
 };

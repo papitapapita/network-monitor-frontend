@@ -1,5 +1,6 @@
 export type DeviceStatus =
   | 'INVENTORY'
+  | 'COMMISSIONING'
   | 'ACTIVE'
   | 'DAMAGED';
 
@@ -170,13 +171,30 @@ export interface DeviceModelListResponse {
 
 export interface DeviceCredentialsResponseDTO {
   deviceId: string;
+  snmpVersion: 1 | 2 | 3;
+  snmpCommunity: '***' | null;
+  snmpV3AuthUser: string | null;
+  snmpV3AuthProto: 'MD5' | 'SHA' | null;
+  snmpV3AuthKey: '***' | null;
+  snmpV3PrivProto: 'DES' | 'AES' | null;
+  snmpV3PrivKey: '***' | null;
+  snmpPort: number;
   httpUsername: string | null;
   httpPassword: '***' | null;
   httpPort: number;
+  hasSnmpCredentials: boolean;
   hasHttpCredentials: boolean;
 }
 
 export interface SetDeviceCredentialsDTO {
+  snmpVersion: 1 | 2 | 3;
+  snmpCommunity?: string | null;
+  snmpV3AuthUser?: string | null;
+  snmpV3AuthProto?: 'MD5' | 'SHA' | null;
+  snmpV3AuthKey?: string | null;
+  snmpV3PrivProto?: 'DES' | 'AES' | null;
+  snmpV3PrivKey?: string | null;
+  snmpPort?: number;
   httpUsername?: string | null;
   httpPassword?: string | null;
   httpPort?: number;

@@ -10,6 +10,7 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 
 const STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
+  COMMISSIONING: 'Comisionamiento',
   INVENTORY: 'Inventario',
   DAMAGED: 'Dañado',
 };

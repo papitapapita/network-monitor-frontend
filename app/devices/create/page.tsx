@@ -15,6 +15,7 @@ import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS } from '@/constants/device.constants';
 
 
 export default function CreateDevicePage() {
@@ -87,7 +88,7 @@ export default function CreateDevicePage() {
     const status = (formData.status || 'INVENTORY') as DeviceStatus;
     const hasCategory = !!formData.category;
     const hasIp = !!formData.ipAddress.trim();
-    if ((hasCategory || status === 'ACTIVE') && !hasIp) {
+    if ((hasCategory || status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
       errors.ipAddress = 'La dirección IP es requerida';
     }
     if (!hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
@@ -271,12 +272,7 @@ export default function CreateDevicePage() {
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
-                  options={[
-                    { value: '', label: 'Por defecto (Inventario)' },
-                    { value: 'INVENTORY', label: 'Inventario' },
-                    { value: 'ACTIVE', label: 'Activo' },
-                    { value: 'DAMAGED', label: 'Dañado' },
-                  ]}
+                  options={DEVICE_STATUS_CREATE_OPTIONS}
                   fullWidth
                 />
                 <Select
@@ -284,16 +280,7 @@ export default function CreateDevicePage() {
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  options={[
-                    { value: '', label: 'Ninguna' },
-                    { value: 'CPE', label: 'CPE (Cliente)' },
-                    { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
-                    { value: 'AP', label: 'Punto de Acceso (AP)' },
-                    { value: 'ROUTERBOARD', label: 'Routerboard' },
-                    { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
-                    { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
-                    { value: 'OTHER', label: 'Otro' },
-                  ]}
+                  options={DEVICE_CATEGORY_OPTIONS}
                   fullWidth
                 />
                 <Select
@@ -301,11 +288,7 @@ export default function CreateDevicePage() {
                   name="ownerType"
                   value={formData.ownerType}
                   onChange={handleChange}
-                  options={[
-                    { value: '', label: 'Seleccionar tipo' },
-                    { value: 'COMPANY', label: 'Empresa' },
-                    { value: 'CLIENT', label: 'Cliente' },
-                  ]}
+                  options={DEVICE_OWNER_OPTIONS}
                   error={formErrors.ownerType}
                   fullWidth
                 />
