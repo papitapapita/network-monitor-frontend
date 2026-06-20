@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
 import { Card, Button, Input, LoadingSpinner } from '@/components/ui';
@@ -18,6 +19,7 @@ function toSlug(name: string): string {
 
 export default function VendorDetailPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams();
   const vendorId = params.id as string;
 
@@ -47,7 +49,7 @@ export default function VendorDetailPage() {
       setVendor(result.data);
       setFormData(makeForm(result.data));
     } else {
-      setError(result.error || 'Error al cargar el proveedor');
+      setError(result.error || 'Error al cargar el fabricante');
     }
     setIsLoading(false);
   }, [vendorId]);
@@ -98,12 +100,13 @@ export default function VendorDetailPage() {
 
     const result = await apiService.updateVendor(vendorId, dto);
     if (result.success && result.data) {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
       setVendor(result.data);
       setFormData(makeForm(result.data));
       setIsEditing(false);
       setSlugManuallyEdited(false);
     } else {
-      setError(result.error || 'Error al actualizar el proveedor');
+      setError(result.error || 'Error al actualizar el fabricante');
     }
     setIsSaving(false);
   };
@@ -120,17 +123,18 @@ export default function VendorDetailPage() {
     const result = await apiService.deleteVendor(vendorId);
     setIsDeleting(false);
     if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
       router.push('/vendors');
     } else {
       setShowDeleteModal(false);
-      setError(result.error || 'Error al eliminar el proveedor');
+      setError(result.error || 'Error al eliminar el fabricante');
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <LoadingSpinner size="lg" message="Cargando proveedor..." />
+        <LoadingSpinner size="lg" message="Cargando fabricante..." />
       </div>
     );
   }
@@ -157,7 +161,7 @@ export default function VendorDetailPage() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
-        title="Eliminar proveedor"
+        title="Eliminar fabricante"
         message={`¿Estás seguro de que deseas eliminar "${vendor.name}"? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
@@ -199,7 +203,7 @@ export default function VendorDetailPage() {
         {isEditing ? (
           <Card>
             <Card.Header>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Proveedor</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Fabricante</h2>
             </Card.Header>
             <Card.Body>
               <div className="grid grid-cols-1 gap-4">
@@ -241,7 +245,7 @@ export default function VendorDetailPage() {
           <>
             <Card>
               <Card.Header>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Proveedor</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Fabricante</h2>
               </Card.Header>
               <Card.Body>
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

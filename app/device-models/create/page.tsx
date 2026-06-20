@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateDeviceModelDTO, VendorDTO, DeviceType } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner } from '@/components/ui';
 
 export default function CreateDeviceModelPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -38,7 +40,7 @@ export default function CreateDeviceModelPage() {
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.vendorId) errors.vendorId = 'El proveedor es requerido';
+    if (!formData.vendorId) errors.vendorId = 'El fabricante es requerido';
     if (!formData.model.trim()) errors.model = 'El modelo es requerido';
     if (!formData.deviceType) errors.deviceType = 'El tipo de dispositivo es requerido';
     setFormErrors(errors);
@@ -59,7 +61,8 @@ export default function CreateDeviceModelPage() {
 
     const result = await apiService.createDeviceModel(dto);
     if (result.success && result.data) {
-      router.push(`/device-models/${result.data.id}`);
+      queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
+      router.replace(`/device-models/${result.data.id}`);
     } else {
       setError(result.error || 'Error al crear el modelo');
       setIsSubmitting(false);
@@ -86,7 +89,7 @@ export default function CreateDeviceModelPage() {
 
       {loadingVendors ? (
         <div className="flex justify-center py-8">
-          <LoadingSpinner message="Cargando proveedores..." />
+          <LoadingSpinner message="Cargando fabricantes..." />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -97,12 +100,12 @@ export default function CreateDeviceModelPage() {
             <Card.Body>
               <div className="grid grid-cols-1 gap-4">
                 <Select
-                  label="Proveedor"
+                  label="Fabricante"
                   name="vendorId"
                   value={formData.vendorId}
                   onChange={handleChange}
                   options={[
-                    { value: '', label: 'Seleccionar proveedor' },
+                    { value: '', label: 'Seleccionar fabricante' },
                     ...vendors.map((v) => ({ value: v.id, label: v.name })),
                   ]}
                   error={formErrors.vendorId}

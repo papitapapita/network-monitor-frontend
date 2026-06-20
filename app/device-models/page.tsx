@@ -125,7 +125,7 @@ function DeviceModelsPageContent() {
             label="Buscar"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            placeholder="Proveedor o modelo..."
+            placeholder="Fabricante o modelo..."
             fullWidth
           />
           <Select
@@ -179,7 +179,7 @@ function DeviceModelsPageContent() {
                 onSort={() => handleSort('vendor')}
                 sortDirection={sortField === 'vendor' ? sortDirection : null}
               >
-                Proveedor
+                Fabricante
               </Table.Head>
               <Table.Head
                 sortable

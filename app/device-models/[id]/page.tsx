@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO } from '@/types/device.types';
 import { Button, Badge, LoadingSpinner } from '@/components/ui';
@@ -10,6 +11,7 @@ import { DeviceModelDetailsTab } from '@/components/device-models/DeviceModelDet
 
 export default function DeviceModelDetailPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams();
   const modelId = params.id as string;
 
@@ -62,6 +64,7 @@ export default function DeviceModelDetailPage() {
     const result = await apiService.deleteDeviceModel(modelId);
     setIsDeleting(false);
     if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       router.push('/device-models');
     } else {
       setShowDeleteModal(false);

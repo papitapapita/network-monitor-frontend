@@ -24,7 +24,7 @@ async function fetchAllVendors(): Promise<VendorDTO[]> {
   while (hasMore) {
     const result = await apiService.listVendors({ limit: 100, offset });
     if (!result.success || !result.data) {
-      throw new Error(result.error || 'Error al cargar proveedores');
+      throw new Error(result.error || 'Error al cargar fabricantes');
     }
     batches.push(...result.data.vendors);
     hasMore = result.data.hasMore;
@@ -80,17 +80,17 @@ function VendorsPageContent() {
   const paginated = sorted.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
 
   const countLabel = allVendors.length > 0
-    ? `${allVendors.length} ${allVendors.length === 1 ? 'proveedor' : 'proveedores'} en total`
-    : 'Administra los proveedores de dispositivos';
+    ? `${allVendors.length} ${allVendors.length === 1 ? 'fabricante' : 'fabricantes'} en total`
+    : 'Administra los fabricantes de dispositivos';
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Proveedores</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Fabricantees</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">{countLabel}</p>
         </div>
-        <Button onClick={() => router.push('/vendors/create')}>Agregar Proveedor</Button>
+        <Button onClick={() => router.push('/vendors/create')}>Agregar Fabricante</Button>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
@@ -126,7 +126,7 @@ function VendorsPageContent() {
 
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <LoadingSpinner size="lg" message="Cargando proveedores..." />
+          <LoadingSpinner size="lg" message="Cargando fabricantes..." />
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -154,8 +154,8 @@ function VendorsPageContent() {
                 <TableEmptyState
                   message={
                     search
-                      ? 'Ningún proveedor coincide con la búsqueda'
-                      : 'Sin proveedores. Agrega el primero para comenzar.'
+                      ? 'Ningún fabricante coincide con la búsqueda'
+                      : 'Sin fabricantes. Agrega el primero para comenzar.'
                   }
                 />
               ) : (

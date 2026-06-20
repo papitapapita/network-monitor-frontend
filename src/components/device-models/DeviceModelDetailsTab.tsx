@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   DeviceModelResponseDTO,
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!formData.model.trim()) errors.model = 'El modelo es requerido';
-    if (!formData.vendorId) errors.vendorId = 'El proveedor es requerido';
+    if (!formData.vendorId) errors.vendorId = 'El fabricante es requerido';
     if (!formData.deviceType) errors.deviceType = 'El tipo es requerido';
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -73,6 +75,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
 
     const result = await apiService.updateDeviceModel(model.id, dto);
     if (result.success && result.data) {
+      queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       onModelUpdated(result.data);
       setIsEditing(false);
     } else {
@@ -114,12 +117,12 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
           <Card.Body>
             <div className="grid grid-cols-1 gap-4">
               <Select
-                label="Proveedor"
+                label="Fabricante"
                 name="vendorId"
                 value={formData.vendorId}
                 onChange={handleChange}
                 options={[
-                  { value: '', label: 'Seleccionar proveedor' },
+                  { value: '', label: 'Seleccionar fabricante' },
                   ...vendors.map((v) => ({ value: v.id, label: v.name })),
                 ]}
                 error={formErrors.vendorId}
@@ -166,7 +169,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
             <Card.Body>
               <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Proveedor</dt>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Fabricante</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{model.vendorName}</dd>
                 </div>
                 <div>
@@ -182,7 +185,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Slug del Proveedor</dt>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Slug del Fabricante</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{model.vendorSlug}</dd>
                 </div>
               </dl>
@@ -200,7 +203,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
                   <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{model.id}</dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">ID de Proveedor</dt>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">ID de Fabricante</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{model.vendorId}</dd>
                 </div>
                 <div>
