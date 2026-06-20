@@ -28,11 +28,72 @@ Most API responses are wrapped:
 
 ---
 
+## Authentication
+
+All endpoints except `POST /api/auth/login` require a valid JWT in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
+Missing or invalid tokens return `401`. Insufficient role returns `403`.
+
+### Roles
+
+| Role | Allowed operations |
+|------|--------------------|
+| `ADMIN` | read, create, update, delete, activate, bulk-import |
+| `OPERATOR` | read, create, update, activate, bulk-import |
+| `VIEWER` | read only |
+
+### Rate limits (per IP)
+
+| Operation type | Limit |
+|----------------|-------|
+| Read (`GET`) | 100 / min |
+| Write (`POST`, `PATCH`, `PUT`) | 20 / min |
+| Delete (`DELETE`) | 10 / min |
+| Bulk import | 5 / hr |
+
+---
+
+## Auth `/api/auth`
+
+### `POST /api/auth/login` — Login
+**Status:** 200 | 400 | 401  
+**Auth required:** No
+
+```ts
+// Request body
+{
+  email: string     // required
+  password: string  // required
+}
+
+// Response 200
+{
+  success: true,
+  data: {
+    token: string   // JWT — include as Bearer token on all subsequent requests
+    user: {
+      id: string    // UUID
+      email: string
+      role: 'ADMIN' | 'OPERATOR' | 'VIEWER'
+    }
+  }
+}
+```
+
+> Returns `401` for both wrong password and unknown email (identical error message — no credential enumeration).  
+> Token expires after 24 hours; obtain a new one by logging in again.
+
+---
+
 ## Enums
 
 ```ts
-type LocationType   = 'TOWER' | 'NODE' | 'DATACENTER' | 'POP' | 'WAREHOUSE' | 'OFFICE' | 'OTHER'
-type DeviceStatus   = 'ACTIVE' | 'DAMAGED' | 'INVENTORY'
+type LocationType   = 'TOWER' | 'DATACENTER' | 'POINT_OF_PRESENCE' | 'OFFICE' | 'CUSTOMER_PREMISES' | 'OTHER'
+type DeviceStatus   = 'INVENTORY' | 'COMMISSIONING' | 'ACTIVE' | 'DAMAGED'
 type DeviceCategory = 'CPE' | 'WIRELESS_CPE' | 'AP' | 'ROUTERBOARD' | 'SMART_SWITCH' | 'SMART_SWITCH_POE' | 'OTHER'
 type DeviceOwner    = 'COMPANY' | 'CLIENT'
 type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
@@ -160,6 +221,48 @@ type?:   LocationType
 
 ---
 
+### `GET /api/locations/map` — Map pins
+**Status:** 200  
+**Auth required:** Yes (any role)
+
+Returns all locations that have coordinates, each with their nested devices. Intended for map rendering — one pin per location.
+
+```ts
+// Response
+{
+  success: true,
+  data: {
+    total: number       // number of pins returned
+    pins: Array<{
+      id: string            // location UUID
+      name: string
+      locationType: LocationType
+      latitude: number      // never null — only geolocated locations included
+      longitude: number
+      altitude: number | null
+      municipality: string | null
+      neighborhood: string | null
+      address: string | null
+      devices: Array<{
+        id: string
+        name: string
+        status: DeviceStatus
+        category: DeviceCategory | null
+        ipAddress: string | null
+        macAddress: string | null
+        monitoringEnabled: boolean
+      }>
+    }>
+  }
+}
+```
+
+> Locations without both `latitude` and `longitude` are excluded.  
+> Devices are grouped under their location — no N+1 queries.  
+> Use `locationType` to drive pin icon/colour on the frontend map.
+
+---
+
 ### `GET /api/locations/:id` — Get by ID
 **Status:** 200 | 404
 
@@ -167,6 +270,19 @@ type?:   LocationType
 // Response
 { success: true, data: LocationDTO }
 ```
+
+---
+
+### `DELETE /api/locations/:id` — Delete
+**Status:** 204 | 400 | 404 | 409
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+> Returns 409 if any devices are assigned to this location — reassign or remove them first.  
+> Returns 400 if the id is not a valid UUID v4, 404 if no location exists with that id.
 
 ---
 
@@ -217,8 +333,8 @@ type?:   LocationType
 
 **Business rules:**
 - `INVENTORY` / `DAMAGED` status → at least one of `serialNumber` or `macAddress` required (status defaults to `INVENTORY`, so a minimal request must include at least one)
-- `ACTIVE` status → `ipAddress` required
-- Any `category` set → `ipAddress` required
+- `COMMISSIONING` status → `ipAddress` required; `monitoringEnabled` is forced `true` regardless of what is sent
+- `ACTIVE` status → `ipAddress` and `locationId` required
 
 ```ts
 // Response
@@ -266,6 +382,21 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 // Response
 { success: true, data: DeviceDTO }
 ```
+
+---
+
+**Device status lifecycle:**
+
+| Transition | Requirements | Side effects |
+|------------|--------------|--------------|
+| any → `COMMISSIONING` | `ipAddress` must be set on the device | `monitoringEnabled` forced `true` |
+| any → `ACTIVE` | `ipAddress` and `locationId` must both be set | — |
+| any → `DAMAGED` | — | polling automatically disabled |
+| any → `INVENTORY` | — | polling automatically disabled |
+
+`DAMAGED` is a side-state (e.g. hardware failure) and can be set from any status.
+
+> When transitioning to `DAMAGED` or `INVENTORY`, the backend automatically disables the device's polling config. There is no need to also send `monitoringEnabled: false`.
 
 ---
 
@@ -795,11 +926,8 @@ interface WirelessMetricsDTO {
   noiseFloorDbm: number | null
   snrDb: number | null
   ccqPercent: number | null
-  txRateMbps: number | null
-  rxRateMbps: number | null
   frequencyMhz: number | null
   channelWidthMhz: number | null
-  txPowerDbm: number | null
   throughputTxBps: number | null
   throughputRxBps: number | null
   throughputTxPps: number | null
@@ -817,7 +945,6 @@ interface WirelessMetricsDTO {
   distanceM: number | null
   latencyMs: number | null
   clientsConnected: number | null
-  clientsProvisioned: number | null
 }
 
 interface WirelessStatusDTO {
@@ -833,7 +960,7 @@ interface WirelessStatusDTO {
 interface WirelessAlertDTO {
   id: string                // UUID
   deviceId: string          // UUID
-  metric: string            // e.g. "signal_rx_dbm"
+  metric: string            // e.g. "signal_rx_dbm", "latency_ms", "clock_drift_s", "firmware_version_changed", "remote_ap_mac_changed"
   severity: WirelessAlertSeverity
   threshold: number
   lastValue: number
@@ -887,7 +1014,7 @@ interface WirelessClientDTO {
 {
   deviceType: 'STATION' | 'ACCESS_POINT'   // required
   ipAddress?: string | null                // IPv4 or IPv6; used for HTTP API polling
-  intervalSecs?: number                    // 30–86400; default 3600
+  intervalSecs?: number                    // 60–86400; default 3600
   enabled?: boolean                        // default true
   linkCapacityKbps?: number | null          // STATION only — provisioned uplink capacity (bps)
   clientsProvisionedLimit?: number | null  // ACCESS_POINT only — max expected clients
@@ -934,7 +1061,7 @@ interface WirelessClientDTO {
 // Request body (at least one field required)
 {
   ipAddress?: string | null
-  intervalSecs?: number                   // 30–86400
+  intervalSecs?: number                   // 60–86400
   enabled?: boolean
   linkCapacityKbps?: number | null         // STATION only — returns 400 if device is ACCESS_POINT
   clientsProvisionedLimit?: number | null // ACCESS_POINT only — returns 400 if device is STATION
@@ -1103,6 +1230,294 @@ WirelessAlertDTO[]
 
 ---
 
+## Customers `/api/customers`
+
+```ts
+interface CustomerDTO {
+  id: string          // UUID
+  fullName: string
+  phone: string
+  email: string | null
+  cedula: string | null
+  createdAt: string   // ISO 8601
+  updatedAt: string
+}
+```
+
+### `POST /api/customers` — Create
+**Status:** 201 | 400
+
+```ts
+// Request body
+{
+  fullName: string         // required, 1–150 chars
+  phone: string            // required, 7–20 chars, digits/spaces/()/.-/+ allowed
+  email?: string | null    // max 255 chars, valid email format
+  cedula?: string | null   // 6–15 chars, digits/dots/spaces
+}
+
+// Response
+{ success: true, data: CustomerDTO }
+```
+
+---
+
+### `GET /api/customers` — List
+**Status:** 200
+
+```ts
+// Query params (all optional)
+limit?:  number  // 1–100, default 20
+offset?: number  // ≥0, default 0
+
+// Response
+{
+  success: true,
+  data: {
+    customers: CustomerDTO[]
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+---
+
+### `GET /api/customers/:id` — Get by ID
+**Status:** 200 | 404
+
+```ts
+// Response
+{ success: true, data: CustomerDTO }
+```
+
+---
+
+### `PUT /api/customers/:id` — Update
+**Status:** 200 | 400 | 404
+
+```ts
+// Request body (at least one field required)
+{
+  fullName?: string
+  phone?: string
+  email?: string | null
+  cedula?: string | null
+}
+
+// Response
+{ success: true, data: CustomerDTO }
+```
+
+---
+
+### `DELETE /api/customers/:id` — Delete
+**Status:** 204 | 400 | 404
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+---
+
+## Service Plans `/api/service-plans`
+
+```ts
+interface ServicePlanDTO {
+  id: string             // UUID
+  name: string
+  downloadMbps: number   // positive integer
+  uploadMbps: number     // positive integer
+  monthlyPrice: number   // non-negative decimal
+  description: string | null
+  isActive: boolean
+  createdAt: string      // ISO 8601
+  updatedAt: string
+}
+```
+
+### `POST /api/service-plans` — Create
+**Status:** 201 | 400
+
+```ts
+// Request body
+{
+  name: string             // required, 1–100 chars
+  downloadMbps: number     // required, positive integer (Mbps)
+  uploadMbps: number       // required, positive integer (Mbps)
+  monthlyPrice: number     // required, non-negative decimal
+  description?: string | null  // max 500 chars
+  isActive?: boolean       // default true
+}
+
+// Response
+{ success: true, data: ServicePlanDTO }
+```
+
+---
+
+### `GET /api/service-plans` — List
+**Status:** 200
+
+```ts
+// Query params (all optional)
+limit?:  number  // 1–100, default 20
+offset?: number  // ≥0, default 0
+
+// Response
+{
+  success: true,
+  data: {
+    servicePlans: ServicePlanDTO[]
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+---
+
+### `GET /api/service-plans/:id` — Get by ID
+**Status:** 200 | 404
+
+```ts
+// Response
+{ success: true, data: ServicePlanDTO }
+```
+
+---
+
+### `PUT /api/service-plans/:id` — Update
+**Status:** 200 | 400 | 404
+
+```ts
+// Request body (at least one field required)
+{
+  name?: string
+  downloadMbps?: number
+  uploadMbps?: number
+  monthlyPrice?: number
+  description?: string | null
+  isActive?: boolean
+}
+
+// Response
+{ success: true, data: ServicePlanDTO }
+```
+
+---
+
+### `DELETE /api/service-plans/:id` — Delete
+**Status:** 204 | 400 | 404
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+---
+
+## Contracted Services `/api/contracted-services`
+
+```ts
+type ContractedServiceStatus = 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'
+
+interface ContractedServiceDTO {
+  id: string                        // UUID
+  customerId: string                // UUID
+  servicePlanId: string             // UUID
+  deviceId: string | null           // UUID — the CPE device assigned to this service
+  status: ContractedServiceStatus
+  startDate: string                 // ISO 8601
+  createdAt: string                 // ISO 8601
+  updatedAt: string
+}
+```
+
+### `POST /api/contracted-services` — Create
+**Status:** 201 | 400
+
+```ts
+// Request body
+{
+  customerId: string        // required, UUID
+  servicePlanId: string     // required, UUID
+  deviceId?: string | null  // UUID — CPE device for this service
+  startDate?: string        // ISO 8601 datetime; defaults to now if omitted
+}
+
+// Response
+{ success: true, data: ContractedServiceDTO }
+```
+
+---
+
+### `GET /api/contracted-services` — List
+**Status:** 200
+
+```ts
+// Query params (all optional)
+customerId?: string  // UUID — filter by customer
+limit?:      number  // 1–100, default 20
+offset?:     number  // ≥0, default 0
+
+// Response
+{
+  success: true,
+  data: {
+    contractedServices: ContractedServiceDTO[]
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+---
+
+### `GET /api/contracted-services/:id` — Get by ID
+**Status:** 200 | 404
+
+```ts
+// Response
+{ success: true, data: ContractedServiceDTO }
+```
+
+---
+
+### `PUT /api/contracted-services/:id` — Update
+**Status:** 200 | 400 | 404
+
+```ts
+// Request body (at least one field required)
+{
+  servicePlanId?: string         // UUID — change the plan
+  deviceId?: string | null       // UUID — assign/unassign CPE
+  status?: ContractedServiceStatus
+}
+
+// Response
+{ success: true, data: ContractedServiceDTO }
+```
+
+---
+
+### `DELETE /api/contracted-services/:id` — Delete
+**Status:** 204 | 400 | 404
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+---
+
 ## Other
 
 ### `GET /health`
@@ -1124,8 +1539,11 @@ WirelessAlertDTO[]
 | Code | Meaning |
 |------|---------|
 | 400 | Validation error or business rule violation (e.g. duplicate MAC/IP) |
+| 401 | Missing, expired, or invalid JWT |
+| 403 | Valid token but insufficient role for this operation |
 | 404 | Resource not found |
 | 409 | Conflict — resource already exists or cannot be deleted (e.g. vendor has models, model has devices) |
+| 429 | Rate limit exceeded |
 | 500 | Unexpected server error |
 
 Error body: `{ success: false, error: string }` (standard endpoints) / `{ error: string }` (credentials, polling, wireless)
