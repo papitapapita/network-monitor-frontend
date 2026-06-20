@@ -82,6 +82,9 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     if ((hasCategory || status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
       errors.ipAddress = 'La dirección IP es requerida';
     }
+    if (status === 'ACTIVE' && !formData.locationId) {
+      errors.locationId = 'La ubicación es requerida para dispositivos activos';
+    }
     if (!hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
       if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
         errors.serialNumber = 'Se requiere número de serie o dirección MAC';
@@ -220,10 +223,14 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   ...locations.map((l) => ({ value: l.id, label: l.name }))
                 ]}
                 value={formData.locationId}
-                onChange={(locId) => setFormData((prev) => ({ ...prev, locationId: locId }))}
+                onChange={(locId) => {
+                  setFormData((prev) => ({ ...prev, locationId: locId }));
+                  if (formErrors.locationId) setFormErrors((prev) => { const n = { ...prev }; delete n.locationId; return n; });
+                }}
                 placeholder="Escribir para buscar ubicación..."
                 createLabel="+ Crear nueva ubicación"
                 onCreateNew={() => setShowLocationModal(true)}
+                error={formErrors.locationId}
                 fullWidth
               />
               <Input
@@ -234,19 +241,34 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 onChange={handleChange}
                 fullWidth
               />
-              <div className="flex items-center gap-2 pt-6">
-                <input
-                  type="checkbox"
-                  id="edit-monitoring"
-                  name="monitoringEnabled"
-                  checked={formData.monitoringEnabled}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="edit-monitoring" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Habilitar monitoreo
-                </label>
-              </div>
+              {(() => {
+                const st = (formData.status || 'INVENTORY') as DeviceStatus;
+                const autoOn = st === 'COMMISSIONING';
+                const autoOff = st === 'INVENTORY' || st === 'DAMAGED';
+                const locked = autoOn || autoOff;
+                return (
+                  <div className="flex items-center gap-2 pt-6 flex-wrap">
+                    <input
+                      type="checkbox"
+                      id="edit-monitoring"
+                      name="monitoringEnabled"
+                      checked={locked ? autoOn : formData.monitoringEnabled}
+                      onChange={locked ? undefined : handleChange}
+                      disabled={locked}
+                      className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500 disabled:opacity-50"
+                    />
+                    <label htmlFor="edit-monitoring" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Habilitar monitoreo
+                    </label>
+                    {autoOn && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400">(automático en comisionamiento)</span>
+                    )}
+                    {autoOff && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">(se desactiva automáticamente)</span>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="md:col-span-2">
                 <Input
                   label="Descripción"
