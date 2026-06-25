@@ -22,7 +22,7 @@ import {
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, isWirelessCategory } from '@/constants/device.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -54,6 +54,10 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const [formData, setFormData] = useState(makeFormData(device));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // The model is fixed once the device exists, so a wireless category can only be
+  // satisfied by the device's existing model — warn instead of filtering.
+  const wirelessMismatch = isWirelessCategory(formData.category) && !!deviceModel && !deviceModel.isWireless;
+
   useEffect(() => {
     apiService.listLocations({ limit: 100 }).then((r) => {
       if (r.success && r.data) setLocations(r.data.locations);
@@ -75,6 +79,10 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+
+    if (wirelessMismatch) {
+      errors.category = `Esta categoría requiere un modelo inalámbrico, pero «${deviceModel?.model}» no lo es`;
+    }
 
     const status = (formData.status || 'INVENTORY') as DeviceStatus;
     const hasCategory = !!formData.category;
@@ -211,6 +219,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 value={formData.category}
                 onChange={handleChange}
                 options={DEVICE_CATEGORY_OPTIONS}
+                error={formErrors.category}
                 fullWidth
               />
               <Input label="Dirección IP" name="ipAddress" value={formData.ipAddress} onChange={handleChange} error={formErrors.ipAddress} fullWidth />

@@ -37,6 +37,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
     vendorId: m.vendorId,
     model: m.model,
     deviceType: m.deviceType as DeviceType | '',
+    isWireless: m.isWireless,
   });
 
   const [formData, setFormData] = useState(makeFormData(model));
@@ -49,8 +50,9 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     if (formErrors[name]) {
       setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
     }
@@ -71,6 +73,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
       vendorId: formData.vendorId,
       model: formData.model.trim(),
       deviceType: formData.deviceType as DeviceType,
+      isWireless: formData.isWireless,
     };
 
     const result = await apiService.updateDeviceModel(model.id, dto);
@@ -157,6 +160,20 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
                 required
                 fullWidth
               />
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isWireless"
+                  name="isWireless"
+                  checked={formData.isWireless}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="isWireless" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Modelo inalámbrico
+                </label>
+                <span className="text-xs text-gray-500 dark:text-gray-400">(requerido para categorías CPE Inalámbrico y AP)</span>
+              </div>
             </div>
           </Card.Body>
         </Card>
@@ -181,6 +198,14 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
                   <dd className="mt-1">
                     <Badge variant="info">
                       {DEVICE_TYPE_LABELS[model.deviceType] ?? model.deviceType}
+                    </Badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Inalámbrico</dt>
+                  <dd className="mt-1">
+                    <Badge variant={model.isWireless ? 'success' : 'neutral'}>
+                      {model.isWireless ? 'Sí' : 'No'}
                     </Badge>
                   </dd>
                 </div>

@@ -1,4 +1,10 @@
-import type { DeviceStatus } from '@/types/device.types';
+import type { DeviceCategory, DeviceStatus } from '@/types/device.types';
+
+/** Categories that require a wireless-capable device model. */
+export const WIRELESS_CATEGORIES: DeviceCategory[] = ['WIRELESS_CPE', 'AP'];
+
+export const isWirelessCategory = (category: DeviceCategory | '' | null | undefined): boolean =>
+  !!category && WIRELESS_CATEGORIES.includes(category as DeviceCategory);
 
 const DEVICE_CATEGORY_CORE = [
   { value: 'CPE', label: 'CPE (Cliente)' },

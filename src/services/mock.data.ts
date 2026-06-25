@@ -8,12 +8,12 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString
 const minsAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
 
 export const MOCK_DEVICE_MODELS: DeviceModelResponseDTO[] = [
-  { id: 'dm-1', vendorId: 'v-1', vendorName: 'MikroTik', vendorSlug: 'mikrotik', model: 'RB750Gr3', deviceType: 'ROUTER', createdAt: daysAgo(90), updatedAt: daysAgo(90) },
-  { id: 'dm-2', vendorId: 'v-2', vendorName: 'Ubiquiti', vendorSlug: 'ubiquiti', model: 'UniFi AP-AC-Pro', deviceType: 'ANTENNA', createdAt: daysAgo(90), updatedAt: daysAgo(90) },
-  { id: 'dm-3', vendorId: 'v-1', vendorName: 'MikroTik', vendorSlug: 'mikrotik', model: 'CRS326-24G-2S+RM', deviceType: 'SWITCH', createdAt: daysAgo(90), updatedAt: daysAgo(90) },
-  { id: 'dm-4', vendorId: 'v-3', vendorName: 'Mimosa', vendorSlug: 'mimosa', model: 'B5c', deviceType: 'RADIO', createdAt: daysAgo(90), updatedAt: daysAgo(90) },
-  { id: 'dm-5', vendorId: 'v-4', vendorName: 'TP-Link', vendorSlug: 'tp-link', model: 'TL-SG1024DE', deviceType: 'SWITCH', createdAt: daysAgo(90), updatedAt: daysAgo(90) },
-  { id: 'dm-6', vendorId: 'v-2', vendorName: 'Ubiquiti', vendorSlug: 'ubiquiti', model: 'EdgeRouter X', deviceType: 'ROUTERBOARD', createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'dm-1', vendorId: 'v-1', vendorName: 'MikroTik', vendorSlug: 'mikrotik', model: 'RB750Gr3', deviceType: 'ROUTER', isWireless: false, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'dm-2', vendorId: 'v-2', vendorName: 'Ubiquiti', vendorSlug: 'ubiquiti', model: 'UniFi AP-AC-Pro', deviceType: 'ANTENNA', isWireless: true, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'dm-3', vendorId: 'v-1', vendorName: 'MikroTik', vendorSlug: 'mikrotik', model: 'CRS326-24G-2S+RM', deviceType: 'SWITCH', isWireless: false, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'dm-4', vendorId: 'v-3', vendorName: 'Mimosa', vendorSlug: 'mimosa', model: 'B5c', deviceType: 'RADIO', isWireless: true, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'dm-5', vendorId: 'v-4', vendorName: 'TP-Link', vendorSlug: 'tp-link', model: 'TL-SG1024DE', deviceType: 'SWITCH', isWireless: false, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
+  { id: 'dm-6', vendorId: 'v-2', vendorName: 'Ubiquiti', vendorSlug: 'ubiquiti', model: 'EdgeRouter X', deviceType: 'ROUTERBOARD', isWireless: false, createdAt: daysAgo(90), updatedAt: daysAgo(90) },
 ];
 
 export const MOCK_LOCATIONS: LocationResponseDTO[] = [

@@ -141,6 +141,7 @@ export interface DeviceModelResponseDTO {
   vendorSlug: string;
   model: string;
   deviceType: DeviceType;
+  isWireless: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -149,12 +150,14 @@ export interface CreateDeviceModelDTO {
   vendorId: string;
   model: string;
   deviceType: DeviceType;
+  isWireless: boolean;
 }
 
 export interface UpdateDeviceModelDTO {
   vendorId?: string;
   model?: string;
   deviceType?: DeviceType;
+  isWireless?: boolean;
 }
 
 export interface DeviceModelListResponse {

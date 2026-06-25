@@ -346,6 +346,7 @@ class MockApiService {
       vendorSlug: vendor.slug,
       model: data.model,
       deviceType: data.deviceType,
+      isWireless: data.isWireless,
       createdAt: now,
       updatedAt: now,
     };

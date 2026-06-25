@@ -20,20 +20,23 @@ const DEVICE_TYPE_OPTIONS = [
 interface InlineModelFormProps {
   vendorId: string;
   vendor: VendorDTO | undefined;
+  /** Pre-check the wireless toggle when creating a model for a wireless category. */
+  defaultIsWireless?: boolean;
   onCreated: (model: DeviceModelResponseDTO) => void;
   onCancel: () => void;
 }
 
-export function InlineModelForm({ vendorId, vendor, onCreated, onCancel }: InlineModelFormProps) {
+export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, onCreated, onCancel }: InlineModelFormProps) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ model: '', deviceType: '' as DeviceType | '' });
+  const [form, setForm] = useState({ model: '', deviceType: '' as DeviceType | '', isWireless: defaultIsWireless });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     if (errors[name]) setErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
   };
 
@@ -51,6 +54,7 @@ export function InlineModelForm({ vendorId, vendor, onCreated, onCancel }: Inlin
       vendorId,
       model: form.model.trim(),
       deviceType: form.deviceType as DeviceType,
+      isWireless: form.isWireless,
     });
 
     if (result.success && result.data) {
@@ -97,6 +101,21 @@ export function InlineModelForm({ vendorId, vendor, onCreated, onCancel }: Inlin
           error={errors.deviceType}
           fullWidth
         />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="inline-model-isWireless"
+          name="isWireless"
+          checked={form.isWireless}
+          onChange={handleChange}
+          className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+        />
+        <label htmlFor="inline-model-isWireless" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Modelo inalámbrico
+        </label>
+        <span className="text-xs text-gray-500 dark:text-gray-400">(requerido para categorías CPE Inalámbrico y AP)</span>
       </div>
 
       <div className="flex items-center gap-2">

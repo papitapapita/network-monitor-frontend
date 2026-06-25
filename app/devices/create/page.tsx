@@ -15,7 +15,7 @@ import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, isWirelessCategory } from '@/constants/device.constants';
 
 
 export default function CreateDevicePage() {
@@ -65,9 +65,19 @@ export default function CreateDevicePage() {
     loadOptions();
   }, []);
 
-  const filteredModels = formData.selectedVendorId
+  const requiresWireless = isWirelessCategory(formData.category);
+
+  const vendorModels = formData.selectedVendorId
     ? allDeviceModels.filter((m) => m.vendorId === formData.selectedVendorId)
     : [];
+
+  // For wireless categories (WIRELESS_CPE, AP) only wireless-capable models are valid.
+  const filteredModels = requiresWireless
+    ? vendorModels.filter((m) => m.isWireless)
+    : vendorModels;
+
+  const selectedModel = allDeviceModels.find((m) => m.id === formData.deviceModelId);
+  const wirelessMismatch = requiresWireless && !!selectedModel && !selectedModel.isWireless;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -84,6 +94,9 @@ export default function CreateDevicePage() {
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
     if (!formData.selectedVendorId) errors.selectedVendorId = 'El fabricante es requerido';
     if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
+    else if (wirelessMismatch) {
+      errors.deviceModelId = 'Esta categoría requiere un modelo inalámbrico';
+    }
 
     const status = (formData.status || 'INVENTORY') as DeviceStatus;
     const hasCategory = !!formData.category;
@@ -94,7 +107,7 @@ export default function CreateDevicePage() {
     if (status === 'ACTIVE' && !formData.locationId) {
       errors.locationId = 'La ubicación es requerida para dispositivos activos';
     }
-    if (!hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
+    if (status === 'INVENTORY' || status === 'DAMAGED') {
       if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
         errors.serialNumber = 'Se requiere número de serie o dirección MAC';
       }
@@ -231,10 +244,19 @@ export default function CreateDevicePage() {
                     fullWidth
                   />
 
+                  {wirelessMismatch && (
+                    <div className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2">
+                      <p className="text-sm text-amber-800 dark:text-amber-400">
+                        La categoría seleccionada requiere un modelo inalámbrico, pero «{selectedModel?.model}» no lo es. Elige un modelo inalámbrico o cambia la categoría.
+                      </p>
+                    </div>
+                  )}
+
                   {showInlineModelForm && (
                     <InlineModelForm
                       vendorId={formData.selectedVendorId}
                       vendor={vendors.find((v) => v.id === formData.selectedVendorId)}
+                      defaultIsWireless={requiresWireless}
                       onCreated={(newModel) => {
                         setAllDeviceModels((prev) => [...prev, newModel]);
                         setFormData((prev) => ({ ...prev, deviceModelId: newModel.id }));
