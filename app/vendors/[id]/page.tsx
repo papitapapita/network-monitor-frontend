@@ -82,9 +82,14 @@ export default function VendorDetailPage() {
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+    else if (formData.name.trim().length > 100) errors.name = 'El nombre no puede superar los 100 caracteres';
     if (!formData.slug.trim()) errors.slug = 'El slug es requerido';
+    else if (formData.slug.trim().length > 100) errors.slug = 'El slug no puede superar los 100 caracteres';
     else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(formData.slug)) {
       errors.slug = 'Solo minúsculas, números y guiones (ej: tp-link)';
+    }
+    if (formData.description.trim().length > 500) {
+      errors.description = 'La descripción no puede superar los 500 caracteres';
     }
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -213,6 +218,7 @@ export default function VendorDetailPage() {
                   value={formData.name}
                   onChange={handleChange}
                   error={formErrors.name}
+                  maxLength={100}
                   required
                   fullWidth
                 />
@@ -223,6 +229,7 @@ export default function VendorDetailPage() {
                   onChange={handleChange}
                   error={formErrors.slug}
                   helperText="Identificador único en minúsculas con guiones"
+                  maxLength={100}
                   required
                   fullWidth
                 />
@@ -235,8 +242,12 @@ export default function VendorDetailPage() {
                     value={formData.description}
                     onChange={handleChange}
                     rows={3}
+                    maxLength={500}
                     className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none"
                   />
+                  {formErrors.description && (
+                    <p className="text-sm text-red-600 dark:text-red-400">{formErrors.description}</p>
+                  )}
                 </div>
               </div>
             </Card.Body>
