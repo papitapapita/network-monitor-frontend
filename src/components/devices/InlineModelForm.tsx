@@ -43,6 +43,7 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
   const handleSubmit = async () => {
     const errs: Record<string, string> = {};
     if (!form.model.trim()) errs.model = 'El nombre del modelo es requerido';
+    else if (form.model.trim().length > 150) errs.model = 'El modelo no puede superar los 150 caracteres';
     if (!form.deviceType) errs.deviceType = 'El tipo de dispositivo es requerido';
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
@@ -90,6 +91,7 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
           onChange={handleChange}
           placeholder="RB450G"
           error={errors.model}
+          maxLength={150}
           fullWidth
         />
         <Select

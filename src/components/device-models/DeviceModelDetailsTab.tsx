@@ -61,6 +61,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!formData.model.trim()) errors.model = 'El modelo es requerido';
+    else if (formData.model.trim().length > 150) errors.model = 'El modelo no puede superar los 150 caracteres';
     if (!formData.vendorId) errors.vendorId = 'El fabricante es requerido';
     if (!formData.deviceType) errors.deviceType = 'El tipo es requerido';
     setFormErrors(errors);
@@ -138,6 +139,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
                 value={formData.model}
                 onChange={handleChange}
                 error={formErrors.model}
+                maxLength={150}
                 required
                 fullWidth
               />

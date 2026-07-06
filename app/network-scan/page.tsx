@@ -26,6 +26,7 @@ import {
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
+import { isValidMacAddress } from '@/constants/device.constants';
 
 function normalizeMac(mac: string): string {
   return mac.replace(/[:\-\.]/g, '').toUpperCase();
@@ -152,8 +153,21 @@ function AddDeviceModal({
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'El nombre es requerido';
+    else if (form.name.trim().length > 150) e.name = 'El nombre no puede superar los 150 caracteres';
     if (!selectedVendorId) e.selectedVendorId = 'El fabricante es requerido';
     if (!form.deviceModelId) e.deviceModelId = 'El modelo es requerido';
+    if (form.macAddress.trim() && !isValidMacAddress(form.macAddress)) {
+      e.macAddress = 'La dirección MAC no es válida (ej: AA:BB:CC:DD:EE:FF)';
+    }
+    if (form.serialNumber.trim().length > 100) {
+      e.serialNumber = 'El número de serie no puede superar los 100 caracteres';
+    }
+    if (form.description.trim().length > 500) {
+      e.description = 'La descripción no puede superar los 500 caracteres';
+    }
+    if (form.installedDate && form.installedDate > new Date().toISOString().slice(0, 10)) {
+      e.installedDate = 'La fecha de instalación no puede ser futura';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -219,6 +233,7 @@ function AddDeviceModal({
                   placeholder="Router-Core-01"
                   error={errors.name}
                   autoComplete="off"
+                  maxLength={150}
                   required
                   fullWidth
                 />
@@ -402,6 +417,7 @@ function AddDeviceModal({
                   value={form.macAddress}
                   onChange={handleChange}
                   placeholder="AA:BB:CC:DD:EE:FF"
+                  error={errors.macAddress}
                   disabled={!!host.macAddress}
                   fullWidth
                 />
@@ -410,6 +426,8 @@ function AddDeviceModal({
                   name="serialNumber"
                   value={form.serialNumber}
                   onChange={handleChange}
+                  error={errors.serialNumber}
+                  maxLength={100}
                   fullWidth
                 />
               </div>
@@ -446,6 +464,8 @@ function AddDeviceModal({
                   type="date"
                   value={form.installedDate}
                   onChange={handleChange}
+                  error={errors.installedDate}
+                  max={new Date().toISOString().slice(0, 10)}
                   fullWidth
                 />
                 <div className="sm:col-span-2">
@@ -455,6 +475,8 @@ function AddDeviceModal({
                     value={form.description}
                     onChange={handleChange}
                     placeholder="Descripción opcional"
+                    error={errors.description}
+                    maxLength={500}
                     fullWidth
                   />
                 </div>

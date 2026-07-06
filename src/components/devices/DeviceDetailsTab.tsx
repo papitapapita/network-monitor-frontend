@@ -22,7 +22,7 @@ import {
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, isWirelessCategory } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -76,24 +76,51 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     }
   };
 
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as DeviceStatus | '';
+    setFormData((prev) => ({
+      ...prev,
+      status: value,
+      monitoringEnabled:
+        value === 'INVENTORY' || value === 'DAMAGED' ? false
+        : value === 'COMMISSIONING' ? true
+        : prev.monitoringEnabled,
+    }));
+    if (formErrors.status) setFormErrors((prev) => { const n = { ...prev }; delete n.status; return n; });
+  };
+
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+    else if (formData.name.trim().length > 150) errors.name = 'El nombre no puede superar los 150 caracteres';
 
     if (wirelessMismatch) {
       errors.category = `Esta categoría requiere un modelo inalámbrico, pero «${deviceModel?.model}» no lo es`;
     }
+    if (formData.description.trim().length > 500) {
+      errors.description = 'La descripción no puede superar los 500 caracteres';
+    }
 
     const status = (formData.status || 'INVENTORY') as DeviceStatus;
-    const hasCategory = !!formData.category;
     const hasIp = !!formData.ipAddress.trim();
-    if ((hasCategory || status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
+    if (hasIp && !isValidIpAddress(formData.ipAddress)) {
+      errors.ipAddress = 'La dirección IP no es válida';
+    } else if ((status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
       errors.ipAddress = 'La dirección IP es requerida';
     }
     if (status === 'ACTIVE' && !formData.locationId) {
       errors.locationId = 'La ubicación es requerida para dispositivos activos';
     }
-    if (!hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
+    if (formData.installedDate && formData.installedDate > new Date().toISOString().slice(0, 10)) {
+      errors.installedDate = 'La fecha de instalación no puede ser futura';
+    }
+    if (formData.macAddress.trim() && !isValidMacAddress(formData.macAddress)) {
+      errors.macAddress = 'La dirección MAC no es válida (ej: AA:BB:CC:DD:EE:FF)';
+    }
+    if (formData.serialNumber.trim().length > 100) {
+      errors.serialNumber = 'El número de serie no puede superar los 100 caracteres';
+    }
+    if (!errors.serialNumber && !hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
       if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
         errors.serialNumber = 'Se requiere número de serie o dirección MAC';
       }
@@ -191,6 +218,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 value={formData.name}
                 onChange={handleChange}
                 error={formErrors.name}
+                maxLength={150}
                 required
                 fullWidth
               />
@@ -209,7 +237,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 label="Estado"
                 name="status"
                 value={formData.status}
-                onChange={handleChange}
+                onChange={handleStatusChange}
                 options={DEVICE_STATUS_OPTIONS}
                 fullWidth
               />
@@ -223,8 +251,8 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 fullWidth
               />
               <Input label="Dirección IP" name="ipAddress" value={formData.ipAddress} onChange={handleChange} error={formErrors.ipAddress} fullWidth />
-              <Input label="Dirección MAC" name="macAddress" value={formData.macAddress} onChange={handleChange} fullWidth />
-              <Input label="Número de Serie" name="serialNumber" value={formData.serialNumber} onChange={handleChange} error={formErrors.serialNumber} fullWidth />
+              <Input label="Dirección MAC" name="macAddress" value={formData.macAddress} onChange={handleChange} error={formErrors.macAddress} fullWidth />
+              <Input label="Número de Serie" name="serialNumber" value={formData.serialNumber} onChange={handleChange} error={formErrors.serialNumber} maxLength={100} fullWidth />
               <Combobox
                 label="Ubicación"
                 options={[
@@ -248,29 +276,30 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 type="date"
                 value={formData.installedDate}
                 onChange={handleChange}
+                error={formErrors.installedDate}
+                max={new Date().toISOString().slice(0, 10)}
                 fullWidth
               />
               {(() => {
                 const st = (formData.status || 'INVENTORY') as DeviceStatus;
-                const autoOn = st === 'COMMISSIONING';
+                const suggestOn = st === 'COMMISSIONING';
                 const autoOff = st === 'INVENTORY' || st === 'DAMAGED';
-                const locked = autoOn || autoOff;
                 return (
                   <div className="flex items-center gap-2 pt-6 flex-wrap">
                     <input
                       type="checkbox"
                       id="edit-monitoring"
                       name="monitoringEnabled"
-                      checked={locked ? autoOn : formData.monitoringEnabled}
-                      onChange={locked ? undefined : handleChange}
-                      disabled={locked}
+                      checked={autoOff ? false : formData.monitoringEnabled}
+                      onChange={autoOff ? undefined : handleChange}
+                      disabled={autoOff}
                       className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500 disabled:opacity-50"
                     />
                     <label htmlFor="edit-monitoring" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Habilitar monitoreo
                     </label>
-                    {autoOn && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400">(automático en comisionamiento)</span>
+                    {suggestOn && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400">(recomendado en comisionamiento, opcional)</span>
                     )}
                     {autoOff && (
                       <span className="text-xs text-gray-500 dark:text-gray-400">(se desactiva automáticamente)</span>
@@ -284,6 +313,8 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
+                  error={formErrors.description}
+                  maxLength={500}
                   fullWidth
                 />
               </div>

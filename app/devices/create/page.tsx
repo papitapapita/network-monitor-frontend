@@ -15,7 +15,7 @@ import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, isWirelessCategory } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
 
 
 export default function CreateDevicePage() {
@@ -88,26 +88,53 @@ export default function CreateDevicePage() {
     }
   };
 
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as DeviceStatus | '';
+    setFormData((prev) => ({
+      ...prev,
+      status: value,
+      monitoringEnabled:
+        value === 'INVENTORY' || value === 'DAMAGED' ? false
+        : value === 'COMMISSIONING' ? true
+        : prev.monitoringEnabled,
+    }));
+    if (formErrors.status) setFormErrors((prev) => { const n = { ...prev }; delete n.status; return n; });
+  };
+
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+    else if (formData.name.trim().length > 150) errors.name = 'El nombre no puede superar los 150 caracteres';
     if (!formData.selectedVendorId) errors.selectedVendorId = 'El fabricante es requerido';
     if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
     else if (wirelessMismatch) {
       errors.deviceModelId = 'Esta categoría requiere un modelo inalámbrico';
     }
+    if (formData.description.trim().length > 500) {
+      errors.description = 'La descripción no puede superar los 500 caracteres';
+    }
 
     const status = (formData.status || 'INVENTORY') as DeviceStatus;
-    const hasCategory = !!formData.category;
     const hasIp = !!formData.ipAddress.trim();
-    if ((hasCategory || status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
+    if (hasIp && !isValidIpAddress(formData.ipAddress)) {
+      errors.ipAddress = 'La dirección IP no es válida';
+    } else if ((status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
       errors.ipAddress = 'La dirección IP es requerida';
     }
     if (status === 'ACTIVE' && !formData.locationId) {
       errors.locationId = 'La ubicación es requerida para dispositivos activos';
     }
-    if (status === 'INVENTORY' || status === 'DAMAGED') {
+    if (formData.installedDate && formData.installedDate > new Date().toISOString().slice(0, 10)) {
+      errors.installedDate = 'La fecha de instalación no puede ser futura';
+    }
+    if (formData.macAddress.trim() && !isValidMacAddress(formData.macAddress)) {
+      errors.macAddress = 'La dirección MAC no es válida (ej: AA:BB:CC:DD:EE:FF)';
+    }
+    if (formData.serialNumber.trim().length > 100) {
+      errors.serialNumber = 'El número de serie no puede superar los 100 caracteres';
+    }
+    if (!errors.serialNumber && (status === 'INVENTORY' || status === 'DAMAGED')) {
       if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
         errors.serialNumber = 'Se requiere número de serie o dirección MAC';
       }
@@ -197,6 +224,7 @@ export default function CreateDevicePage() {
                   placeholder="Router-Core-01"
                   error={formErrors.name}
                   autoComplete="off"
+                  maxLength={150}
                   required
                   fullWidth
                 />
@@ -296,7 +324,7 @@ export default function CreateDevicePage() {
                   label="Estado"
                   name="status"
                   value={formData.status}
-                  onChange={handleChange}
+                  onChange={handleStatusChange}
                   options={DEVICE_STATUS_CREATE_OPTIONS}
                   fullWidth
                 />
@@ -320,10 +348,9 @@ export default function CreateDevicePage() {
                 <div className="md:col-span-2 space-y-3">
                   {(() => {
                     const st = (formData.status || 'INVENTORY') as DeviceStatus;
-                    const autoOn = st === 'COMMISSIONING';
+                    const suggestOn = st === 'COMMISSIONING';
                     const autoOff = st === 'INVENTORY' || st === 'DAMAGED';
-                    const locked = autoOn || autoOff;
-                    const effectiveMonitoring = locked ? autoOn : formData.monitoringEnabled;
+                    const effectiveMonitoring = autoOff ? false : formData.monitoringEnabled;
                     return (
                       <>
                         <div className="flex items-center gap-2">
@@ -332,22 +359,22 @@ export default function CreateDevicePage() {
                             id="monitoringEnabled"
                             name="monitoringEnabled"
                             checked={effectiveMonitoring}
-                            onChange={locked ? undefined : handleChange}
-                            disabled={locked}
+                            onChange={autoOff ? undefined : handleChange}
+                            disabled={autoOff}
                             className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500 disabled:opacity-50"
                           />
                           <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Habilitar Monitoreo
                           </label>
-                          {autoOn && (
-                            <span className="text-xs text-blue-600 dark:text-blue-400">(se activa automáticamente en comisionamiento)</span>
+                          {suggestOn && (
+                            <span className="text-xs text-blue-600 dark:text-blue-400">(recomendado en comisionamiento, opcional)</span>
                           )}
                           {autoOff && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">(se desactiva automáticamente en inventario/dañado)</span>
                           )}
                         </div>
 
-                        {effectiveMonitoring && !locked && (
+                        {effectiveMonitoring && !autoOff && (
                           <div className="p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
                             <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Configuración de Polling</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -397,6 +424,7 @@ export default function CreateDevicePage() {
                   value={formData.macAddress}
                   onChange={handleChange}
                   placeholder="AA:BB:CC:DD:EE:FF"
+                  error={formErrors.macAddress}
                   fullWidth
                 />
                 <Input
@@ -405,6 +433,7 @@ export default function CreateDevicePage() {
                   value={formData.serialNumber}
                   onChange={handleChange}
                   error={formErrors.serialNumber}
+                  maxLength={100}
                   fullWidth
                 />
               </div>
@@ -450,6 +479,8 @@ export default function CreateDevicePage() {
                   type="date"
                   value={formData.installedDate}
                   onChange={handleChange}
+                  error={formErrors.installedDate}
+                  max={new Date().toISOString().slice(0, 10)}
                   fullWidth
                 />
                 <div className="md:col-span-2">
@@ -459,6 +490,8 @@ export default function CreateDevicePage() {
                     value={formData.description}
                     onChange={handleChange}
                     placeholder="Descripción opcional"
+                    error={formErrors.description}
+                    maxLength={500}
                     fullWidth
                   />
                 </div>

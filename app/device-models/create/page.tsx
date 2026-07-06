@@ -44,6 +44,7 @@ export default function CreateDeviceModelPage() {
     const errors: Record<string, string> = {};
     if (!formData.vendorId) errors.vendorId = 'El fabricante es requerido';
     if (!formData.model.trim()) errors.model = 'El modelo es requerido';
+    else if (formData.model.trim().length > 150) errors.model = 'El modelo no puede superar los 150 caracteres';
     if (!formData.deviceType) errors.deviceType = 'El tipo de dispositivo es requerido';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -122,6 +123,7 @@ export default function CreateDeviceModelPage() {
                   onChange={handleChange}
                   placeholder="RB750Gr3"
                   error={formErrors.model}
+                  maxLength={150}
                   required
                   fullWidth
                 />

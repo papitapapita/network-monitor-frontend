@@ -6,6 +6,21 @@ export const WIRELESS_CATEGORIES: DeviceCategory[] = ['WIRELESS_CPE', 'AP'];
 export const isWirelessCategory = (category: DeviceCategory | '' | null | undefined): boolean =>
   !!category && WIRELESS_CATEGORIES.includes(category as DeviceCategory);
 
+const IPV4_OCTET = '(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
+const IPV4_REGEX = new RegExp(`^${IPV4_OCTET}(\\.${IPV4_OCTET}){3}$`);
+
+// Accepts full and compressed ("::") forms; does not validate zone IDs or embedded IPv4.
+const IPV6_REGEX = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+
+export const isValidIpAddress = (value: string): boolean => {
+  const v = value.trim();
+  return IPV4_REGEX.test(v) || IPV6_REGEX.test(v);
+};
+
+const MAC_REGEX = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$|^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$/;
+
+export const isValidMacAddress = (value: string): boolean => MAC_REGEX.test(value.trim());
+
 const DEVICE_CATEGORY_CORE = [
   { value: 'CPE', label: 'CPE (Cliente)' },
   { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
