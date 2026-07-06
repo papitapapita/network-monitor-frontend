@@ -102,13 +102,28 @@ function parseCoords(raw: string): { lat: string; lon: string } | null {
 function validateForm(f: LocationFormData): Record<string, string> {
   const errs: Record<string, string> = {};
   if (!f.name.trim()) errs.name = 'El nombre es requerido';
+  else if (f.name.trim().length > 150) errs.name = 'El nombre no puede superar los 150 caracteres';
   if (!f.type) errs.type = 'El tipo es requerido';
+  if (f.municipality.trim().length > 100) errs.municipality = 'El municipio no puede superar los 100 caracteres';
+  if (f.neighborhood.trim().length > 150) errs.neighborhood = 'El barrio no puede superar los 150 caracteres';
+  if (f.address.trim().length > 255) errs.address = 'La dirección no puede superar los 255 caracteres';
+
   if ((f.latitude && !f.longitude) || (!f.latitude && f.longitude))
     errs.latitude = 'Latitud y longitud deben indicarse juntas';
   const lat = parseFloat(f.latitude);
   const lon = parseFloat(f.longitude);
   if (f.latitude && (lat < -90 || lat > 90)) errs.latitude = 'Debe estar entre -90 y 90';
   if (f.longitude && (lon < -180 || lon > 180)) errs.longitude = 'Debe estar entre -180 y 180';
+  if (f.altitude && (!f.latitude || !f.longitude)) errs.altitude = 'La altitud requiere latitud y longitud';
+
+  if (!errs.address && f.address.trim() && (!f.municipality.trim() || !f.neighborhood.trim())) {
+    errs.address = 'La dirección requiere municipio y barrio';
+  }
+  const hasCoords = !!(f.latitude.trim() && f.longitude.trim());
+  if (!errs.address && f.type === 'CUSTOMER_PREMISES' && !f.address.trim() && !hasCoords) {
+    errs.address = 'Una instalación de cliente requiere dirección o coordenadas';
+  }
+
   return errs;
 }
 
@@ -214,13 +229,26 @@ function EditLocationModal({ isOpen, location, onClose, onUpdated }: EditModalPr
 
         <div className="space-y-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Nombre" name="name" value={formData.name} onChange={handleChange} error={formErrors.name} required fullWidth />
+            <Input label="Nombre" name="name" value={formData.name} onChange={handleChange} error={formErrors.name} maxLength={150} required fullWidth />
             <Select label="Tipo" name="type" value={formData.type} onChange={handleChange} options={LOCATION_TYPE_OPTIONS} error={formErrors.type} required fullWidth />
           </div>
-          <Input label="Dirección" name="address" value={formData.address} onChange={handleChange} fullWidth />
+          <Input
+            label="Dirección"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            error={formErrors.address}
+            maxLength={255}
+            helperText={
+              formData.type === 'CUSTOMER_PREMISES'
+                ? 'Una instalación de cliente requiere dirección o coordenadas. La dirección requiere municipio y barrio.'
+                : undefined
+            }
+            fullWidth
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Municipio" name="municipality" value={formData.municipality} onChange={handleChange} helperText={isGeocoding ? 'Buscando municipio...' : undefined} fullWidth />
-            <Input label="Barrio" name="neighborhood" value={formData.neighborhood} onChange={handleChange} fullWidth />
+            <Input label="Municipio" name="municipality" value={formData.municipality} onChange={handleChange} error={formErrors.municipality} maxLength={100} helperText={isGeocoding ? 'Buscando municipio...' : undefined} fullWidth />
+            <Input label="Barrio" name="neighborhood" value={formData.neighborhood} onChange={handleChange} error={formErrors.neighborhood} maxLength={150} fullWidth />
           </div>
           <Input
             label="Coordenadas (pegar desde Google Maps)"
@@ -234,7 +262,7 @@ function EditLocationModal({ isOpen, location, onClose, onUpdated }: EditModalPr
           <div className="grid grid-cols-3 gap-4">
             <Input label="Latitud" name="latitude" type="number" value={formData.latitude} onChange={handleChange} error={formErrors.latitude} fullWidth />
             <Input label="Longitud" name="longitude" type="number" value={formData.longitude} onChange={handleChange} error={formErrors.longitude} fullWidth />
-            <Input label="Altitud (m)" name="altitude" type="number" value={formData.altitude} onChange={handleChange} helperText={isGeocoding ? 'Calculando...' : undefined} fullWidth />
+            <Input label="Altitud (m)" name="altitude" type="number" value={formData.altitude} onChange={handleChange} error={formErrors.altitude} helperText={isGeocoding ? 'Calculando...' : undefined} fullWidth />
           </div>
         </div>
 

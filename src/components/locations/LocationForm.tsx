@@ -67,7 +67,18 @@ function parseCoords(raw: string): { lat: string; lon: string } | null {
 export function validateLocationForm(formData: LocationFormData): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!formData.name.trim()) errors.name = 'El nombre es requerido';
+  else if (formData.name.trim().length > 150) errors.name = 'El nombre no puede superar los 150 caracteres';
   if (!formData.type) errors.type = 'El tipo es requerido';
+  if (formData.municipality.trim().length > 100) {
+    errors.municipality = 'El municipio no puede superar los 100 caracteres';
+  }
+  if (formData.neighborhood.trim().length > 150) {
+    errors.neighborhood = 'El barrio no puede superar los 150 caracteres';
+  }
+  if (formData.address.trim().length > 255) {
+    errors.address = 'La dirección no puede superar los 255 caracteres';
+  }
+
   const lat = parseFloat(formData.latitude);
   const lon = parseFloat(formData.longitude);
   if (
@@ -82,6 +93,18 @@ export function validateLocationForm(formData: LocationFormData): Record<string,
   if (formData.longitude && (lon < -180 || lon > 180)) {
     errors.longitude = 'Debe estar entre -180 y 180';
   }
+  if (formData.altitude && (!formData.latitude || !formData.longitude)) {
+    errors.altitude = 'La altitud requiere latitud y longitud';
+  }
+
+  if (!errors.address && formData.address.trim() && (!formData.municipality.trim() || !formData.neighborhood.trim())) {
+    errors.address = 'La dirección requiere municipio y barrio';
+  }
+  const hasCoords = !!(formData.latitude.trim() && formData.longitude.trim());
+  if (!errors.address && formData.type === 'CUSTOMER_PREMISES' && !formData.address.trim() && !hasCoords) {
+    errors.address = 'Una instalación de cliente requiere dirección o coordenadas';
+  }
+
   return errors;
 }
 
@@ -153,6 +176,7 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
           value={formData.name}
           onChange={onChange}
           error={formErrors.name}
+          maxLength={150}
           required
           fullWidth
         />
@@ -173,6 +197,13 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
         name="address"
         value={formData.address}
         onChange={onChange}
+        error={formErrors.address}
+        maxLength={255}
+        helperText={
+          formData.type === 'CUSTOMER_PREMISES'
+            ? 'Una instalación de cliente requiere dirección o coordenadas. La dirección requiere municipio y barrio.'
+            : undefined
+        }
         fullWidth
       />
 
@@ -182,6 +213,8 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
           name="municipality"
           value={formData.municipality}
           onChange={onChange}
+          error={formErrors.municipality}
+          maxLength={100}
           helperText={isGeocoding ? 'Buscando municipio...' : undefined}
           fullWidth
         />
@@ -190,6 +223,8 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
           name="neighborhood"
           value={formData.neighborhood}
           onChange={onChange}
+          error={formErrors.neighborhood}
+          maxLength={150}
           fullWidth
         />
       </div>
@@ -231,6 +266,7 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
           type="number"
           value={formData.altitude}
           onChange={onChange}
+          error={formErrors.altitude}
           helperText={isGeocoding ? 'Calculando...' : undefined}
           fullWidth
         />
