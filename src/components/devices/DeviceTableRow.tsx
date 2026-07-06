@@ -7,6 +7,7 @@ import {
   Table,
   Badge,
   Button,
+  SelectCheckbox,
   getDeviceStatusBadgeVariant,
   getPollingStatusBadgeVariant,
 } from '@/components/ui';
@@ -37,12 +38,10 @@ export function DeviceTableRow({ device, pollingStatuses, selected, onSelect }: 
   return (
     <Table.Row onClick={() => router.push(`/devices/${device.id}`)}>
       <Table.Cell className="w-10">
-        <input
-          type="checkbox"
+        <SelectCheckbox
           checked={selected}
-          onChange={(e) => onSelect(device.id, e.target.checked)}
-          onClick={(e) => e.stopPropagation()}
-          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
+          onChange={() => onSelect(device.id, !selected)}
+          label={`Seleccionar ${device.name}`}
         />
       </Table.Cell>
       <Table.Cell>

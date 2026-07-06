@@ -22,3 +22,5 @@ export { Input } from './Input';
 export { Select } from './Select';
 
 export { Combobox } from './Combobox';
+
+export { SelectCheckbox } from './SelectCheckbox';

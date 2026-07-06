@@ -12,6 +12,7 @@ import {
   Pagination,
   Button,
   LoadingSpinner,
+  SelectCheckbox,
 } from '@/components/ui';
 
 function DevicesPageContent() {
@@ -206,12 +207,11 @@ function DevicesPageContent() {
           <Table>
             <Table.Header>
               <th className="px-3 py-2 sm:px-6 sm:py-3 w-10">
-                <input
-                  type="checkbox"
+                <SelectCheckbox
                   checked={allOnPageSelected}
-                  ref={(el) => { if (el) el.indeterminate = someOnPageSelected; }}
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
+                  indeterminate={someOnPageSelected}
+                  onChange={() => handleSelectAll(!allOnPageSelected)}
+                  label="Seleccionar todo"
                 />
               </th>
               <Table.Head sortable onSort={() => handleSort('name')} sortDirection={sortField === 'name' ? sortDirection : null}>Nombre</Table.Head>
