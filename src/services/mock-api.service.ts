@@ -742,7 +742,8 @@ class MockApiService {
 
   async createContractedService(data: CreateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {
     const now = new Date().toISOString();
-    const cs: ContractedServiceDTO = { id: `cs-${uid()}`, customerId: data.customerId, servicePlanId: data.servicePlanId, deviceId: data.deviceId ?? null, status: 'ACTIVE', startDate: data.startDate ?? now, createdAt: now, updatedAt: now };
+    // Matches the backend default (schema.prisma: @default(PENDING)).
+    const cs: ContractedServiceDTO = { id: `cs-${uid()}`, customerId: data.customerId, servicePlanId: data.servicePlanId, deviceId: data.deviceId ?? null, status: 'PENDING', startDate: data.startDate ?? now, createdAt: now, updatedAt: now };
     contractedServices = [cs, ...contractedServices];
     return ok(cs);
   }

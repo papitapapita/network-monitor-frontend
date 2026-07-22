@@ -68,7 +68,12 @@ export interface ServicePlanListResponse {
   offset: number;
 }
 
-export type ContractedServiceStatus = 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
+// Services are created as PENDING; ACTIVE requires an assigned device.
+// PENDING is a starting state only — it cannot be used as an update target.
+export type ContractedServiceStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
+
+/** Statuses the update endpoint accepts as a target (PENDING is rejected). */
+export type ContractedServiceTargetStatus = Exclude<ContractedServiceStatus, 'PENDING'>;
 
 export interface ContractedServiceDTO {
   id: string;
@@ -91,7 +96,7 @@ export interface CreateContractedServiceDTO {
 export interface UpdateContractedServiceDTO {
   servicePlanId?: string;
   deviceId?: string | null;
-  status?: ContractedServiceStatus;
+  status?: ContractedServiceTargetStatus;
 }
 
 export interface ContractedServiceListResponse {

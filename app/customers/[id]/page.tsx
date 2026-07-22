@@ -7,7 +7,8 @@ import { apiService } from '@/services/api.service';
 import {
   CustomerDTO, UpdateCustomerDTO,
   ServicePlanDTO, ContractedServiceDTO,
-  ContractedServiceStatus, CreateContractedServiceDTO, UpdateContractedServiceDTO,
+  ContractedServiceStatus, ContractedServiceTargetStatus,
+  CreateContractedServiceDTO, UpdateContractedServiceDTO,
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner, Badge } from '@/components/ui';
@@ -15,15 +16,24 @@ import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 
 const CONTRACT_STATUS_LABELS: Record<ContractedServiceStatus, string> = {
+  PENDING: 'Pendiente',
   ACTIVE: 'Activo',
   SUSPENDED: 'Suspendido',
   CANCELLED: 'Cancelado',
 };
 const CONTRACT_STATUS_VARIANTS: Record<ContractedServiceStatus, BadgeVariant> = {
+  PENDING: 'draft',
   ACTIVE: 'success',
   SUSPENDED: 'warning',
   CANCELLED: 'danger',
 };
+
+// The backend only accepts these as update targets; PENDING is a start state.
+const CONTRACT_TARGET_STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Activo' },
+  { value: 'SUSPENDED', label: 'Suspendido' },
+  { value: 'CANCELLED', label: 'Cancelado' },
+];
 
 export default function CustomerDetailPage() {
   const router = useRouter();
@@ -106,8 +116,10 @@ export default function CustomerDetailPage() {
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
-  const [editStatus, setEditStatus] = useState<ContractedServiceStatus>('ACTIVE');
+  const [editStatus, setEditStatus] = useState<ContractedServiceTargetStatus>('ACTIVE');
   const [editPlanId, setEditPlanId] = useState('');
+  const [editDeviceId, setEditDeviceId] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
   const [isSavingContract, setIsSavingContract] = useState(false);
   const [deletingContractId, setDeletingContractId] = useState<string | null>(null);
 
@@ -154,11 +166,26 @@ export default function CustomerDetailPage() {
   };
 
   const handleSaveContract = async (id: string) => {
+    // Activating requires a device: the backend rejects ACTIVE without one.
+    if (editStatus === 'ACTIVE' && !editDeviceId) {
+      setEditError('Asigna un dispositivo CPE para poder activar el servicio.');
+      return;
+    }
     setIsSavingContract(true);
-    const dto: UpdateContractedServiceDTO = { status: editStatus, servicePlanId: editPlanId || undefined };
+    setEditError(null);
+    const dto: UpdateContractedServiceDTO = {
+      status: editStatus,
+      servicePlanId: editPlanId || undefined,
+      deviceId: editDeviceId || null,
+    };
     const r = await apiService.updateContractedService(id, dto);
-    if (r.success) { setEditingContractId(null); fetchContracts(); }
     setIsSavingContract(false);
+    if (r.success) {
+      setEditingContractId(null);
+      fetchContracts();
+    } else {
+      setEditError(r.error || 'No se pudo actualizar el servicio');
+    }
   };
 
   const handleDeleteContract = async (id: string) => {
@@ -319,28 +346,41 @@ export default function CustomerDetailPage() {
               {contracts.map((cs) => (
                 <div key={cs.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                   {editingContractId === cs.id ? (
-                    <div className="flex flex-wrap gap-3 items-end">
-                      <Select
-                        label="Plan"
-                        value={editPlanId}
-                        onChange={(e) => setEditPlanId(e.target.value)}
-                        options={servicePlans.filter((p) => p.isActive || p.id === cs.servicePlanId).map((p) => ({ value: p.id, label: p.name }))}
-                        fullWidth={false}
-                      />
-                      <Select
-                        label="Estado"
-                        value={editStatus}
-                        onChange={(e) => setEditStatus(e.target.value as ContractedServiceStatus)}
-                        options={[
-                          { value: 'ACTIVE', label: 'Activo' },
-                          { value: 'SUSPENDED', label: 'Suspendido' },
-                          { value: 'CANCELLED', label: 'Cancelado' },
-                        ]}
-                        fullWidth={false}
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleSaveContract(cs.id)} isLoading={isSavingContract}>Guardar</Button>
-                        <Button size="sm" variant="outline" onClick={() => setEditingContractId(null)}>Cancelar</Button>
+                    <div className="space-y-3">
+                      {cs.status === 'PENDING' && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Estado actual: <strong>Pendiente</strong>. Elige el nuevo estado; para activarlo debe tener un dispositivo asignado.
+                        </p>
+                      )}
+                      {editError && (
+                        <p className="text-sm text-red-600 dark:text-red-400">{editError}</p>
+                      )}
+                      <div className="flex flex-wrap gap-3 items-end">
+                        <Select
+                          label="Plan"
+                          value={editPlanId}
+                          onChange={(e) => setEditPlanId(e.target.value)}
+                          options={servicePlans.filter((p) => p.isActive || p.id === cs.servicePlanId).map((p) => ({ value: p.id, label: p.name }))}
+                          fullWidth={false}
+                        />
+                        <Select
+                          label="Dispositivo CPE"
+                          value={editDeviceId}
+                          onChange={(e) => { setEditDeviceId(e.target.value); setEditError(null); }}
+                          options={[{ value: '', label: 'Sin dispositivo' }, ...cpeDevices.map((d) => ({ value: d.id, label: `${d.name}${d.ipAddress ? ` – ${d.ipAddress}` : ''}` }))]}
+                          fullWidth={false}
+                        />
+                        <Select
+                          label="Estado"
+                          value={editStatus}
+                          onChange={(e) => { setEditStatus(e.target.value as ContractedServiceTargetStatus); setEditError(null); }}
+                          options={CONTRACT_TARGET_STATUS_OPTIONS}
+                          fullWidth={false}
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleSaveContract(cs.id)} isLoading={isSavingContract}>Guardar</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingContractId(null); setEditError(null); }}>Cancelar</Button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -355,7 +395,20 @@ export default function CustomerDetailPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => { setEditingContractId(cs.id); setEditStatus(cs.status); setEditPlanId(cs.servicePlanId); }}>Editar</Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingContractId(cs.id);
+                            // PENDING is not a valid update target — offer ACTIVE as the next step.
+                            setEditStatus(cs.status === 'PENDING' ? 'ACTIVE' : cs.status);
+                            setEditPlanId(cs.servicePlanId);
+                            setEditDeviceId(cs.deviceId ?? '');
+                            setEditError(null);
+                          }}
+                        >
+                          Editar
+                        </Button>
                         <Button size="sm" variant="danger" onClick={() => handleDeleteContract(cs.id)} isLoading={deletingContractId === cs.id}>Eliminar</Button>
                       </div>
                     </div>
