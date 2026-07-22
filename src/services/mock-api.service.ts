@@ -761,6 +761,34 @@ class MockApiService {
     contractedServices = contractedServices.filter((x) => x.id !== id);
     return { success: true };
   }
+
+  // ── Bills ──────────────────────────────────────────────────
+  // Billing is backend-only; mock mode does not fabricate invoices.
+
+  async listBills() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getBill() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async generateBill() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async generateBulkBills() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async payBill() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async markBillOverdue() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async cancelBill() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async downloadBillPdf() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
 }
 
 export const mockApiService = new MockApiService();

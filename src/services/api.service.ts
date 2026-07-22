@@ -62,6 +62,14 @@ import {
   CreateContractedServiceDTO,
   UpdateContractedServiceDTO,
 } from '../types/customer.types';
+import {
+  BillDTO,
+  BillListResponse,
+  ListBillsQuery,
+  GenerateBillDTO,
+  GenerateBulkBillsDTO,
+  BulkGenerateResult,
+} from '../types/bill.types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -551,6 +559,68 @@ class ApiService {
 
   async deleteContractedService(id: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/contracted-services/${id}`, { method: 'DELETE' });
+  }
+
+  // ==================== Bills ====================
+
+  async generateBill(data: GenerateBillDTO): Promise<ApiResponse<BillDTO>> {
+    return this.request<BillDTO>('/bills/generate', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async generateBulkBills(data: GenerateBulkBillsDTO): Promise<ApiResponse<BulkGenerateResult>> {
+    return this.request<BulkGenerateResult>('/bills/generate-bulk', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async listBills(query?: ListBillsQuery): Promise<ApiResponse<BillListResponse>> {
+    const qs = this.buildQuery({
+      customerId: query?.customerId,
+      status: query?.status,
+      year: query?.year,
+      month: query?.month,
+      limit: query?.limit,
+      offset: query?.offset,
+    });
+    return this.request<BillListResponse>(`/bills${qs}`);
+  }
+
+  async getBill(id: string): Promise<ApiResponse<BillDTO>> {
+    return this.request<BillDTO>(`/bills/${id}`);
+  }
+
+  async payBill(id: string): Promise<ApiResponse<BillDTO>> {
+    return this.request<BillDTO>(`/bills/${id}/pay`, { method: 'POST' });
+  }
+
+  async markBillOverdue(id: string): Promise<ApiResponse<BillDTO>> {
+    return this.request<BillDTO>(`/bills/${id}/overdue`, { method: 'POST' });
+  }
+
+  async cancelBill(id: string): Promise<ApiResponse<BillDTO>> {
+    return this.request<BillDTO>(`/bills/${id}/cancel`, { method: 'POST' });
+  }
+
+  // The PDF endpoint returns a binary document, not the JSON envelope, so it
+  // bypasses request() and carries the Bearer token on a raw fetch → blob.
+  async downloadBillPdf(id: string): Promise<ApiResponse<Blob>> {
+    try {
+      const headers: Record<string, string> = {};
+      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+      const response = await fetch(`${this.baseUrl}/bills/${id}/pdf`, { headers });
+      if (!response.ok) {
+        let error = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const data = await response.json();
+          error = data.error || data.message || error;
+        } catch {
+          /* non-JSON error body */
+        }
+        return { success: false, error };
+      }
+      const blob = await response.blob();
+      return { success: true, data: blob };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
   }
 }
 
