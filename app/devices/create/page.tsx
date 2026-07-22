@@ -16,6 +16,7 @@ import { Card, Button, Input, Select, Combobox, LoadingSpinner } from '@/compone
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
+import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 
 
 export default function CreateDevicePage() {
@@ -133,6 +134,10 @@ export default function CreateDevicePage() {
     }
     if (formData.serialNumber.trim().length > 100) {
       errors.serialNumber = 'El número de serie no puede superar los 100 caracteres';
+    }
+    if (formData.monitoringEnabled) {
+      const failures = validateFailuresBeforeDown(formData.pollingFailuresBeforeDown);
+      if (failures) errors.pollingFailuresBeforeDown = failures;
     }
     if (!errors.serialNumber && (status === 'INVENTORY' || status === 'DAMAGED')) {
       if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
@@ -395,9 +400,16 @@ export default function CreateDevicePage() {
                                 label="Fallos antes de desconectar"
                                 name="pollingFailuresBeforeDown"
                                 type="number"
-                                min={1}
+                                min={FAILURES_BEFORE_DOWN_MIN}
+                                max={FAILURES_BEFORE_DOWN_MAX}
                                 value={formData.pollingFailuresBeforeDown || ''}
-                                onChange={(e) => setFormData((prev) => ({ ...prev, pollingFailuresBeforeDown: Number(e.target.value) }))}
+                                onChange={(e) => {
+                                  setFormData((prev) => ({ ...prev, pollingFailuresBeforeDown: Number(e.target.value) }));
+                                  if (formErrors.pollingFailuresBeforeDown) {
+                                    setFormErrors((prev) => { const n = { ...prev }; delete n.pollingFailuresBeforeDown; return n; });
+                                  }
+                                }}
+                                error={formErrors.pollingFailuresBeforeDown}
                                 fullWidth
                               />
                             </div>

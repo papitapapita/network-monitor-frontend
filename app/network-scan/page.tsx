@@ -27,6 +27,7 @@ import {
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
 import { isValidMacAddress } from '@/constants/device.constants';
+import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 
 function normalizeMac(mac: string): string {
   return mac.replace(/[:\-\.]/g, '').toUpperCase();
@@ -167,6 +168,10 @@ function AddDeviceModal({
     }
     if (form.installedDate && form.installedDate > new Date().toISOString().slice(0, 10)) {
       e.installedDate = 'La fecha de instalación no puede ser futura';
+    }
+    if (form.monitoringEnabled) {
+      const failures = validateFailuresBeforeDown(form.pollingFailuresBeforeDown);
+      if (failures) e.pollingFailuresBeforeDown = failures;
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -387,8 +392,16 @@ function AddDeviceModal({
                           label="Fallos antes de desconectar"
                           name="pollingFailuresBeforeDown"
                           type="number"
+                          min={FAILURES_BEFORE_DOWN_MIN}
+                          max={FAILURES_BEFORE_DOWN_MAX}
                           value={String(form.pollingFailuresBeforeDown)}
-                          onChange={(e) => setForm((prev) => ({ ...prev, pollingFailuresBeforeDown: Math.max(1, Number(e.target.value)) }))}
+                          onChange={(e) => {
+                            setForm((prev) => ({ ...prev, pollingFailuresBeforeDown: Number(e.target.value) }));
+                            if (errors.pollingFailuresBeforeDown) {
+                              setErrors((prev) => { const n = { ...prev }; delete n.pollingFailuresBeforeDown; return n; });
+                            }
+                          }}
+                          error={errors.pollingFailuresBeforeDown}
                           fullWidth
                         />
                       </div>

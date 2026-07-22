@@ -16,6 +16,14 @@ import {
   Badge,
   getPollingStatusBadgeVariant
 } from '@/components/ui';
+import {
+  POLLING_INTERVAL_MIN_SECONDS,
+  INTERVAL_MAX_SECONDS,
+  FAILURES_BEFORE_DOWN_MIN,
+  FAILURES_BEFORE_DOWN_MAX,
+  validateIntervalSeconds,
+  validateFailuresBeforeDown,
+} from '@/constants/polling.constants';
 
 function toISOWithOffset(dateStr: string, endOfDay = false): string {
   const time = endOfDay ? 'T23:59:59' : 'T00:00:00';
@@ -32,6 +40,24 @@ const CONNECTIVITY_LABELS: Record<string, string> = {
   OFFLINE: 'Desconectado',
   UNKNOWN: 'Desconocido',
 };
+
+export function validatePollingConfigForm(form: {
+  intervalSeconds: string;
+  failuresBeforeDown: string;
+}): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  const interval = validateIntervalSeconds(form.intervalSeconds, {
+    min: POLLING_INTERVAL_MIN_SECONDS,
+    max: INTERVAL_MAX_SECONDS,
+  });
+  if (interval) errors.intervalSeconds = interval;
+
+  const failures = validateFailuresBeforeDown(form.failuresBeforeDown);
+  if (failures) errors.failuresBeforeDown = failures;
+
+  return errors;
+}
 
 interface Props {
   deviceId: string;
@@ -53,6 +79,7 @@ export function DevicePollingTab({ deviceId }: Props) {
   });
   const [configSaving, setConfigSaving] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [configErrors, setConfigErrors] = useState<Record<string, string>>({});
   const [configSuccess, setConfigSuccess] = useState(false);
 
   // ── History ───────────────────────────────────────────────
@@ -111,6 +138,10 @@ export function DevicePollingTab({ deviceId }: Props) {
   };
 
   const handleSaveConfig = async () => {
+    const errors = validatePollingConfigForm(configForm);
+    setConfigErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setConfigSaving(true);
     setConfigError(null);
     setConfigSuccess(false);
@@ -275,15 +306,27 @@ export function DevicePollingTab({ deviceId }: Props) {
             <Input
               label="Intervalo (segundos)"
               type="number"
+              min={POLLING_INTERVAL_MIN_SECONDS}
+              max={INTERVAL_MAX_SECONDS}
               value={configForm.intervalSeconds}
-              onChange={(e) => setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }))}
+              onChange={(e) => {
+                setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
+                setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
+              }}
+              error={configErrors.intervalSeconds}
               fullWidth
             />
             <Input
               label="Fallos Antes de Caída"
               type="number"
+              min={FAILURES_BEFORE_DOWN_MIN}
+              max={FAILURES_BEFORE_DOWN_MAX}
               value={configForm.failuresBeforeDown}
-              onChange={(e) => setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }))}
+              onChange={(e) => {
+                setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }));
+                setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
+              }}
+              error={configErrors.failuresBeforeDown}
               fullWidth
             />
           </div>

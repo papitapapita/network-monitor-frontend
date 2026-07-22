@@ -12,6 +12,11 @@ import {
 } from '@/types/wireless.types';
 import { DeviceCategory } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner, Badge } from '@/components/ui';
+import {
+  WIRELESS_INTERVAL_MIN_SECONDS,
+  INTERVAL_MAX_SECONDS,
+  validateIntervalSeconds,
+} from '@/constants/polling.constants';
 
 interface Props {
   deviceId: string;
@@ -236,6 +241,16 @@ function ClientRow({ client }: { client: WirelessClientDTO }) {
   );
 }
 
+export function validateWirelessConfigForm(form: { intervalSecs: string }): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const interval = validateIntervalSeconds(form.intervalSecs, {
+    min: WIRELESS_INTERVAL_MIN_SECONDS,
+    max: INTERVAL_MAX_SECONDS,
+  });
+  if (interval) errors.intervalSecs = interval;
+  return errors;
+}
+
 export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props) {
   const [config, setConfig] = useState<WirelessConfigDTO | null>(null);
   const [noConfig, setNoConfig] = useState(false);
@@ -259,6 +274,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
     clientsProvisionedLimit: '',
   });
   const [configSaving, setConfigSaving] = useState(false);
+  const [configFormErrors, setConfigFormErrors] = useState<Record<string, string>>({});
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
   const [configSaveSuccess, setConfigSaveSuccess] = useState(false);
   const [showConfigForm, setShowConfigForm] = useState(false);
@@ -339,6 +355,10 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
   };
 
   const handleSaveConfig = async () => {
+    const errors = validateWirelessConfigForm(configForm);
+    setConfigFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setConfigSaving(true);
     setConfigSaveError(null);
     setConfigSaveSuccess(false);
@@ -486,9 +506,14 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                 <Input
                   label="Intervalo (segundos)"
                   type="number"
-                  min={60}
+                  min={WIRELESS_INTERVAL_MIN_SECONDS}
+                  max={INTERVAL_MAX_SECONDS}
                   value={configForm.intervalSecs}
-                  onChange={(e) => setConfigForm((p) => ({ ...p, intervalSecs: e.target.value }))}
+                  onChange={(e) => {
+                    setConfigForm((p) => ({ ...p, intervalSecs: e.target.value }));
+                    setConfigFormErrors((p) => { const n = { ...p }; delete n.intervalSecs; return n; });
+                  }}
+                  error={configFormErrors.intervalSecs}
                   fullWidth
                 />
                 <Select
