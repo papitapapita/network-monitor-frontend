@@ -34,7 +34,7 @@ interface TableCellProps {
 
 export function Table({ children, className = '' }: TableProps) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto table-scroll-x">
       <table className={`min-w-full divide-y divide-gray-200 dark:divide-gray-700 ${className}`}>
         {children}
       </table>

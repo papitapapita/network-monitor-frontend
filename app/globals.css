@@ -17,3 +17,72 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Scrollbars: match the app's gray palette, subtle until hovered. */
+:root {
+  --scrollbar-thumb: #d1d5db; /* gray-300 */
+  --scrollbar-thumb-hover: #9ca3af; /* gray-400 */
+}
+
+.dark {
+  --scrollbar-thumb: #374151; /* gray-700 */
+  --scrollbar-thumb-hover: #4b5563; /* gray-600 */
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
+ * Horizontal table scroll: the bar spans the full width at the bottom edge of
+ * the card, so give it a tinted track and a divider line on top to make it read
+ * as part of the table instead of floating over the last row.
+ */
+:root {
+  --scrollbar-track-table: #f9fafb; /* gray-50, matches thead */
+  --scrollbar-track-table-border: #e5e7eb; /* gray-200, matches row divider */
+}
+
+.dark {
+  --scrollbar-track-table: #111827; /* gray-900, matches thead */
+  --scrollbar-track-table-border: #374151; /* gray-700, matches row divider */
+}
+
+.table-scroll-x {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track-table);
+  overscroll-behavior-x: contain;
+}
+
+.table-scroll-x::-webkit-scrollbar:horizontal {
+  height: 12px;
+}
+
+.table-scroll-x::-webkit-scrollbar-track:horizontal {
+  background-color: var(--scrollbar-track-table);
+  border-top: 1px solid var(--scrollbar-track-table-border);
+}
