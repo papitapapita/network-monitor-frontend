@@ -766,6 +766,16 @@ class MockApiService {
     return { success: true };
   }
 
+  // ── Suspension enforcement ─────────────────────────────────
+  // No router in mock mode, so enforcement is reported as unknown.
+
+  async listEnforcedSuspensions() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getContractedServiceEnforcement() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+
   // ── Bills ──────────────────────────────────────────────────
   // Billing is backend-only; mock mode does not fabricate invoices.
 

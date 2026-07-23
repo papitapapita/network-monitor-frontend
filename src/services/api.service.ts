@@ -64,6 +64,10 @@ import {
   UpdateContractedServiceDTO,
 } from '../types/customer.types';
 import {
+  EnforcedSuspensionsResponse,
+  ServiceEnforcementStatusDTO,
+} from '../types/enforcement.types';
+import {
   BillDTO,
   BillListResponse,
   ListBillsQuery,
@@ -566,6 +570,18 @@ class ApiService {
 
   async deleteContractedService(id: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/contracted-services/${id}`, { method: 'DELETE' });
+  }
+
+  // ==================== Suspension Enforcement ====================
+  // Both endpoints query the router live; a failed call means "unknown", not
+  // "not enforced" — callers must not treat an error as a negative answer.
+
+  async listEnforcedSuspensions(): Promise<ApiResponse<EnforcedSuspensionsResponse>> {
+    return this.request<EnforcedSuspensionsResponse>('/enforcement/suspensions');
+  }
+
+  async getContractedServiceEnforcement(id: string): Promise<ApiResponse<ServiceEnforcementStatusDTO>> {
+    return this.request<ServiceEnforcementStatusDTO>(`/contracted-services/${id}/enforcement`);
   }
 
   // ==================== Bills ====================

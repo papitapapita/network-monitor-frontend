@@ -11,7 +11,8 @@ import {
   CreateContractedServiceDTO, UpdateContractedServiceDTO,
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
-import { Card, Button, Input, Select, LoadingSpinner, Badge } from '@/components/ui';
+import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
+import { Card, Button, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 
@@ -122,13 +123,49 @@ export default function CustomerDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [isSavingContract, setIsSavingContract] = useState(false);
   const [deletingContractId, setDeletingContractId] = useState<string | null>(null);
+  // Suspend/reactivate is kept out of the edit form: it throttles the customer's
+  // link and sends them a WhatsApp, so it gets its own confirmation.
+  const [statusAction, setStatusAction] = useState<{ contract: ContractedServiceDTO; action: 'SUSPEND' | 'REACTIVATE' } | null>(null);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const [statusActionError, setStatusActionError] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+
+  // Whether each suspended service is really throttled on the router. A missing
+  // entry means "unknown" (router unreachable / enforcement not configured) —
+  // deliberately distinct from a known `enforced: false`.
+  const [enforcement, setEnforcement] = useState<Record<string, { enforced: boolean; targetIp: string | null }>>({});
+  const [enforcementCheckedAt, setEnforcementCheckedAt] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+  // One router round-trip covers every suspended service, so this is preferred
+  // over per-row checks; the per-row endpoint is only used by "Verificar".
+  const fetchEnforcement = useCallback(async (suspended: ContractedServiceDTO[]) => {
+    const r = await apiService.listEnforcedSuspensions();
+    if (!r.success || !r.data) {
+      setEnforcement({});
+      setEnforcementCheckedAt(null);
+      return;
+    }
+    const targetIps = new Map(r.data.enforcements.map((e) => [e.contractedServiceId, e.targetIp]));
+    const next: Record<string, { enforced: boolean; targetIp: string | null }> = {};
+    for (const cs of suspended) {
+      next[cs.id] = { enforced: targetIps.has(cs.id), targetIp: targetIps.get(cs.id) ?? null };
+    }
+    setEnforcement(next);
+    setEnforcementCheckedAt(r.data.checkedAt);
+  }, []);
 
   const fetchContracts = useCallback(async () => {
     setContractsLoading(true);
     const r = await apiService.listContractedServices({ customerId, limit: 100 });
-    if (r.success && r.data) setContracts(r.data.contractedServices);
+    if (r.success && r.data) {
+      setContracts(r.data.contractedServices);
+      // Only hit the router when there is something to enforce.
+      const suspended = r.data.contractedServices.filter((c) => c.status === 'SUSPENDED');
+      if (suspended.length > 0) fetchEnforcement(suspended);
+    }
     setContractsLoading(false);
-  }, [customerId]);
+  }, [customerId, fetchEnforcement]);
 
   useEffect(() => {
     fetchContracts();
@@ -138,6 +175,21 @@ export default function CustomerDetailPage() {
       if (r.success && r.data) setCpeDevices((p) => [...p, ...r.data!.devices]);
     });
   }, [fetchContracts]);
+
+  const handleVerifyEnforcement = async (id: string) => {
+    setVerifyingId(id);
+    const r = await apiService.getContractedServiceEnforcement(id);
+    setVerifyingId(null);
+    if (r.success && r.data) {
+      const data: ServiceEnforcementStatusDTO = r.data;
+      setEnforcement((p) => ({ ...p, [id]: { enforced: data.enforced, targetIp: data.targetIp } }));
+      setEnforcementCheckedAt(data.checkedAt);
+    } else {
+      // Drop the entry rather than showing a stale answer as current.
+      setEnforcement((p) => { const n = { ...p }; delete n[id]; return n; });
+      setStatusNotice(r.error || 'No se pudo consultar el router; el estado de la limitación es desconocido.');
+    }
+  };
 
   const handleAddContract = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,11 +247,45 @@ export default function CustomerDetailPage() {
     fetchContracts();
   };
 
+  const handleStatusAction = async () => {
+    if (!statusAction) return;
+    const { contract, action } = statusAction;
+    setIsChangingStatus(true);
+    setStatusActionError(null);
+    const r = await apiService.updateContractedService(contract.id, {
+      status: action === 'SUSPEND' ? 'SUSPENDED' : 'ACTIVE',
+    });
+    setIsChangingStatus(false);
+    if (r.success) {
+      setStatusAction(null);
+      // Enforcement is eventually consistent — say so instead of leaving the
+      // operator wondering why the customer is still online.
+      setStatusNotice(
+        action === 'SUSPEND'
+          ? 'Servicio suspendido. La limitación en el router se aplica en segundo plano (hasta ~60 s). Usa "Verificar" en el servicio para confirmar que ya está aplicada.'
+          : 'Servicio reactivado. La limitación se retira en segundo plano y puede tardar hasta ~60 s en surtir efecto.'
+      );
+      fetchContracts();
+    } else {
+      setStatusActionError(r.error || 'No se pudo cambiar el estado del servicio');
+    }
+  };
+
   const planName = (id: string) => servicePlans.find((p) => p.id === id)?.name ?? id;
+  const deviceOf = (id: string | null) => (id ? cpeDevices.find((x) => x.id === id) ?? null : null);
   const deviceName = (id: string | null) => {
     if (!id) return '—';
-    const d = cpeDevices.find((x) => x.id === id);
+    const d = deviceOf(id);
     return d ? `${d.name} (${d.ipAddress ?? 'sin IP'})` : id;
+  };
+
+  // The throttle targets the assigned device's IP; without one the status still
+  // changes but nothing is enforced. Unknown devices (not in the CPE lists) are
+  // left alone rather than warned about wrongly.
+  const throttleUnavailable = (cs: ContractedServiceDTO) => {
+    if (!cs.deviceId) return true;
+    const d = deviceOf(cs.deviceId);
+    return d !== null && !d.ipAddress;
   };
 
   if (isLoading) return <div className="flex justify-center items-center min-h-screen"><LoadingSpinner size="lg" message="Cargando cliente..." /></div>;
@@ -226,6 +312,66 @@ export default function CustomerDetailPage() {
         variant="danger"
         isLoading={isDeleting}
       />
+
+      <Modal
+        isOpen={statusAction !== null}
+        onClose={() => { setStatusAction(null); setStatusActionError(null); }}
+        title={statusAction?.action === 'SUSPEND' ? 'Suspender servicio' : 'Reactivar servicio'}
+        size="md"
+      >
+        {statusAction && (
+          <div className="space-y-3 text-sm">
+            <p className="text-gray-700 dark:text-gray-300">
+              Servicio: <strong>{planName(statusAction.contract.servicePlanId)}</strong> · Dispositivo:{' '}
+              {deviceName(statusAction.contract.deviceId)}
+            </p>
+
+            {statusAction.action === 'SUSPEND' ? (
+              <>
+                <p className="text-gray-700 dark:text-gray-300">Al suspender, el sistema automáticamente:</p>
+                <ul className="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300">
+                  <li>Limita la conexión del cliente a <strong>1 kbps</strong> en el router principal.</li>
+                  <li>Envía un <strong>mensaje de WhatsApp</strong> a {customer.phone}.</li>
+                </ul>
+                {throttleUnavailable(statusAction.contract) && (
+                  <div className="p-3 rounded-md bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300">
+                    Este servicio no tiene un dispositivo con IP asignada: el estado cambiará a
+                    Suspendido, pero <strong>no se aplicará la limitación</strong> de velocidad.
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-gray-700 dark:text-gray-300">
+                  Al reactivar se retira la limitación de velocidad. No se envía ningún mensaje al cliente.
+                </p>
+                {!statusAction.contract.deviceId && (
+                  <div className="p-3 rounded-md bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300">
+                    El servicio no tiene dispositivo asignado; asigna uno con &quot;Editar&quot; antes de reactivarlo.
+                  </div>
+                )}
+              </>
+            )}
+
+            {statusActionError && (
+              <p className="text-red-600 dark:text-red-400">{statusActionError}</p>
+            )}
+          </div>
+        )}
+        <Modal.Footer>
+          <Button variant="outline" onClick={() => { setStatusAction(null); setStatusActionError(null); }} disabled={isChangingStatus}>
+            Cancelar
+          </Button>
+          <Button
+            variant={statusAction?.action === 'SUSPEND' ? 'danger' : 'primary'}
+            onClick={handleStatusAction}
+            isLoading={isChangingStatus}
+            disabled={statusAction?.action === 'REACTIVATE' && !statusAction.contract.deviceId}
+          >
+            {statusAction?.action === 'SUSPEND' ? 'Suspender' : 'Reactivar'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {loadError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><p className="text-red-800 dark:text-red-400">{loadError}</p></div>}
 
@@ -302,6 +448,19 @@ export default function CustomerDetailPage() {
           </div>
         </Card.Header>
         <Card.Body>
+          {statusNotice && (
+            <div className="mb-4 p-3 rounded-md text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 flex justify-between items-start gap-3">
+              <span>{statusNotice}</span>
+              <button
+                type="button"
+                onClick={() => setStatusNotice(null)}
+                className="text-blue-800 dark:text-blue-300 font-medium shrink-0"
+                aria-label="Cerrar aviso"
+              >
+                ×
+              </button>
+            </div>
+          )}
           {showAddForm && (
             <form onSubmit={handleAddContract} className="mb-6 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
               <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo Servicio Contratado</p>
@@ -393,8 +552,52 @@ export default function CustomerDetailPage() {
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           Dispositivo: {deviceName(cs.deviceId)} · Inicio: {new Date(cs.startDate).toLocaleDateString('es')}
                         </div>
+                        {cs.status === 'SUSPENDED' && (
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            {enforcement[cs.id] === undefined ? (
+                              <Badge variant="neutral">Limitación: estado desconocido</Badge>
+                            ) : enforcement[cs.id].enforced ? (
+                              <Badge variant="success">
+                                Limitación aplicada{enforcement[cs.id].targetIp ? ` — ${enforcement[cs.id].targetIp}` : ''}
+                              </Badge>
+                            ) : (
+                              <Badge variant="warning">Limitación aún no aplicada</Badge>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyEnforcement(cs.id)}
+                              disabled={verifyingId === cs.id}
+                              className="text-blue-600 dark:text-blue-400 underline disabled:opacity-50"
+                            >
+                              {verifyingId === cs.id ? 'Verificando…' : 'Verificar'}
+                            </button>
+                            {enforcementCheckedAt && (
+                              <span className="text-gray-400 dark:text-gray-500">
+                                {new Date(enforcementCheckedAt).toLocaleTimeString('es')}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-2">
+                        {(cs.status === 'ACTIVE' || cs.status === 'PENDING') && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'SUSPEND' }); }}
+                          >
+                            Suspender
+                          </Button>
+                        )}
+                        {cs.status === 'SUSPENDED' && (
+                          <Button
+                            size="sm"
+                            variant="success"
+                            onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'REACTIVATE' }); }}
+                          >
+                            Reactivar
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
