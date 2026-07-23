@@ -83,7 +83,12 @@ export default function CreateDevicePage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
-    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+      // Polling needs a target address: clearing the IP turns monitoring off.
+      ...(name === 'ipAddress' && !value.trim() ? { monitoringEnabled: false } : {}),
+    }));
     if (formErrors[name]) {
       setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
     }
@@ -96,6 +101,7 @@ export default function CreateDevicePage() {
       status: value,
       monitoringEnabled:
         value === 'INVENTORY' || value === 'DAMAGED' ? false
+        : !prev.ipAddress.trim() ? false
         : value === 'COMMISSIONING' ? true
         : prev.monitoringEnabled,
     }));
@@ -122,6 +128,8 @@ export default function CreateDevicePage() {
       errors.ipAddress = 'La dirección IP no es válida';
     } else if ((status === 'ACTIVE' || status === 'COMMISSIONING') && !hasIp) {
       errors.ipAddress = 'La dirección IP es requerida';
+    } else if (formData.monitoringEnabled && !hasIp) {
+      errors.ipAddress = 'La dirección IP es requerida para habilitar el monitoreo';
     }
     if (status === 'ACTIVE' && !formData.locationId) {
       errors.locationId = 'La ubicación es requerida para dispositivos activos';
@@ -353,8 +361,9 @@ export default function CreateDevicePage() {
                 <div className="md:col-span-2 space-y-3">
                   {(() => {
                     const st = (formData.status || 'INVENTORY') as DeviceStatus;
+                    const noIp = !formData.ipAddress.trim();
                     const suggestOn = st === 'COMMISSIONING';
-                    const autoOff = st === 'INVENTORY' || st === 'DAMAGED';
+                    const autoOff = st === 'INVENTORY' || st === 'DAMAGED' || noIp;
                     const effectiveMonitoring = autoOff ? false : formData.monitoringEnabled;
                     return (
                       <>
@@ -371,10 +380,12 @@ export default function CreateDevicePage() {
                           <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Habilitar Monitoreo
                           </label>
-                          {suggestOn && (
+                          {suggestOn && !noIp && (
                             <span className="text-xs text-blue-600 dark:text-blue-400">(recomendado en comisionamiento, opcional)</span>
                           )}
-                          {autoOff && (
+                          {noIp ? (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">(requiere una dirección IP)</span>
+                          ) : autoOff && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">(se desactiva automáticamente en inventario/dañado)</span>
                           )}
                         </div>

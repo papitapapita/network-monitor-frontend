@@ -61,9 +61,13 @@ export function validatePollingConfigForm(form: {
 
 interface Props {
   deviceId: string;
+  deviceIpAddress: string | null;
 }
 
-export function DevicePollingTab({ deviceId }: Props) {
+export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
+  // Polling targets the device IP, so nothing can be configured or triggered without one.
+  const hasIp = !!deviceIpAddress;
+
   // ── Status ────────────────────────────────────────────────
   const [pollingStatus, setPollingStatus] = useState<PollingStatusDTO | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -138,6 +142,10 @@ export function DevicePollingTab({ deviceId }: Props) {
   };
 
   const handleSaveConfig = async () => {
+    if (!hasIp) {
+      setConfigError('El dispositivo necesita una dirección IP para configurar el sondeo.');
+      return;
+    }
     const errors = validatePollingConfigForm(configForm);
     setConfigErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -204,7 +212,7 @@ export function DevicePollingTab({ deviceId }: Props) {
                 <Button size="sm" variant="outline" onClick={fetchPollingStatus} disabled={statusLoading}>
                   Actualizar
                 </Button>
-                <Button size="sm" onClick={handlePollNow} isLoading={isPolling}>
+                <Button size="sm" onClick={handlePollNow} isLoading={isPolling} disabled={!hasIp}>
                   Sondear Ahora
                 </Button>
               </div>
@@ -292,6 +300,11 @@ export function DevicePollingTab({ deviceId }: Props) {
           </h2>
         </Card.Header>
         <Card.Body>
+          {!hasIp && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-4 text-sm text-yellow-800 dark:text-yellow-400">
+              Este dispositivo no tiene dirección IP. Asigne una en la pestaña «Detalles» para habilitar el sondeo.
+            </div>
+          )}
           {configError && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 mb-4 text-sm text-red-800 dark:text-red-400">
               {configError}
@@ -331,7 +344,7 @@ export function DevicePollingTab({ deviceId }: Props) {
             />
           </div>
           <div className="mt-4">
-            <Button onClick={handleSaveConfig} isLoading={configSaving}>
+            <Button onClick={handleSaveConfig} isLoading={configSaving} disabled={!hasIp}>
               {noConfig ? 'Crear Configuración' : 'Guardar Configuración'}
             </Button>
           </div>
