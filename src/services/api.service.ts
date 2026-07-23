@@ -40,6 +40,7 @@ import {
   WirelessAlertDTO,
   WirelessClientsResponse,
   WirelessPollResult,
+  WirelessRebootResult,
   WirelessHistoryResponse,
   WirelessHistoryQuery,
   WirelessAlertHistoryQuery,
@@ -440,6 +441,12 @@ class ApiService {
 
   async triggerWirelessPoll(deviceId: string): Promise<ApiResponse<WirelessPollResult>> {
     return this.request<WirelessPollResult>(`/devices/${deviceId}/wireless/poll`, {
+      method: 'POST'
+    });
+  }
+
+  async rebootWirelessDevice(deviceId: string): Promise<ApiResponse<WirelessRebootResult>> {
+    return this.request<WirelessRebootResult>(`/devices/${deviceId}/wireless/reboot`, {
       method: 'POST'
     });
   }

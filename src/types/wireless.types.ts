@@ -129,6 +129,11 @@ export interface WirelessPollResult {
   skipped?: boolean;
 }
 
+export interface WirelessRebootResult {
+  deviceId: string;
+  requestedAt: string;
+}
+
 export interface WirelessHistoryResponse {
   snapshots: WirelessStatusDTO[];
   total: number;

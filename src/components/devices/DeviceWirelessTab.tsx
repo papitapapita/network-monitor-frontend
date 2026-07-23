@@ -11,7 +11,8 @@ import {
   CreateWirelessConfigDTO,
 } from '@/types/wireless.types';
 import { DeviceCategory } from '@/types/device.types';
-import { Card, Button, Input, Select, LoadingSpinner, Badge } from '@/components/ui';
+import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
+import { useAuth } from '@/contexts/auth.context';
 import {
   WIRELESS_INTERVAL_MIN_SECONDS,
   INTERVAL_MAX_SECONDS,
@@ -99,6 +100,10 @@ function alertSeverityVariant(severity: string): 'warning' | 'danger' {
 function inferDeviceType(category: DeviceCategory | null): WirelessDeviceType {
   return category === 'AP' ? 'ACCESS_POINT' : 'STATION';
 }
+
+// A rebooted AirOS antenna stays offline ~1–2 min; polls fail meanwhile, so we
+// mute the "no snapshot" errors for this long instead of showing them as faults.
+const REBOOT_WINDOW_MS = 120_000;
 
 function ClientRow({ client }: { client: WirelessClientDTO }) {
   const [expanded, setExpanded] = useState(false);
@@ -252,6 +257,7 @@ export function validateWirelessConfigForm(form: { intervalSecs: string }): Reco
 }
 
 export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props) {
+  const { user } = useAuth();
   const [config, setConfig] = useState<WirelessConfigDTO | null>(null);
   const [noConfig, setNoConfig] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
@@ -266,6 +272,13 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
 
   const [polling, setPolling] = useState(false);
   const [pollMsg, setPollMsg] = useState<string | null>(null);
+
+  // Reboot needs HTTP credentials — the tab loads them only to gate the button.
+  const [hasHttpCreds, setHasHttpCreds] = useState<boolean | null>(null);
+  const [showRebootModal, setShowRebootModal] = useState(false);
+  const [rebooting, setRebooting] = useState(false);
+  const [rebootError, setRebootError] = useState<string | null>(null);
+  const [rebootingUntil, setRebootingUntil] = useState<number | null>(null);
 
   const [configForm, setConfigForm] = useState({
     intervalSecs: '3600',
@@ -334,6 +347,38 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
       fetchAlerts();
     }
   }, [config, fetchStatus, fetchAlerts]);
+
+  useEffect(() => {
+    apiService.getDeviceCredentials(deviceId).then((r) => {
+      setHasHttpCreds(r.success && r.data ? r.data.hasHttpCredentials : false);
+    });
+  }, [deviceId]);
+
+  // Close the reboot window and pull a fresh snapshot once the antenna is back.
+  useEffect(() => {
+    if (rebootingUntil === null) return;
+    const timer = setTimeout(() => {
+      setRebootingUntil(null);
+      fetchStatus();
+    }, Math.max(rebootingUntil - Date.now(), 0));
+    return () => clearTimeout(timer);
+  }, [rebootingUntil, fetchStatus]);
+
+  const handleReboot = async () => {
+    setRebooting(true);
+    setRebootError(null);
+    const result = await apiService.rebootWirelessDevice(deviceId);
+    setRebooting(false);
+    setShowRebootModal(false);
+    if (result.success) {
+      setPollMsg(null);
+      // Start the window from the client clock — server/browser skew would
+      // otherwise make it expire immediately or hang around for minutes.
+      setRebootingUntil(Date.now() + REBOOT_WINDOW_MS);
+    } else {
+      setRebootError(result.error || 'No se pudo reiniciar el equipo');
+    }
+  };
 
   const handlePollNow = async () => {
     setPolling(true);
@@ -407,8 +452,30 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
   const isAP = config?.deviceType === 'ACCESS_POINT' || category === 'AP';
   const effectiveDeviceType = config?.deviceType ?? inferDeviceType(category);
 
+  const isRebooting = rebootingUntil !== null;
+  const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+  // The backend takes the IP from the wireless config and the login from the
+  // device credentials — without either it answers 400, so block it up front.
+  const rebootBlockedReason = !config?.ipAddress
+    ? 'El equipo no tiene IP configurada en el monitoreo inalámbrico'
+    : hasHttpCreds === false
+      ? 'Configura credenciales HTTP en la pestaña Credenciales'
+      : null;
+
   return (
     <div className="space-y-6">
+
+      <ConfirmModal
+        isOpen={showRebootModal}
+        onClose={() => setShowRebootModal(false)}
+        onConfirm={handleReboot}
+        title="Reiniciar equipo"
+        message={`Se reiniciará la antena en ${config?.ipAddress ?? 'este equipo'}. El enlace se caerá alrededor de 2 minutos y los clientes conectados perderán el servicio durante ese tiempo.`}
+        confirmText="Reiniciar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={rebooting}
+      />
 
       {/* Config card */}
       <Card>
@@ -574,21 +641,43 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={fetchStatus} disabled={statusLoading}>
+                  <Button size="sm" variant="outline" onClick={fetchStatus} disabled={statusLoading || isRebooting}>
                     Actualizar
                   </Button>
-                  <Button size="sm" onClick={handlePollNow} isLoading={polling}>
+                  <Button size="sm" onClick={handlePollNow} isLoading={polling} disabled={isRebooting}>
                     Sondear Ahora
                   </Button>
+                  {canWrite && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => { setRebootError(null); setShowRebootModal(true); }}
+                      disabled={isRebooting || rebootBlockedReason !== null}
+                      title={rebootBlockedReason ?? undefined}
+                    >
+                      Reiniciar
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card.Header>
             <Card.Body>
+              {isRebooting && (
+                <div className="mb-4 p-3 rounded-md text-sm bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300">
+                  Reiniciando… el equipo estará fuera de línea alrededor de 2 minutos.
+                  Las métricas se actualizarán solas al terminar.
+                </div>
+              )}
+              {rebootError && (
+                <div className="mb-4 p-3 rounded-md text-sm bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400">
+                  {rebootError}
+                </div>
+              )}
               {statusLoading ? (
                 <div className="flex justify-center py-4">
                   <LoadingSpinner message="Cargando métricas..." />
                 </div>
-              ) : statusError ? (
+              ) : statusError && !isRebooting ? (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">{statusError}</p>
               ) : metrics ? (
                 <>
@@ -724,7 +813,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                     )}
                   </div>
                 </>
-              ) : (
+              ) : isRebooting ? null : (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                   Sin datos disponibles. Haga clic en &quot;Sondear Ahora&quot; para obtener métricas.
                 </p>

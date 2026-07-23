@@ -627,6 +627,9 @@ class MockApiService {
   async triggerWirelessPoll() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
+  async rebootWirelessDevice() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
   async getWirelessHistory() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
