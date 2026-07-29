@@ -98,6 +98,7 @@ type DeviceCategory = 'CPE' | 'WIRELESS_CPE' | 'AP' | 'ROUTERBOARD' | 'SMART_SWI
 type DeviceOwner    = 'COMPANY' | 'CLIENT'
 type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
 type PollingStatus      = 'SUCCESS' | 'FAILED' | 'SKIPPED'
+type BillStatus         = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
 type DeviceOnlineStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN'
 type AlertSeverity      = 'WARNING' | 'CRITICAL'
 type AlertStatus        = 'OPEN' | 'RESOLVED'
@@ -461,7 +462,7 @@ interface DeviceCredentialsResponseDTO {
   snmpPort: number               // default 161
   httpUsername: string | null
   httpPassword: '***' | null     // masked; null if not set
-  httpPort: number               // default 80
+  httpPort: number               // default 443
   hasSnmpCredentials: boolean    // true if the effective SNMP secret is present
   hasHttpCredentials: boolean    // true if both httpUsername and httpPassword are set
 }
@@ -472,12 +473,21 @@ interface DeviceCredentialsResponseDTO {
 ### `PUT /api/devices/:id/credentials` — Set Credentials
 **Status:** 200 | 400 | 404
 
-Fully replaces the stored credentials for the device (upsert).
+Upserts the credentials for the device. **HTTP credentials are the required pair** and are replaced on every call.
+
+The SNMP fields are optional and **nothing polls them today** — all polling is ICMP ping plus AirOS HTTP. They stay in the contract for the future "SNMP system metrics" work, so clients should simply omit them: an omitted SNMP field keeps whatever is stored, and only an explicit `null` clears it.
 
 ```ts
 // Request body
 {
-  snmpVersion: 1 | 2 | 3         // required
+  // HTTP / web-UI credentials — required
+  httpUsername: string
+  httpPassword: string
+  httpPort?: number   // 1–65535; default 443
+
+  // SNMP — optional, not consumed by any collector yet.
+  // Omit to keep the stored value; send null to clear it.
+  snmpVersion?: 1 | 2 | 3        // required as soon as any SNMP field is sent
 
   // SNMP v1/v2 fields
   snmpCommunity?: string | null  // required when snmpVersion = 1 or 2
@@ -489,22 +499,19 @@ Fully replaces the stored credentials for the device (upsert).
   snmpV3PrivProto?: 'DES' | 'AES' | null  // optional privacy protocol
   snmpV3PrivKey?: string | null    // required when snmpV3PrivProto is set
 
-  // HTTP / web-UI credentials (optional for all SNMP versions)
-  httpUsername?: string | null
-  httpPassword?: string | null
-
-  // Ports
   snmpPort?: number   // 1–65535; default 161
-  httpPort?: number   // 1–65535; default 80
 }
 
 // Response — DeviceCredentialsResponseDTO (raw, no wrapper)
 ```
 
 **Business rules:**
-- `snmpVersion = 1` or `2` → `snmpCommunity` is required.
-- `snmpVersion = 3` → `snmpV3AuthUser`, `snmpV3AuthProto`, and `snmpV3AuthKey` are required.
-- `snmpV3PrivKey` is required when `snmpV3PrivProto` is provided.
+- `httpUsername` and `httpPassword` are both required; neither may be blank.
+- SNMP validation runs only when the request carries an SNMP field:
+  - `snmpVersion` is required as soon as any other SNMP field is sent.
+  - `snmpVersion = 1` or `2` → `snmpCommunity` is required.
+  - `snmpVersion = 3` → `snmpV3AuthUser`, `snmpV3AuthProto`, and `snmpV3AuthKey` are required.
+  - `snmpV3PrivKey` is required when `snmpV3PrivProto` is provided.
 - Port values must be in range 1–65535.
 - Returns 404 if the device does not exist.
 
@@ -832,11 +839,17 @@ offset?:   number   // ≥0
 
 ## Alerts `/api/alerts`
 
+This is the **unified operational-alert list**. Every bounded context that detects an infrastructure problem records into this one store, so dashboards (and future ticketing) read a single place instead of chasing per-context lists. Both **device-availability** alerts and **wireless-link** alerts land here.
+
 ```ts
 interface AlertDTO {
   id: string                        // UUID
   deviceId: string                  // UUID
   severity: AlertSeverity
+  source: string                    // human-readable origin — e.g. "Disponibilidad", "Enlace inalámbrico"
+  type: string                      // machine discriminator (see table); at most one OPEN alert per (deviceId, type)
+  description: string               // human-readable detail line, ready to display
+  details: Record<string, unknown>  // producer-specific structured payload — shape varies by source (see table)
   status: AlertStatus
   startedAt: string                 // ISO 8601
   resolvedAt: string | null         // ISO 8601 — null while alert is open
@@ -845,6 +858,17 @@ interface AlertDTO {
   durationSecs: number | null       // seconds device was offline; null while open
 }
 ```
+
+**Producers** — who writes alerts and what they put in `type` / `details`:
+
+| `source` | `type` | `details` shape | Notes |
+|----------|--------|-----------------|-------|
+| `Disponibilidad` | `device_unreachable` | `{ consecutiveFailures: number, ipAddress: string \| null }` | Device stopped answering ICMP ping. Resolves automatically on recovery. |
+| `Enlace inalámbrico` | `wireless:<metric>:<severity>`<br>e.g. `wireless:signal_rx_dbm:CRITICAL` | `{ metric: string, severity: 'WARNING' \| 'CRITICAL', threshold: number, currentValue: number }` | One row per wireless metric + severity. Resolves automatically when the condition clears. |
+
+> **Dedup:** at most **one OPEN alert per `(deviceId, type)`**. A repeated trigger for a condition that is already open does **not** create a duplicate — the existing open alert stands until it resolves.  
+> `details` is a free-form JSON bag, easy to render but not queryable server-side — filter/sort in the frontend, don't expect a backend query param for its inner keys.  
+> **Not the same as `/api/devices/:id/wireless/alerts`** (`WirelessAlertDTO`): those remain the live, per-poll wireless view. This `/api/alerts` list is the **persisted, cross-context record** — a wireless problem appears in both.
 
 ### `GET /api/alerts` — List
 **Status:** 200
@@ -870,6 +894,33 @@ offset?:   number  // ≥0, default 0
 
 > Results are ordered by `startedAt` descending (newest first).  
 > Omit `deviceId` to list alerts across all devices.
+
+---
+
+### `GET /api/alerts/:id` — Get by ID
+**Status:** 200 | 400 | 404
+
+```ts
+// Response
+{ success: true, data: AlertDTO }
+```
+
+> Returns 400 if the id is not a valid UUID, 404 if no alert exists with that id.
+
+---
+
+### `DELETE /api/alerts/:id` — Delete
+**Status:** 204 | 400 | 404 | 409  
+**Roles:** ADMIN
+
+```ts
+// No request body
+// Response: 204 No Content
+```
+
+> **Only resolved alerts can be deleted.** Deleting an alert that is still `OPEN` returns 409 `"Cannot delete an alert that is still open"` — resolve (or let it auto-resolve) first.  
+> Returns 400 for a non-UUID id, 404 if no alert exists with that id.  
+> There is no create/update endpoint — alerts are opened and resolved by the system (producers), never by clients. This is read + delete only.
 
 ---
 
@@ -1196,6 +1247,30 @@ WirelessAlertDTO[]
 
 ---
 
+### `POST /api/devices/:id/wireless/reboot` — Reboot Device (AirOS 8)
+**Status:** 202 | 400 | 404 | 500  
+**Roles:** ADMIN, OPERATOR
+
+Reboots the antenna remotely via its AirOS 8 HTTP API. Requires the device to have a **wireless config** (source of the IP) and **HTTP credentials** (`httpUsername`/`httpPassword` via `PUT /api/devices/:id/credentials`).
+
+```ts
+// No request body
+
+// Response (202) — raw, no wrapper
+{
+  deviceId: string      // UUID
+  requestedAt: string   // ISO 8601 — when the reboot was accepted
+}
+```
+
+> **202 means the device acknowledged the reboot request** — it then goes offline for ~1–2 minutes while restarting. Expect polls/status to fail during that window; show a "rebooting…" state rather than an error.  
+> Returns 404 if the device has no wireless polling configuration.  
+> Returns 400 if credentials are not configured or the device has no IP address.  
+> Returns 500 if the device is unreachable or authentication against it fails.  
+> This is a destructive-ish action — put it behind a confirmation dialog in the UI.
+
+---
+
 ### `GET /api/wireless/alerts` — All Active Alerts (Global)
 **Status:** 200 | 400
 
@@ -1425,7 +1500,7 @@ offset?: number  // ≥0, default 0
 ## Contracted Services `/api/contracted-services`
 
 ```ts
-type ContractedServiceStatus = 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'
+type ContractedServiceStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'
 
 interface ContractedServiceDTO {
   id: string                        // UUID
@@ -1454,6 +1529,33 @@ interface ContractedServiceDTO {
 // Response
 { success: true, data: ContractedServiceDTO }
 ```
+
+> New services are **always created as `PENDING`** — the create endpoint does not accept a `status` field. To activate one, assign a device (if not done at creation) and send `PUT /:id` with `{ status: 'ACTIVE' }`.  
+> **Billing only includes `ACTIVE` services** — `POST /api/bills/generate` returns 409 for a customer whose services are all PENDING/SUSPENDED/CANCELLED.
+
+**Contracted service status lifecycle:**
+
+| Transition | Requirements | Notes |
+|------------|--------------|-------|
+| (create) → `PENDING` | — | only possible initial status |
+| `PENDING` / `SUSPENDED` → `ACTIVE` | `deviceId` must be set | 409 `"Cannot activate a contracted service without a device assigned"` otherwise |
+| `PENDING` / `ACTIVE` → `SUSPENDED` | — | triggers suspension side effects (see below) |
+| any → `CANCELLED` | — | **terminal** — every later update returns 409 `"Cannot modify a cancelled contracted service"` |
+| any → `PENDING` | **not allowed** | `PENDING` is not a valid `status` value on `PUT` — returns 400 |
+
+**Suspension side effects (automatic, server-side):**
+
+When a service transitions **into `SUSPENDED`**, the backend automatically (when the deployment has them configured):
+
+1. **Throttles the customer's internet to 1 kbps** — a queue targeting the assigned device's IP is created on the core MikroTik router. Requires the service to have a `deviceId` with an IP address.
+2. **Sends a WhatsApp notification** to the customer's `phone` (pre-approved template with the customer's name).
+
+When a service transitions **out of `SUSPENDED`** (→ `ACTIVE` or `CANCELLED`), the throttle is removed automatically. Reactivation does not send a WhatsApp message.
+
+> **The API contract is unchanged** — the `PUT` request/response shapes are exactly as documented above; side effects are fire-and-forget and never block or fail the status update.  
+> Enforcement is **eventually consistent**: it is attempted immediately, and a background reconciler repairs any miss (router briefly unreachable, queue edited by hand) within ~60 seconds.  
+> To show whether the throttle is **actually applied** on the router, use the [Suspension Enforcement Status](#suspension-enforcement-status) endpoints below.  
+> If the service has **no device assigned** (or the device has no IP), the status still changes but the throttle cannot be applied — worth surfacing in the UI when suspending a device-less service.
 
 ---
 
@@ -1492,19 +1594,27 @@ offset?:     number  // ≥0, default 0
 ---
 
 ### `PUT /api/contracted-services/:id` — Update
-**Status:** 200 | 400 | 404
+**Status:** 200 | 400 | 404 | 409
 
 ```ts
 // Request body (at least one field required)
 {
-  servicePlanId?: string         // UUID — change the plan
-  deviceId?: string | null       // UUID — assign/unassign CPE
-  status?: ContractedServiceStatus
+  servicePlanId?: string         // UUID — change the plan (plan must exist → 404 otherwise)
+  deviceId?: string | null       // UUID — assign CPE; null releases it
+  status?: 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'   // ⚠ PENDING is NOT accepted → 400
 }
 
 // Response
 { success: true, data: ContractedServiceDTO }
 ```
+
+**Business rules:**
+- `status: 'PENDING'` is rejected with 400 — services can never return to PENDING.
+- `status: 'ACTIVE'` requires the service to have a device (either already assigned or included as `deviceId` in the same request) — otherwise 409 `"Cannot activate a contracted service without a device assigned"`.
+- `deviceId: null` on an **ACTIVE** service returns 409 `"Cannot release the device of an ACTIVE service; suspend it first"`.
+- A device can belong to only one contracted service — assigning a taken device returns 409 `"This device is already assigned to another contracted service"`.
+- **CANCELLED is terminal** — any update to a cancelled service returns 409.
+- Fields in one request are applied in a fixed order: plan change → suspend → device change → activate → cancel. So a single `PUT` can do `{ status: 'SUSPENDED', deviceId: null }` (suspend then release) or `{ deviceId: '…', status: 'ACTIVE' }` (assign then activate).
 
 ---
 
@@ -1515,6 +1625,248 @@ offset?:     number  // ≥0, default 0
 // No request body
 // Response: 204 No Content
 ```
+
+---
+
+## Suspension Enforcement Status
+
+Live view of which suspensions are **actually enforced on the router** (vs. just `status: SUSPENDED` in the DB). These endpoints query the MikroTik router in real time — the answer is always current, but each call costs a router round-trip (~100–300 ms).
+
+A suspended service is "enforced" when its throttle queue exists on the router. It can be un-enforced because: the service has no device/IP, the router was unreachable when suspension happened (the reconciler will fix it within ~60 s), or someone removed the queue by hand.
+
+Uses the standard `{ success, data }` envelope.
+
+### `GET /api/enforcement/suspensions` — All Enforced Suspensions
+**Status:** 200 | 503
+
+```ts
+// No query params
+
+// Response
+{
+  success: true,
+  data: {
+    checkedAt: string      // ISO 8601 — when the router was queried
+    enforcements: Array<{
+      contractedServiceId: string  // UUID — join against your contracted services
+      targetIp: string             // the IP currently being throttled
+    }>
+  }
+}
+```
+
+> **One router call for everything** — prefer this on list views: fetch once, build a `Set` of enforced `contractedServiceId`s, and badge each SUSPENDED row as "throttled" / "not yet throttled".  
+> Returns `503` when enforcement is not configured on the backend, or the router is unreachable — treat as "enforcement status unknown", not as "not enforced".
+
+---
+
+### `GET /api/contracted-services/:id/enforcement` — Enforcement Status for One Service
+**Status:** 200 | 400 | 503
+
+```ts
+// Response
+{
+  success: true,
+  data: {
+    contractedServiceId: string
+    enforced: boolean           // true = throttle queue exists on the router
+    targetIp: string | null     // IP being throttled; null when not enforced
+    checkedAt: string           // ISO 8601
+  }
+}
+```
+
+> Use on the service/customer detail view, or as a "verify now" refresh after suspending.  
+> `enforced: false` for an `ACTIVE` service is normal (nothing to enforce). `enforced: false` for a `SUSPENDED` service means the throttle isn't applied (yet) — show a warning and re-check after ~60 s before escalating.  
+> Returns `400` for a non-UUID id, `503` when enforcement is not configured or the router is unreachable (= status unknown).
+
+---
+
+## Bills `/api/bills`
+
+One bill per customer per billing period (`'YYYY-MM'`). Line items snapshot the plan name and price **at generation time** — later plan price changes never affect existing bills. `total` is the sum of line items.
+
+**Lifecycle:** `PENDING → PAID | OVERDUE | CANCELLED`. `PAID` and `CANCELLED` are terminal. `OVERDUE` bills can still be paid or cancelled.
+
+```ts
+interface BillLineItemDTO {
+  contractedServiceId: string  // UUID
+  servicePlanId: string        // UUID
+  planName: string             // snapshot at generation time
+  monthlyPrice: number         // snapshot at generation time
+}
+
+interface BillDTO {
+  id: string                // UUID
+  customerId: string        // UUID
+  period: string            // 'YYYY-MM', e.g. '2026-07'
+  status: BillStatus
+  issueDate: string         // ISO 8601
+  dueDate: string           // ISO 8601
+  paidAt: string | null     // ISO 8601 — null until marked paid
+  total: number             // sum of lineItems monthlyPrice
+  lineItems: BillLineItemDTO[]
+  createdAt: string         // ISO 8601
+  updatedAt: string
+}
+```
+
+### `POST /api/bills/generate` — Generate Bill for a Customer
+**Status:** 201 | 400 | 404 | 409 | 500  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  customerId: string   // required, UUID
+  year: number         // required, integer 2000–2100
+  month: number        // required, integer 1–12
+  issueDate?: string   // ISO 8601 datetime; default: now
+  dueDate?: string     // ISO 8601 datetime; default: issueDate + 15 days
+}
+
+// Response
+{ success: true, data: BillDTO }
+```
+
+**Business rules:**
+- One line item per **ACTIVE** contracted service of the customer (PENDING/SUSPENDED/CANCELLED services are excluded).
+- Returns 409 if the customer has no ACTIVE contracted services.
+- Returns 409 if a non-cancelled bill already exists for this customer + period. Cancelled bills don't block regeneration.
+- Returns 404 if the customer does not exist.
+
+---
+
+### `POST /api/bills/generate-bulk` — Generate Bills for All Customers
+**Status:** 200 | 400  
+**Roles:** ADMIN, OPERATOR  
+**Rate limit:** bulk-import bucket — 5 / hr
+
+Generates bills for **every customer that has at least one ACTIVE contracted service**. Per-customer failures never abort the run — inspect the three result buckets.
+
+```ts
+// Request body
+{
+  year: number         // required, integer 2000–2100
+  month: number        // required, integer 1–12
+  issueDate?: string   // ISO 8601 datetime; default: now
+  dueDate?: string     // ISO 8601 datetime; default: issueDate + 15 days
+}
+
+// Response — always 200 even if some customers failed
+{
+  success: true,
+  data: {
+    period: string   // 'YYYY-MM'
+    generated: BillDTO[]
+    skipped: Array<{ customerId: string; reason: string }>  // e.g. bill already exists
+    failed:  Array<{ customerId: string; error: string }>
+  }
+}
+```
+
+---
+
+### `GET /api/bills` — List
+**Status:** 200 | 400
+
+```ts
+// Query params (all optional)
+customerId?: string      // UUID
+status?:     BillStatus
+year?:       number      // 2000–2100 ← must pair with month
+month?:      number      // 1–12
+limit?:      number      // 1–100, default 20
+offset?:     number      // ≥0, default 0
+
+// Response
+{
+  success: true,
+  data: {
+    bills: BillDTO[]
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+> `year` and `month` must always be provided together (400 otherwise).  
+> Results are ordered by `createdAt` descending (newest first).
+
+---
+
+### `GET /api/bills/:id` — Get by ID
+**Status:** 200 | 400 | 404
+
+```ts
+// Response
+{ success: true, data: BillDTO }
+```
+
+---
+
+### `GET /api/bills/:id/pdf` — Download as PDF
+**Status:** 200 | 400 | 404
+
+Returns the bill as a **PDF document** — not the JSON envelope.
+
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="bill-<period>-<billId>.pdf"
+```
+
+The PDF includes the bill header (period, status, issue/due/paid dates), the customer block (name, phone, email, cedula), one row per line item with its snapshot price, and the total.
+
+> Error responses (400/404) still use the standard JSON envelope `{ success: false, error }`.  
+> Frontend tip: fetch with the Bearer token and download via a blob URL — a plain `<a href>` won't carry the Authorization header.
+
+---
+
+### `POST /api/bills/:id/pay` — Mark as Paid
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response — BillDTO with status 'PAID' and paidAt set
+{ success: true, data: BillDTO }
+```
+
+> Allowed from `PENDING` or `OVERDUE`. Returns 409 if the bill is already `PAID` or `CANCELLED`.
+
+---
+
+### `POST /api/bills/:id/overdue` — Mark as Overdue
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response
+{ success: true, data: BillDTO }
+```
+
+> Allowed only from `PENDING`, and only once the bill is **past its due date** — returns 409 otherwise. There is no automatic overdue job; the frontend (or an operator) triggers this explicitly.
+
+---
+
+### `POST /api/bills/:id/cancel` — Cancel
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response — BillDTO with status 'CANCELLED'
+{ success: true, data: BillDTO }
+```
+
+> Allowed from `PENDING` or `OVERDUE`. Returns 409 for a `PAID` bill ("Cannot cancel a paid bill") or an already-cancelled one.  
+> Cancelling frees the customer + period for regeneration via `POST /generate`.
 
 ---
 
@@ -1545,5 +1897,6 @@ offset?:     number  // ≥0, default 0
 | 409 | Conflict — resource already exists or cannot be deleted (e.g. vendor has models, model has devices) |
 | 429 | Rate limit exceeded |
 | 500 | Unexpected server error |
+| 503 | Dependent system unavailable — enforcement router unreachable or enforcement not configured (enforcement endpoints only) |
 
 Error body: `{ success: false, error: string }` (standard endpoints) / `{ error: string }` (credentials, polling, wireless)

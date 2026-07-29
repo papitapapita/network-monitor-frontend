@@ -147,6 +147,88 @@ npm start       # serve the production build (port 3001)
 npm run lint    # ESLint
 ```
 
+## End-to-end tests
+
+Playwright drives a real browser against the running frontend **and the real
+backend** — nothing is mocked. These tests create and delete actual records.
+
+```bash
+npm run e2e          # headless
+npm run e2e:headed   # watch the browser work
+npm run e2e:ui       # time-travel debugger; best way to write a new spec
+npm run e2e:report   # open the last HTML report
+npm run e2e:sweep    # delete stray `e2e-` records left by a crashed run
+```
+
+Coverage today — vendors, device models, locations, devices and device
+credentials, each across create / read / list / update / delete, plus the map
+pins and the network-scan form:
+
+| Spec | Covers |
+|---|---|
+| `vendors.spec.ts` | create, get, list, update, delete |
+| `device-models.spec.ts` | create, get, list, update, delete |
+| `locations.spec.ts` | create, get, list, update, delete (row + detail), map pins, 409 when devices remain |
+| `devices.spec.ts` | create, get, list, delete; credentials set / get / delete |
+| `network-scan.spec.ts` | CIDR validation; a real scan only when opted in |
+| `smoke.spec.ts` | the harness itself |
+
+**The network scan probes your real network**, so it is opt-in:
+
+```bash
+E2E_RUN_NETWORK_SCAN=1 E2E_SCAN_SEGMENT=192.168.1.0/30 npm run e2e
+```
+
+Without those the validation paths still run, and no packets leave the machine.
+
+The dev server starts automatically if it isn't already running. The backend
+must be up on its own. Point the tests elsewhere with `E2E_BASE_URL`,
+`E2E_API_URL`, `E2E_EMAIL` and `E2E_PASSWORD`.
+
+**Writing a spec.** Import from the fixtures, not from `@playwright/test`:
+
+```ts
+import { test, expect, uniqueName } from './fixtures/test';
+
+test('deletes a device', async ({ page, api }) => {
+  // Arrange through the API — fast, and auto-deleted afterwards.
+  const device = await api.create('devices', {
+    deviceModelId, name: uniqueName('device'), serialNumber: uniqueName('sn'),
+  });
+
+  // Assert through the UI. That is the part being tested.
+  await page.goto(`/devices/${device.id}`);
+  await page.getByRole('button', { name: 'Eliminar' }).click();
+  // ...
+
+  api.untrack('devices', device.id); // the test deleted it itself
+});
+```
+
+Rules that keep this suite trustworthy:
+
+- **Tests run serially** (`workers: 1`). They share one backend database, so
+  parallelism would make them race. Don't raise this unless every spec is
+  provably isolated.
+- **Use `field(page, 'Label')` for form inputs**, not `getByLabel` directly.
+  Required fields render as `"Label *"` and substring matching is too loose
+  ("Modelo" also hits "Modelo inalámbrico"); the helper anchors both away.
+- **A full run trips the backend rate limiter.** The API client retries 429s
+  with backoff — without that, cleanup fails silently and leaks rows.
+- **Name everything with `uniqueName()`.** It prefixes `e2e-` plus a
+  timestamp, so runs never collide and anything that escapes cleanup is easy
+  to find and bulk-delete.
+- **Anything created through the UI must be `api.track()`ed**, or it will be
+  left behind in the database.
+- **Use `api` to arrange, the browser to assert.** Asserting via the API tests
+  the backend, not the UI.
+- There are **no `data-testid` attributes** in the app yet, so selectors match
+  Spanish label text and ARIA roles. That breaks when copy changes — consider
+  adding `data-testid` to elements as tests come to depend on them.
+
+`e2e/colombia.spec.ts` is an old ad-hoc debugging script, excluded from runs
+via `testIgnore`.
+
 ## Project structure
 
 ```
