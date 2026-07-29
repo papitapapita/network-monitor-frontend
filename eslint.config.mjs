@@ -13,6 +13,12 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // Playwright fixtures take a callback named `use`, which the React plugin
+    // mistakes for a hook. There is no React in the E2E tests.
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    rules: { "react-hooks/rules-of-hooks": "off" },
+  },
 ]);
 
 export default eslintConfig;
