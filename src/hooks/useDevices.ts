@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   DeviceResponseDTO,
@@ -9,6 +9,9 @@ import {
   DeviceCategory,
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+
+const SEARCH_DEBOUNCE_MS = 350;
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
@@ -109,14 +112,16 @@ export function useDevices() {
     () => searchParams.get('connectivity') ?? ''
   );
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search];
+  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, debouncedSearch];
 
   const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = useQuery({
     queryKey,
-    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search }),
+    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search: debouncedSearch }),
+    placeholderData: keepPreviousData,
   });
 
   const devices = data?.devices ?? [];
