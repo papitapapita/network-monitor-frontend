@@ -182,7 +182,7 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-      <p className="text-sm text-gray-600 mb-6">{message}</p>
+      <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">{message}</p>
       <Modal.Footer>
         <Button variant="outline" onClick={onClose} disabled={isLoading}>
           {cancelText}

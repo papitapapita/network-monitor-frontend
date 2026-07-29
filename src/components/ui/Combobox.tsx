@@ -152,11 +152,17 @@ export function Combobox({
 
   const inputDisplayValue = isOpen ? query : (selectedOption?.label ?? '');
 
+  // Mirrors Input/Select so the label actually points at the field.
+  const inputId = label?.toLowerCase().replace(/\s+/g, '-');
+  const listboxId = inputId ? `${inputId}-listbox` : undefined;
+
   const dropdown =
     isOpen && !disabled && dropdownRect
       ? ReactDOM.createPortal(
           <ul
             data-combobox-dropdown
+            id={listboxId}
+            role="listbox"
             style={{
               position: 'fixed',
               top: dropdownRect.top,
@@ -173,6 +179,8 @@ export function Combobox({
             {filtered.map((opt, i) => (
               <li
                 key={opt.value}
+                role="option"
+                aria-selected={opt.value === value}
                 onMouseDown={() => handleSelect(opt)}
                 className={`px-3 py-2 text-sm cursor-pointer ${
                   i === highlightedIndex
@@ -207,13 +215,20 @@ export function Combobox({
   return (
     <div ref={containerRef} className={`relative ${fullWidth ? 'w-full' : ''}`}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label
+          htmlFor={inputId}
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <input
         ref={inputRef}
+        id={inputId}
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-controls={listboxId}
         type="text"
         value={inputDisplayValue}
         onChange={handleInputChange}

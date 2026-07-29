@@ -13,11 +13,29 @@ export {
   TableEmptyState
 } from './Table';
 
+export { DataTable, sortRows, useTableSort } from './DataTable';
+export type {
+  DataTableColumn,
+  DataTablePagination,
+  BulkDeleteConfig,
+  EntityNoun,
+  TableSort,
+  SortDirection,
+} from './DataTable';
+
+export { PageHeader } from './PageHeader';
+
+export { FilterBar } from './FilterBar';
+
+export { ErrorBanner } from './ErrorBanner';
+
 export { LoadingSpinner } from './LoadingSpinner';
 
 export { Pagination } from './Pagination';
 
 export { Input } from './Input';
+
+export { Textarea } from './Textarea';
 
 export { Select } from './Select';
 

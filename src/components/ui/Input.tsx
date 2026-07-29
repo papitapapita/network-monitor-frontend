@@ -21,6 +21,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     ref
   ) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+    const atLimit =
+      typeof props.maxLength === 'number' &&
+      typeof props.value === 'string' &&
+      props.value.length >= props.maxLength;
 
     return (
       <div className={`${fullWidth ? 'w-full' : ''}`}>
@@ -60,7 +64,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           </p>
         )}
 
-        {helperText && !error && (
+        {atLimit && !error && (
+          <p className="mt-1 text-sm text-amber-600 dark:text-amber-500" role="status">
+            Límite de {props.maxLength} caracteres alcanzado
+          </p>
+        )}
+
+        {helperText && !error && !atLimit && (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{helperText}</p>
         )}
       </div>
