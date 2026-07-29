@@ -12,7 +12,7 @@ import {
   VendorDTO,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
-import { Card, Button, Input, Select, Combobox, LoadingSpinner } from '@/components/ui';
+import { Card, Button, Input, Textarea, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
@@ -80,7 +80,7 @@ export default function CreateDevicePage() {
   const selectedModel = allDeviceModels.find((m) => m.id === formData.deviceModelId);
   const wirelessMismatch = requiresWireless && !!selectedModel && !selectedModel.isWireless;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     setFormData((prev) => ({
@@ -507,12 +507,13 @@ export default function CreateDevicePage() {
                   fullWidth
                 />
                 <div className="md:col-span-2">
-                  <Input
+                  <Textarea
                     label="Descripción"
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
                     placeholder="Descripción opcional"
+                    rows={3}
                     error={formErrors.description}
                     maxLength={500}
                     fullWidth

@@ -211,15 +211,24 @@ export default function DashboardPage() {
                     href={`/devices/${alert.deviceId}`}
                     className="flex items-center justify-between py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 -mx-2 px-2 rounded transition-colors"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <Badge variant={getSeverityVariant(alert.severity)}>
                         {SEVERITY_LABELS[alert.severity]}
                       </Badge>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {deviceNames[alert.deviceId] ?? alert.deviceId}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {deviceNames[alert.deviceId] ?? alert.deviceId}
+                        </p>
+                        {/* Alerts recorded before `description` existed come back empty. */}
+                        <p
+                          className="text-xs text-gray-500 dark:text-gray-400 truncate"
+                          title={alert.description || alert.type}
+                        >
+                          {alert.description || alert.type}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 ml-3">
                       {formatDate(alert.startedAt)}
                     </span>
                   </Link>

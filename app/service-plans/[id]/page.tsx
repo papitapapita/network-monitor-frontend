@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, Input, Badge, LoadingSpinner } from '@/components/ui';
+import { Card, Button, Input, Textarea, Badge, LoadingSpinner } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 
 function fmtPrice(n: number) {
@@ -170,9 +170,17 @@ export default function ServicePlanDetailPage() {
                   <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">Plan activo</label>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción <span className="text-gray-400 font-normal">(opcional)</span></label>
-                  <textarea name="description" value={form.description} onChange={handleChange} rows={3}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  <Textarea
+                    label={
+                      <>
+                        Descripción <span className="text-gray-400 font-normal">(opcional)</span>
+                      </>
+                    }
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    rows={3}
+                    fullWidth
                   />
                 </div>
               </div>

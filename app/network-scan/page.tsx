@@ -17,6 +17,7 @@ import { DiscoveredHost, NetworkScanResult } from '@/types/network-scan.types';
 import {
   Button,
   Input,
+  Textarea,
   Select,
   Combobox,
   Table,
@@ -144,7 +145,7 @@ function AddDeviceModal({
     ? localModels.filter((m) => m.vendorId === selectedVendorId)
     : localModels;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
@@ -482,12 +483,13 @@ function AddDeviceModal({
                   fullWidth
                 />
                 <div className="sm:col-span-2">
-                  <Input
+                  <Textarea
                     label="Descripción"
                     name="description"
                     value={form.description}
                     onChange={handleChange}
                     placeholder="Descripción opcional"
+                    rows={3}
                     error={errors.description}
                     maxLength={500}
                     fullWidth

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateVendorDTO } from '@/types/device.types';
-import { Card, Button, Input, LoadingSpinner } from '@/components/ui';
+import { Card, Button, Input, Textarea } from '@/components/ui';
 
 function toSlug(name: string): string {
   return name
@@ -137,23 +137,22 @@ export default function CreateVendorPage() {
                 required
                 fullWidth
               />
-              <div className="flex flex-col gap-1.5">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Descripción <span className="text-gray-400 dark:text-gray-500 font-normal">(opcional)</span>
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Fabricante de equipos de red..."
-                  rows={3}
-                  maxLength={500}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none"
-                />
-                {formErrors.description && (
-                  <p className="text-sm text-red-600 dark:text-red-400">{formErrors.description}</p>
-                )}
-              </div>
+              <Textarea
+                label={
+                  <>
+                    Descripción{' '}
+                    <span className="text-gray-400 dark:text-gray-500 font-normal">(opcional)</span>
+                  </>
+                }
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Fabricante de equipos de red..."
+                rows={3}
+                maxLength={500}
+                error={formErrors.description}
+                fullWidth
+              />
             </div>
           </Card.Body>
         </Card>

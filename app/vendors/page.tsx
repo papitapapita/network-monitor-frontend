@@ -1,18 +1,22 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useMemo, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO } from '@/types/device.types';
 import {
-  Table,
-  TableEmptyState,
-  Pagination,
   Button,
-  LoadingSpinner,
+  DataTable,
+  ErrorBanner,
+  FilterBar,
   Input,
+  LoadingSpinner,
+  PageHeader,
+  sortRows,
+  useTableSort,
 } from '@/components/ui';
+import type { DataTableColumn } from '@/components/ui';
 
 const LIMIT = 20;
 
@@ -34,50 +38,63 @@ async function fetchAllVendors(): Promise<VendorDTO[]> {
   return batches;
 }
 
+const columns: DataTableColumn<VendorDTO>[] = [
+  {
+    key: 'name',
+    header: 'Nombre',
+    sortValue: (v) => v.name,
+    cell: (v) => <span className="font-medium text-gray-900 dark:text-gray-100">{v.name}</span>,
+  },
+  {
+    key: 'slug',
+    header: 'Slug',
+    sortValue: (v) => v.slug,
+    cell: (v) => <span className="font-mono text-xs text-gray-600 dark:text-gray-400">{v.slug}</span>,
+  },
+  {
+    key: 'description',
+    header: 'Descripción',
+    className: 'hidden md:table-cell',
+    cell: (v) => (
+      <span className="text-gray-600 dark:text-gray-400 text-sm">
+        {v.description ?? <span className="italic text-gray-400 dark:text-gray-600">—</span>}
+      </span>
+    ),
+  },
+];
+
 function VendorsPageContent() {
   const router = useRouter();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
 
-  const { data: allVendors = [], isLoading, error, refetch } = useQuery({
+  const {
+    data: allVendors = [],
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    dataUpdatedAt,
+  } = useQuery({
     queryKey: ['vendors'],
     queryFn: fetchAllVendors,
   });
 
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-    setCurrentPage(1);
-  };
+  const filtered = useMemo(() => {
+    const searched = search
+      ? allVendors.filter(
+          (v) =>
+            v.name.toLowerCase().includes(search.toLowerCase()) ||
+            v.slug.toLowerCase().includes(search.toLowerCase())
+        )
+      : allVendors;
+    return sortRows(searched, columns, sort.field, sort.direction);
+  }, [allVendors, search, sort.field, sort.direction]);
 
-  const searched = search
-    ? allVendors.filter((v) =>
-        v.name.toLowerCase().includes(search.toLowerCase()) ||
-        v.slug.toLowerCase().includes(search.toLowerCase())
-      )
-    : allVendors;
-
-  const sorted = sortField
-    ? [...searched].sort((a, b) => {
-        let aVal = '';
-        let bVal = '';
-        if (sortField === 'name') { aVal = a.name; bVal = b.name; }
-        else if (sortField === 'slug') { aVal = a.slug; bVal = b.slug; }
-        const cmp = aVal.localeCompare(bVal);
-        return sortDirection === 'asc' ? cmp : -cmp;
-      })
-    : searched;
-
-  const totalFiltered = sorted.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / LIMIT));
-  const paginated = sorted.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
+  const paginated = filtered.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
 
   const countLabel = allVendors.length > 0
     ? `${allVendors.length} ${allVendors.length === 1 ? 'fabricante' : 'fabricantes'} en total`
@@ -85,132 +102,66 @@ function VendorsPageContent() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Fabricantees</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">{countLabel}</p>
-        </div>
-        <Button onClick={() => router.push('/vendors/create')}>Agregar Fabricante</Button>
-      </div>
+      <PageHeader
+        title="Fabricantes"
+        subtitle={countLabel}
+        onRefresh={() => refetch()}
+        isRefreshing={isFetching}
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+        actions={<Button onClick={() => router.push('/vendors/create')}>Agregar Fabricante</Button>}
+      />
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input
-            label="Buscar"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            placeholder="Nombre o slug..."
-            fullWidth
-          />
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              fullWidth
-              onClick={() => { setSearch(''); setCurrentPage(1); }}
-              disabled={!search}
-            >
-              Limpiar Filtros
-            </Button>
-          </div>
-        </div>
-      </div>
+      <FilterBar
+        columns={3}
+        hasFilters={!!search}
+        onClear={() => { setSearch(''); setCurrentPage(1); }}
+      >
+        <Input
+          label="Buscar"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          placeholder="Nombre o slug..."
+          fullWidth
+        />
+      </FilterBar>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{(error as Error).message}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
-            Reintentar
-          </Button>
-        </div>
-      )}
+      {error && <ErrorBanner message={(error as Error).message} onRetry={() => refetch()} />}
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <LoadingSpinner size="lg" message="Cargando fabricantes..." />
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <Table>
-            <Table.Header>
-              <Table.Head
-                sortable
-                onSort={() => handleSort('name')}
-                sortDirection={sortField === 'name' ? sortDirection : null}
-              >
-                Nombre
-              </Table.Head>
-              <Table.Head
-                sortable
-                onSort={() => handleSort('slug')}
-                sortDirection={sortField === 'slug' ? sortDirection : null}
-              >
-                Slug
-              </Table.Head>
-              <Table.Head>Descripción</Table.Head>
-              <Table.Head>Acciones</Table.Head>
-            </Table.Header>
-            <Table.Body>
-              {paginated.length === 0 ? (
-                <TableEmptyState
-                  message={
-                    search
-                      ? 'Ningún fabricante coincide con la búsqueda'
-                      : 'Sin fabricantes. Agrega el primero para comenzar.'
-                  }
-                />
-              ) : (
-                paginated.map((vendor) => (
-                  <Table.Row
-                    key={vendor.id}
-                    onClick={() => router.push(`/vendors/${vendor.id}`)}
-                  >
-                    <Table.Cell>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{vendor.name}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="font-mono text-xs text-gray-600 dark:text-gray-400">{vendor.slug}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-gray-600 dark:text-gray-400 text-sm">
-                        {vendor.description ?? <span className="italic text-gray-400 dark:text-gray-600">—</span>}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/vendors/${vendor.id}`);
-                        }}
-                      >
-                        Ver
-                      </Button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))
-              )}
-            </Table.Body>
-          </Table>
-
-          {totalFiltered > LIMIT && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalFiltered}
-              itemsPerPage={LIMIT}
-              onPageChange={setCurrentPage}
-            />
-          )}
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        rows={paginated}
+        getRowId={(v) => v.id}
+        getRowLabel={(v) => v.name}
+        onRowClick={(v) => router.push(`/vendors/${v.id}`)}
+        isLoading={isLoading}
+        loadingMessage="Cargando fabricantes..."
+        emptyMessage={
+          search
+            ? 'Ningún fabricante coincide con la búsqueda'
+            : 'Sin fabricantes. Agrega el primero para comenzar.'
+        }
+        sort={sort}
+        selectionResetKey={`${currentPage}|${search}`}
+        bulkDelete={{
+          deleteOne: (id) => apiService.deleteVendor(id),
+          onFinished: () => { refetch(); },
+          entity: { singular: 'fabricante', plural: 'fabricantes', gender: 'm' },
+        }}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalItems: filtered.length,
+          itemsPerPage: LIMIT,
+          onPageChange: setCurrentPage,
+        }}
+      />
     </div>
   );
 }
 
 export default function VendorsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-12"><span>Cargando...</span></div>}>
+    <Suspense fallback={<div className="flex justify-center py-12"><LoadingSpinner /></div>}>
       <VendorsPageContent />
     </Suspense>
   );

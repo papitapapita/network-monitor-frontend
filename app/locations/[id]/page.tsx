@@ -3,44 +3,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
-import { LocationResponseDTO, LocationType, UpdateLocationDTO, CreateLocationDTO } from '@/types/location.types';
+import { LocationResponseDTO, UpdateLocationDTO } from '@/types/location.types';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
-import { Button, Badge, LoadingSpinner, Card, Input, Select, Modal, Table, TableEmptyState } from '@/components/ui';
-import { inferLocationFromCoords } from '@/components/locations/LocationForm';
+import { LOCATION_TYPE_LABELS, LOCATION_TYPE_BADGE_VARIANTS } from '@/constants/location.constants';
+import { Button, Badge, LoadingSpinner, Card, Table, TableEmptyState } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
+import {
+  LocationForm,
+  LocationFormData,
+  EMPTY_LOCATION_FORM,
+  validateLocationForm,
+  buildLocationDTO,
+  locationToForm,
+  inferLocationFromCoords,
+} from '@/components/locations/LocationForm';
 import type { BadgeVariant } from '@/components/ui';
-
-// ─────────────────────────────────────────────
-// Constants (same as list page — kept local)
-// ─────────────────────────────────────────────
-
-const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
-  TOWER: 'Torre',
-  DATACENTER: 'Datacenter',
-  POINT_OF_PRESENCE: 'Punto de Presencia',
-  OFFICE: 'Oficina',
-  CUSTOMER_PREMISES: 'Instalación Cliente',
-  OTHER: 'Otro',
-};
-
-const LOCATION_TYPE_BADGE_VARIANTS: Record<LocationType, BadgeVariant> = {
-  TOWER: 'info',
-  DATACENTER: 'warning',
-  POINT_OF_PRESENCE: 'draft',
-  OFFICE: 'neutral',
-  CUSTOMER_PREMISES: 'neutral',
-  OTHER: 'neutral',
-};
-
-const LOCATION_TYPE_OPTIONS = [
-  { value: '', label: 'Seleccionar tipo' },
-  { value: 'TOWER', label: 'Torre' },
-  { value: 'DATACENTER', label: 'Datacenter' },
-  { value: 'POINT_OF_PRESENCE', label: 'Punto de Presencia' },
-  { value: 'OFFICE', label: 'Oficina' },
-  { value: 'CUSTOMER_PREMISES', label: 'Instalación de cliente' },
-  { value: 'OTHER', label: 'Otro' },
-];
 
 const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
   ACTIVE: 'Activo',
@@ -55,225 +32,6 @@ const DEVICE_STATUS_VARIANTS: Record<DeviceStatus, BadgeVariant> = {
   INVENTORY: 'neutral',
   DAMAGED: 'warning',
 };
-
-// ─────────────────────────────────────────────
-// Edit form helpers
-// ─────────────────────────────────────────────
-
-interface LocationFormData {
-  name: string;
-  type: LocationType | '';
-  municipality: string;
-  neighborhood: string;
-  address: string;
-  latitude: string;
-  longitude: string;
-  altitude: string;
-}
-
-const EMPTY_FORM: LocationFormData = {
-  name: '', type: '', municipality: '', neighborhood: '',
-  address: '', latitude: '', longitude: '', altitude: '',
-};
-
-function locationToForm(loc: LocationResponseDTO): LocationFormData {
-  return {
-    name: loc.name,
-    type: loc.type,
-    municipality: loc.municipality ?? '',
-    neighborhood: loc.neighborhood ?? '',
-    address: loc.address ?? '',
-    latitude: loc.latitude != null ? String(loc.latitude) : '',
-    longitude: loc.longitude != null ? String(loc.longitude) : '',
-    altitude: loc.altitude != null ? String(loc.altitude) : '',
-  };
-}
-
-function parseCoords(raw: string): { lat: string; lon: string } | null {
-  const parts = raw.split(',').map((s) => s.trim());
-  if (parts.length !== 2) return null;
-  const lat = parseFloat(parts[0]);
-  const lon = parseFloat(parts[1]);
-  if (isNaN(lat) || isNaN(lon)) return null;
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
-  return { lat: String(lat), lon: String(lon) };
-}
-
-function validateForm(f: LocationFormData): Record<string, string> {
-  const errs: Record<string, string> = {};
-  if (!f.name.trim()) errs.name = 'El nombre es requerido';
-  else if (f.name.trim().length > 150) errs.name = 'El nombre no puede superar los 150 caracteres';
-  if (!f.type) errs.type = 'El tipo es requerido';
-  if (f.municipality.trim().length > 100) errs.municipality = 'El municipio no puede superar los 100 caracteres';
-  if (f.neighborhood.trim().length > 150) errs.neighborhood = 'El barrio no puede superar los 150 caracteres';
-  if (f.address.trim().length > 255) errs.address = 'La dirección no puede superar los 255 caracteres';
-
-  if ((f.latitude && !f.longitude) || (!f.latitude && f.longitude))
-    errs.latitude = 'Latitud y longitud deben indicarse juntas';
-  const lat = parseFloat(f.latitude);
-  const lon = parseFloat(f.longitude);
-  if (f.latitude && (lat < -90 || lat > 90)) errs.latitude = 'Debe estar entre -90 y 90';
-  if (f.longitude && (lon < -180 || lon > 180)) errs.longitude = 'Debe estar entre -180 y 180';
-  if (f.altitude && (!f.latitude || !f.longitude)) errs.altitude = 'La altitud requiere latitud y longitud';
-
-  if (!errs.address && f.address.trim() && (!f.municipality.trim() || !f.neighborhood.trim())) {
-    errs.address = 'La dirección requiere municipio y barrio';
-  }
-  const hasCoords = !!(f.latitude.trim() && f.longitude.trim());
-  if (!errs.address && f.type === 'CUSTOMER_PREMISES' && !f.address.trim() && !hasCoords) {
-    errs.address = 'Una instalación de cliente requiere dirección o coordenadas';
-  }
-
-  return errs;
-}
-
-function buildDTO(f: LocationFormData): CreateLocationDTO {
-  const dto: CreateLocationDTO = { name: f.name.trim(), type: f.type as LocationType };
-  if (f.municipality.trim()) dto.municipality = f.municipality.trim();
-  if (f.neighborhood.trim()) dto.neighborhood = f.neighborhood.trim();
-  if (f.address.trim()) dto.address = f.address.trim();
-  if (f.latitude) dto.latitude = parseFloat(f.latitude);
-  if (f.longitude) dto.longitude = parseFloat(f.longitude);
-  if (f.altitude) dto.altitude = parseFloat(f.altitude);
-  return dto;
-}
-
-// ─────────────────────────────────────────────
-// Edit Modal (inline here, self-contained)
-// ─────────────────────────────────────────────
-
-interface EditModalProps {
-  isOpen: boolean;
-  location: LocationResponseDTO;
-  onClose: () => void;
-  onUpdated: (loc: LocationResponseDTO) => void;
-}
-
-function EditLocationModal({ isOpen, location, onClose, onUpdated }: EditModalProps) {
-  const [formData, setFormData] = useState<LocationFormData>(EMPTY_FORM);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [coordsInput, setCoordsInput] = useState('');
-  const [coordsError, setCoordsError] = useState('');
-  const [isGeocoding, setIsGeocoding] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setFormData(locationToForm(location));
-      setFormErrors({});
-      setError(null);
-      setCoordsInput('');
-      setCoordsError('');
-    }
-  }, [isOpen, location]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (formErrors[name]) setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
-  };
-
-  const handleCoordsPaste = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    setCoordsInput(raw);
-    if (!raw.trim()) { setCoordsError(''); return; }
-    const parsed = parseCoords(raw);
-    if (parsed) {
-      setCoordsError('');
-      setFormData((prev) => ({ ...prev, latitude: parsed.lat, longitude: parsed.lon }));
-      setIsGeocoding(true);
-      try {
-        const inferred = await inferLocationFromCoords(parsed.lat, parsed.lon);
-        setFormData((prev) => ({
-          ...prev,
-          ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
-          ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
-        }));
-      } finally {
-        setIsGeocoding(false);
-      }
-    } else {
-      setCoordsError('Formato inválido. Ej: 4.132689, -73.625153');
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const errs = validateForm(formData);
-    setFormErrors(errs);
-    if (Object.keys(errs).length > 0) return;
-
-    setIsSubmitting(true);
-    setError(null);
-    const dto: UpdateLocationDTO = buildDTO(formData);
-    const result = await apiService.updateLocation(location.id, dto);
-    setIsSubmitting(false);
-
-    if (result.success && result.data) {
-      onUpdated(result.data);
-      onClose();
-    } else {
-      setError(result.error || 'Error al actualizar la ubicación');
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Editar Ubicación" size="lg">
-      <form onSubmit={handleSubmit}>
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
-            <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
-          </div>
-        )}
-
-        <div className="space-y-4 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Nombre" name="name" value={formData.name} onChange={handleChange} error={formErrors.name} maxLength={150} required fullWidth />
-            <Select label="Tipo" name="type" value={formData.type} onChange={handleChange} options={LOCATION_TYPE_OPTIONS} error={formErrors.type} required fullWidth />
-          </div>
-          <Input
-            label="Dirección"
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            error={formErrors.address}
-            maxLength={255}
-            helperText={
-              formData.type === 'CUSTOMER_PREMISES'
-                ? 'Una instalación de cliente requiere dirección o coordenadas. La dirección requiere municipio y barrio.'
-                : undefined
-            }
-            fullWidth
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Municipio" name="municipality" value={formData.municipality} onChange={handleChange} error={formErrors.municipality} maxLength={100} helperText={isGeocoding ? 'Buscando municipio...' : undefined} fullWidth />
-            <Input label="Barrio" name="neighborhood" value={formData.neighborhood} onChange={handleChange} error={formErrors.neighborhood} maxLength={150} fullWidth />
-          </div>
-          <Input
-            label="Coordenadas (pegar desde Google Maps)"
-            placeholder="Ej: 4.132689, -73.625153"
-            value={coordsInput}
-            onChange={handleCoordsPaste}
-            error={coordsError}
-            helperText={!coordsError && coordsInput ? 'Latitud y longitud actualizadas' : undefined}
-            fullWidth
-          />
-          <div className="grid grid-cols-3 gap-4">
-            <Input label="Latitud" name="latitude" type="number" value={formData.latitude} onChange={handleChange} error={formErrors.latitude} fullWidth />
-            <Input label="Longitud" name="longitude" type="number" value={formData.longitude} onChange={handleChange} error={formErrors.longitude} fullWidth />
-            <Input label="Altitud (m)" name="altitude" type="number" value={formData.altitude} onChange={handleChange} error={formErrors.altitude} helperText={isGeocoding ? 'Calculando...' : undefined} fullWidth />
-          </div>
-        </div>
-
-        <Modal.Footer>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-          <Button type="submit" isLoading={isSubmitting}>Guardar Cambios</Button>
-        </Modal.Footer>
-      </form>
-    </Modal>
-  );
-}
 
 // ─────────────────────────────────────────────
 // Detail field helper
@@ -302,7 +60,11 @@ export default function LocationDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -316,6 +78,7 @@ export default function LocationDetailPage() {
 
     if (locResult.success && locResult.data) {
       setLocation(locResult.data);
+      setFormData(locationToForm(locResult.data));
     } else {
       setError(locResult.error || 'Error al cargar la ubicación');
     }
@@ -331,9 +94,38 @@ export default function LocationDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleUpdated = (updated: LocationResponseDTO) => {
-    setLocation(updated);
-    setShowEditModal(false);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (formErrors[name]) {
+      setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
+    }
+  };
+
+  const cancelEdit = () => {
+    if (location) setFormData(locationToForm(location));
+    setFormErrors({});
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    const errors = validateLocationForm(formData);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setIsSaving(true);
+    setError(null);
+
+    const dto: UpdateLocationDTO = buildLocationDTO(formData);
+    const result = await apiService.updateLocation(locationId, dto);
+    if (result.success && result.data) {
+      setLocation(result.data);
+      setFormData(locationToForm(result.data));
+      setIsEditing(false);
+    } else {
+      setError(result.error || 'Error al actualizar la ubicación');
+    }
+    setIsSaving(false);
   };
 
   const handleDelete = async () => {
@@ -379,13 +171,6 @@ export default function LocationDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Modals */}
-      <EditLocationModal
-        isOpen={showEditModal}
-        location={location}
-        onClose={() => setShowEditModal(false)}
-        onUpdated={handleUpdated}
-      />
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -411,14 +196,9 @@ export default function LocationDetailPage() {
             </Badge>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)}>
-            Editar
-          </Button>
-          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-            Eliminar
-          </Button>
-        </div>
+        <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
+          Eliminar
+        </Button>
       </div>
 
       {error && (
@@ -427,58 +207,101 @@ export default function LocationDetailPage() {
         </div>
       )}
 
-      {/* Details card */}
-      <Card className="mb-6">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Información general</h2>
-        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-5">
-          <DetailField label="Municipio" value={location.municipality} />
-          <DetailField label="Barrio" value={location.neighborhood} />
-          <DetailField label="Dirección" value={location.address} />
-          <DetailField
-            label="Latitud"
-            value={location.latitude != null ? location.latitude.toFixed(6) : null}
-          />
-          <DetailField
-            label="Longitud"
-            value={location.longitude != null ? location.longitude.toFixed(6) : null}
-          />
-          <DetailField
-            label="Altitud"
-            value={location.altitude != null ? `${location.altitude} m` : null}
-          />
-        </dl>
-
-        {hasCoords && mapsUrl && (
-          <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Ver en Google Maps
-            </a>
+      <div className="flex justify-end mb-3">
+        {!isEditing ? (
+          <Button variant="outline" onClick={() => setIsEditing(true)}>Editar</Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
+            <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
           </div>
         )}
-      </Card>
+      </div>
 
-      {/* Timestamps */}
-      <Card className="mb-6">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-          <DetailField
-            label="Creada"
-            value={new Date(location.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
-          />
-          <DetailField
-            label="Última actualización"
-            value={new Date(location.updatedAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
-          />
-        </dl>
-      </Card>
+      {isEditing ? (
+        <Card className="mb-6">
+          <Card.Header>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Editar Ubicación</h2>
+          </Card.Header>
+          <Card.Body>
+            <LocationForm
+              formData={formData}
+              formErrors={formErrors}
+              onChange={handleChange}
+              isGeocoding={isGeocoding}
+              onCoordsPaste={async (lat, lon) => {
+                setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }));
+                setIsGeocoding(true);
+                try {
+                  const inferred = await inferLocationFromCoords(lat, lon);
+                  setFormData((prev) => ({
+                    ...prev,
+                    ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
+                    ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
+                  }));
+                } finally {
+                  setIsGeocoding(false);
+                }
+              }}
+            />
+          </Card.Body>
+        </Card>
+      ) : (
+        <>
+          {/* Details card */}
+          <Card className="mb-6">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Información general</h2>
+            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-5">
+              <DetailField label="Municipio" value={location.municipality} />
+              <DetailField label="Barrio" value={location.neighborhood} />
+              <DetailField label="Dirección" value={location.address} />
+              <DetailField
+                label="Latitud"
+                value={location.latitude != null ? location.latitude.toFixed(6) : null}
+              />
+              <DetailField
+                label="Longitud"
+                value={location.longitude != null ? location.longitude.toFixed(6) : null}
+              />
+              <DetailField
+                label="Altitud"
+                value={location.altitude != null ? `${location.altitude} m` : null}
+              />
+            </dl>
+
+            {hasCoords && mapsUrl && (
+              <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Ver en Google Maps
+                </a>
+              </div>
+            )}
+          </Card>
+
+          {/* Timestamps */}
+          <Card className="mb-6">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <DetailField
+                label="Creada"
+                value={new Date(location.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
+              />
+              <DetailField
+                label="Última actualización"
+                value={new Date(location.updatedAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
+              />
+            </dl>
+          </Card>
+        </>
+      )}
 
       {/* Devices section */}
       <div>

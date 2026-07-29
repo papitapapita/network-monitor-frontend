@@ -14,7 +14,21 @@ import {
   formatPeriod,
   formatCurrency,
 } from '@/constants/bill.constants';
-import { Table, TableEmptyState, Pagination, Button, LoadingSpinner, Input, Select, Badge, Modal } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  DataTable,
+  ErrorBanner,
+  FilterBar,
+  Input,
+  LoadingSpinner,
+  Modal,
+  PageHeader,
+  Select,
+  sortRows,
+  useTableSort,
+} from '@/components/ui';
+import type { DataTableColumn } from '@/components/ui';
 
 const LIMIT = 20;
 
@@ -52,6 +66,50 @@ const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => {
   return { value: String(y), label: String(y) };
 });
 
+function buildBillColumns(customerName: (id: string) => string): DataTableColumn<BillDTO>[] {
+  return [
+    {
+      key: 'customer',
+      header: 'Cliente',
+      sortValue: (b) => customerName(b.customerId),
+      cell: (b) => (
+        <span className="font-medium text-gray-900 dark:text-gray-100">{customerName(b.customerId)}</span>
+      ),
+    },
+    {
+      key: 'period',
+      header: 'Periodo',
+      sortValue: (b) => b.period,
+      cell: (b) => <span className="text-gray-700 dark:text-gray-300">{formatPeriod(b.period)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Estado',
+      sortValue: (b) => BILL_STATUS_LABELS[b.status],
+      cell: (b) => <Badge variant={BILL_STATUS_VARIANTS[b.status]}>{BILL_STATUS_LABELS[b.status]}</Badge>,
+    },
+    {
+      key: 'dueDate',
+      header: 'Vencimiento',
+      sortValue: (b) => b.dueDate,
+      className: 'hidden sm:table-cell',
+      cell: (b) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {new Date(b.dueDate).toLocaleDateString('es')}
+        </span>
+      ),
+    },
+    {
+      key: 'total',
+      header: 'Total',
+      sortValue: (b) => b.total,
+      cell: (b) => (
+        <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(b.total)}</span>
+      ),
+    },
+  ];
+}
+
 function BillsPageContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -61,8 +119,9 @@ function BillsPageContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
+  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
 
-  const { data: bills = [], isLoading, error, refetch } = useQuery({
+  const { data: bills = [], isLoading, isFetching, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['bills'],
     queryFn: fetchAllBills,
   });
@@ -76,8 +135,10 @@ function BillsPageContent() {
     return (id: string) => map.get(id) ?? id;
   }, [customers]);
 
+  const columns = useMemo(() => buildBillColumns(customerName), [customerName]);
+
   const filtered = useMemo(() => {
-    return bills.filter((b) => {
+    const rows = bills.filter((b) => {
       if (statusFilter && b.status !== statusFilter) return false;
       if (yearFilter && !b.period.startsWith(`${yearFilter}-`)) return false;
       if (monthFilter && b.period.split('-')[1] !== String(monthFilter).padStart(2, '0')) return false;
@@ -87,7 +148,8 @@ function BillsPageContent() {
       }
       return true;
     });
-  }, [bills, statusFilter, yearFilter, monthFilter, search, customerName]);
+    return sortRows(rows, columns, sort.field, sort.direction);
+  }, [bills, statusFilter, yearFilter, monthFilter, search, customerName, columns, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
   const paginated = filtered.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
@@ -128,113 +190,79 @@ function BillsPageContent() {
         onGenerated={onGenerated}
       />
 
-      <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Facturas</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {bills.length > 0
-              ? `${bills.length} ${bills.length === 1 ? 'factura' : 'facturas'} · ${formatCurrency(totals.outstanding)} por cobrar (${totals.outstandingCount})`
-              : 'Genera y administra la facturación mensual'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowBulk(true)}>Generación Masiva</Button>
-          <Button onClick={() => setShowSingle(true)}>Generar Factura</Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Facturas"
+        subtitle={
+          bills.length > 0
+            ? `${bills.length} ${bills.length === 1 ? 'factura' : 'facturas'} · ${formatCurrency(totals.outstanding)} por cobrar (${totals.outstandingCount})`
+            : 'Genera y administra la facturación mensual'
+        }
+        onRefresh={() => refetch()}
+        isRefreshing={isFetching}
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setShowBulk(true)}>Generación Masiva</Button>
+            <Button onClick={() => setShowSingle(true)}>Generar Factura</Button>
+          </>
+        }
+      />
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Input
-            label="Buscar"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            placeholder="Cliente o periodo..."
-            fullWidth
-          />
-          <Select
-            label="Estado"
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            options={BILL_STATUS_OPTIONS}
-            fullWidth
-          />
-          <Select
-            label="Año"
-            value={yearFilter}
-            onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }}
-            options={[{ value: '', label: 'Todos' }, ...YEAR_OPTIONS]}
-            fullWidth
-          />
-          <Select
-            label="Mes"
-            value={monthFilter}
-            onChange={(e) => { setMonthFilter(e.target.value); setCurrentPage(1); }}
-            options={[{ value: '', label: 'Todos' }, ...MONTH_OPTIONS]}
-            fullWidth
-          />
-          <div className="flex items-end">
-            <Button variant="outline" fullWidth onClick={clearFilters} disabled={!hasFilters}>Limpiar</Button>
-          </div>
-        </div>
-      </div>
+      <FilterBar columns={5} hasFilters={hasFilters} onClear={clearFilters}>
+        <Input
+          label="Buscar"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          placeholder="Cliente o periodo..."
+          fullWidth
+        />
+        <Select
+          label="Estado"
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          options={BILL_STATUS_OPTIONS}
+          fullWidth
+        />
+        <Select
+          label="Año"
+          value={yearFilter}
+          onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }}
+          options={[{ value: '', label: 'Todos' }, ...YEAR_OPTIONS]}
+          fullWidth
+        />
+        <Select
+          label="Mes"
+          value={monthFilter}
+          onChange={(e) => { setMonthFilter(e.target.value); setCurrentPage(1); }}
+          options={[{ value: '', label: 'Todos' }, ...MONTH_OPTIONS]}
+          fullWidth
+        />
+      </FilterBar>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{(error as Error).message}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">Reintentar</Button>
-        </div>
-      )}
+      {error && <ErrorBanner message={(error as Error).message} onRetry={() => refetch()} />}
 
-      {isLoading ? (
-        <div className="flex justify-center py-12"><LoadingSpinner size="lg" message="Cargando facturas..." /></div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <Table>
-            <Table.Header>
-              <Table.Head>Cliente</Table.Head>
-              <Table.Head>Periodo</Table.Head>
-              <Table.Head>Estado</Table.Head>
-              <Table.Head>Vencimiento</Table.Head>
-              <Table.Head>Total</Table.Head>
-              <Table.Head>Acciones</Table.Head>
-            </Table.Header>
-            <Table.Body>
-              {paginated.length === 0 ? (
-                <TableEmptyState message={hasFilters ? 'Ninguna factura coincide con los filtros' : 'Sin facturas. Genera la primera para comenzar.'} />
-              ) : (
-                paginated.map((b) => (
-                  <Table.Row key={b.id} onClick={() => router.push(`/bills/${b.id}`)}>
-                    <Table.Cell>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{customerName(b.customerId)}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-gray-700 dark:text-gray-300">{formatPeriod(b.period)}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Badge variant={BILL_STATUS_VARIANTS[b.status]}>{BILL_STATUS_LABELS[b.status]}</Badge>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{new Date(b.dueDate).toLocaleDateString('es')}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(b.total)}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); router.push(`/bills/${b.id}`); }}>
-                        Ver
-                      </Button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))
-              )}
-            </Table.Body>
-          </Table>
-          {filtered.length > LIMIT && (
-            <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filtered.length} itemsPerPage={LIMIT} onPageChange={setCurrentPage} />
-          )}
-        </div>
-      )}
+      {/* Bills are never deleted — the backend only cancels them — so this table has no selection. */}
+      <DataTable
+        columns={columns}
+        rows={paginated}
+        getRowId={(b) => b.id}
+        onRowClick={(b) => router.push(`/bills/${b.id}`)}
+        isLoading={isLoading}
+        loadingMessage="Cargando facturas..."
+        emptyMessage={
+          hasFilters
+            ? 'Ninguna factura coincide con los filtros'
+            : 'Sin facturas. Genera la primera para comenzar.'
+        }
+        sort={sort}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalItems: filtered.length,
+          itemsPerPage: LIMIT,
+          onPageChange: setCurrentPage,
+        }}
+      />
     </div>
   );
 }

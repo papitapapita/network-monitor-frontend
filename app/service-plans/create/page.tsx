@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, Input } from '@/components/ui';
+import { Card, Button, Input, Textarea } from '@/components/ui';
 
 export default function CreateServicePlanPage() {
   const router = useRouter();
@@ -96,16 +96,19 @@ export default function CreateServicePlanPage() {
                 <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">Plan activo (disponible para contratar)</label>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Descripción <span className="text-gray-400 dark:text-gray-500 font-normal">(opcional)</span>
-                </label>
-                <textarea
+                <Textarea
+                  label={
+                    <>
+                      Descripción{' '}
+                      <span className="text-gray-400 dark:text-gray-500 font-normal">(opcional)</span>
+                    </>
+                  }
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
                   rows={3}
                   placeholder="Características adicionales del plan..."
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  fullWidth
                 />
               </div>
             </div>

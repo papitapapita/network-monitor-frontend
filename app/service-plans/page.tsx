@@ -1,11 +1,24 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useMemo, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO } from '@/types/customer.types';
-import { Table, TableEmptyState, Pagination, Button, LoadingSpinner, Input, Badge } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  DataTable,
+  ErrorBanner,
+  FilterBar,
+  Input,
+  LoadingSpinner,
+  PageHeader,
+  Select,
+  sortRows,
+  useTableSort,
+} from '@/components/ui';
+import type { DataTableColumn } from '@/components/ui';
 
 const LIMIT = 20;
 
@@ -27,95 +40,153 @@ function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 
+const columns: DataTableColumn<ServicePlanDTO>[] = [
+  {
+    key: 'name',
+    header: 'Nombre',
+    sortValue: (p) => p.name,
+    cell: (p) => (
+      <>
+        <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
+        {p.description && (
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs">
+            {p.description}
+          </div>
+        )}
+      </>
+    ),
+  },
+  {
+    key: 'speed',
+    header: 'Velocidad',
+    sortValue: (p) => p.downloadMbps,
+    cell: (p) => (
+      <span className="font-mono text-sm text-gray-700 dark:text-gray-300">
+        {p.downloadMbps}↓ / {p.uploadMbps}↑ Mbps
+      </span>
+    ),
+  },
+  {
+    key: 'monthlyPrice',
+    header: 'Precio/mes',
+    sortValue: (p) => p.monthlyPrice,
+    cell: (p) => <span className="text-gray-900 dark:text-gray-100">{fmtPrice(p.monthlyPrice)}</span>,
+  },
+  {
+    key: 'isActive',
+    header: 'Estado',
+    sortValue: (p) => (p.isActive ? 'Activo' : 'Inactivo'),
+    cell: (p) => (
+      <Badge variant={p.isActive ? 'success' : 'neutral'}>{p.isActive ? 'Activo' : 'Inactivo'}</Badge>
+    ),
+  },
+];
+
 function ServicePlansContent() {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
 
-  const { data: all = [], isLoading, error, refetch } = useQuery({
+  const {
+    data: all = [],
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    dataUpdatedAt,
+  } = useQuery({
     queryKey: ['servicePlans'],
     queryFn: fetchAllPlans,
   });
 
-  const filtered = search
-    ? all.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-    : all;
+  const hasFilters = !!(search || statusFilter);
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setCurrentPage(1);
+  };
+
+  const filtered = useMemo(() => {
+    let rows = search
+      ? all.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+      : all;
+    if (statusFilter) {
+      rows = rows.filter((p) => (statusFilter === 'active' ? p.isActive : !p.isActive));
+    }
+    return sortRows(rows, columns, sort.field, sort.direction);
+  }, [all, search, statusFilter, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
   const paginated = filtered.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Planes de Servicio</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {all.length > 0 ? `${all.length} ${all.length === 1 ? 'plan' : 'planes'} en total` : 'Administra los planes de internet'}
-          </p>
-        </div>
-        <Button onClick={() => router.push('/service-plans/create')}>Agregar Plan</Button>
-      </div>
+      <PageHeader
+        title="Planes de Servicio"
+        subtitle={
+          all.length > 0
+            ? `${all.length} ${all.length === 1 ? 'plan' : 'planes'} en total`
+            : 'Administra los planes de internet'
+        }
+        onRefresh={() => refetch()}
+        isRefreshing={isFetching}
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+        actions={<Button onClick={() => router.push('/service-plans/create')}>Agregar Plan</Button>}
+      />
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input label="Buscar" value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} placeholder="Nombre del plan..." fullWidth />
-          <div className="flex items-end">
-            <Button variant="outline" fullWidth onClick={() => { setSearch(''); setCurrentPage(1); }} disabled={!search}>Limpiar</Button>
-          </div>
-        </div>
-      </div>
+      <FilterBar columns={3} hasFilters={hasFilters} onClear={clearFilters}>
+        <Input
+          label="Buscar"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          placeholder="Nombre del plan..."
+          fullWidth
+        />
+        <Select
+          label="Estado"
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          options={[
+            { value: '', label: 'Todos los Estados' },
+            { value: 'active', label: 'Activo' },
+            { value: 'inactive', label: 'Inactivo' },
+          ]}
+          fullWidth
+        />
+      </FilterBar>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{(error as Error).message}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">Reintentar</Button>
-        </div>
-      )}
+      {error && <ErrorBanner message={(error as Error).message} onRetry={() => refetch()} />}
 
-      {isLoading ? (
-        <div className="flex justify-center py-12"><LoadingSpinner size="lg" message="Cargando planes..." /></div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <Table>
-            <Table.Header>
-              <Table.Head>Nombre</Table.Head>
-              <Table.Head>Velocidad</Table.Head>
-              <Table.Head>Precio/mes</Table.Head>
-              <Table.Head>Estado</Table.Head>
-              <Table.Head>Acciones</Table.Head>
-            </Table.Header>
-            <Table.Body>
-              {paginated.length === 0 ? (
-                <TableEmptyState message={search ? 'Ningún plan coincide con la búsqueda' : 'Sin planes. Agrega el primero para comenzar.'} />
-              ) : (
-                paginated.map((p) => (
-                  <Table.Row key={p.id} onClick={() => router.push(`/service-plans/${p.id}`)}>
-                    <Table.Cell>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
-                      {p.description && <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs">{p.description}</div>}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="font-mono text-sm text-gray-700 dark:text-gray-300">{p.downloadMbps}↓ / {p.uploadMbps}↑ Mbps</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-gray-900 dark:text-gray-100">{fmtPrice(p.monthlyPrice)}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Badge variant={p.isActive ? 'success' : 'neutral'}>{p.isActive ? 'Activo' : 'Inactivo'}</Badge>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); router.push(`/service-plans/${p.id}`); }}>Ver</Button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))
-              )}
-            </Table.Body>
-          </Table>
-          {filtered.length > LIMIT && (
-            <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filtered.length} itemsPerPage={LIMIT} onPageChange={setCurrentPage} />
-          )}
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        rows={paginated}
+        getRowId={(p) => p.id}
+        getRowLabel={(p) => p.name}
+        onRowClick={(p) => router.push(`/service-plans/${p.id}`)}
+        isLoading={isLoading}
+        loadingMessage="Cargando planes..."
+        emptyMessage={
+          hasFilters
+            ? 'Ningún plan coincide con los filtros'
+            : 'Sin planes. Agrega el primero para comenzar.'
+        }
+        sort={sort}
+        selectionResetKey={`${currentPage}|${search}|${statusFilter}`}
+        bulkDelete={{
+          deleteOne: (id) => apiService.deleteServicePlan(id),
+          onFinished: () => { refetch(); },
+          entity: { singular: 'plan', plural: 'planes', gender: 'm' },
+        }}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalItems: filtered.length,
+          itemsPerPage: LIMIT,
+          onPageChange: setCurrentPage,
+        }}
+      />
     </div>
   );
 }
