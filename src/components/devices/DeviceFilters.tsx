@@ -1,6 +1,6 @@
 'use client';
 
-import { Select, Input, Button } from '@/components/ui';
+import { Select, Input, FilterBar } from '@/components/ui';
 import { DEVICE_CATEGORY_FILTER_OPTIONS, DEVICE_STATUS_FILTER_OPTIONS } from '@/constants/device.constants';
 
 interface DeviceFiltersProps {
@@ -29,47 +29,40 @@ export function DeviceFilters({
   onClear,
 }: DeviceFiltersProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Select
-          label="Estado"
-          value={statusFilter}
-          onChange={(e) => onStatusChange(e.target.value)}
-          options={DEVICE_STATUS_FILTER_OPTIONS}
-          fullWidth
-        />
-        <Select
-          label="Categoría"
-          value={categoryFilter}
-          onChange={(e) => onCategoryChange(e.target.value)}
-          options={DEVICE_CATEGORY_FILTER_OPTIONS}
-          fullWidth
-        />
-        <Select
-          label="Conectividad"
-          value={connectivityFilter}
-          onChange={(e) => onConnectivityChange(e.target.value)}
-          options={[
-            { value: '', label: 'Todos' },
-            { value: 'ONLINE', label: 'En línea' },
-            { value: 'OFFLINE', label: 'Desconectado' },
-            { value: 'UNKNOWN', label: 'Desconocido' },
-          ]}
-          fullWidth
-        />
-        <Input
-          label="Buscar"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Nombre, IP, MAC, serie..."
-          fullWidth
-        />
-        <div className="flex items-end">
-          <Button variant="outline" fullWidth onClick={onClear} disabled={!hasFilters}>
-            Limpiar Filtros
-          </Button>
-        </div>
-      </div>
-    </div>
+    <FilterBar columns={5} hasFilters={hasFilters} onClear={onClear}>
+      <Select
+        label="Estado"
+        value={statusFilter}
+        onChange={(e) => onStatusChange(e.target.value)}
+        options={DEVICE_STATUS_FILTER_OPTIONS}
+        fullWidth
+      />
+      <Select
+        label="Categoría"
+        value={categoryFilter}
+        onChange={(e) => onCategoryChange(e.target.value)}
+        options={DEVICE_CATEGORY_FILTER_OPTIONS}
+        fullWidth
+      />
+      <Select
+        label="Conectividad"
+        value={connectivityFilter}
+        onChange={(e) => onConnectivityChange(e.target.value)}
+        options={[
+          { value: '', label: 'Todos' },
+          { value: 'ONLINE', label: 'En línea' },
+          { value: 'OFFLINE', label: 'Desconectado' },
+          { value: 'UNKNOWN', label: 'Desconocido' },
+        ]}
+        fullWidth
+      />
+      <Input
+        label="Buscar"
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder="Nombre, IP, MAC, serie..."
+        fullWidth
+      />
+    </FilterBar>
   );
 }

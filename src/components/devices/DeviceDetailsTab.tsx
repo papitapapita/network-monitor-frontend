@@ -16,6 +16,7 @@ import {
   Card,
   Button,
   Input,
+  Textarea,
   Select,
   Combobox,
   Badge,
@@ -67,7 +68,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     });
   }, [device.deviceModelId]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     setFormData((prev) => ({
@@ -320,11 +321,12 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 );
               })()}
               <div className="md:col-span-2">
-                <Input
+                <Textarea
                   label="Descripción"
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
+                  rows={3}
                   error={formErrors.description}
                   maxLength={500}
                   fullWidth
