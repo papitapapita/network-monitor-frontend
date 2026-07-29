@@ -32,7 +32,7 @@ import {
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
 } from '../types/polling.types';
-import { AlertListResponse, ListAlertsQuery } from '../types/alert.types';
+import { AlertDTO, AlertListResponse, ListAlertsQuery } from '../types/alert.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import {
   WirelessConfigDTO,
@@ -285,21 +285,48 @@ class ApiService {
   }
 
   async createVendor(data: CreateVendorDTO): Promise<ApiResponse<VendorDTO>> {
-    return this.request<VendorDTO>('/vendors', {
+    const result = await this.request<VendorDTO>('/vendors', {
       method: 'POST',
       body: JSON.stringify(data)
     });
+    return this.translateVendorError(result);
   }
 
   async updateVendor(id: string, data: UpdateVendorDTO): Promise<ApiResponse<VendorDTO>> {
-    return this.request<VendorDTO>(`/vendors/${id}`, {
+    const result = await this.request<VendorDTO>(`/vendors/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
+    return this.translateVendorError(result);
   }
 
   async deleteVendor(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/vendors/${id}`, { method: 'DELETE' });
+    const result = await this.request<void>(`/vendors/${id}`, { method: 'DELETE' });
+    return this.translateVendorError(result);
+  }
+
+  // The backend replies in English for these vendor conflicts; the rest of this UI
+  // is in Spanish, so surface the same facts in that language.
+  private translateVendorError<T>(result: ApiResponse<T>): ApiResponse<T> {
+    if (!result.success && result.error) {
+      const slugMatch = result.error.match(/^A vendor with slug "(.+)" already exists$/);
+      if (slugMatch) {
+        return { success: false, error: `Ya existe un fabricante con el slug "${slugMatch[1]}"` };
+      }
+
+      const modelsMatch = result.error.match(
+        /^Cannot delete vendor: it has (\d+) device model\(s\) associated\. Remove all device models first\.$/
+      );
+      if (modelsMatch) {
+        const count = Number(modelsMatch[1]);
+        const noun = count === 1 ? 'modelo de dispositivo asociado' : 'modelos de dispositivo asociados';
+        return {
+          success: false,
+          error: `No se puede eliminar el fabricante: tiene ${count} ${noun}. Elimina primero todos los modelos de dispositivo.`,
+        };
+      }
+    }
+    return result;
   }
 
   // ============================================================
@@ -392,6 +419,15 @@ class ApiService {
       offset: query?.offset
     });
     return this.request<AlertListResponse>(`/alerts${qs}`);
+  }
+
+  async getAlert(id: string): Promise<ApiResponse<AlertDTO>> {
+    return this.request<AlertDTO>(`/alerts/${id}`);
+  }
+
+  /** Only RESOLVED alerts can be deleted; an OPEN one returns 409. ADMIN only. */
+  async deleteAlert(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/alerts/${id}`, { method: 'DELETE' });
   }
 
   // ============================================================

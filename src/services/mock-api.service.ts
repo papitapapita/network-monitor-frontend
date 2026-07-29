@@ -36,7 +36,7 @@ import {
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
 } from '../types/polling.types';
-import { AlertListResponse, ListAlertsQuery } from '../types/alert.types';
+import { AlertDTO, AlertListResponse, ListAlertsQuery } from '../types/alert.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
 import {
@@ -554,6 +554,14 @@ class MockApiService {
       limit,
       offset,
     });
+  }
+
+  async getAlert(_id: string): Promise<ApiResponse<AlertDTO>> {
+    return err('Alerta no encontrada');
+  }
+
+  async deleteAlert(_id: string): Promise<ApiResponse<void>> {
+    return { success: true };
   }
 
   // ── Device Credentials ────────────────────────────────────

@@ -190,15 +190,20 @@ export interface DeviceCredentialsResponseDTO {
 }
 
 export interface SetDeviceCredentialsDTO {
-  snmpVersion: 1 | 2 | 3;
+  // HTTP / web-UI credentials — the required pair, replaced on every call.
+  httpUsername: string;
+  httpPassword: string;
+  httpPort?: number; // 1–65535; default 443
+
+  // SNMP — optional, not consumed by any collector yet. Omit a field to keep the
+  // stored value; send null to clear it. snmpVersion becomes required as soon as
+  // any other SNMP field is sent.
+  snmpVersion?: 1 | 2 | 3;
   snmpCommunity?: string | null;
   snmpV3AuthUser?: string | null;
   snmpV3AuthProto?: 'MD5' | 'SHA' | null;
   snmpV3AuthKey?: string | null;
   snmpV3PrivProto?: 'DES' | 'AES' | null;
   snmpV3PrivKey?: string | null;
-  snmpPort?: number;
-  httpUsername?: string | null;
-  httpPassword?: string | null;
-  httpPort?: number;
+  snmpPort?: number; // 1–65535; default 161
 }
