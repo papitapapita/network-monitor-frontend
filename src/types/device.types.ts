@@ -64,6 +64,12 @@ export interface CreateDeviceDTO {
 
 export interface UpdateDeviceDTO {
   name?: string;
+  /**
+   * Correcting a mis-registered model — accepted only while the device is
+   * INVENTORY (400 otherwise). Re-sending the model the device already has is a
+   * no-op that succeeds in any status.
+   */
+  deviceModelId?: string;
   status?: DeviceStatus;
   category?: DeviceCategory | null;
   ownerType?: DeviceOwnerType;

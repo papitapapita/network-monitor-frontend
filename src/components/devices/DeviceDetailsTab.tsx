@@ -36,10 +36,12 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
   const [deviceModel, setDeviceModel] = useState<DeviceModelResponseDTO | null>(null);
+  const [deviceModels, setDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const makeFormData = (d: DeviceResponseDTO) => ({
     name: d.name,
+    deviceModelId: d.deviceModelId,
     status: d.status as DeviceStatus | '',
     category: (d.category ?? '') as DeviceCategory | '',
     ownerType: d.ownerType as DeviceOwnerType | '',
@@ -55,14 +57,28 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const [formData, setFormData] = useState(makeFormData(device));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // The model is fixed once the device exists, so a wireless category can only be
-  // satisfied by the device's existing model — warn instead of filtering.
-  const wirelessMismatch = isWirelessCategory(formData.category) && !!deviceModel && !deviceModel.isWireless;
+  // The model may only be corrected while the device has never been polled —
+  // any other status and the backend rejects a deviceModelId change with 400.
+  const canEditModel = device.status === 'INVENTORY';
+
+  // Falls back to the device's own model: the list is capped at 100 entries, so
+  // the current one is not guaranteed to be in it.
+  const selectedModel =
+    deviceModels.find((m) => m.id === formData.deviceModelId) ??
+    (formData.deviceModelId === device.deviceModelId ? deviceModel : null);
+
+  const wirelessMismatch = isWirelessCategory(formData.category) && !!selectedModel && !selectedModel.isWireless;
 
   useEffect(() => {
     apiService.listLocations({ limit: 100 }).then((r) => {
       if (r.success && r.data) setLocations(r.data.locations);
     });
+    apiService.listDeviceModels({ limit: 100 }).then((r) => {
+      if (r.success && r.data) setDeviceModels(r.data.deviceModels);
+    });
+  }, []);
+
+  useEffect(() => {
     apiService.getDeviceModel(device.deviceModelId).then((r) => {
       if (r.success && r.data) setDeviceModel(r.data);
     });
@@ -101,8 +117,13 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
     else if (formData.name.trim().length > 150) errors.name = 'El nombre no puede superar los 150 caracteres';
 
+    if (canEditModel && !formData.deviceModelId) {
+      errors.deviceModelId = 'El modelo es requerido';
+    }
     if (wirelessMismatch) {
-      errors.category = `Esta categoría requiere un modelo inalámbrico, pero «${deviceModel?.model}» no lo es`;
+      const message = `Esta categoría requiere un modelo inalámbrico, pero «${selectedModel?.model}» no lo es`;
+      if (canEditModel) errors.deviceModelId = message;
+      else errors.category = message;
     }
     if (formData.description.trim().length > 500) {
       errors.description = 'La descripción no puede superar los 500 caracteres';
@@ -143,6 +164,11 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
 
     const dto: UpdateDeviceDTO = {
       name: formData.name.trim(),
+      // Only an INVENTORY device may have its model corrected; the backend
+      // applies the correction before any status change in the same request.
+      ...(canEditModel && formData.deviceModelId !== device.deviceModelId
+        ? { deviceModelId: formData.deviceModelId }
+        : {}),
       status: formData.status as DeviceStatus || undefined,
       category: (formData.category as DeviceCategory) || null,
       ownerType: formData.ownerType as DeviceOwnerType || undefined,
@@ -232,6 +258,54 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 required
                 fullWidth
               />
+              {canEditModel ? (
+                <div>
+                <Combobox
+                  label="Modelo"
+                  options={(() => {
+                    const opts = deviceModels.map((m) => ({
+                      value: m.id,
+                      label: `${m.vendorName} — ${m.model} (${m.deviceType})`,
+                    }));
+                    // Keep the current model selectable even if it fell outside the first 100.
+                    return opts.some((o) => o.value === device.deviceModelId) || !deviceModel
+                      ? opts
+                      : [
+                          {
+                            value: deviceModel.id,
+                            label: `${deviceModel.vendorName} — ${deviceModel.model} (${deviceModel.deviceType})`,
+                          },
+                          ...opts,
+                        ];
+                  })()}
+                  value={formData.deviceModelId}
+                  onChange={(modelId) => {
+                    setFormData((prev) => ({ ...prev, deviceModelId: modelId }));
+                    if (formErrors.deviceModelId) {
+                      setFormErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
+                    }
+                  }}
+                  placeholder="Escribir para buscar modelo..."
+                  error={formErrors.deviceModelId}
+                  fullWidth
+                />
+                {!formErrors.deviceModelId && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Solo para corregir un modelo mal registrado, no para sustituir el equipo.
+                  </p>
+                )}
+                </div>
+              ) : (
+                <div>
+                  <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modelo</span>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 py-2">
+                    {deviceModel ? `${deviceModel.vendorName} ${deviceModel.model}` : device.deviceModelId}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    El modelo solo puede corregirse mientras el dispositivo está en inventario.
+                  </p>
+                </div>
+              )}
               <Select
                 label="Tipo de Propietario"
                 name="ownerType"
