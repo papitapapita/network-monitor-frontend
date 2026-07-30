@@ -1,7 +1,11 @@
 import type { DeviceCategory, DeviceStatus } from '@/types/device.types';
 
-/** Categories that require a wireless-capable device model. */
-export const WIRELESS_CATEGORIES: DeviceCategory[] = ['WIRELESS_CPE', 'AP'];
+/**
+ * Categories that require a wireless-capable device model. These are also the
+ * only two the backend lets hold a wireless config — it derives the radio mode
+ * from them (WIRELESS_CPE → STATION, ACCESS_POINT → ACCESS_POINT).
+ */
+export const WIRELESS_CATEGORIES: DeviceCategory[] = ['WIRELESS_CPE', 'ACCESS_POINT'];
 
 export const isWirelessCategory = (category: DeviceCategory | '' | null | undefined): boolean =>
   !!category && WIRELESS_CATEGORIES.includes(category as DeviceCategory);
@@ -21,15 +25,24 @@ const MAC_REGEX = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$|^([0-9A-Fa-f]{2}-){5}[0-
 
 export const isValidMacAddress = (value: string): boolean => MAC_REGEX.test(value.trim());
 
-const DEVICE_CATEGORY_CORE = [
+// The category says what role the unit plays in the network. Hardware traits
+// (PoE, port count, …) belong to the device model's deviceType, never here.
+const DEVICE_CATEGORY_CORE: { value: DeviceCategory; label: string }[] = [
   { value: 'CPE', label: 'CPE (Cliente)' },
   { value: 'WIRELESS_CPE', label: 'CPE Inalámbrico' },
-  { value: 'AP', label: 'Punto de Acceso (AP)' },
-  { value: 'ROUTERBOARD', label: 'Routerboard' },
-  { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
-  { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
+  { value: 'ACCESS_POINT', label: 'Punto de Acceso' },
+  { value: 'GATEWAY', label: 'Gateway (Salida a Internet)' },
+  { value: 'AGGREGATION_SWITCH', label: 'Switch de Agregación' },
   { value: 'OTHER', label: 'Otro' },
 ];
+
+export const DEVICE_CATEGORY_LABELS = Object.fromEntries(
+  DEVICE_CATEGORY_CORE.map(({ value, label }) => [value, label])
+) as Record<DeviceCategory, string>;
+
+/** Falls back to the raw literal so a category we don't know yet still renders. */
+export const deviceCategoryLabel = (category: DeviceCategory | null | undefined): string =>
+  category ? DEVICE_CATEGORY_LABELS[category] ?? category.replace(/_/g, ' ') : '—';
 
 export const DEVICE_CATEGORY_OPTIONS = [
   { value: '', label: 'Ninguna' },

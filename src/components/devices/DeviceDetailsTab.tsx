@@ -23,7 +23,7 @@ import {
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, deviceCategoryLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -353,7 +353,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                       </Badge>
                     )
                   },
-                  { label: 'Categoría', value: device.category ? device.category.replace(/_/g, ' ') : '—' },
+                  { label: 'Categoría', value: deviceCategoryLabel(device.category) },
                   { label: 'Tipo de Propietario', value: device.ownerType === 'COMPANY' ? 'Empresa' : 'Cliente' },
                   { label: 'Dirección IP', value: device.ipAddress || '—', mono: true },
                   { label: 'Dirección MAC', value: device.macAddress || '—', mono: true },

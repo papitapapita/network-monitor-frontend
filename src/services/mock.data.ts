@@ -51,35 +51,35 @@ export const MOCK_LOCATIONS: LocationResponseDTO[] = [
 
 export const MOCK_DEVICES: DeviceResponseDTO[] = [
   {
-    id: 'dev-1', name: 'Core-Router-01', status: 'ACTIVE', category: 'ROUTERBOARD',
+    id: 'dev-1', name: 'Core-Router-01', status: 'ACTIVE', category: 'GATEWAY',
     ownerType: 'COMPANY', deviceModelId: 'dm-1', locationId: 'loc-1',
     ipAddress: '10.0.0.1', macAddress: 'AA:BB:CC:DD:EE:01', serialNumber: 'MT-001',
     monitoringEnabled: true, description: 'Primary edge router',
     installedDate: daysAgo(180), createdAt: daysAgo(180), updatedAt: daysAgo(2),
   },
   {
-    id: 'dev-2', name: 'AP-Floor-2-01', status: 'ACTIVE', category: 'AP',
+    id: 'dev-2', name: 'AP-Floor-2-01', status: 'ACTIVE', category: 'ACCESS_POINT',
     ownerType: 'COMPANY', deviceModelId: 'dm-2', locationId: 'loc-2',
     ipAddress: '10.0.1.10', macAddress: 'AA:BB:CC:DD:EE:02', serialNumber: null,
     monitoringEnabled: true, description: null,
     installedDate: daysAgo(120), createdAt: daysAgo(120), updatedAt: daysAgo(5),
   },
   {
-    id: 'dev-3', name: 'Switch-Core-01', status: 'ACTIVE', category: 'SMART_SWITCH',
+    id: 'dev-3', name: 'Switch-Core-01', status: 'ACTIVE', category: 'AGGREGATION_SWITCH',
     ownerType: 'COMPANY', deviceModelId: 'dm-3', locationId: 'loc-1',
     ipAddress: '10.0.0.2', macAddress: 'AA:BB:CC:DD:EE:03', serialNumber: 'MT-CRS-001',
     monitoringEnabled: true, description: 'Core distribution switch',
     installedDate: daysAgo(180), createdAt: daysAgo(180), updatedAt: daysAgo(1),
   },
   {
-    id: 'dev-4', name: 'Radio-Link-East', status: 'ACTIVE', category: 'AP',
+    id: 'dev-4', name: 'Radio-Link-East', status: 'ACTIVE', category: 'ACCESS_POINT',
     ownerType: 'COMPANY', deviceModelId: 'dm-4', locationId: 'loc-4',
     ipAddress: '192.168.50.1', macAddress: 'AA:BB:CC:DD:EE:04', serialNumber: 'MIM-004',
     monitoringEnabled: true, description: 'Backhaul link to east node',
     installedDate: daysAgo(90), createdAt: daysAgo(90), updatedAt: daysAgo(3),
   },
   {
-    id: 'dev-5', name: 'Switch-Floor-1', status: 'ACTIVE', category: 'SMART_SWITCH_POE',
+    id: 'dev-5', name: 'Switch-Floor-1', status: 'ACTIVE', category: 'AGGREGATION_SWITCH',
     ownerType: 'COMPANY', deviceModelId: 'dm-5', locationId: 'loc-2',
     ipAddress: '10.0.1.2', macAddress: 'AA:BB:CC:DD:EE:05', serialNumber: null,
     monitoringEnabled: false, description: null,
@@ -93,14 +93,14 @@ export const MOCK_DEVICES: DeviceResponseDTO[] = [
     installedDate: daysAgo(30), createdAt: daysAgo(30), updatedAt: daysAgo(0),
   },
   {
-    id: 'dev-7', name: 'Core-Router-02', status: 'ACTIVE', category: 'ROUTERBOARD',
+    id: 'dev-7', name: 'Core-Router-02', status: 'ACTIVE', category: 'GATEWAY',
     ownerType: 'COMPANY', deviceModelId: 'dm-1', locationId: 'loc-3',
     ipAddress: '10.0.0.3', macAddress: 'AA:BB:CC:DD:EE:07', serialNumber: 'MT-002',
     monitoringEnabled: false, description: 'Under firmware upgrade',
     installedDate: daysAgo(180), createdAt: daysAgo(180), updatedAt: daysAgo(1),
   },
   {
-    id: 'dev-8', name: 'AP-Roof-01', status: 'DAMAGED', category: 'AP',
+    id: 'dev-8', name: 'AP-Roof-01', status: 'DAMAGED', category: 'ACCESS_POINT',
     ownerType: 'COMPANY', deviceModelId: 'dm-2', locationId: 'loc-1',
     ipAddress: null, macAddress: 'AA:BB:CC:DD:EE:08', serialNumber: null,
     monitoringEnabled: false, description: 'Lightning damage — awaiting replacement',

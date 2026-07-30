@@ -6,6 +6,7 @@ import { apiService } from '@/services/api.service';
 import { LocationResponseDTO, UpdateLocationDTO } from '@/types/location.types';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { LOCATION_TYPE_LABELS, LOCATION_TYPE_BADGE_VARIANTS } from '@/constants/location.constants';
+import { deviceCategoryLabel } from '@/constants/device.constants';
 import { Button, Badge, LoadingSpinner, Card, Table, TableEmptyState } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import {
@@ -346,7 +347,7 @@ export default function LocationDetailPage() {
                       {dev.ipAddress ?? '—'}
                     </Table.Cell>
                     <Table.Cell className="hidden md:table-cell text-gray-600 dark:text-gray-300">
-                      {dev.category ? dev.category.replace(/_/g, ' ') : '—'}
+                      {deviceCategoryLabel(dev.category)}
                     </Table.Cell>
                     <Table.Cell>
                       <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); router.push(`/devices/${dev.id}`); }}>

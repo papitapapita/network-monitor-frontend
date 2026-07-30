@@ -4,13 +4,14 @@ export type DeviceStatus =
   | 'ACTIVE'
   | 'DAMAGED';
 
+// The role the unit plays in the network — not what kind of hardware it is
+// (that is DeviceType, and it lives on the device model).
 export type DeviceCategory =
   | 'CPE'
   | 'WIRELESS_CPE'
-  | 'AP'
-  | 'ROUTERBOARD'
-  | 'SMART_SWITCH'
-  | 'SMART_SWITCH_POE'
+  | 'ACCESS_POINT'
+  | 'GATEWAY'
+  | 'AGGREGATION_SWITCH'
   | 'OTHER';
 
 export type DeviceOwnerType = 'COMPANY' | 'CLIENT';

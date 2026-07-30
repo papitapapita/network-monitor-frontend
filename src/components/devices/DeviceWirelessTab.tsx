@@ -97,8 +97,11 @@ function alertSeverityVariant(severity: string): 'warning' | 'danger' {
   return severity === 'CRITICAL' ? 'danger' : 'warning';
 }
 
+// The backend derives the radio mode from the device's category and returns it
+// on the config; this mirrors that rule so the form can be laid out before the
+// config exists.
 function inferDeviceType(category: DeviceCategory | null): WirelessDeviceType {
-  return category === 'AP' ? 'ACCESS_POINT' : 'STATION';
+  return category === 'ACCESS_POINT' ? 'ACCESS_POINT' : 'STATION';
 }
 
 // A rebooted AirOS antenna stays offline ~1–2 min; polls fail meanwhile, so we
@@ -449,7 +452,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
   };
 
   const metrics = status?.metrics;
-  const isAP = config?.deviceType === 'ACCESS_POINT' || category === 'AP';
+  const isAP = config?.deviceType === 'ACCESS_POINT' || category === 'ACCESS_POINT';
   const effectiveDeviceType = config?.deviceType ?? inferDeviceType(category);
 
   const isRebooting = rebootingUntil !== null;

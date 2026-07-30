@@ -27,7 +27,7 @@ import {
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { isValidMacAddress } from '@/constants/device.constants';
+import { isValidMacAddress, DEVICE_CATEGORY_OPTIONS } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 
 function normalizeMac(mac: string): string {
@@ -332,15 +332,7 @@ function AddDeviceModal({
                   name="category"
                   value={form.category}
                   onChange={handleChange}
-                  options={[
-                    { value: '', label: 'Ninguna' },
-                    { value: 'CPE', label: 'CPE (Cliente)' },
-                    { value: 'AP', label: 'Punto de Acceso (AP)' },
-                    { value: 'ROUTERBOARD', label: 'Routerboard' },
-                    { value: 'SMART_SWITCH', label: 'Switch Gestionable' },
-                    { value: 'SMART_SWITCH_POE', label: 'Switch Gestionable PoE' },
-                    { value: 'OTHER', label: 'Otro' },
-                  ]}
+                  options={DEVICE_CATEGORY_OPTIONS}
                   fullWidth
                 />
                 <Select

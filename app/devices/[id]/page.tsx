@@ -11,8 +11,7 @@ import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
 import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab';
-
-const WIRELESS_CATEGORIES = new Set(['CPE', 'WIRELESS_CPE', 'AP']);
+import { isWirelessCategory, deviceCategoryLabel } from '@/constants/device.constants';
 
 type Tab = 'details' | 'polling' | 'wireless' | 'credentials';
 
@@ -128,7 +127,7 @@ export default function DeviceDetailPage() {
                 {STATUS_LABELS[device.status] ?? device.status}
               </Badge>
               {device.category && (
-                <Badge variant="info">{device.category.replace(/_/g, ' ')}</Badge>
+                <Badge variant="info">{deviceCategoryLabel(device.category)}</Badge>
               )}
               {(() => {
                 const key = !device.monitoringEnabled ? 'NOT_ACTIVATED' : (onlineStatus ?? 'UNKNOWN');
@@ -146,7 +145,9 @@ export default function DeviceDetailPage() {
       {/* Tab bar */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="flex gap-6">
-          {(['details', 'polling', ...(device.category && WIRELESS_CATEGORIES.has(device.category) ? ['wireless' as Tab] : []), 'credentials'] as Tab[]).map((tab) => (
+          {/* Only WIRELESS_CPE and ACCESS_POINT can hold a wireless config — the backend
+              rejects every other category, so don't offer the tab for them. */}
+          {(['details', 'polling', ...(isWirelessCategory(device.category) ? ['wireless' as Tab] : []), 'credentials'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}

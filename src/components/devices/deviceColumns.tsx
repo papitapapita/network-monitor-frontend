@@ -8,6 +8,7 @@ import {
   getPollingStatusBadgeVariant,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
+import { deviceCategoryLabel } from '@/constants/device.constants';
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Activo',
@@ -118,7 +119,7 @@ export function buildDeviceColumns(
       cell: (device) =>
         device.category ? (
           <span className="text-gray-900 dark:text-gray-100">
-            {device.category.replace(/_/g, ' ')}
+            {deviceCategoryLabel(device.category)}
           </span>
         ) : (
           <span className="text-gray-400 dark:text-gray-500">—</span>
