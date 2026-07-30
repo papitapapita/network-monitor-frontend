@@ -5,11 +5,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   DeviceModelResponseDTO,
+  DeviceResponseDTO,
   UpdateDeviceModelDTO,
   VendorDTO,
   DeviceType,
 } from '@/types/device.types';
-import { Card, Button, Input, Select, Badge } from '@/components/ui';
+import { Card, Button, Input, Select, Badge, ConfirmModal } from '@/components/ui';
+import { isWirelessCategory } from '@/constants/device.constants';
 
 const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
   ANTENNA: 'Antena',
@@ -42,6 +44,9 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
 
   const [formData, setFormData] = useState(makeFormData(model));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  // Devices whose wireless config the save is about to drop — set while the
+  // confirmation for turning the model non-wireless is open.
+  const [pendingCascade, setPendingCascade] = useState<DeviceResponseDTO[] | null>(null);
 
   useEffect(() => {
     apiService.listVendors({ limit: 100 }).then((r) => {
@@ -58,15 +63,30 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
     }
   };
 
-  const handleSave = async () => {
-    const errors: Record<string, string> = {};
-    if (!formData.model.trim()) errors.model = 'El modelo es requerido';
-    else if (formData.model.trim().length > 150) errors.model = 'El modelo no puede superar los 150 caracteres';
-    if (!formData.vendorId) errors.vendorId = 'El fabricante es requerido';
-    if (!formData.deviceType) errors.deviceType = 'El tipo es requerido';
-    setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+  /**
+   * Devices on this model that currently hold a wireless config — read only to
+   * warn about what the backend is about to remove. Only WIRELESS_CPE and
+   * ACCESS_POINT may have one, so the category filter keeps the per-device config
+   * lookups down to the handful that could. Returns null if the device list could
+   * not be read — the caller must not assume "none".
+   */
+  const findConfiguredDevices = async (): Promise<DeviceResponseDTO[] | null> => {
+    const candidates: DeviceResponseDTO[] = [];
+    let offset = 0;
+    for (;;) {
+      const page = await apiService.listDevices({ deviceModelId: model.id, limit: 300, offset });
+      if (!page.success || !page.data) return null;
+      candidates.push(...page.data.devices.filter((d) => isWirelessCategory(d.category)));
+      if (!page.data.hasMore || page.data.devices.length === 0) break;
+      offset += page.data.devices.length;
+    }
+    const configs = await Promise.all(candidates.map((d) => apiService.getWirelessConfig(d.id)));
+    // A 404 (no config registered) comes back as a plain failure — same as any
+    // other error, so a device we can't read is simply left out of the cascade.
+    return candidates.filter((_, i) => configs[i].success && !!configs[i].data);
+  };
 
+  const persist = async () => {
     setIsSaving(true);
     setError(null);
 
@@ -79,7 +99,10 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
 
     const result = await apiService.updateDeviceModel(model.id, dto);
     if (result.success && result.data) {
+      // Turning isWireless off cascades server-side: the backend drops the
+      // wireless config of every device on the model, so nothing to clean up here.
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
       onModelUpdated(result.data);
       setIsEditing(false);
     } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
@@ -87,7 +110,37 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
     } else {
       setError(result.error || 'Error al actualizar el modelo');
     }
+    setPendingCascade(null);
     setIsSaving(false);
+  };
+
+  const handleSave = async () => {
+    const errors: Record<string, string> = {};
+    if (!formData.model.trim()) errors.model = 'El modelo es requerido';
+    else if (formData.model.trim().length > 150) errors.model = 'El modelo no puede superar los 150 caracteres';
+    if (!formData.vendorId) errors.vendorId = 'El fabricante es requerido';
+    if (!formData.deviceType) errors.deviceType = 'El tipo es requerido';
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    // Dropping wireless support wipes the wireless config of every device on this
+    // model, so name what will be lost before letting the save through.
+    if (model.isWireless && !formData.isWireless) {
+      setIsSaving(true);
+      setError(null);
+      const configured = await findConfiguredDevices();
+      setIsSaving(false);
+      if (configured === null) {
+        setError('No se pudieron consultar los dispositivos de este modelo. Inténtalo de nuevo.');
+        return;
+      }
+      if (configured.length > 0) {
+        setPendingCascade(configured);
+        return;
+      }
+    }
+
+    await persist();
   };
 
   const cancelEdit = () => {
@@ -96,8 +149,30 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
     setFormData(makeFormData(model));
   };
 
+  const cascadeMessage = (devices: DeviceResponseDTO[]) => {
+    const names = devices.slice(0, 5).map((d) => d.name).join(', ');
+    const rest = devices.length > 5 ? ` y ${devices.length - 5} más` : '';
+    return (
+      `Al dejar de ser inalámbrico, se eliminará la configuración inalámbrica de ` +
+      `${devices.length} dispositivo${devices.length === 1 ? '' : 's'} de este modelo (${names}${rest}), ` +
+      'junto con su pestaña Inalámbrico. Esta acción no se puede deshacer.'
+    );
+  };
+
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        isOpen={pendingCascade !== null}
+        onClose={() => setPendingCascade(null)}
+        onConfirm={() => persist()}
+        title="Quitar el modo inalámbrico"
+        message={pendingCascade ? cascadeMessage(pendingCascade) : ''}
+        confirmText="Quitar y eliminar configuraciones"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isSaving}
+      />
+
       <div className="flex justify-end">
         {!isEditing ? (
           <Button variant="outline" onClick={() => setIsEditing(true)}>Editar</Button>

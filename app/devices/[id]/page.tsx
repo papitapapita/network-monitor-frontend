@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
-import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
+import { DeviceModelResponseDTO, DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
 import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant, getPollingStatusBadgeVariant } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
@@ -37,12 +37,20 @@ export default function DeviceDetailPage() {
   const deviceId = params.id as string;
 
   const [device, setDevice] = useState<DeviceResponseDTO | null>(null);
+  const [deviceModel, setDeviceModel] = useState<DeviceModelResponseDTO | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<PollingStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('details');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // The model decides whether wireless applies at all, so it is loaded before the
+  // page renders — otherwise the wireless tab would flash in after the fact.
+  const loadModel = useCallback(async (deviceModelId: string) => {
+    const result = await apiService.getDeviceModel(deviceModelId);
+    setDeviceModel(result.success && result.data ? result.data : null);
+  }, []);
 
   const fetchDevice = useCallback(async () => {
     setIsLoading(true);
@@ -53,6 +61,7 @@ export default function DeviceDetailPage() {
     ]);
     if (deviceResult.success && deviceResult.data) {
       setDevice(deviceResult.data);
+      await loadModel(deviceResult.data.deviceModelId);
     } else {
       setError(deviceResult.error || 'Error al cargar el dispositivo');
     }
@@ -60,11 +69,20 @@ export default function DeviceDetailPage() {
       setOnlineStatus(pollingResult.data.currentStatus);
     }
     setIsLoading(false);
-  }, [deviceId]);
+  }, [deviceId, loadModel]);
 
   useEffect(() => {
     fetchDevice();
   }, [fetchDevice]);
+
+  // Only WIRELESS_CPE and ACCESS_POINT can hold a wireless config, and only on a
+  // model that is still flagged wireless — turning that flag off on the model
+  // removes the config, so the tab goes with it.
+  const showWireless = isWirelessCategory(device?.category) && deviceModel?.isWireless === true;
+
+  // Falls back to details if the wireless tab disappears while open — the model
+  // can lose its wireless flag, or the device its category, mid-visit.
+  const currentTab: Tab = activeTab === 'wireless' && !showWireless ? 'details' : activeTab;
 
   if (isLoading) {
     return (
@@ -145,14 +163,12 @@ export default function DeviceDetailPage() {
       {/* Tab bar */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="flex gap-6">
-          {/* Only WIRELESS_CPE and ACCESS_POINT can hold a wireless config — the backend
-              rejects every other category, so don't offer the tab for them. */}
-          {(['details', 'polling', ...(isWirelessCategory(device.category) ? ['wireless' as Tab] : []), 'credentials'] as Tab[]).map((tab) => (
+          {(['details', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'credentials'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
+                currentTab === tab
                   ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
@@ -163,22 +179,25 @@ export default function DeviceDetailPage() {
         </nav>
       </div>
 
-      {activeTab === 'details' && (
+      {currentTab === 'details' && (
         <DeviceDetailsTab
           device={device}
-          onDeviceUpdated={(updated) => setDevice(updated)}
+          onDeviceUpdated={(updated) => {
+            setDevice(updated);
+            if (updated.deviceModelId !== device.deviceModelId) loadModel(updated.deviceModelId);
+          }}
         />
       )}
 
-      {activeTab === 'polling' && (
+      {currentTab === 'polling' && (
         <DevicePollingTab deviceId={deviceId} deviceIpAddress={device.ipAddress} />
       )}
 
-      {activeTab === 'wireless' && (
+      {currentTab === 'wireless' && (
         <DeviceWirelessTab deviceId={deviceId} category={device.category} deviceIpAddress={device.ipAddress} />
       )}
 
-      {activeTab === 'credentials' && (
+      {currentTab === 'credentials' && (
         <DeviceCredentialsTab deviceId={deviceId} />
       )}
     </div>
