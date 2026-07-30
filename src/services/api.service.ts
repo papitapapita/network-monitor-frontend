@@ -367,10 +367,11 @@ class ApiService {
   }
 
   async deleteDeviceModel(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/device-models/${id}`, { method: 'DELETE' });
+    const result = await this.request<void>(`/device-models/${id}`, { method: 'DELETE' });
+    return this.translateDeviceModelError(result);
   }
 
-  // The backend replies in English for this device model conflict; the rest of this UI
+  // The backend replies in English for these device model conflicts; the rest of this UI
   // is in Spanish, so surface the same fact in that language.
   private translateDeviceModelError<T>(result: ApiResponse<T>): ApiResponse<T> {
     if (!result.success && result.error) {
@@ -379,6 +380,21 @@ class ApiService {
         return {
           success: false,
           error: `Ya existe un modelo de dispositivo "${duplicateMatch[1]}" para este fabricante`,
+        };
+      }
+
+      const devicesMatch = result.error.match(
+        /^Cannot delete device model: it has (\d+) device\(s\) associated\. Reassign or remove those devices first\.$/
+      );
+      if (devicesMatch) {
+        const count = Number(devicesMatch[1]);
+        const noun = count === 1 ? 'dispositivo asociado' : 'dispositivos asociados';
+        const tail = count === 1
+          ? 'Reasigna o elimina ese dispositivo primero.'
+          : 'Reasigna o elimina esos dispositivos primero.';
+        return {
+          success: false,
+          error: `No se puede eliminar el modelo: tiene ${count} ${noun}. ${tail}`,
         };
       }
     }
