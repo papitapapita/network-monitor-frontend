@@ -67,6 +67,9 @@ export default function CreateDeviceModelPage() {
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       router.replace(`/device-models/${result.data.id}`);
+    } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
+      setFormErrors((prev) => ({ ...prev, model: result.error! }));
+      setIsSubmitting(false);
     } else {
       setError(result.error || 'Error al crear el modelo');
       setIsSubmitting(false);

@@ -82,6 +82,8 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       onModelUpdated(result.data);
       setIsEditing(false);
+    } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
+      setFormErrors((prev) => ({ ...prev, model: result.error! }));
     } else {
       setError(result.error || 'Error al actualizar el modelo');
     }

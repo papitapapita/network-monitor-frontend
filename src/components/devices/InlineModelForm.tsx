@@ -67,6 +67,9 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
       };
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       onCreated(newModel);
+    } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
+      setErrors((prev) => ({ ...prev, model: result.error! }));
+      setIsLoading(false);
     } else {
       setApiError(result.error || 'Error al crear el modelo');
       setIsLoading(false);

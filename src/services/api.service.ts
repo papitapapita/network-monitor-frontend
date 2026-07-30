@@ -351,21 +351,38 @@ class ApiService {
   }
 
   async createDeviceModel(data: CreateDeviceModelDTO): Promise<ApiResponse<DeviceModelResponseDTO>> {
-    return this.request<DeviceModelResponseDTO>('/device-models', {
+    const result = await this.request<DeviceModelResponseDTO>('/device-models', {
       method: 'POST',
       body: JSON.stringify(data)
     });
+    return this.translateDeviceModelError(result);
   }
 
   async updateDeviceModel(id: string, data: UpdateDeviceModelDTO): Promise<ApiResponse<DeviceModelResponseDTO>> {
-    return this.request<DeviceModelResponseDTO>(`/device-models/${id}`, {
+    const result = await this.request<DeviceModelResponseDTO>(`/device-models/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
+    return this.translateDeviceModelError(result);
   }
 
   async deleteDeviceModel(id: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/device-models/${id}`, { method: 'DELETE' });
+  }
+
+  // The backend replies in English for this device model conflict; the rest of this UI
+  // is in Spanish, so surface the same fact in that language.
+  private translateDeviceModelError<T>(result: ApiResponse<T>): ApiResponse<T> {
+    if (!result.success && result.error) {
+      const duplicateMatch = result.error.match(/^A device model "(.+)" already exists for this vendor$/);
+      if (duplicateMatch) {
+        return {
+          success: false,
+          error: `Ya existe un modelo de dispositivo "${duplicateMatch[1]}" para este fabricante`,
+        };
+      }
+    }
+    return result;
   }
 
   // ============================================================
