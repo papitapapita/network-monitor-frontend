@@ -133,6 +133,14 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        // Zod validation failures come back as { error: 'Validation failed', details: [{field, message}] } —
+        // the top-level error alone doesn't say what's actually wrong.
+        if (Array.isArray(data.details) && data.details.length > 0) {
+          const detail = data.details
+            .map((d: { field?: string; message?: string }) => d.field ? `${d.field}: ${d.message}` : d.message)
+            .join('; ');
+          return { success: false, error: detail };
+        }
         return {
           success: false,
           error: data.error || data.message || `HTTP ${response.status}: ${response.statusText}`
