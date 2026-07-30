@@ -421,10 +421,9 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
 
     let result;
     if (noConfig) {
-      const createPayload: CreateWirelessConfigDTO = {
-        deviceType: inferDeviceType(category),
-        ...payload,
-      };
+      // deviceType is not accepted here — the backend derives it from the
+      // device's category and returns it on the config.
+      const createPayload: CreateWirelessConfigDTO = { ...payload };
       result = await apiService.createWirelessConfig(deviceId, createPayload);
     } else {
       result = await apiService.updateWirelessConfig(deviceId, payload);
@@ -506,8 +505,15 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
             <p className="text-red-600 dark:text-red-400 text-sm">{configError}</p>
           ) : noConfig ? (
             <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">
                 Este dispositivo no tiene configuración de monitoreo inalámbrico.
+              </p>
+              <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
+                Se registrará como{' '}
+                <span className="font-medium">
+                  {inferDeviceType(category) === 'ACCESS_POINT' ? 'Access Point' : 'Estación (CPE)'}
+                </span>{' '}
+                según la categoría del dispositivo. Para cambiarlo, ajusta la categoría en la pestaña Detalles.
               </p>
               {!showConfigForm && (
                 <Button size="sm" onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}>

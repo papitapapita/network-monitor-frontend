@@ -96,8 +96,10 @@ export interface WirelessConfigDTO {
   lastPolledAt: string | null;
 }
 
+// deviceType is not part of the request — the backend derives it from the
+// device's category (WIRELESS_CPE → STATION, ACCESS_POINT → ACCESS_POINT) and
+// returns the resolved value on WirelessConfigDTO.
 export interface CreateWirelessConfigDTO {
-  deviceType: WirelessDeviceType;
   ipAddress?: string | null;
   intervalSecs?: number;
   enabled?: boolean;
