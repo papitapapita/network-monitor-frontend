@@ -1,13 +1,31 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '@/contexts/auth.context';
 import { LoadingSpinner } from '@/components/ui';
 
+/** Sidebar collapse preference, kept in localStorage so it survives reloads. */
+const COLLAPSED_KEY = 'nms:sidebar-collapsed';
+const collapsedListeners = new Set<() => void>();
+
+const subscribeCollapsed = (onChange: () => void) => {
+  collapsedListeners.add(onChange);
+  return () => {
+    collapsedListeners.delete(onChange);
+  };
+};
+const getCollapsed = () => localStorage.getItem(COLLAPSED_KEY) === '1';
+const setCollapsed = (value: boolean) => {
+  localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0');
+  collapsedListeners.forEach((onChange) => onChange());
+};
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Server renders expanded; the stored preference kicks in on hydration.
+  const sidebarCollapsed = useSyncExternalStore(subscribeCollapsed, getCollapsed, () => false);
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading, logout } = useAuth();
@@ -55,9 +73,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setCollapsed(!sidebarCollapsed)}
+      />
 
-      <div className="flex flex-col flex-1 min-w-0 md:ml-56">
+      <div
+        className={`flex flex-col flex-1 min-w-0 transition-[margin] duration-200 ${
+          sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'
+        }`}
+      >
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center h-14 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0 sticky top-0 z-10">
           <button
