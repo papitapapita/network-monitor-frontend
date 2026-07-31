@@ -34,7 +34,11 @@ export default defineConfig({
 
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list'], ['html', { open: 'never' }]],
 
-  timeout: 60_000,
+  // The backend rate-limits writes (20 per 60s window) and the whole suite runs
+  // serially through one of those windows, so a write-heavy test can spend most
+  // of a minute inside ApiClient's 429 backoff before it does anything. That
+  // wait counts against the test timeout, hence the headroom.
+  timeout: 120_000,
   expect: { timeout: 10_000 },
 
   use: {

@@ -119,6 +119,17 @@ export class ApiClient {
   }
 
   /**
+   * POST to an arbitrary path. Like `put`, this is for sub-resources that live
+   * and die with their parent (a device's wireless config, for one), so there
+   * is nothing extra to track for cleanup.
+   */
+  async post<T>(path: string, data: unknown): Promise<T> {
+    const res = await this.send('post', this.url(path), data);
+    if (!res.ok()) throw new Error(`POST ${path} → ${res.status()} ${await res.text()}`);
+    return ApiClient.unwrap<T>(await res.json());
+  }
+
+  /**
    * Creates a record and registers it for automatic deletion after the test,
    * so a failing assertion still cleans up after itself.
    */
@@ -144,6 +155,17 @@ export class ApiClient {
   /** Forgets a record — call this when the test itself deleted it. */
   untrack(resource: Resource, id: string): void {
     this.trash = this.trash.filter((t) => !(t.resource === resource && t.id === id));
+  }
+
+  /**
+   * Deletes a record mid-test and stops tracking it. Use it when the record
+   * *ceasing to exist* is the precondition — a page holding a stale id, say —
+   * rather than when the test is done with it.
+   */
+  async remove(resource: Resource, id: string): Promise<void> {
+    const res = await this.send('delete', this.url(`${resource}/${id}`));
+    if (!res.ok()) throw new Error(`DELETE /${resource}/${id} → ${res.status()} ${await res.text()}`);
+    this.untrack(resource, id);
   }
 
   /**
