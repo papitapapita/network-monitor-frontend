@@ -27,12 +27,8 @@ import {
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { isValidMacAddress, DEVICE_CATEGORY_OPTIONS } from '@/constants/device.constants';
+import { isValidMacAddress, normalizeMacAddress, DEVICE_CATEGORY_OPTIONS } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
-
-function normalizeMac(mac: string): string {
-  return mac.replace(/[:\-\.]/g, '').toUpperCase();
-}
 
 function isValidCidr(value: string): boolean {
   const cidrRe = /^(\d{1,3}\.){3}\d{1,3}\/(\d|[1-2]\d|3[0-2])$/;
@@ -211,7 +207,11 @@ function AddDeviceModal({
       }
       onAdded(host.ipAddress);
     } else {
-      setApiError(res.error || 'Error al crear el dispositivo');
+      const message = res.error || 'Error al crear el dispositivo';
+      // The MAC arrives from the scan and its input is disabled, so a duplicate
+      // has to read on the field too — the banner alone leaves it unexplained.
+      if (res.errorField) setErrors((prev) => ({ ...prev, [res.errorField!]: message }));
+      setApiError(message);
       setSubmitting(false);
     }
   };
@@ -549,7 +549,7 @@ export default function NetworkScanPage() {
       const byMac = new Map<string, DeviceResponseDTO>();
       for (const d of devRes.data.devices) {
         if (d.ipAddress) byIp.set(d.ipAddress, d);
-        if (d.macAddress) byMac.set(normalizeMac(d.macAddress), d);
+        if (d.macAddress) byMac.set(normalizeMacAddress(d.macAddress), d);
       }
       setDevicesByIp(byIp);
       setDevicesByMac(byMac);
@@ -722,7 +722,7 @@ export default function NetworkScanPage() {
                         {(() => {
                           const existingByIp = devicesByIp.get(host.ipAddress);
                           const existingByMac = host.macAddress
-                            ? devicesByMac.get(normalizeMac(host.macAddress))
+                            ? devicesByMac.get(normalizeMacAddress(host.macAddress))
                             : undefined;
                           const existing = existingByIp ?? existingByMac;
 

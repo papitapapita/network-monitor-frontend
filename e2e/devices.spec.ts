@@ -33,6 +33,18 @@ async function arrangeDevice(api: ApiClient, overrides: Record<string, unknown> 
   return { vendor, model, device };
 }
 
+/**
+ * A MAC belongs to at most one device, so a test about that rule needs one no
+ * other record in the shared database already holds. `02` marks it locally
+ * administered, which no real NIC hands out.
+ */
+function uniqueMac(): string {
+  const octets = Array.from({ length: 5 }, () =>
+    Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase()
+  );
+  return ['02', ...octets].join(':');
+}
+
 test.describe('devices', () => {
   test('creates a device and lands on its detail page', async ({ page, api }) => {
     const { vendor, model } = await arrangeModel(api);
@@ -77,6 +89,46 @@ test.describe('devices', () => {
 
     await row.click();
     await page.waitForURL(`**/devices/${device.id}`);
+  });
+
+  test('rejects a MAC that already belongs to another device, in Spanish', async ({ page, api }) => {
+    const mac = uniqueMac();
+    await arrangeDevice(api, { macAddress: mac });
+    const { vendor, model } = await arrangeModel(api);
+
+    await page.goto('/devices/create');
+
+    await field(page, 'Nombre').fill(uniqueName('device'));
+    await selectCombobox(page, 'Fabricante', vendor.name);
+    await selectCombobox(page, 'Modelo', `${model.model} (ROUTER)`);
+    await field(page, 'Tipo de Propietario').selectOption({ label: 'Empresa' });
+    await field(page, 'Dirección MAC').fill(mac);
+
+    await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
+
+    // The backend says "MAC address ... is already assigned to another device";
+    // the operator must read it in the language the rest of the UI speaks.
+    await expect(
+      page.getByText(`La dirección MAC "${mac}" ya está asignada a otro dispositivo`).first()
+    ).toBeVisible();
+    await expect(page.getByText(/already assigned/)).toHaveCount(0);
+    await expect(page).toHaveURL(/\/devices\/create$/);
+  });
+
+  test('rejects moving a taken MAC onto a device from its detail page', async ({ page, api }) => {
+    const mac = uniqueMac();
+    await arrangeDevice(api, { macAddress: mac });
+    const { device } = await arrangeDevice(api);
+
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Editar' }).click();
+    await field(page, 'Dirección MAC').fill(mac);
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+
+    await expect(
+      page.getByText(`La dirección MAC "${mac}" ya está asignada a otro dispositivo`).first()
+    ).toBeVisible();
+    await expect(page.getByText(/already assigned/)).toHaveCount(0);
   });
 
   test('deletes a device', async ({ page, api }) => {

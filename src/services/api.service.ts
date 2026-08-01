@@ -48,6 +48,7 @@ import {
   UpdateWirelessConfigDTO,
 } from '../types/wireless.types';
 import { ApiResponse } from '../types/common.types';
+import { translateDeviceConflict } from '../constants/device.constants';
 import { LoginResponseDTO } from '../types/auth.types';
 import {
   CustomerDTO,
@@ -183,10 +184,11 @@ class ApiService {
   // ============================================================
 
   async createDevice(data: CreateDeviceDTO): Promise<ApiResponse<DeviceResponseDTO>> {
-    return this.request<DeviceResponseDTO>('/devices', {
+    const result = await this.request<DeviceResponseDTO>('/devices', {
       method: 'POST',
       body: JSON.stringify(data)
     });
+    return this.translateDeviceError(result);
   }
 
   async listDevices(query?: ListDevicesQuery): Promise<ApiResponse<DeviceListResponse>> {
@@ -211,14 +213,28 @@ class ApiService {
   }
 
   async updateDevice(id: string, data: UpdateDeviceDTO): Promise<ApiResponse<DeviceResponseDTO>> {
-    return this.request<DeviceResponseDTO>(`/devices/${id}`, {
+    const result = await this.request<DeviceResponseDTO>(`/devices/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
+    return this.translateDeviceError(result);
   }
 
   async deleteDevice(id: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/devices/${id}`, { method: 'DELETE' });
+  }
+
+  // The backend replies in English when a MAC or IP is already taken by another
+  // device; the rest of this UI is in Spanish, so surface the same fact in that
+  // language and tag the field it belongs to.
+  private translateDeviceError<T>(result: ApiResponse<T>): ApiResponse<T> {
+    if (!result.success && result.error) {
+      const conflict = translateDeviceConflict(result.error);
+      if (conflict) {
+        return { success: false, error: conflict.message, errorField: conflict.field ?? undefined };
+      }
+    }
+    return result;
   }
 
   // ============================================================

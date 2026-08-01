@@ -211,7 +211,12 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       onDeviceUpdated(result.data);
       setIsEditing(false);
     } else {
-      setError(result.error || 'Error al actualizar el dispositivo');
+      const message = result.error || 'Error al actualizar el dispositivo';
+      // A rejected MAC or IP belongs on its own input, not only in the banner above.
+      if (result.errorField) {
+        setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
+      }
+      setError(message);
     }
     setIsSaving(false);
   };

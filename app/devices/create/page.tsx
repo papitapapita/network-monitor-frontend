@@ -192,7 +192,13 @@ export default function CreateDevicePage() {
       }
       router.replace(`/devices/${result.data.id}`);
     } else {
-      setError(result.error || 'Error al crear el dispositivo');
+      const message = result.error || 'Error al crear el dispositivo';
+      // A rejected MAC or IP belongs on its own input, not only in the banner
+      // above — the fields sit far enough down the form to be off screen.
+      if (result.errorField) {
+        setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
+      }
+      setError(message);
       setIsSubmitting(false);
     }
   };

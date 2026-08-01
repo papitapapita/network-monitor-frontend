@@ -40,6 +40,12 @@ import { AlertDTO, AlertListResponse, ListAlertsQuery } from '../types/alert.typ
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
 import {
+  DeviceConflict,
+  duplicateIpError,
+  duplicateMacError,
+  normalizeMacAddress,
+} from '../constants/device.constants';
+import {
   CustomerDTO,
   CustomerListResponse,
   CreateCustomerDTO,
@@ -96,6 +102,35 @@ function err(message: string): ApiResponse<never> {
   return { success: false, error: message };
 }
 
+function conflict(c: DeviceConflict): ApiResponse<never> {
+  return { success: false, error: c.message, errorField: c.field ?? undefined };
+}
+
+/**
+ * A MAC address belongs to at most one device, and so does an IP — the backend
+ * enforces both, so mock mode has to as well or the forms look permissive here
+ * and reject on the real API. `exceptId` is the device being updated.
+ */
+function findDeviceConflict(
+  data: { macAddress?: string | null; ipAddress?: string | null },
+  exceptId?: string
+): DeviceConflict | null {
+  const others = devices.filter((d) => d.id !== exceptId);
+
+  if (data.macAddress) {
+    const mac = normalizeMacAddress(data.macAddress);
+    if (others.some((d) => d.macAddress && normalizeMacAddress(d.macAddress) === mac)) {
+      return duplicateMacError(data.macAddress);
+    }
+  }
+
+  if (data.ipAddress && others.some((d) => d.ipAddress === data.ipAddress)) {
+    return duplicateIpError(data.ipAddress);
+  }
+
+  return null;
+}
+
 function paginate<T>(items: T[], limit = 20, offset = 0): { items: T[]; total: number } {
   return { items: items.slice(offset, offset + limit), total: items.length };
 }
@@ -104,6 +139,9 @@ class MockApiService {
   // ── Devices ────────────────────────────────────────────────
 
   async createDevice(data: CreateDeviceDTO): Promise<ApiResponse<DeviceResponseDTO>> {
+    const taken = findDeviceConflict(data);
+    if (taken) return conflict(taken);
+
     const now = new Date().toISOString();
     const device: DeviceResponseDTO = {
       id: `dev-${uid()}`,
@@ -168,6 +206,10 @@ class MockApiService {
   async updateDevice(id: string, data: UpdateDeviceDTO): Promise<ApiResponse<DeviceResponseDTO>> {
     const idx = devices.findIndex((d) => d.id === id);
     if (idx === -1) return err('Device not found');
+
+    const taken = findDeviceConflict(data, id);
+    if (taken) return conflict(taken);
+
     const updated = { ...devices[idx], ...data, updatedAt: new Date().toISOString() };
     devices[idx] = updated;
     return ok(updated);

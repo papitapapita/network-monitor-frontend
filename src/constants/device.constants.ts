@@ -25,6 +25,47 @@ const MAC_REGEX = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$|^([0-9A-Fa-f]{2}-){5}[0-
 
 export const isValidMacAddress = (value: string): boolean => MAC_REGEX.test(value.trim());
 
+/** Strips separators and cases the digits so `aa-bb-…` and `AA:BB:…` compare equal. */
+export const normalizeMacAddress = (value: string): string =>
+  value.replace(/[:\-.]/g, '').toUpperCase();
+
+/**
+ * A MAC address belongs to at most one device, and so does an IP. The backend
+ * enforces both and answers in English, so restate the fact in the UI language
+ * and name the field it belongs to, so a form can mark the offending input.
+ */
+export type DeviceConflict = {
+  field: 'macAddress' | 'ipAddress' | null;
+  message: string;
+};
+
+export const duplicateMacError = (mac: string): DeviceConflict => ({
+  field: 'macAddress',
+  message: `La dirección MAC "${mac}" ya está asignada a otro dispositivo`,
+});
+
+export const duplicateIpError = (ip: string): DeviceConflict => ({
+  field: 'ipAddress',
+  message: `La dirección IP "${ip}" ya está asignada a otro dispositivo`,
+});
+
+/** Returns null for anything that isn't one of these conflicts, so callers keep the original error. */
+export function translateDeviceConflict(error: string): DeviceConflict | null {
+  const mac = error.match(/^MAC address "(.+)" is already assigned to another device$/);
+  if (mac) return duplicateMacError(mac[1]);
+
+  const ip = error.match(/^IP address "(.+)" is already assigned to another device$/);
+  if (ip) return duplicateIpError(ip[1]);
+
+  // The unique-constraint fallback the backend returns when a concurrent insert
+  // won the race — it doesn't say which of the two columns collided.
+  if (error === 'A device with this MAC address or IP address already exists') {
+    return { field: null, message: 'Ya existe un dispositivo con esta dirección MAC o dirección IP' };
+  }
+
+  return null;
+}
+
 // The category says what role the unit plays in the network. Hardware traits
 // (PoE, port count, …) belong to the device model's deviceType, never here.
 const DEVICE_CATEGORY_CORE: { value: DeviceCategory; label: string }[] = [
