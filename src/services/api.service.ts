@@ -399,6 +399,26 @@ class ApiService {
         };
       }
 
+      // Turning isWireless off is refused while any device on the model still
+      // holds a wireless config — those configs carry operator-entered values,
+      // so the backend never deletes them on its own.
+      const wirelessMatch = result.error.match(
+        /^Cannot mark device model as non-wireless: (\d+) device\(s\) built on it have a wireless config\. Delete those wireless configs first\.$/
+      );
+      if (wirelessMatch) {
+        const count = Number(wirelessMatch[1]);
+        const subject = count === 1
+          ? '1 dispositivo de este modelo tiene configuración inalámbrica'
+          : `${count} dispositivos de este modelo tienen configuración inalámbrica`;
+        const tail = count === 1
+          ? 'Elimina esa configuración inalámbrica primero.'
+          : 'Elimina esas configuraciones inalámbricas primero.';
+        return {
+          success: false,
+          error: `No se puede quitar el modo inalámbrico: ${subject}. ${tail}`,
+        };
+      }
+
       const devicesMatch = result.error.match(
         /^Cannot delete device model: it has (\d+) device\(s\) associated\. Reassign or remove those devices first\.$/
       );

@@ -136,7 +136,7 @@ test.describe('device models', () => {
  *     check is what actually runs.
  *   - DEV-021, DEV-022, DEV-026 and DEV-027 are backend-enforced, so every one
  *     of those tests makes a real request and only passes if the backend
- *     rejected (or cascaded) AND the frontend relayed the real response.
+ *     rejected it AND the frontend relayed the real response.
  *   - DEV-024, DEV-025 and DEV-028 are round-trips: submit at the rule's edge
  *     and read back what the backend stored.
  */
@@ -492,21 +492,24 @@ test.describe('device model conventions', () => {
 });
 
 /**
- * DEV-027 — turning isWireless off deletes the wireless config of every device
- * on the model, server-side.
+ * DEV-027 — turning isWireless off is refused while any device on the model
+ * still holds a wireless config. Those configs carry operator-entered values,
+ * so the backend never deletes them for us.
  *
- * The frontend's part is to name what will be lost before letting the save
- * through, and to stop offering the wireless tab afterwards. All of it runs
- * against the real cascade: nothing here deletes a config itself.
+ * The frontend's part is to name the devices in the way rather than let the
+ * save fail with a bare count, and to stop offering the wireless tab once the
+ * flag is finally off. All of it runs against the real refusal: nothing here
+ * fakes a 409.
  */
-test.describe('device model wireless cascade', () => {
+test.describe('device model wireless flag', () => {
   /**
    * A wireless model with one WIRELESS_CPE device that has a wireless config —
-   * the smallest arrangement the cascade can act on.
+   * the smallest arrangement that blocks the flag.
    *
    * The config is registered disabled so the backend's poller never tries to
    * reach the (nonexistent) radio while the test runs. Each caller passes its
-   * own IP because these tests share a database.
+   * own IP because these tests share a database. `deviceType` is not sent: the
+   * backend derives STATION from the device's WIRELESS_CPE category.
    */
   async function arrangeWirelessDevice(api: ApiClient, ip: string) {
     const vendor = await makeVendor(api);
@@ -525,7 +528,6 @@ test.describe('device model wireless cascade', () => {
       category: 'WIRELESS_CPE',
     });
     await api.post(`/devices/${device.id}/wireless/config`, {
-      deviceType: 'STATION',
       ipAddress: ip,
       intervalSecs: 3600,
       enabled: false,
@@ -540,6 +542,15 @@ test.describe('device model wireless cascade', () => {
     await expect(page.getByText('Configuración Inalámbrica')).toBeVisible();
   }
 
+  /**
+   * The refusal notice. Scoped by its heading rather than by `role="alert"`
+   * alone — Next.js's dev-mode route announcer is also an alert, so a bare
+   * role query never reaches zero.
+   */
+  function refusalNotice(page: Page): Locator {
+    return page.getByRole('alert').filter({ hasText: 'No se puede quitar el modo inalámbrico' });
+  }
+
   /** Ticks or unticks "Modelo inalámbrico" on the model's edit form and saves. */
   async function setWirelessFlag(page: Page, modelId: string, wireless: boolean) {
     await page.goto(`/device-models/${modelId}`);
@@ -548,7 +559,7 @@ test.describe('device model wireless cascade', () => {
     await page.getByRole('button', { name: 'Guardar Cambios' }).click();
   }
 
-  test('DEV-027: warns, then drops the wireless config and the tab with it', async ({ page, api }) => {
+  test('DEV-027: refuses the flag and names the device standing in the way', async ({ page, api }) => {
     const { model, device } = await arrangeWirelessDevice(api, '192.168.79.41');
 
     // Before: the device has a wireless tab, and a config on it.
@@ -557,41 +568,12 @@ test.describe('device model wireless cascade', () => {
 
     await setWirelessFlag(page, model.id, false);
 
-    // The warning names what is about to be lost — the count and the device
-    // come from a real read of the model's devices, not from anything canned.
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('Quitar el modo inalámbrico')).toBeVisible();
-    await expect(dialog.getByText(new RegExp(`1 dispositivo de este modelo \\(${device.name}\\)`))).toBeVisible();
-
-    await dialog.getByRole('button', { name: 'Quitar y eliminar configuraciones', exact: true }).click();
-
-    await expect(detailValue(page, 'Inalámbrico')).toHaveText('No');
-
-    // The tab goes with the flag: nothing wireless is offered for the device.
-    await page.goto(`/devices/${device.id}`);
-    await expect(page.getByRole('button', { name: 'Detalles' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Inalámbrico' })).toHaveCount(0);
-
-    // Turning the flag back on brings the tab back — and it comes back empty,
-    // which is what proves the backend really deleted the config rather than
-    // the UI merely hiding it.
-    await setWirelessFlag(page, model.id, true);
-    await expect(detailValue(page, 'Inalámbrico')).toHaveText('Sí');
-
-    await openWirelessTab(page, device.id);
-    await expect(page.getByText('Este dispositivo no tiene configuración de monitoreo inalámbrico.')).toBeVisible();
-  });
-
-  test('DEV-027: cancelling the warning leaves the model wireless', async ({ page, api }) => {
-    const { model, device } = await arrangeWirelessDevice(api, '192.168.79.42');
-
-    await setWirelessFlag(page, model.id, false);
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
-    await expect(dialog).toHaveCount(0);
+    // The refusal names the device, not just a count — and the name comes from
+    // a real read of the model's devices, not from anything canned.
+    const notice = refusalNotice(page);
+    await expect(notice).toBeVisible();
+    await expect(notice.getByText(/^1 dispositivo de este modelo todavía tiene configuración inalámbrica/)).toBeVisible();
+    await expect(notice.getByRole('link', { name: device.name })).toHaveAttribute('href', `/devices/${device.id}`);
 
     // Nothing was sent, so a reload shows the model exactly as it was.
     await page.reload();
@@ -602,7 +584,49 @@ test.describe('device model wireless cascade', () => {
     await expect(detailValue(page, 'Intervalo')).toHaveText('3600s');
   });
 
-  test('DEV-027: saves without warning when no device holds a config', async ({ page, api }) => {
+  test('DEV-027: deleting the config clears the way, and the tab goes with the flag', async ({ page, api }) => {
+    const { model, device } = await arrangeWirelessDevice(api, '192.168.79.42');
+
+    // Blocked first, so the walk that follows is the one the notice asks for.
+    await setWirelessFlag(page, model.id, false);
+    const notice = refusalNotice(page);
+    await expect(notice).toBeVisible();
+
+    // Follow the link out of the notice and delete the config the way an
+    // operator would, from the device's own wireless tab.
+    await notice.getByRole('link', { name: device.name }).click();
+    await page.getByRole('button', { name: 'Inalámbrico' }).click();
+    const configHeading = page.getByRole('heading', { name: 'Configuración Inalámbrica' });
+    await expect(configHeading).toBeVisible();
+    // Scoped to the config card's own header — the page's delete-device button
+    // is also called "Eliminar".
+    await configHeading
+      .locator('xpath=following-sibling::div')
+      .getByRole('button', { name: 'Eliminar', exact: true })
+      .click();
+    await expect(page.getByText('Este dispositivo no tiene configuración de monitoreo inalámbrico.')).toBeVisible();
+
+    // With nothing left holding a config, the same save goes through.
+    await setWirelessFlag(page, model.id, false);
+    await expect(detailValue(page, 'Inalámbrico')).toHaveText('No');
+    await expect(refusalNotice(page)).toHaveCount(0);
+
+    // The tab goes with the flag: nothing wireless is offered for the device,
+    // even though it is still categorised WIRELESS_CPE. That pairing is inert,
+    // not an error — no config can be created for it.
+    await page.goto(`/devices/${device.id}`);
+    await expect(page.getByRole('button', { name: 'Detalles' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Inalámbrico' })).toHaveCount(0);
+
+    // Turning the flag back on brings the tab back, empty.
+    await setWirelessFlag(page, model.id, true);
+    await expect(detailValue(page, 'Inalámbrico')).toHaveText('Sí');
+
+    await openWirelessTab(page, device.id);
+    await expect(page.getByText('Este dispositivo no tiene configuración de monitoreo inalámbrico.')).toBeVisible();
+  });
+
+  test('DEV-027: saves without complaint when no device holds a config', async ({ page, api }) => {
     const vendor = await makeVendor(api);
     const model = await api.create<{ id: string }>('device-models', {
       vendorId: vendor.id,
@@ -613,8 +637,9 @@ test.describe('device model wireless cascade', () => {
 
     await setWirelessFlag(page, model.id, false);
 
-    // There is nothing to lose, so the save goes straight through.
+    // Nothing is holding a config, so the save goes straight through. Devices
+    // on the model would not have blocked it either — only their configs do.
     await expect(detailValue(page, 'Inalámbrico')).toHaveText('No');
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(refusalNotice(page)).toHaveCount(0);
   });
 });

@@ -76,8 +76,9 @@ export default function DeviceDetailPage() {
   }, [fetchDevice]);
 
   // Only WIRELESS_CPE and ACCESS_POINT can hold a wireless config, and only on a
-  // model that is still flagged wireless — turning that flag off on the model
-  // removes the config, so the tab goes with it.
+  // model still flagged wireless — no config can be created once the flag is off,
+  // so there is nothing for the tab to offer. A device left in a wireless category
+  // under a non-wireless model is inert, not an error: it just loses the tab.
   const showWireless = isWirelessCategory(device?.category) && deviceModel?.isWireless === true;
 
   // Falls back to details if the wireless tab disappears while open — the model
