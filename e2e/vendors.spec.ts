@@ -186,6 +186,14 @@ test.describe('vendor conventions', () => {
   test('DEV-001: rejects a name over the 100-character limit', async ({ page }) => {
     await page.goto('/vendors/create');
 
+    // Wait out hydration before touching the DOM below. The slug only
+    // auto-derives once React's onChange is live, so this assertion is the
+    // gate: strip the attribute any earlier and hydration puts it straight
+    // back, the name gets truncated to a legal 100 chars, and the vendor is
+    // created instead of rejected (~1 run in 3 failed that way).
+    await field(page, 'Nombre').fill('hydrated');
+    await expect(field(page, 'Slug')).toHaveValue('hydrated');
+
     // The <input> also carries an HTML maxlength=100, which would silently
     // truncate anything typed past the limit before validate() ever saw it
     // (confirmed: Playwright's fill() honours maxlength like real typing).
