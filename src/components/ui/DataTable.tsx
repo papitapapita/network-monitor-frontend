@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Table, TableEmptyState } from './Table';
 import { SelectCheckbox } from './SelectCheckbox';
 import { Pagination } from './Pagination';
@@ -155,6 +155,16 @@ function selectedLabel(n: number, entity: EntityNoun): string {
   return `${n} ${suffix}${n === 1 ? '' : 's'}`;
 }
 
+/** Ids from `anchor` to `id` inclusive, in row order. Falls back to `[id]` if either is gone. */
+function rangeBetween(ids: string[], anchor: string, id: string): string[] {
+  const from = ids.indexOf(anchor);
+  const to = ids.indexOf(id);
+  if (from === -1 || to === -1) return [id];
+  return ids.slice(Math.min(from, to), Math.max(from, to) + 1);
+}
+
+const RANGE_HINT = 'Mantén Shift para seleccionar un rango';
+
 export function DataTable<T>({
   columns,
   rows,
@@ -175,10 +185,13 @@ export function DataTable<T>({
   const [isDeleting, setIsDeleting] = useState(false);
   const [progress, setProgress] = useState<BulkDeleteProgress | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /** Last row toggled on its own — the anchor a Shift+click extends from. */
+  const anchorId = useRef<string | null>(null);
 
   useEffect(() => {
     setSelectedIds(new Set());
     setShowConfirm(false);
+    anchorId.current = null;
   }, [selectionResetKey]);
 
   const canDelete = bulkDelete?.canDelete;
@@ -200,15 +213,24 @@ export function DataTable<T>({
       selectableIds.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
       return next;
     });
+    anchorId.current = null;
   };
 
-  const toggleOne = (id: string) => {
+  /** Shift+click applies the clicked row's new state to every selectable row back to the anchor. */
+  const toggleOne = (id: string, shiftKey = false) => {
+    // Read the anchor now: the updater below runs at render time, by which point
+    // the assignment at the end of this function has already moved the anchor.
+    const anchor = anchorId.current;
     setSelectedIds((prev) => {
+      const select = !prev.has(id);
+      const ids =
+        shiftKey && anchor && anchor !== id ? rangeBetween(selectableIds, anchor, id) : [id];
+
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      ids.forEach((rowId) => (select ? next.add(rowId) : next.delete(rowId)));
       return next;
     });
+    anchorId.current = id;
   };
 
   const handleBulkDelete = async () => {
@@ -320,11 +342,11 @@ export function DataTable<T>({
                         className={isSelected ? 'bg-blue-50 dark:bg-blue-900/10' : ''}
                       >
                         {selectionEnabled && (
-                          <Table.Cell className="w-10 pl-4 pr-0">
-                            <span title={!rowSelectable ? bulkDelete?.blockedHint : undefined}>
+                          <Table.Cell className="w-10 pl-4 pr-0 select-none">
+                            <span title={rowSelectable ? RANGE_HINT : bulkDelete?.blockedHint}>
                               <SelectCheckbox
                                 checked={isSelected}
-                                onChange={() => toggleOne(id)}
+                                onChange={(shiftKey) => toggleOne(id, shiftKey)}
                                 disabled={!rowSelectable}
                                 label={`Seleccionar ${getRowLabel?.(row) ?? id}`}
                               />

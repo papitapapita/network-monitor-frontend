@@ -3,7 +3,8 @@
 interface SelectCheckboxProps {
   checked: boolean;
   indeterminate?: boolean;
-  onChange: () => void;
+  /** `shiftKey` is true when the user held Shift, so callers can extend a range. */
+  onChange: (shiftKey: boolean) => void;
   label?: string;
   disabled?: boolean;
 }
@@ -22,7 +23,9 @@ export function SelectCheckbox({
       aria-checked={indeterminate ? 'mixed' : checked}
       aria-label={label}
       disabled={disabled}
-      onClick={(e) => { e.stopPropagation(); onChange(); }}
+      // Shift+click otherwise extends the browser's text selection over the rows.
+      onMouseDown={(e) => { if (e.shiftKey) e.preventDefault(); }}
+      onClick={(e) => { e.stopPropagation(); onChange(e.shiftKey); }}
       className={`
         w-[18px] h-[18px] rounded border-2 flex items-center justify-center shrink-0
         transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
