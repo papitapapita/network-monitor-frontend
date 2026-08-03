@@ -23,6 +23,9 @@ export type {
   SortDirection,
 } from './DataTable';
 
+export { ColumnPicker, useColumnVisibility } from './ColumnPicker';
+export type { PickableColumn, ColumnVisibility } from './ColumnPicker';
+
 export { PageHeader } from './PageHeader';
 
 export { FilterBar } from './FilterBar';

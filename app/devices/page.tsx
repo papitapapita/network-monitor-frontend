@@ -3,21 +3,32 @@
 import React, { Suspense, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDevices } from '@/hooks/useDevices';
+import { useDeviceLookups } from '@/hooks/useCatalogs';
 import { DeviceFilters } from '@/components/devices/DeviceFilters';
-import { buildDeviceColumns } from '@/components/devices/deviceColumns';
+import {
+  buildDeviceColumns,
+  DEFAULT_DEVICE_COLUMNS,
+  DEVICE_COLUMN_OPTIONS,
+  LOOKUP_DEVICE_COLUMNS,
+} from '@/components/devices/deviceColumns';
 import { apiService } from '@/services/api.service';
 import {
   Button,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   LoadingSpinner,
   PageHeader,
+  sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
+
+const COLUMNS_STORAGE_KEY = 'nms:devices-columns';
 
 function DevicesPageContent() {
   const router = useRouter();
   const {
-    sortedDevices,
+    devices,
     pollingStatuses,
     isLoading,
     isFetching,
@@ -46,7 +57,22 @@ function DevicesPageContent() {
     PAGE_SIZE_OPTIONS,
   } = useDevices();
 
-  const columns = useMemo(() => buildDeviceColumns(pollingStatuses), [pollingStatuses]);
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_DEVICE_COLUMNS
+  );
+
+  const lookups = useDeviceLookups(LOOKUP_DEVICE_COLUMNS.some((k) => visibleKeys.includes(k)));
+
+  const columns = useMemo(
+    () => buildDeviceColumns({ pollingStatuses, lookups, visibleKeys }),
+    [pollingStatuses, lookups, visibleKeys]
+  );
+
+  const sortedDevices = useMemo(
+    () => sortRows(devices, columns, sortField, sortDirection),
+    [devices, columns, sortField, sortDirection]
+  );
 
   const deviceCountLabel =
     totalDevices > 0
@@ -61,7 +87,18 @@ function DevicesPageContent() {
         onRefresh={() => fetchDevices()}
         isRefreshing={isFetching}
         lastRefreshed={lastRefreshed}
-        actions={<Button onClick={() => router.push('/devices/create')}>Agregar Dispositivo</Button>}
+        actions={
+          <>
+            <ColumnPicker
+              columns={DEVICE_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
+            <Button onClick={() => router.push('/devices/create')}>Agregar Dispositivo</Button>
+          </>
+        }
       />
 
       <DeviceFilters

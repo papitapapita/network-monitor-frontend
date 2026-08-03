@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
@@ -31,4 +33,45 @@ export async function fetchAllLocations(): Promise<LocationResponseDTO[]> {
     offset += PAGE_SIZE;
   }
   return all;
+}
+
+/** Ids the device list only carries as references, resolved to readable names. */
+export interface DeviceLookups {
+  modelNames: Record<string, string>;
+  locationNames: Record<string, string>;
+}
+
+/**
+ * Model and location names for the optional devices-table columns. Only fetched
+ * while one of those columns is visible, so the usual table costs nothing.
+ *
+ * Shares the `['deviceModels']` and `['locations']` caches with the pages that
+ * list them, so a model created elsewhere shows up here through the same
+ * invalidation.
+ */
+export function useDeviceLookups(enabled: boolean): DeviceLookups {
+  const { data: models } = useQuery({
+    queryKey: ['deviceModels'],
+    queryFn: fetchAllDeviceModels,
+    enabled,
+  });
+  const { data: locations } = useQuery({
+    queryKey: ['locations'],
+    queryFn: fetchAllLocations,
+    enabled,
+  });
+
+  return useMemo(() => {
+    const modelNames: Record<string, string> = {};
+    models?.forEach((m) => {
+      modelNames[m.id] = `${m.vendorName} ${m.model}`;
+    });
+
+    const locationNames: Record<string, string> = {};
+    locations?.forEach((l) => {
+      locationNames[l.id] = l.name;
+    });
+
+    return { modelNames, locationNames };
+  }, [models, locations]);
 }

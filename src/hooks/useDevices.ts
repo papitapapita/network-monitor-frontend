@@ -152,56 +152,10 @@ export function useDevices() {
     }
   };
 
-  const CONNECTIVITY_ORDER: Record<string, number> = { ONLINE: 0, OFFLINE: 1, UNKNOWN: 2 };
-
-  const sortedDevices = sortField
-    ? [...devices].sort((a, b) => {
-        if (sortField === 'connectivity') {
-          const aOrder = a.monitoringEnabled
-            ? (CONNECTIVITY_ORDER[pollingStatuses[a.id]] ?? 2)
-            : 3;
-          const bOrder = b.monitoringEnabled
-            ? (CONNECTIVITY_ORDER[pollingStatuses[b.id]] ?? 2)
-            : 3;
-          if (aOrder === 3 && bOrder === 3) return 0;
-          if (aOrder === 3) return 1;
-          if (bOrder === 3) return -1;
-          const cmp = aOrder - bOrder;
-          return sortDirection === 'asc' ? cmp : -cmp;
-        }
-
-        let aVal: string;
-        let bVal: string;
-        if (sortField === 'name') {
-          aVal = a.name.toLowerCase();
-          bVal = b.name.toLowerCase();
-        } else if (sortField === 'status') {
-          aVal = a.status;
-          bVal = b.status;
-        } else if (sortField === 'category') {
-          aVal = a.category ?? '';
-          bVal = b.category ?? '';
-        } else if (sortField === 'owner') {
-          aVal = a.ownerType ?? '';
-          bVal = b.ownerType ?? '';
-        } else if (sortField === 'ip') {
-          const toNum = (ip: string) =>
-            ip.split('.').reduce((acc, octet) => acc * 256 + parseInt(octet, 10), 0);
-          const aIp = a.ipAddress ?? '';
-          const bIp = b.ipAddress ?? '';
-          const cmpIp = toNum(aIp) - toNum(bIp);
-          return sortDirection === 'asc' ? cmpIp : -cmpIp;
-        } else {
-          return 0;
-        }
-        const cmp = aVal.localeCompare(bVal);
-        return sortDirection === 'asc' ? cmp : -cmp;
-      })
-    : devices;
-
   return {
+    // The page orders these itself with `sortRows`, so each column carries its
+    // own `sortValue` and a new column becomes sortable without touching this hook.
     devices,
-    sortedDevices,
     pollingStatuses,
     isLoading: isLoading,
     isFetching,
