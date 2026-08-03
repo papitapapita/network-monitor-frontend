@@ -4,6 +4,8 @@ import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
+/** The list endpoint has no search param, so the page fetches all and filters client-side. */
+import { fetchAllLocations } from '@/hooks/useCatalogs';
 import { LocationResponseDTO } from '@/types/location.types';
 import {
   LOCATION_TYPE_LABELS,
@@ -80,21 +82,6 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
     cell: (l) => <span className="block truncate">{l.address ?? '—'}</span>,
   },
 ];
-
-/** The list endpoint has no search param, so the page filters client-side. */
-async function fetchAllLocations(): Promise<LocationResponseDTO[]> {
-  const all: LocationResponseDTO[] = [];
-  let offset = 0;
-  let hasMore = true;
-  while (hasMore) {
-    const r = await apiService.listLocations({ limit: 100, offset });
-    if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar las ubicaciones');
-    all.push(...r.data.locations);
-    hasMore = r.data.hasMore;
-    offset += 100;
-  }
-  return all;
-}
 
 export default function LocationsPage() {
   const router = useRouter();

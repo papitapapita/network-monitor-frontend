@@ -4,6 +4,7 @@ import React, { useMemo, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
+import { fetchAllDeviceModels } from '@/hooks/useCatalogs';
 import { DeviceModelResponseDTO, DeviceType } from '@/types/device.types';
 import {
   Badge,
@@ -38,24 +39,6 @@ const DEVICE_TYPE_OPTIONS = [
     .map(([value, label]) => ({ value, label }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es')),
 ];
-
-async function fetchAllModels(): Promise<DeviceModelResponseDTO[]> {
-  const batches: DeviceModelResponseDTO[] = [];
-  let offset = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    const result = await apiService.listDeviceModels({ limit: 100, offset });
-    if (!result.success || !result.data) {
-      throw new Error(result.error || 'Error al cargar modelos');
-    }
-    batches.push(...result.data.deviceModels);
-    hasMore = result.data.hasMore;
-    offset += 100;
-  }
-
-  return batches;
-}
 
 const columns: DataTableColumn<DeviceModelResponseDTO>[] = [
   {
@@ -95,7 +78,7 @@ function DeviceModelsPageContent() {
     dataUpdatedAt,
   } = useQuery({
     queryKey: ['deviceModels'],
-    queryFn: fetchAllModels,
+    queryFn: fetchAllDeviceModels,
   });
 
   const hasFilters = !!(search || typeFilter);
