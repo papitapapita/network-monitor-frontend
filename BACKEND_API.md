@@ -51,8 +51,8 @@ Missing or invalid tokens return `401`. Insufficient role returns `403`.
 | Operation type | Limit |
 |----------------|-------|
 | Read (`GET`) | 100 / min |
-| Write (`POST`, `PATCH`, `PUT`) | 20 / min |
-| Delete (`DELETE`) | 10 / min |
+| Write (`POST`, `PATCH`, `PUT`) | 60 / min |
+| Delete (`DELETE`) | 60 / min |
 | Bulk import | 5 / hr |
 
 ---
