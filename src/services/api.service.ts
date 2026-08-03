@@ -114,11 +114,11 @@ class ApiService {
       }
 
       if (response.status === 403) {
-        return { success: false, error: 'No tienes permisos suficientes para realizar esta acción.' };
+        return { success: false, status: 403, error: 'No tienes permisos suficientes para realizar esta acción.' };
       }
 
       if (response.status === 429) {
-        return { success: false, error: 'Demasiadas solicitudes. Por favor espera un momento e inténtalo de nuevo.' };
+        return { success: false, status: 429, error: 'Demasiadas solicitudes. Por favor espera un momento e inténtalo de nuevo.' };
       }
 
       if (response.status === 401) {
@@ -128,7 +128,7 @@ class ApiService {
           localStorage.removeItem('nms_user');
           window.dispatchEvent(new Event('nms:unauthorized'));
         }
-        return { success: false, error: 'Sesión expirada. Por favor inicia sesión nuevamente.' };
+        return { success: false, status: 401, error: 'Sesión expirada. Por favor inicia sesión nuevamente.' };
       }
 
       const data = await response.json();
@@ -140,10 +140,11 @@ class ApiService {
           const detail = data.details
             .map((d: { field?: string; message?: string }) => d.field ? `${d.field}: ${d.message}` : d.message)
             .join('; ');
-          return { success: false, error: detail };
+          return { success: false, status: response.status, error: detail };
         }
         return {
           success: false,
+          status: response.status,
           error: data.error || data.message || `HTTP ${response.status}: ${response.statusText}`
         };
       }
