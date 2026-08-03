@@ -146,6 +146,55 @@ test.describe('devices', () => {
   });
 });
 
+test.describe('devices table columns', () => {
+  /** Opens the "Columnas" dropdown and toggles one entry. */
+  async function toggleColumn(page: import('@playwright/test').Page, label: string) {
+    await page.getByRole('button', { name: 'Columnas' }).click();
+    await page.getByRole('menuitemcheckbox', { name: label, exact: true }).click();
+    await page.keyboard.press('Escape');
+  }
+
+  test('adds an optional column and sorts by it', async ({ page, api }) => {
+    const mac = uniqueMac();
+    const { device } = await arrangeDevice(api, { macAddress: mac });
+
+    await page.goto('/devices');
+    await expect(page.getByRole('columnheader', { name: 'Dirección MAC' })).toHaveCount(0);
+
+    await toggleColumn(page, 'Dirección MAC');
+
+    await expect(page.getByRole('columnheader', { name: 'Dirección MAC' })).toBeVisible();
+    await searchFor(page, device.name);
+    await expect(page.getByRole('row').filter({ hasText: device.name })).toContainText(mac);
+
+    // The added column sorts like any other: alphabetically on the first click,
+    // reversed on the second.
+    const macCells = page.locator('tbody tr td:last-child');
+    await field(page, 'Buscar').fill('');
+    await page.getByRole('columnheader', { name: 'Dirección MAC' }).click();
+    const ascending = (await macCells.allInnerTexts()).filter((t) => t !== '—');
+    expect(ascending).toEqual([...ascending].sort());
+
+    await page.getByRole('columnheader', { name: 'Dirección MAC' }).click();
+    const descending = (await macCells.allInnerTexts()).filter((t) => t !== '—');
+    expect(descending).toEqual([...ascending].reverse());
+  });
+
+  test('remembers the chosen columns and restores the defaults', async ({ page }) => {
+    await page.goto('/devices');
+    await toggleColumn(page, 'Número de serie');
+    await expect(page.getByRole('columnheader', { name: 'Número de serie' })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole('columnheader', { name: 'Número de serie' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Columnas' }).click();
+    await page.getByRole('menuitem', { name: 'Restablecer' }).click();
+    await expect(page.getByRole('columnheader', { name: 'Número de serie' })).toHaveCount(0);
+    await expect(page.getByRole('columnheader', { name: 'Nombre' })).toBeVisible();
+  });
+});
+
 test.describe('device credentials', () => {
   /** Opens a device's Credenciales tab. */
   async function openCredentials(page: import('@playwright/test').Page, deviceId: string) {
