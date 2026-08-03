@@ -8,6 +8,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 import { ConfirmModal } from './Modal';
 import { ErrorBanner } from './ErrorBanner';
 import { ApiResponse } from '@/types/common.types';
+import { BulkDeleteProgress, runBulkDelete } from '@/services/bulk-delete';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -140,6 +141,15 @@ function countLabel(n: number, entity: EntityNoun): string {
   return `${n} ${n === 1 ? entity.singular : entity.plural}`;
 }
 
+/** What the confirmation says once the batch is running, including any rate-limit wait. */
+function progressMessage(progress: BulkDeleteProgress, entity: EntityNoun): string {
+  const { done, total, retryAt } = progress;
+  const head = `Eliminando ${done} de ${countLabel(total, entity)}...`;
+  if (retryAt === null) return head;
+  const seconds = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+  return `${head} El servidor limitó el ritmo de eliminación; se reanuda en ${seconds} s.`;
+}
+
 function selectedLabel(n: number, entity: EntityNoun): string {
   const suffix = entity.gender === 'f' ? 'seleccionada' : 'seleccionado';
   return `${n} ${suffix}${n === 1 ? '' : 's'}`;
@@ -163,6 +173,7 @@ export function DataTable<T>({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [progress, setProgress] = useState<BulkDeleteProgress | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -207,29 +218,39 @@ export function DataTable<T>({
 
     setIsDeleting(true);
     setDeleteError(null);
+    setProgress({ done: 0, total: ids.length, retryAt: null });
     try {
-      const results = await Promise.all(ids.map((id) => bulkDelete.deleteOne(id)));
-      const failed = results.filter((r) => !r.success);
+      const { deleted, failed, rateLimited } = await runBulkDelete(
+        ids,
+        bulkDelete.deleteOne,
+        setProgress
+      );
 
       if (failed.length === 0) {
         setSelectedIds(new Set());
       } else {
-        const firstError = failed[0].error ?? 'Error desconocido';
-        const deleted = ids.length - failed.length;
+        // A run stopped by the rate limit is not a per-row failure: say what is
+        // left and that waiting fixes it, rather than repeating the 429 prose.
+        const throttleNote = `Quedan ${countLabel(rateLimited.length, bulkDelete.entity)} sin eliminar por el límite de solicitudes del servidor. Espera un minuto y vuelve a intentarlo — la selección se conservó.`;
+        const allRateLimited = rateLimited.length === failed.length;
         setDeleteError(
           deleted === 0
-            ? firstError
-            : `Se eliminaron ${countLabel(deleted, bulkDelete.entity)} de ${ids.length}. Error: ${firstError}`
+            ? allRateLimited
+              ? throttleNote
+              : failed[0].error
+            : `Se eliminaron ${countLabel(deleted, bulkDelete.entity)} de ${ids.length}. ${
+                allRateLimited ? throttleNote : `Error: ${failed[0].error}`
+              }`
         );
         // Keep only the rows that could not be deleted selected.
-        const failedIds = ids.filter((_, i) => !results[i].success);
-        setSelectedIds(new Set(failedIds));
+        setSelectedIds(new Set(failed.map((f) => f.id)));
       }
     } catch {
       setDeleteError(`Error al eliminar ${bulkDelete.entity.plural}`);
     } finally {
       setShowConfirm(false);
       setIsDeleting(false);
+      setProgress(null);
       await bulkDelete.onFinished?.();
     }
   };
@@ -383,7 +404,11 @@ export function DataTable<T>({
           onClose={() => setShowConfirm(false)}
           onConfirm={handleBulkDelete}
           title={`Eliminar ${bulkDelete.entity.plural}`}
-          message={`¿Estás seguro de que deseas eliminar ${countLabel(selectedCount, bulkDelete.entity)}? Esta acción no se puede deshacer.`}
+          message={
+            progress
+              ? progressMessage(progress, bulkDelete.entity)
+              : `¿Estás seguro de que deseas eliminar ${countLabel(selectedCount, bulkDelete.entity)}? Esta acción no se puede deshacer.`
+          }
           confirmText="Eliminar"
           cancelText="Cancelar"
           variant="danger"
