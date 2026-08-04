@@ -260,8 +260,11 @@ test.describe('vendor conventions', () => {
     await page.getByRole('button', { name: 'Crear Fabricante' }).click();
 
     // Nothing client-side knows about this collision, so this only passes if
-    // the request reached the backend and the response came back translated.
-    await expect(page.getByText(`Ya existe un fabricante con el slug "${existing.slug}"`)).toBeVisible();
+    // the request reached the backend and the response came back translated —
+    // twice over: in the banner, and under the slug input that has to change.
+    const taken = page.getByText(`Ya existe un fabricante con el slug "${existing.slug}"`);
+    await expect(taken.first()).toBeVisible();
+    await expect(taken).toHaveCount(2);
     await expect(page).toHaveURL(/\/vendors\/create$/);
   });
 
