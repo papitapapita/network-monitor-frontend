@@ -69,6 +69,37 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
 
   const wirelessMismatch = isWirelessCategory(formData.category) && !!selectedModel && !selectedModel.isWireless;
 
+  /**
+   * A model can be marked non-wireless while devices built on it keep a
+   * wireless category — the backend leaves those devices alone, and the
+   * combination is legal, just inert: no wireless config can be created for it.
+   * So a mismatch the device arrived with is reported, not refused; only one
+   * this edit would introduce still blocks the save.
+   */
+  const inheritedMismatch =
+    wirelessMismatch &&
+    formData.category === (device.category ?? '') &&
+    formData.deviceModelId === device.deviceModelId;
+
+  // The wireless config's radio mode is derived from the category when the
+  // config is created, so while one exists the backend refuses to change the
+  // category at all — offer it read-only rather than letting the save fail.
+  // Holds the device the answer is about, so a stale "yes" cannot outlive it.
+  const [configuredDeviceId, setConfiguredDeviceId] = useState<string | null>(null);
+  const hasWirelessConfig = configuredDeviceId === device.id;
+
+  useEffect(() => {
+    // Only those two categories can hold a config, so nothing else is worth asking about.
+    if (!isWirelessCategory(device.category)) return;
+    let cancelled = false;
+    apiService.getWirelessConfig(device.id).then((r) => {
+      // Deleting the config happens on the wireless tab, which unmounts this
+      // one — so coming back re-asks, and a stale lock cannot survive.
+      if (!cancelled && r.success && r.data) setConfiguredDeviceId(device.id);
+    });
+    return () => { cancelled = true; };
+  }, [device.id, device.category]);
+
   useEffect(() => {
     apiService.listLocations({ limit: 100 }).then((r) => {
       if (r.success && r.data) setLocations(r.data.locations);
@@ -123,7 +154,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     if (canEditModel && !formData.deviceModelId) {
       errors.deviceModelId = 'El modelo es requerido';
     }
-    if (wirelessMismatch) {
+    if (wirelessMismatch && !inheritedMismatch) {
       const message = `Esta categoría requiere un modelo inalámbrico, pero «${selectedModel?.model}» no lo es`;
       if (canEditModel) errors.deviceModelId = message;
       else errors.category = message;
@@ -184,31 +215,20 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       monitoringEnabled: formData.monitoringEnabled
     };
 
-    // Backend validates current locationId before applying the update, so activating a device
-    // that has no location while simultaneously assigning one requires two sequential requests.
-    const needsTwoSteps =
-      !device.locationId &&
-      !!dto.locationId &&
-      dto.status === 'ACTIVE';
-
-    let result;
-    if (needsTwoSteps) {
-      const locationResult = await apiService.updateDevice(device.id, { locationId: dto.locationId });
-      if (!locationResult.success) {
-        setError(locationResult.error || 'Error al actualizar el dispositivo');
-        setIsSaving(false);
-        return;
-      }
-      result = await apiService.updateDevice(device.id, dto);
-    } else {
-      result = await apiService.updateDevice(device.id, dto);
-    }
+    // The backend checks the whole request as one end state, so assigning a
+    // location and activating the device travel together — and if the result
+    // would break a rule, nothing at all is applied.
+    const result = await apiService.updateDevice(device.id, dto);
 
     if (result.success && result.data) {
-      if (formData.monitoringEnabled !== device.monitoringEnabled) {
+      // Turning monitoring off is finished by the PATCH above — the backend
+      // stops polling and keeps the config's settings for a later resume.
+      // Turning it on is not: the scheduler needs a config to exist, and POST
+      // upserts one without disturbing an interval already stored.
+      if (formData.monitoringEnabled && !device.monitoringEnabled) {
         await apiService.createPollingConfig(device.id, {
-          enabled: formData.monitoringEnabled,
-          ...(formData.monitoringEnabled ? { ipAddress: dto.ipAddress } : {})
+          enabled: true,
+          ipAddress: dto.ipAddress,
         });
       }
       onDeviceUpdated(result.data);
@@ -333,15 +353,37 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 options={DEVICE_STATUS_OPTIONS}
                 fullWidth
               />
-              <Select
-                label="Categoría"
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                options={DEVICE_CATEGORY_OPTIONS}
-                error={formErrors.category}
-                fullWidth
-              />
+              {hasWirelessConfig ? (
+                <div>
+                  <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría</span>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 py-2">
+                    {deviceCategoryLabel(device.category)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Fijada por la configuración inalámbrica: elimínela en la pestaña «Inalámbrico»
+                    para poder recategorizar el dispositivo.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <Select
+                    label="Categoría"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    options={DEVICE_CATEGORY_OPTIONS}
+                    error={formErrors.category}
+                    fullWidth
+                  />
+                  {inheritedMismatch && !formErrors.category && (
+                    <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-500">
+                      «{selectedModel?.model}» ya no es un modelo inalámbrico, así que este
+                      dispositivo no puede tener configuración inalámbrica. Puede guardarlo así
+                      o elegir otra categoría.
+                    </p>
+                  )}
+                </div>
+              )}
               <Input label="Dirección IP" name="ipAddress" value={formData.ipAddress} onChange={handleChange} error={formErrors.ipAddress} fullWidth />
               <Input label="Dirección MAC" name="macAddress" value={formData.macAddress} onChange={handleChange} error={formErrors.macAddress} fullWidth />
               <Input label="Número de Serie" name="serialNumber" value={formData.serialNumber} onChange={handleChange} error={formErrors.serialNumber} maxLength={100} fullWidth />

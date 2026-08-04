@@ -35,7 +35,7 @@ export const normalizeMacAddress = (value: string): string =>
  * and name the field it belongs to, so a form can mark the offending input.
  */
 export type DeviceConflict = {
-  field: 'macAddress' | 'ipAddress' | 'serialNumber' | 'locationId' | null;
+  field: 'macAddress' | 'ipAddress' | 'serialNumber' | 'locationId' | 'deviceModelId' | 'category' | null;
   message: string;
 };
 
@@ -116,6 +116,10 @@ export function translateDeviceConflict(error: string): DeviceConflict | null {
   return null;
 }
 
+/** Shown wherever the category is offered for editing, not only after a refusal. */
+export const CATEGORY_LOCKED_MESSAGE =
+  'La categoría decide el modo de radio de la configuración inalámbrica, así que no puede cambiarse mientras esa configuración exista. Elimínela en la pestaña «Inalámbrico» y vuelva a crearla después de recategorizar.';
+
 /**
  * The status invariants the backend checks on create and update. Every form
  * here checks them first, so these only surface when the device changed under
@@ -150,6 +154,30 @@ export function translateDeviceInvariant(error: string): DeviceConflict | null {
       field: null,
       message: 'El monitoreo solo puede habilitarse en dispositivos activos o en comisionamiento',
     };
+  }
+
+  // Correcting a mis-registered model is only allowed while nothing has been
+  // polled yet, so the reading history cannot end up on the wrong hardware.
+  const modelLocked = error.match(
+    /^Cannot change the device model of a device with status (\w+)/
+  );
+  if (modelLocked) {
+    const status = DEVICE_STATUS_LABELS[modelLocked[1] as DeviceStatus] ?? modelLocked[1];
+    return {
+      field: 'deviceModelId',
+      message: `El modelo solo puede corregirse mientras el dispositivo está en inventario; este está en «${status}»`,
+    };
+  }
+
+  const modelMissing = error.match(/^Device model not found: /);
+  if (modelMissing) {
+    return { field: 'deviceModelId', message: 'El modelo seleccionado ya no existe' };
+  }
+
+  // The wireless config's radio mode was derived from the category when it was
+  // created, so the category is frozen for as long as that config exists.
+  if (error.startsWith('Cannot change the category of a device that has a wireless config')) {
+    return { field: 'category', message: CATEGORY_LOCKED_MESSAGE };
   }
 
   return null;
