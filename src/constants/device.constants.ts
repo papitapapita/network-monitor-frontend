@@ -35,9 +35,26 @@ export const normalizeMacAddress = (value: string): string =>
  * and name the field it belongs to, so a form can mark the offending input.
  */
 export type DeviceConflict = {
-  field: 'macAddress' | 'ipAddress' | null;
+  field: 'macAddress' | 'ipAddress' | 'serialNumber' | 'locationId' | null;
   message: string;
 };
+
+/**
+ * A device the network cannot reach is tracked by what is written on the box,
+ * so the backend requires a serial number or a MAC for these two statuses —
+ * on create and on update alike, whether or not an IP happens to be recorded.
+ */
+export const requiresIdentifier = (status: DeviceStatus | '' | null | undefined): boolean =>
+  status === 'INVENTORY' || status === 'DAMAGED';
+
+/** Shown under the serial-number input, the field the operator is likeliest to fill. */
+export const MISSING_IDENTIFIER_MESSAGE = 'Se requiere número de serie o dirección MAC';
+
+/** The same rule stated after the fact, once a status is known — for a rejected write. */
+export const missingIdentifierError = (status: DeviceStatus): DeviceConflict => ({
+  field: 'serialNumber',
+  message: `Un dispositivo en estado «${DEVICE_STATUS_LABELS[status] ?? status}» debe tener al menos un número de serie o una dirección MAC`,
+});
 
 export const duplicateMacError = (mac: string): DeviceConflict => ({
   field: 'macAddress',
@@ -61,6 +78,45 @@ export function translateDeviceConflict(error: string): DeviceConflict | null {
   // won the race — it doesn't say which of the two columns collided.
   if (error === 'A device with this MAC address or IP address already exists') {
     return { field: null, message: 'Ya existe un dispositivo con esta dirección MAC o dirección IP' };
+  }
+
+  return null;
+}
+
+/**
+ * The status invariants the backend checks on create and update. Every form
+ * here checks them first, so these only surface when the device changed under
+ * the operator or a form let something through — either way the answer arrives
+ * in English, so restate it in the UI language and name the input that fixes it.
+ * Returns null for anything else, so callers keep the original error.
+ */
+export function translateDeviceInvariant(error: string): DeviceConflict | null {
+  const identifier = error.match(
+    /^A device with status (\w+) must have at least a serial number or MAC address$/
+  );
+  if (identifier) return missingIdentifierError(identifier[1] as DeviceStatus);
+
+  const missingIp = error.match(/^An? (ACTIVE|COMMISSIONING) device must have an IP address assigned$/);
+  if (missingIp) {
+    const status = DEVICE_STATUS_LABELS[missingIp[1] as DeviceStatus] ?? missingIp[1];
+    return {
+      field: 'ipAddress',
+      message: `Un dispositivo en estado «${status}» debe tener una dirección IP asignada`,
+    };
+  }
+
+  if (error === 'An ACTIVE device must have a location assigned') {
+    return {
+      field: 'locationId',
+      message: 'Un dispositivo activo debe tener una ubicación asignada',
+    };
+  }
+
+  if (error === 'Monitoring can only be enabled for ACTIVE or COMMISSIONING devices') {
+    return {
+      field: null,
+      message: 'El monitoreo solo puede habilitarse en dispositivos activos o en comisionamiento',
+    };
   }
 
   return null;

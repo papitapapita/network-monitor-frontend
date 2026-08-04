@@ -23,7 +23,7 @@ import {
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, deviceCategoryLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier } from '@/constants/device.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -93,8 +93,11 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       // Polling needs a target address: clearing the IP turns monitoring off.
       ...(name === 'ipAddress' && !value.trim() ? { monitoringEnabled: false } : {}),
     }));
-    if (formErrors[name]) {
-      setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
+    // Either identifier satisfies the inventory rule, and the message for it
+    // sits on the serial number — so typing a MAC has to clear it too.
+    const cleared = name === 'macAddress' ? [name, 'serialNumber'] : [name];
+    if (cleared.some((f) => formErrors[f])) {
+      setFormErrors((prev) => { const n = { ...prev }; for (const f of cleared) delete n[f]; return n; });
     }
   };
 
@@ -150,9 +153,9 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     if (formData.serialNumber.trim().length > 100) {
       errors.serialNumber = 'El número de serie no puede superar los 100 caracteres';
     }
-    if (!errors.serialNumber && !hasIp && (status === 'INVENTORY' || status === 'DAMAGED')) {
+    if (!errors.serialNumber && requiresIdentifier(status)) {
       if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
-        errors.serialNumber = 'Se requiere número de serie o dirección MAC';
+        errors.serialNumber = MISSING_IDENTIFIER_MESSAGE;
       }
     }
 

@@ -43,7 +43,9 @@ import {
   DeviceConflict,
   duplicateIpError,
   duplicateMacError,
+  missingIdentifierError,
   normalizeMacAddress,
+  requiresIdentifier,
 } from '../constants/device.constants';
 import {
   CustomerDTO,
@@ -131,6 +133,18 @@ function findDeviceConflict(
   return null;
 }
 
+/**
+ * An INVENTORY or DAMAGED device must carry a serial number or a MAC — the
+ * backend refuses the write otherwise, so mock mode has to as well. Takes the
+ * device as it would stand after the write, since an update can drop the last
+ * identifier it had or move it into a status that demands one.
+ */
+function findMissingIdentifier(next: DeviceResponseDTO): DeviceConflict | null {
+  return requiresIdentifier(next.status) && !next.serialNumber && !next.macAddress
+    ? missingIdentifierError(next.status)
+    : null;
+}
+
 function paginate<T>(items: T[], limit = 20, offset = 0): { items: T[]; total: number } {
   return { items: items.slice(offset, offset + limit), total: items.length };
 }
@@ -160,6 +174,9 @@ class MockApiService {
       createdAt: now,
       updatedAt: now,
     };
+    const missing = findMissingIdentifier(device);
+    if (missing) return conflict(missing);
+
     devices = [device, ...devices];
     return ok(device);
   }
@@ -211,6 +228,9 @@ class MockApiService {
     if (taken) return conflict(taken);
 
     const updated = { ...devices[idx], ...data, updatedAt: new Date().toISOString() };
+    const missing = findMissingIdentifier(updated);
+    if (missing) return conflict(missing);
+
     devices[idx] = updated;
     return ok(updated);
   }

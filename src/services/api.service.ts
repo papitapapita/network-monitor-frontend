@@ -48,7 +48,7 @@ import {
   UpdateWirelessConfigDTO,
 } from '../types/wireless.types';
 import { ApiResponse } from '../types/common.types';
-import { translateDeviceConflict } from '../constants/device.constants';
+import { translateDeviceConflict, translateDeviceInvariant } from '../constants/device.constants';
 import { LoginResponseDTO } from '../types/auth.types';
 import {
   CustomerDTO,
@@ -226,13 +226,15 @@ class ApiService {
   }
 
   // The backend replies in English when a MAC or IP is already taken by another
-  // device; the rest of this UI is in Spanish, so surface the same fact in that
-  // language and tag the field it belongs to.
+  // device, and likewise when a status invariant is broken (an INVENTORY or
+  // DAMAGED device without a serial number or MAC, an ACTIVE one without an IP
+  // or location). The rest of this UI is in Spanish, so surface the same fact in
+  // that language and tag the field it belongs to.
   private translateDeviceError<T>(result: ApiResponse<T>): ApiResponse<T> {
     if (!result.success && result.error) {
-      const conflict = translateDeviceConflict(result.error);
-      if (conflict) {
-        return { success: false, error: conflict.message, errorField: conflict.field ?? undefined };
+      const translated = translateDeviceConflict(result.error) ?? translateDeviceInvariant(result.error);
+      if (translated) {
+        return { success: false, error: translated.message, errorField: translated.field ?? undefined };
       }
     }
     return result;

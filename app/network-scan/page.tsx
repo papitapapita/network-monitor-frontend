@@ -27,7 +27,7 @@ import {
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { isValidMacAddress, normalizeMacAddress, DEVICE_CATEGORY_OPTIONS } from '@/constants/device.constants';
+import { isValidMacAddress, normalizeMacAddress, requiresIdentifier, DEVICE_CATEGORY_OPTIONS, MISSING_IDENTIFIER_MESSAGE } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 
 function isValidCidr(value: string): boolean {
@@ -145,7 +145,12 @@ function AddDeviceModal({
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    if (errors[name]) setErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
+    // Either identifier satisfies the inventory rule, and the message for it
+    // sits on the serial number — so typing a MAC has to clear it too.
+    const cleared = name === 'macAddress' ? [name, 'serialNumber'] : [name];
+    if (cleared.some((f) => errors[f])) {
+      setErrors((prev) => { const n = { ...prev }; for (const f of cleared) delete n[f]; return n; });
+    }
   };
 
   const validate = () => {
@@ -159,6 +164,14 @@ function AddDeviceModal({
     }
     if (form.serialNumber.trim().length > 100) {
       e.serialNumber = 'El número de serie no puede superar los 100 caracteres';
+    } else if (
+      requiresIdentifier(form.status || 'ACTIVE') &&
+      !form.serialNumber.trim() &&
+      !form.macAddress.trim()
+    ) {
+      // The scan supplies an IP, and often a MAC — but a host that answered
+      // ping without one still needs an identifier to be filed as inventory.
+      e.serialNumber = MISSING_IDENTIFIER_MESSAGE;
     }
     if (form.description.trim().length > 500) {
       e.description = 'La descripción no puede superar los 500 caracteres';

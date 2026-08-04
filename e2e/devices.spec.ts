@@ -131,6 +131,26 @@ test.describe('devices', () => {
     await expect(page.getByText(/already assigned/)).toHaveCount(0);
   });
 
+  test('keeps an inventory device from losing its last identifier', async ({ page, api }) => {
+    // The IP is the trap: an INVENTORY device needs a serial number or a MAC
+    // whatever else it holds, and the backend states that rule in English.
+    const { device } = await arrangeDevice(api, { ipAddress: '192.168.77.20' });
+
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Editar' }).click();
+    await field(page, 'Número de Serie').fill('');
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+
+    await expect(page.getByText('Se requiere número de serie o dirección MAC')).toBeVisible();
+    await expect(page.getByText(/must have at least a serial number/)).toHaveCount(0);
+
+    // A MAC answers the same rule, so filling one clears the complaint.
+    await field(page, 'Dirección MAC').fill(uniqueMac());
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+    await expect(page.getByText('Se requiere número de serie o dirección MAC')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Editar' })).toBeVisible();
+  });
+
   test('deletes a device', async ({ page, api }) => {
     const { device } = await arrangeDevice(api);
 

@@ -109,7 +109,7 @@ export const MOCK_DEVICES: DeviceResponseDTO[] = [
   {
     id: 'dev-9', name: 'Switch-Spare-01', status: 'INVENTORY', category: null,
     ownerType: 'COMPANY', deviceModelId: 'dm-5', locationId: 'loc-5',
-    ipAddress: null, macAddress: null, serialNumber: null,
+    ipAddress: null, macAddress: null, serialNumber: 'MT-CSS-SPARE-01',
     monitoringEnabled: false, description: 'Spare unit in warehouse',
     installedDate: null, createdAt: daysAgo(14), updatedAt: daysAgo(14),
   },

@@ -15,7 +15,7 @@ import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Textarea, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, isWirelessCategory, isValidIpAddress, isValidMacAddress } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 
 
@@ -89,8 +89,11 @@ export default function CreateDevicePage() {
       // Polling needs a target address: clearing the IP turns monitoring off.
       ...(name === 'ipAddress' && !value.trim() ? { monitoringEnabled: false } : {}),
     }));
-    if (formErrors[name]) {
-      setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
+    // Either identifier satisfies the inventory rule, and the message for it
+    // sits on the serial number — so typing a MAC has to clear it too.
+    const cleared = name === 'macAddress' ? [name, 'serialNumber'] : [name];
+    if (cleared.some((f) => formErrors[f])) {
+      setFormErrors((prev) => { const n = { ...prev }; for (const f of cleared) delete n[f]; return n; });
     }
   };
 
@@ -147,9 +150,9 @@ export default function CreateDevicePage() {
       const failures = validateFailuresBeforeDown(formData.pollingFailuresBeforeDown);
       if (failures) errors.pollingFailuresBeforeDown = failures;
     }
-    if (!errors.serialNumber && (status === 'INVENTORY' || status === 'DAMAGED')) {
+    if (!errors.serialNumber && requiresIdentifier(status)) {
       if (!formData.serialNumber.trim() && !formData.macAddress.trim()) {
-        errors.serialNumber = 'Se requiere número de serie o dirección MAC';
+        errors.serialNumber = MISSING_IDENTIFIER_MESSAGE;
       }
     }
 
