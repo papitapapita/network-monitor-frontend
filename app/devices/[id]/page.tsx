@@ -191,7 +191,7 @@ export default function DeviceDetailPage() {
       )}
 
       {currentTab === 'polling' && (
-        <DevicePollingTab deviceId={deviceId} deviceIpAddress={device.ipAddress} />
+        <DevicePollingTab device={device} onDeviceUpdated={setDevice} />
       )}
 
       {currentTab === 'wireless' && (

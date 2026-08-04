@@ -24,6 +24,8 @@ import {
   validateIntervalSeconds,
   validateFailuresBeforeDown,
 } from '@/constants/polling.constants';
+import { canEnableMonitoring, monitoringBlockedReason } from '@/constants/device.constants';
+import { DeviceResponseDTO } from '@/types/device.types';
 
 function toISOWithOffset(dateStr: string, endOfDay = false): string {
   const time = endOfDay ? 'T23:59:59' : 'T00:00:00';
@@ -60,13 +62,15 @@ export function validatePollingConfigForm(form: {
 }
 
 interface Props {
-  deviceId: string;
-  deviceIpAddress: string | null;
+  device: DeviceResponseDTO;
+  /** Enabling monitoring writes to the device, so the page's copy has to catch up. */
+  onDeviceUpdated: (device: DeviceResponseDTO) => void;
 }
 
-export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
+export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
+  const deviceId = device.id;
   // Polling targets the device IP, so nothing can be configured or triggered without one.
-  const hasIp = !!deviceIpAddress;
+  const hasIp = !!device.ipAddress;
 
   // ── Status ────────────────────────────────────────────────
   const [pollingStatus, setPollingStatus] = useState<PollingStatusDTO | null>(null);
@@ -75,6 +79,23 @@ export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
   const [noConfig, setNoConfig] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollResult, setPollResult] = useState<ManualPollResultDTO | null>(null);
+  const [isEnabling, setIsEnabling] = useState(false);
+
+  /**
+   * Nothing is being polled — the device flag is off, there is no polling config
+   * at all, or the config exists but is disabled. The three differ only in how
+   * they got there, so the tab reports one state: no monitoring, no schedule,
+   * and an unknown connectivity status rather than a reading left over from
+   * whenever monitoring was last on.
+   */
+  const monitoringOff =
+    !device.monitoringEnabled || noConfig || pollingStatus?.pollingEnabled === false;
+
+  /** Null while monitoring can be turned on from here — the same rule the details form applies. */
+  const blockedReason = monitoringBlockedReason(device.status, device.ipAddress);
+
+  /** The last ping on record, whether or not one is still scheduled. */
+  const lastPolledAt = pollingStatus?.lastPolled ?? pollingStatus?.lastResult?.timestamp ?? null;
 
   // ── Config ────────────────────────────────────────────────
   const [configForm, setConfigForm] = useState({
@@ -135,10 +156,48 @@ export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
     if (result.success && result.data) {
       setPollResult(result.data);
       fetchPollingStatus();
+    } else if (result.status === 409) {
+      // A device nobody is watching cannot be polled on demand: the reading
+      // would sit there with nothing scheduled to correct it. Only reachable
+      // if monitoring was turned off elsewhere while this tab was open — so
+      // catch the card up first, then say why the click did nothing.
+      await fetchPollingStatus();
+      setStatusError('El monitoreo está deshabilitado para este dispositivo; habilítelo antes de sondearlo.');
     } else {
       setStatusError(result.error || 'Error en el sondeo');
     }
     setIsPolling(false);
+  };
+
+  /**
+   * Turning monitoring on takes two writes: the device flag the rest of the UI
+   * reads, and the polling config the scheduler reads. `POST .../polling/config`
+   * upserts, so this both creates a missing config and re-enables a disabled
+   * one, leaving any interval already stored untouched.
+   */
+  const handleEnableMonitoring = async () => {
+    setIsEnabling(true);
+    setConfigError(null);
+    setConfigSuccess(false);
+
+    const updated = await apiService.updateDevice(deviceId, { monitoringEnabled: true });
+    if (!updated.success || !updated.data) {
+      setConfigError(updated.error || 'Error al habilitar el monitoreo');
+      setIsEnabling(false);
+      return;
+    }
+
+    const config = await apiService.createPollingConfig(deviceId, {
+      enabled: true,
+      ipAddress: device.ipAddress,
+    });
+    if (!config.success) {
+      setConfigError(config.error || 'Error al crear la configuración de sondeo');
+    }
+
+    onDeviceUpdated(updated.data);
+    await fetchPollingStatus();
+    setIsEnabling(false);
   };
 
   const handleSaveConfig = async () => {
@@ -157,18 +216,12 @@ export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
     const intervalSeconds = configForm.intervalSeconds ? parseInt(configForm.intervalSeconds) : undefined;
     const failuresBeforeDown = configForm.failuresBeforeDown ? parseInt(configForm.failuresBeforeDown) : undefined;
 
-    let result;
-    if (noConfig) {
-      result = await apiService.createPollingConfig(deviceId, {
-        intervalSeconds,
-        failuresBeforeDown
-      });
-    } else {
-      result = await apiService.updatePollingConfig(deviceId, {
-        intervalSeconds,
-        failuresBeforeDown
-      });
-    }
+    // The form is only reachable once monitoring is on, which implies a config
+    // exists — creating one is "Habilitar Monitoreo"'s job.
+    const result = await apiService.updatePollingConfig(deviceId, {
+      intervalSeconds,
+      failuresBeforeDown
+    });
 
     if (result.success) {
       setConfigSuccess(true);
@@ -207,7 +260,7 @@ export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
         <Card.Header>
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Estado del Sondeo</h2>
-            {!noConfig && (
+            {!monitoringOff && (
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={fetchPollingStatus} disabled={statusLoading}>
                   Actualizar
@@ -226,13 +279,43 @@ export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
             </div>
           ) : statusError ? (
             <p className="text-red-600 dark:text-red-400 text-sm">{statusError}</p>
-          ) : noConfig ? (
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              Este dispositivo aún no tiene configuración de sondeo. Configure una a continuación.
-            </p>
+          ) : monitoringOff ? (
+            <>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                Este dispositivo no tiene el monitoreo habilitado, por lo que no se está sondeando.
+                Habilítelo en «Configuración de Sondeo» para conocer su conectividad.
+              </p>
+              {/* No schedule and no interval to show — only what the last poll, if
+                  any, left behind. */}
+              <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-4">
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Estado Actual</dt>
+                  <dd className="mt-1">
+                    <Badge variant={getPollingStatusBadgeVariant('UNKNOWN')}>
+                      {CONNECTIVITY_LABELS.UNKNOWN}
+                    </Badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Sondeo Habilitado</dt>
+                  <dd className="mt-1">
+                    <Badge variant="neutral">No</Badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Último Sondeo</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {/* Stopping monitoring clears `lastPolled` — nothing is scheduled to
+                        refresh it — but the last ping actually taken stays on record,
+                        and that is the one worth dating here. */}
+                    {lastPolledAt ? new Date(lastPolledAt).toLocaleString('es') : '—'}
+                  </dd>
+                </div>
+              </dl>
+            </>
           ) : pollingStatus ? (
             <>
-              <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Estado Actual</dt>
                   <dd className="mt-1">
@@ -296,11 +379,11 @@ export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
       <Card>
         <Card.Header>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {noConfig ? 'Crear Configuración de Sondeo' : 'Configuración de Sondeo'}
+            Configuración de Sondeo
           </h2>
         </Card.Header>
         <Card.Body>
-          {!hasIp && (
+          {!hasIp && !monitoringOff && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-4 text-sm text-yellow-800 dark:text-yellow-400">
               Este dispositivo no tiene dirección IP. Asigne una en la pestaña «Detalles» para habilitar el sondeo.
             </div>
@@ -315,39 +398,63 @@ export function DevicePollingTab({ deviceId, deviceIpAddress }: Props) {
               Configuración guardada.
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Intervalo (segundos)"
-              type="number"
-              min={POLLING_INTERVAL_MIN_SECONDS}
-              max={INTERVAL_MAX_SECONDS}
-              value={configForm.intervalSeconds}
-              onChange={(e) => {
-                setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
-                setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
-              }}
-              error={configErrors.intervalSeconds}
-              fullWidth
-            />
-            <Input
-              label="Fallos Antes de Caída"
-              type="number"
-              min={FAILURES_BEFORE_DOWN_MIN}
-              max={FAILURES_BEFORE_DOWN_MAX}
-              value={configForm.failuresBeforeDown}
-              onChange={(e) => {
-                setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }));
-                setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
-              }}
-              error={configErrors.failuresBeforeDown}
-              fullWidth
-            />
-          </div>
-          <div className="mt-4">
-            <Button onClick={handleSaveConfig} isLoading={configSaving} disabled={!hasIp}>
-              {noConfig ? 'Crear Configuración' : 'Guardar Configuración'}
-            </Button>
-          </div>
+          {monitoringOff ? (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                El monitoreo está deshabilitado, así que no hay configuración de sondeo que
+                ajustar. Al habilitarlo se sondea el dispositivo periódicamente y podrá
+                afinar el intervalo aquí mismo.
+              </p>
+              <div className="mt-4">
+                <Button
+                  onClick={handleEnableMonitoring}
+                  isLoading={isEnabling}
+                  disabled={!canEnableMonitoring(device.status, device.ipAddress)}
+                >
+                  Habilitar Monitoreo
+                </Button>
+              </div>
+              {blockedReason && (
+                <p className="mt-3 text-sm text-yellow-700 dark:text-yellow-500">{blockedReason}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Intervalo (segundos)"
+                  type="number"
+                  min={POLLING_INTERVAL_MIN_SECONDS}
+                  max={INTERVAL_MAX_SECONDS}
+                  value={configForm.intervalSeconds}
+                  onChange={(e) => {
+                    setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
+                    setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
+                  }}
+                  error={configErrors.intervalSeconds}
+                  fullWidth
+                />
+                <Input
+                  label="Fallos Antes de Caída"
+                  type="number"
+                  min={FAILURES_BEFORE_DOWN_MIN}
+                  max={FAILURES_BEFORE_DOWN_MAX}
+                  value={configForm.failuresBeforeDown}
+                  onChange={(e) => {
+                    setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }));
+                    setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
+                  }}
+                  error={configErrors.failuresBeforeDown}
+                  fullWidth
+                />
+              </div>
+              <div className="mt-4">
+                <Button onClick={handleSaveConfig} isLoading={configSaving} disabled={!hasIp}>
+                  Guardar Configuración
+                </Button>
+              </div>
+            </>
+          )}
         </Card.Body>
       </Card>
 

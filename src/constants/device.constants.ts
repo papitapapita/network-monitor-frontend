@@ -50,6 +50,39 @@ export const requiresIdentifier = (status: DeviceStatus | '' | null | undefined)
 /** Shown under the serial-number input, the field the operator is likeliest to fill. */
 export const MISSING_IDENTIFIER_MESSAGE = 'Se requiere número de serie o dirección MAC';
 
+/**
+ * "Monitoring can only be enabled for ACTIVE or COMMISSIONING devices" — and on
+ * the way into either of the other two the backend disables the polling config
+ * by itself, so monitoring cannot be held on there either.
+ */
+const MONITORABLE_STATUSES: DeviceStatus[] = ['ACTIVE', 'COMMISSIONING'];
+
+/**
+ * Polling pings the device's IP, so it needs one, and the backend refuses it for
+ * a device that is not on the network — offering to turn monitoring on in those
+ * cases only sets up a write that is rejected or immediately undone.
+ */
+export const canEnableMonitoring = (
+  status: DeviceStatus | '' | null | undefined,
+  ipAddress: string | null | undefined
+): boolean =>
+  !!ipAddress?.trim() && MONITORABLE_STATUSES.includes(status as DeviceStatus);
+
+/** Why monitoring cannot be turned on, phrased for the operator — null when it can. */
+export function monitoringBlockedReason(
+  status: DeviceStatus | '' | null | undefined,
+  ipAddress: string | null | undefined
+): string | null {
+  if (!ipAddress?.trim()) {
+    return 'Este dispositivo no tiene dirección IP. Asigne una en la pestaña «Detalles» para habilitar el monitoreo.';
+  }
+  if (!MONITORABLE_STATUSES.includes(status as DeviceStatus)) {
+    const label = DEVICE_STATUS_LABELS[status as DeviceStatus] ?? status;
+    return `El monitoreo solo puede habilitarse en dispositivos activos o en comisionamiento; este está en «${label}». Cambie el estado en la pestaña «Detalles» para habilitarlo.`;
+  }
+  return null;
+}
+
 /** The same rule stated after the fact, once a status is known — for a rejected write. */
 export const missingIdentifierError = (status: DeviceStatus): DeviceConflict => ({
   field: 'serialNumber',

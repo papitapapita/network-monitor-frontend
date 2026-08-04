@@ -23,7 +23,7 @@ import {
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -376,7 +376,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 const st = (formData.status || 'INVENTORY') as DeviceStatus;
                 const noIp = !formData.ipAddress.trim();
                 const suggestOn = st === 'COMMISSIONING';
-                const autoOff = st === 'INVENTORY' || st === 'DAMAGED' || noIp;
+                const autoOff = !canEnableMonitoring(st, formData.ipAddress);
                 return (
                   <div className="flex items-center gap-2 pt-6 flex-wrap">
                     <input
