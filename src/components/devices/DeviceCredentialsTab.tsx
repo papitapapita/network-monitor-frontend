@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
 import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
 import { Card, Button, Input, Badge, LoadingSpinner } from '@/components/ui';
+import { useAuth } from '@/contexts/auth.context';
 
 interface Props {
   deviceId: string;
@@ -29,6 +30,16 @@ const EMPTY_FORM = {
 
 type FormState = typeof EMPTY_FORM;
 
+/**
+ * The write endpoints answer 403 to anyone but an admin. The buttons are hidden
+ * for them, so this only shows when the role changed under an open session —
+ * the raw answer is in English and says nothing about who may do it.
+ */
+const forbidden = (result: { status?: number; error?: string }): string | null =>
+  result.status === 403
+    ? 'Solo un administrador puede modificar las credenciales de un dispositivo.'
+    : null;
+
 function invalidPort(value: string): boolean {
   if (!value) return false;
   const port = Number(value);
@@ -36,6 +47,12 @@ function invalidPort(value: string): boolean {
 }
 
 export function DeviceCredentialsTab({ deviceId }: Props) {
+  // These endpoints carry device passwords and SNMP keys, so writing them is its
+  // own permission — an operator who may edit the device still cannot touch
+  // them. Reading stays open to everyone: the response is masked.
+  const { user } = useAuth();
+  const canManage = user?.role === 'ADMIN';
+
   const [creds, setCreds] = useState<DeviceCredentialsResponseDTO | null>(null);
   const [noCreds, setNoCreds] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -166,7 +183,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
       setSaveSuccess(true);
       setShowForm(false);
     } else {
-      setSaveError(result.error || 'Error al guardar credenciales');
+      setSaveError(forbidden(result) ?? result.error ?? 'Error al guardar credenciales');
     }
     setSaving(false);
   };
@@ -180,7 +197,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
       setNoCreds(true);
       setConfirmDelete(false);
     } else {
-      setDeleteError(result.error || 'Error al eliminar credenciales');
+      setDeleteError(forbidden(result) ?? result.error ?? 'Error al eliminar credenciales');
     }
     setDeleting(false);
   };
@@ -194,7 +211,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
         <Card.Header>
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Credenciales HTTP / API Web</h2>
-            {!showForm && !loading && (
+            {!showForm && !loading && canManage && (
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={openForm} data-testid="credentials-edit">
                   {noCreds ? 'Configurar' : 'Editar'}
@@ -224,10 +241,13 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
             <p className="text-red-600 dark:text-red-400 text-sm">{deleteError}</p>
           ) : noCreds && !showForm ? (
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              No hay credenciales configuradas para este dispositivo. Haga clic en &quot;Configurar&quot; para agregarlas.
+              No hay credenciales configuradas para este dispositivo.{' '}
+              {canManage
+                ? 'Haga clic en "Configurar" para agregarlas.'
+                : 'Solo un administrador puede configurarlas.'}
             </p>
           ) : creds && !showForm ? (
-            <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Estado HTTP</dt>
                 <dd className="mt-1">
@@ -457,7 +477,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">SNMP</h2>
           </Card.Header>
           <Card.Body>
-            <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Estado SNMP</dt>
                 <dd className="mt-1">
