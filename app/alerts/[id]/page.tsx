@@ -215,7 +215,7 @@ export default function AlertDetailPage() {
       {/* Details card */}
       <Card className="mb-6">
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Información general</h2>
-        <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
+        <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
           <DetailField label="Tipo" value={<span className="font-mono text-xs break-all">{alert.type}</span>} />
           <DetailField
             label="Dispositivo"
@@ -240,7 +240,7 @@ export default function AlertDetailPage() {
         {Object.keys(alert.details).length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">Sin detalles adicionales.</p>
         ) : isDeviceUnreachable(alert) ? (
-          <dl className="grid grid-cols-2 gap-4 text-sm">
+          <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos consecutivos</dt>
               <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
@@ -255,7 +255,7 @@ export default function AlertDetailPage() {
             </div>
           </dl>
         ) : isWirelessAlert(alert) ? (
-          <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <dt className="font-medium text-gray-500 dark:text-gray-400">Métrica</dt>
               <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
@@ -283,7 +283,7 @@ export default function AlertDetailPage() {
           </dl>
         ) : (
           // Unknown producer — `details` is a free-form bag, so fall back to key/value.
-          <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             {Object.entries(alert.details).map(([key, value]) => (
               <div key={key}>
                 <dt className="font-medium text-gray-500 dark:text-gray-400 break-all">{key}</dt>

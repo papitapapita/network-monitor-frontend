@@ -522,7 +522,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
               )}
             </div>
           ) : config && !showConfigForm ? (
-            <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Tipo</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">

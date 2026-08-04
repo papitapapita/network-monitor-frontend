@@ -379,7 +379,7 @@ export default function CustomerDetailPage() {
         <div className="flex items-start gap-4">
           <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{customer.fullName}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>
           </div>
         </div>
@@ -414,7 +414,7 @@ export default function CustomerDetailPage() {
                 <Input label="Cédula" name="cedula" value={form.cedula} onChange={handleChange} fullWidth />
               </div>
             ) : (
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 {[
                   { label: 'Nombre', value: customer.fullName },
                   { label: 'Teléfono', value: customer.phone, mono: true },

@@ -98,7 +98,7 @@ export default function DeviceModelDetailPage() {
         <div className="flex items-start gap-4">
           <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
               {model.vendorName} — {model.model}
             </h1>
             <Badge variant="info">{model.deviceType}</Badge>

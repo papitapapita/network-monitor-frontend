@@ -131,7 +131,7 @@ export default function ServicePlanDetailPage() {
           <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{plan.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{plan.name}</h1>
               <Badge variant={plan.isActive ? 'success' : 'neutral'}>{plan.isActive ? 'Activo' : 'Inactivo'}</Badge>
             </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5 font-mono">{plan.downloadMbps}↓ / {plan.uploadMbps}↑ Mbps · {fmtPrice(plan.monthlyPrice)}/mes</p>
@@ -185,7 +185,7 @@ export default function ServicePlanDetailPage() {
                 </div>
               </div>
             ) : (
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 {[
                   { label: 'Nombre', value: plan.name },
                   { label: 'Descarga', value: `${plan.downloadMbps} Mbps` },

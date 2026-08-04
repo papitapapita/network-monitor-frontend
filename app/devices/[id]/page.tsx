@@ -140,7 +140,7 @@ export default function DeviceDetailPage() {
         <div className="flex items-start gap-4">
           <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{device.name}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">{device.name}</h1>
             <div className="flex items-center gap-2">
               <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
                 {STATUS_LABELS[device.status] ?? device.status}

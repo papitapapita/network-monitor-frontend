@@ -285,7 +285,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Modelo</h2>
             </Card.Header>
             <Card.Body>
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Fabricante</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{model.vendorName}</dd>
@@ -323,7 +323,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Metadatos</h2>
             </Card.Header>
             <Card.Body>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
+              <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">ID</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{model.id}</dd>

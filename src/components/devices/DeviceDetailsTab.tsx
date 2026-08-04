@@ -424,7 +424,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Dispositivo</h2>
             </Card.Header>
             <Card.Body>
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 {[
                   { label: 'Nombre', value: device.name },
                   {
@@ -500,7 +500,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Metadatos</h2>
             </Card.Header>
             <Card.Body>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
+              <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Creado</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(device.createdAt).toLocaleString('es')}</dd>

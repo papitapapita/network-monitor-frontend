@@ -160,7 +160,7 @@ export default function BillDetailPage() {
       <Card>
         <Card.Header><h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Detalles de la Factura</h2></Card.Header>
         <Card.Body>
-          <dl className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             {[
               { label: 'Periodo', value: formatPeriod(bill.period) },
               { label: 'Estado', value: BILL_STATUS_LABELS[bill.status] },
@@ -189,7 +189,7 @@ export default function BillDetailPage() {
             </div>
           </Card.Header>
           <Card.Body>
-            <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               {[
                 { label: 'Nombre', value: customer.fullName },
                 { label: 'Teléfono', value: customer.phone, mono: true },

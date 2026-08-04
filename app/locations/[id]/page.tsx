@@ -191,7 +191,7 @@ export default function LocationDetailPage() {
             ← Ubicaciones
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{location.name}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">{location.name}</h1>
             <Badge variant={LOCATION_TYPE_BADGE_VARIANTS[location.type]}>
               {LOCATION_TYPE_LABELS[location.type]}
             </Badge>
@@ -252,7 +252,7 @@ export default function LocationDetailPage() {
           {/* Details card */}
           <Card className="mb-6">
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Información general</h2>
-            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-5">
+            <dl className="wrap-anywhere grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-5">
               <DetailField label="Municipio" value={location.municipality} />
               <DetailField label="Barrio" value={location.neighborhood} />
               <DetailField label="Dirección" value={location.address} />
@@ -290,7 +290,7 @@ export default function LocationDetailPage() {
 
           {/* Timestamps */}
           <Card className="mb-6">
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <dl className="wrap-anywhere grid grid-cols-2 gap-x-6 gap-y-4">
               <DetailField
                 label="Creada"
                 value={new Date(location.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
