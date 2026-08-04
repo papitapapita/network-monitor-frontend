@@ -338,7 +338,22 @@ class ApiService {
     if (!result.success && result.error) {
       const slugMatch = result.error.match(/^A vendor with slug "(.+)" already exists$/);
       if (slugMatch) {
-        return { success: false, error: `Ya existe un fabricante con el slug "${slugMatch[1]}"` };
+        return {
+          success: false,
+          error: `Ya existe un fabricante con el slug "${slugMatch[1]}"`,
+          errorField: 'slug',
+        };
+      }
+
+      // The name is unique too, and compared exactly — "Ubiquiti" and "ubiquiti"
+      // are two names, though their slugs would collide anyway.
+      const nameMatch = result.error.match(/^A vendor with name "(.+)" already exists$/);
+      if (nameMatch) {
+        return {
+          success: false,
+          error: `Ya existe un fabricante con el nombre "${nameMatch[1]}"`,
+          errorField: 'name',
+        };
       }
 
       const modelsMatch = result.error.match(

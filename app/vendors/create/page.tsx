@@ -84,7 +84,12 @@ export default function CreateVendorPage() {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
       router.replace(`/vendors/${result.data.id}`);
     } else {
-      setError(result.error || 'Error al crear el fabricante');
+      const message = result.error || 'Error al crear el fabricante';
+      // A taken name or slug belongs on its own input, not only in the banner.
+      if (result.errorField) {
+        setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
+      }
+      setError(message);
       setIsSubmitting(false);
     }
   };

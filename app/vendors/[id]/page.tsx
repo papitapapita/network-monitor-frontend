@@ -111,7 +111,12 @@ export default function VendorDetailPage() {
       setIsEditing(false);
       setSlugManuallyEdited(false);
     } else {
-      setError(result.error || 'Error al actualizar el fabricante');
+      const message = result.error || 'Error al actualizar el fabricante';
+      // A taken name or slug belongs on its own input, not only in the banner.
+      if (result.errorField) {
+        setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
+      }
+      setError(message);
     }
     setIsSaving(false);
   };
@@ -184,7 +189,7 @@ export default function VendorDetailPage() {
         <div className="flex items-start gap-4">
           <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">{vendor.name}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{vendor.name}</h1>
             <p className="font-mono text-sm text-gray-500 dark:text-gray-400">{vendor.slug}</p>
           </div>
         </div>
@@ -258,7 +263,7 @@ export default function VendorDetailPage() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Fabricante</h2>
               </Card.Header>
               <Card.Body>
-                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <dt className="font-medium text-gray-500 dark:text-gray-400">Nombre</dt>
                     <dd className="mt-1 text-gray-900 dark:text-gray-100">{vendor.name}</dd>
@@ -282,7 +287,7 @@ export default function VendorDetailPage() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Metadatos</h2>
               </Card.Header>
               <Card.Body>
-                <dl className="grid grid-cols-2 gap-4 text-sm">
+                <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <dt className="font-medium text-gray-500 dark:text-gray-400">ID</dt>
                     <dd className="mt-1 font-mono text-xs text-gray-900 dark:text-gray-100">{vendor.id}</dd>
