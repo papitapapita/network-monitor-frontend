@@ -42,11 +42,16 @@ Missing or invalid tokens return `401`. Insufficient role returns `403`.
 
 | Role | Allowed operations |
 |------|--------------------|
-| `ADMIN` | read, create, update, delete, activate, bulk-import |
+| `ADMIN` | read, create, update, delete, activate, bulk-import, manage-credentials |
 | `OPERATOR` | read, create, update, activate, bulk-import |
 | `VIEWER` | read only |
 
-### Rate limits (per IP)
+`manage-credentials` gates writes to `/api/devices/:id/credentials` only — those
+endpoints carry device passwords and SNMP keys, so they are not covered by the
+generic `update` permission. Reading them stays on `read` because the response is
+masked.
+
+### Rate limits (per authenticated user)
 
 | Operation type | Limit |
 |----------------|-------|
@@ -54,6 +59,11 @@ Missing or invalid tokens return `401`. Insufficient role returns `403`.
 | Write (`POST`, `PATCH`, `PUT`) | 60 / min |
 | Delete (`DELETE`) | 60 / min |
 | Bulk import | 5 / hr |
+
+Counters are keyed by user id, falling back to IP for unauthenticated requests,
+so operators sharing one office address do not share a budget. Each resource
+has its own counter — 60 device deletes and 60 vendor deletes in the same minute
+is fine. Exceeding a bucket returns `429` with `{ success: false, error: 'Too many requests' }`.
 
 ---
 
@@ -94,15 +104,33 @@ Missing or invalid tokens return `401`. Insufficient role returns `403`.
 ```ts
 type LocationType   = 'TOWER' | 'DATACENTER' | 'POINT_OF_PRESENCE' | 'OFFICE' | 'CUSTOMER_PREMISES' | 'OTHER'
 type DeviceStatus   = 'INVENTORY' | 'COMMISSIONING' | 'ACTIVE' | 'DAMAGED'
-type DeviceCategory = 'CPE' | 'WIRELESS_CPE' | 'AP' | 'ROUTERBOARD' | 'SMART_SWITCH' | 'SMART_SWITCH_POE' | 'OTHER'
+type DeviceCategory = 'CPE' | 'WIRELESS_CPE' | 'ACCESS_POINT' | 'GATEWAY' | 'AGGREGATION_SWITCH' | 'OTHER'
 type DeviceOwner    = 'COMPANY' | 'CLIENT'
 type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
 type PollingStatus      = 'SUCCESS' | 'FAILED' | 'SKIPPED'
 type BillStatus         = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
-type DeviceOnlineStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN'
+type DeviceOnlineStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN'  // UNKNOWN = not monitored / never polled — see "monitoring stopped"
 type AlertSeverity      = 'WARNING' | 'CRITICAL'
 type AlertStatus        = 'OPEN' | 'RESOLVED'
 ```
+
+> **`DeviceCategory` vs `DeviceType` — two different questions.**  
+> `DeviceCategory` lives on the **device** and says *what role the unit plays in the network*: `ACCESS_POINT` serves subscribers, `WIRELESS_CPE` is the station end of that link, `GATEWAY` routes, `AGGREGATION_SWITCH` aggregates, `CPE` is customer equipment, `OTHER` is the escape hatch.  
+> `DeviceType` lives on the **device model** and says *what kind of hardware it is* (`ANTENNA`, `ROUTER`, `SWITCH`, …).  
+> One box can be a `SWITCH` by type and an `AGGREGATION_SWITCH` by role — PoE, port count and so on are hardware traits and belong to the model, never to the category.
+>
+> **⚠ Breaking change (2026-07-29):** the category set changed, and a migration rewrote existing rows:
+>
+> | Old category | New category | |
+> |---|---|---|
+> | `AP` | `ACCESS_POINT` | renamed for clarity |
+> | `ROUTERBOARD` | `GATEWAY` | the role is "where upstream internet enters"; `ROUTERBOARD` survives as a `DeviceType` |
+> | `SMART_SWITCH` | `AGGREGATION_SWITCH` | the node switch radios converge on |
+> | `SMART_SWITCH_POE` | `AGGREGATION_SWITCH` | PoE is a hardware trait, not a role |
+>
+> `CPE`, `WIRELESS_CPE` and `OTHER` are unchanged. Any frontend picker, filter or badge map holding the old literals must be updated — sending an old value now returns `400`, and a device that used to read `SMART_SWITCH_POE` now reads `AGGREGATION_SWITCH`.
+>
+> **Since 2026-08-01, reading a device whose stored category is not one of the six fails with `500`** `"Data integrity violation: unrecognised DeviceCategory \"<value>\" in persistence store"`, instead of returning the stale value. A migrated database cannot reach this — the Postgres enum only permits the six — so if you see it, **your database is behind on migrations**; run them and retry rather than filing a bug. It applies to any endpoint that returns a device, `GET /api/devices` and `GET /api/locations/map` included.
 
 ---
 
@@ -157,6 +185,7 @@ interface DeviceModelDTO {
   vendorSlug: string    // e.g. "mikrotik"
   model: string
   deviceType: DeviceType
+  isWireless: boolean   // hardware has a radio — gates wireless configs
   createdAt: string     // ISO 8601
   updatedAt: string
 }
@@ -312,7 +341,7 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ## Devices `/api/devices`
 
 ### `POST /api/devices` — Create
-**Status:** 201
+**Status:** 201 | 400 | 404
 
 ```ts
 // Request body
@@ -333,9 +362,11 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ```
 
 **Business rules:**
+- `deviceModelId` must name an existing device model — a well-formed UUID for a model that does not exist returns `404` with `Device model not found: <id>`
 - `INVENTORY` / `DAMAGED` status → at least one of `serialNumber` or `macAddress` required (status defaults to `INVENTORY`, so a minimal request must include at least one)
-- `COMMISSIONING` status → `ipAddress` required; `monitoringEnabled` is forced `true` regardless of what is sent
+- `COMMISSIONING` status → `ipAddress` required; `monitoringEnabled` defaults to `true`, but an explicit `monitoringEnabled: false` in the same request is respected (staging a device without polling it yet is legitimate)
 - `ACTIVE` status → `ipAddress` and `locationId` required
+- `installedDate` must be ISO 8601 — `YYYY-MM-DD` or `YYYY-MM-DDThh:mm[:ss[.sss]]` with an optional `Z`/`±hh:mm` offset. Locale forms (`March 5, 2020`) and impossible dates (`2024-02-31`) are rejected, not reinterpreted
 
 ```ts
 // Response
@@ -374,6 +405,10 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 }
 ```
 
+> `total` is the number of devices matching the filters, not the number returned
+> in `devices`. Filtered and unfiltered listings both paginate in the database,
+> so page size bounds the work the query does.
+
 ---
 
 ### `GET /api/devices/:id` — Get by ID
@@ -390,14 +425,36 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 
 | Transition | Requirements | Side effects |
 |------------|--------------|--------------|
-| any → `COMMISSIONING` | `ipAddress` must be set on the device | `monitoringEnabled` forced `true` |
+| any → `COMMISSIONING` | `ipAddress` must be set on the device | `monitoringEnabled` turned on **unless** the same request sends `monitoringEnabled: false` |
 | any → `ACTIVE` | `ipAddress` and `locationId` must both be set | — |
-| any → `DAMAGED` | — | polling automatically disabled |
-| any → `INVENTORY` | — | polling automatically disabled |
+| any → `DAMAGED` | — | monitoring stopped (see below) |
+| any → `INVENTORY` | — | monitoring stopped (see below) |
 
 `DAMAGED` is a side-state (e.g. hardware failure) and can be set from any status.
 
-> When transitioning to `DAMAGED` or `INVENTORY`, the backend automatically disables the device's polling config. There is no need to also send `monitoringEnabled: false`.
+> When transitioning to `DAMAGED` or `INVENTORY`, the backend stops monitoring the device automatically. There is no need to also send `monitoringEnabled: false`.
+
+<a id="stopping-monitoring"></a>
+**What "monitoring stopped" does (since 2026-08-03)**
+
+Every route that stops monitoring performs the same transition — the status
+change above, `PATCH /api/devices/:id` with `monitoringEnabled: false`, and
+`POST`/`PATCH /api/devices/:id/polling/config` with `enabled: false`:
+
+1. Polling stops. The polling config is **kept** (interval, failure threshold and IP survive), so re-enabling resumes with the same settings.
+2. **`currentStatus` becomes `UNKNOWN`.** The last reading is not left standing — nothing will poll the device again to correct it, so presenting it as current would be a lie. `consecutiveFailures` resets to `0`, `lastPolled` / `nextScheduled` become `null`.
+3. **`lastSeen` is kept**, so you can still show how stale the last real observation is.
+4. Any **open `device_unreachable` alert is resolved**, and **no resolution notification is sent** — the device was not fixed, it just stopped being watched.
+5. Ping history is untouched; only the 30-day retention purge removes it.
+
+> **Frontend:** `UNKNOWN` no longer means only "never polled". It now also means
+> "monitoring is off", which is the common case. Render it as a neutral/grey
+> "not monitored" state rather than a warning — and read `pollingEnabled` to tell
+> the two apart: `pollingEnabled: false` → paused; `pollingEnabled: true` with
+> `UNKNOWN` → enabled but not yet polled.
+>
+> On re-enabling, the device is picked up on the next scheduler tick (≤10 s) and
+> the first result does **not** raise a spurious "recovered" alert.
 
 ---
 
@@ -408,6 +465,7 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 // Request body (all fields optional — send only what changes)
 {
   name?: string
+  deviceModelId?: string       // UUID — INVENTORY devices only, see below
   status?: DeviceStatus
   category?: DeviceCategory | null
   ownerType?: DeviceOwner
@@ -416,15 +474,83 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
   macAddress?: string | null
   ipAddress?: string | null
   description?: string | null
-  installedDate?: string | null
+  installedDate?: string | null  // ISO 8601; null clears it
   monitoringEnabled?: boolean
 }
-
-// Note: deviceModelId cannot be changed after creation
 
 // Response
 { success: true, data: DeviceDTO }
 ```
+
+`installedDate` follows the same ISO 8601 rule as create — locale forms and
+impossible calendar dates are rejected rather than reinterpreted.
+
+**`deviceModelId` — correcting a mis-registered model**
+
+Changing the model is a **data-entry correction**, not a way to record a hardware
+replacement. It is accepted **only while the device's status is `INVENTORY`** —
+the one status in which the unit has never been polled, so no collected metric
+can end up attributed to the wrong hardware.
+
+- Device is `ACTIVE`, `COMMISSIONING` or `DAMAGED` → `400` `"Cannot change the device model of a device with status <status> — only an INVENTORY device may have its model corrected"`
+- Target model does not exist → `404` `"Device model not found: <id>"`
+- Sending the model the device **already has** is a no-op that succeeds in any
+  status — so a UI that PATCHes the whole form back is safe.
+- A single request may both correct the model and move the device out of
+  `INVENTORY` (e.g. `{ deviceModelId, ipAddress, status: 'COMMISSIONING' }`) —
+  the correction is applied first.
+
+> **Frontend:** show the model picker as editable only on `INVENTORY` devices; on
+> any other status render it read-only. Replacing a unit with different hardware
+> is not this endpoint — that path does not exist yet (a device is one physical
+> box, and its metric history belongs to that box). For now, retire the old
+> device and create a new one.
+
+**`category` — frozen while a wireless config exists**
+
+The device's category decides the radio mode of its wireless config, and that
+mode is derived **once**, when the config is created. So while a config exists,
+the category is locked:
+
+- Device has a wireless config and the request changes `category` (to another
+  value **or** to `null`) → `400` `"Cannot change the category of a device that has a wireless config. Delete the wireless config first, then recategorise the device."`
+- Sending the category the device **already has** is not a change and succeeds.
+- Every other field on the same request is unaffected — only `category` is
+  blocked.
+- No wireless config → `category` is freely editable.
+
+To recategorise a device that has one, `DELETE /api/devices/:id/wireless/config`
+first, then PATCH the category, then create the config again. The refusal
+happens before anything is written, so a rejected request changes nothing.
+
+> **Frontend:** on a device that has a wireless config, render the category
+> field read-only and point the operator at the wireless config screen. A UI that
+> PATCHes the whole form back unchanged is safe — same value is a no-op.
+
+**Field combinations are validated as one end state**
+
+A `PATCH` describes the state you want the device to end up in, and the whole
+combination is checked at once — so any request that describes a legal end state
+succeeds, whatever mix of fields it carries:
+
+```ts
+// Commission a device sitting in inventory — one request
+PATCH /api/devices/:id  { ipAddress: '10.0.0.5', status: 'COMMISSIONING' }
+
+// Install and activate — one request
+PATCH /api/devices/:id  { locationId: '…', status: 'ACTIVE' }
+
+// Retire: pull it off site and back to the shelf — one request
+PATCH /api/devices/:id  { locationId: null, status: 'INVENTORY' }
+```
+
+Requests are all-or-nothing: if the resulting state would break a rule, the
+response is `400` and **nothing is applied** — you never end up with a device
+that got its location but not its status.
+
+> The rules still hold on the end state, not on the individual fields. `{ status: 'ACTIVE' }`
+> alone on a device with no location is still `400` "An ACTIVE device must have a
+> location assigned" — supply the location in the same request and it succeeds.
 
 ---
 
@@ -471,7 +597,8 @@ interface DeviceCredentialsResponseDTO {
 ---
 
 ### `PUT /api/devices/:id/credentials` — Set Credentials
-**Status:** 200 | 400 | 404
+**Status:** 200 | 400 | 403 | 404  
+**Roles:** ADMIN (`manage-credentials`)
 
 Upserts the credentials for the device. **HTTP credentials are the required pair** and are replaced on every call.
 
@@ -518,7 +645,8 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ---
 
 ### `GET /api/devices/:id/credentials` — Get Credentials
-**Status:** 200 | 404
+**Status:** 200 | 404  
+**Roles:** ADMIN, OPERATOR, VIEWER (`read` — the response is masked)
 
 ```ts
 // Response — DeviceCredentialsResponseDTO (raw, no wrapper)
@@ -529,7 +657,8 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ---
 
 ### `DELETE /api/devices/:id/credentials` — Delete Credentials
-**Status:** 204 | 404
+**Status:** 204 | 403 | 404  
+**Roles:** ADMIN (`manage-credentials`)
 
 ```ts
 // No request body
@@ -557,7 +686,9 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 { success: true, data: VendorDTO }
 ```
 
-> Returns 409 if a vendor with the same slug already exists.
+> Returns 409 if a vendor with the same slug **or the same name** already
+> exists. Name comparison is exact — `Ubiquiti` and `ubiquiti` are two names,
+> but their slugs would collide, so the pair is still rejected.
 
 ---
 
@@ -609,7 +740,8 @@ offset?: number  // ≥0, default 0
 { success: true, data: VendorDTO }
 ```
 
-> Returns 409 if the new slug is already taken by another vendor.
+> Returns 409 if the new slug or the new name is already taken by another
+> vendor. Submitting the vendor's own slug or name is not a conflict.
 
 ---
 
@@ -636,6 +768,7 @@ offset?: number  // ≥0, default 0
   vendorId: string    // required, UUID
   model: string       // required, 1–150 chars
   deviceType: DeviceType  // required
+  isWireless?: boolean    // default false
 }
 
 // Response
@@ -643,6 +776,10 @@ offset?: number  // ≥0, default 0
 ```
 
 > Returns 409 if a model with the same name already exists for that vendor.
+> `isWireless` marks the hardware as radio-capable; devices built on a model
+> with `isWireless: false` are refused a wireless config. Getting it wrong here
+> is cheap to fix later — but only until a device on the model is configured,
+> see `PUT /api/device-models/:id`.
 
 ---
 
@@ -680,7 +817,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `PUT /api/device-models/:id` — Update
-**Status:** 200 | 400 | 404
+**Status:** 200 | 400 | 404 | 409
 
 ```ts
 // Request body (at least one field required)
@@ -688,11 +825,42 @@ offset?: number  // ≥0, default 0
   vendorId?: string    // UUID
   model?: string       // 1–150 chars
   deviceType?: DeviceType
+  isWireless?: boolean
 }
 
 // Response
 { success: true, data: DeviceModelDTO }
 ```
+
+**`isWireless: true → false` — refused while wireless configs exist**
+
+Turning the flag off is blocked while **any** device built on this model still
+has a wireless polling config (DEV-027) — those configs hold operator-entered
+values (`linkCapacityKbps` / `clientsProvisionedLimit`) that a non-wireless
+model has nowhere to keep, so they are never deleted for you:
+
+- One or more devices on the model have a config → `409`
+  `"Cannot mark device model as non-wireless: N device(s) built on it have a wireless config. Delete those wireless configs first."`
+- Devices on the model with **no** config do not block it — the check is about
+  configs, not devices, and not about their `category`.
+- The refusal is all-or-nothing: no other field of the same request is applied,
+  and the model stays wireless.
+- Resubmitting the value the model already has is a no-op and always succeeds.
+
+To make the model non-wireless, `DELETE /api/devices/:id/wireless/config` on
+each listed device first, then send `isWireless: false`.
+
+> The reverse (`false → true`) checks nothing and creates nothing — each config
+> is created through `POST /api/devices/:id/wireless/config`.
+>
+> **Frontend:** the `N` in the message is the number of configs to clear. On a
+> `409`, list the model's devices (`GET /api/devices?deviceModelId=…`) and point
+> the operator at their wireless config screens rather than retrying.
+>
+> **Note:** devices already categorised `WIRELESS_CPE` / `ACCESS_POINT` keep that
+> category when a model is made non-wireless. That combination is inert and
+> legal — no config can be created for it — so don't treat it as an error state
+> in the UI.
 
 ---
 
@@ -714,7 +882,7 @@ offset?: number  // ≥0, default 0
 > Error: `{ error: string }`.
 
 ### `POST /api/devices/:id/poll` — Trigger Manual Poll
-**Status:** 200 | 404
+**Status:** 200 | 404 | 409
 
 ```ts
 // No request body needed
@@ -729,6 +897,16 @@ offset?: number  // ≥0, default 0
   deviceStatus: DeviceOnlineStatus
 }
 ```
+
+> **⚠ Since 2026-08-03: a device whose monitoring is off cannot be polled on
+> demand.** It returns `409` `"Monitoring is disabled for device <id> — enable
+> monitoring before polling it"`. A manual poll would write a real reading over
+> the `UNKNOWN` state with nothing scheduled to correct it afterwards, and could
+> raise an outage alert for a device nobody is watching.
+>
+> **Frontend:** disable the "poll now" button when `pollingEnabled` is `false`
+> (from `GET /api/devices/:id/polling/status`) rather than letting the call fail;
+> on a `409`, offer "enable monitoring" instead of a retry.
 
 ---
 
@@ -756,6 +934,15 @@ offset?: number  // ≥0, default 0
   } | null
 }
 ```
+
+> `currentStatus: 'UNKNOWN'` means **nobody is watching this device** — either it
+> has never been polled, or monitoring was turned off (see
+> [What "monitoring stopped" does](#stopping-monitoring)). It is not an outage;
+> `'OFFLINE'` is. Use `pollingEnabled` to distinguish the two causes.
+>
+> While monitoring is off, `lastPolled` and `nextScheduled` are `null` and
+> `consecutiveFailures` is `0`, but `lastResult` still shows the last ping that
+> was actually taken — useful for "last checked N days ago" copy.
 
 ---
 
@@ -817,7 +1004,8 @@ offset?:   number   // ≥0
 }
 ```
 
-> Creates the polling config if none exists, or updates the existing one (upsert). The device must exist.
+> Creates the polling config if none exists, or updates the existing one (upsert). The device must exist.  
+> Sending `enabled: false` performs the full stop-monitoring transition — see [What "monitoring stopped" does](#stopping-monitoring).
 
 ---
 
@@ -834,6 +1022,11 @@ offset?:   number   // ≥0
 
 // Response: 204 No Content on success
 ```
+
+> `enabled: false` performs the full stop-monitoring transition — see
+> [What "monitoring stopped" does](#stopping-monitoring). Other fields in the same
+> request (`intervalSeconds`, `failuresBeforeDown`) are still applied and kept.  
+> `enabled: true` re-enables polling; it requires the config to have an IP address.
 
 ---
 
@@ -1061,13 +1254,12 @@ interface WirelessClientDTO {
 **Status:** 201 | 400 | 404 | 409
 
 ```ts
-// Request body
+// Request body — deviceType is NOT accepted; it is derived (see below)
 {
-  deviceType: 'STATION' | 'ACCESS_POINT'   // required
   ipAddress?: string | null                // IPv4 or IPv6; used for HTTP API polling
   intervalSecs?: number                    // 60–86400; default 3600
   enabled?: boolean                        // default true
-  linkCapacityKbps?: number | null          // STATION only — provisioned uplink capacity (bps)
+  linkCapacityKbps?: number | null         // STATION only — provisioned uplink capacity in kbps
   clientsProvisionedLimit?: number | null  // ACCESS_POINT only — max expected clients
 }
 
@@ -1085,10 +1277,27 @@ interface WirelessClientDTO {
 }
 ```
 
-**Business rules:**
-- `linkCapacityKbps` may only be set (non-null) for `STATION` devices — returns 400 for `ACCESS_POINT`.
-- `clientsProvisionedLimit` may only be set (non-null) for `ACCESS_POINT` devices — returns 400 for `STATION`.
+**`deviceType` is derived, not sent.** The radio mode follows the device's
+`category`, which already encodes that distinction:
 
+| Device `category` | Resulting `deviceType` |
+|---|---|
+| `ACCESS_POINT` | `ACCESS_POINT` |
+| `WIRELESS_CPE` | `STATION` |
+
+Only those two categories may hold a wireless config at all — any other category
+returns `400` `"Only WIRELESS_CPE and ACCESS_POINT devices can have a wireless
+config"`. The derived value is still returned in the response, so read it from
+there rather than assuming it.
+
+**Business rules:**
+- `linkCapacityKbps` may only be set (non-null) when the derived type is `STATION` — returns 400 for an `ACCESS_POINT` category device.
+- `clientsProvisionedLimit` may only be set (non-null) when the derived type is `ACCESS_POINT` — returns 400 for a `WIRELESS_CPE` category device.
+- `intervalSecs` must be **at least 60**. Polling AirOS faster than that overloads the embedded web server on the radio, so the floor is a hardware constraint, not a preference.
+
+> **`linkCapacityKbps` is in kbps, not bps** — a 50 Mbps link is `50000`. It feeds the link-saturation alert, which warns at 80 % of this value, so an entry off by 1000× either never fires or fires permanently.
+
+> **Frontend:** set the device's `category` first (`PATCH /api/devices/:id`) — it decides which of the two fields this endpoint will accept, and creating this config **locks it**: the category cannot be changed again until the config is deleted. Sending `deviceType` in the body is now ignored by the schema.  
 > Returns 404 if the device does not exist.  
 > Returns 409 if a wireless config already exists for this device — use `PATCH` to update it.
 
@@ -1114,14 +1323,15 @@ interface WirelessClientDTO {
   ipAddress?: string | null
   intervalSecs?: number                   // 60–86400
   enabled?: boolean
-  linkCapacityKbps?: number | null         // STATION only — returns 400 if device is ACCESS_POINT
-  clientsProvisionedLimit?: number | null // ACCESS_POINT only — returns 400 if device is STATION
+  linkCapacityKbps?: number | null        // kbps; STATION only — returns 400 if config is ACCESS_POINT
+  clientsProvisionedLimit?: number | null // ACCESS_POINT only — returns 400 if config is STATION
 }
 
 // Response — same shape as POST 201 above
 ```
 
-> Returns 404 if no config exists for this device — use `POST` to create it first.
+> Returns 404 if no config exists for this device — use `POST` to create it first.  
+> The STATION / ACCESS_POINT check here runs against the config's **stored** `deviceType` — the value derived from the device's category at creation. The two can no longer drift apart: while this config exists, `PATCH /api/devices/:id` refuses to change the device's category at all. If the role really changed, delete this config, recategorise the device, then create it again.
 
 ---
 
@@ -1134,7 +1344,8 @@ interface WirelessClientDTO {
 ```
 
 > Removes wireless monitoring from the device. The device record itself is not affected.  
-> Returns 404 if no config exists.
+> Returns 404 if no config exists.  
+> This is also the prerequisite for two other operations that refuse to destroy a config on their own: recategorising the device (`PATCH /api/devices/:id`) and marking its model non-wireless (`PUT /api/device-models/:id`).
 
 ---
 
@@ -1894,7 +2105,7 @@ The PDF includes the bill header (period, status, issue/due/paid dates), the cus
 | 401 | Missing, expired, or invalid JWT |
 | 403 | Valid token but insufficient role for this operation |
 | 404 | Resource not found |
-| 409 | Conflict — resource already exists or cannot be deleted (e.g. vendor has models, model has devices) |
+| 409 | Conflict — resource already exists, or cannot be deleted/changed while dependents exist (e.g. vendor has models, model has devices, model has wireless configs) |
 | 429 | Rate limit exceeded |
 | 500 | Unexpected server error |
 | 503 | Dependent system unavailable — enforcement router unreachable or enforcement not configured (enforcement endpoints only) |
