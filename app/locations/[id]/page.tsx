@@ -166,9 +166,12 @@ export default function LocationDetailPage() {
   if (!location) return null;
 
   const hasCoords = location.latitude != null && location.longitude != null;
+  const addressQuery = [location.address, location.municipality].filter(Boolean).join(', ');
   const mapsUrl = hasCoords
     ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
-    : null;
+    : addressQuery
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressQuery)}`
+      : null;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -270,7 +273,7 @@ export default function LocationDetailPage() {
               />
             </dl>
 
-            {hasCoords && mapsUrl && (
+            {mapsUrl && (
               <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
                 <a
                   href={mapsUrl}
