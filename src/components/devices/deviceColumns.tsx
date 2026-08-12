@@ -8,25 +8,17 @@ import {
   getPollingStatusBadgeVariant,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
-import { deviceCategoryLabel } from '@/constants/device.constants';
+import {
+  DEVICE_OWNER_LABELS,
+  DEVICE_STATUS_LABELS as STATUS_LABELS,
+  deviceCategoryLabel,
+} from '@/constants/device.constants';
 import type { DeviceLookups } from '@/hooks/useCatalogs';
-
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: 'Activo',
-  COMMISSIONING: 'Comisionamiento',
-  INVENTORY: 'Inventario',
-  DAMAGED: 'Dañado',
-};
 
 const CONNECTIVITY_LABELS: Record<string, string> = {
   ONLINE: 'En línea',
   OFFLINE: 'Desconectado',
   UNKNOWN: 'Desconocido',
-};
-
-const OWNER_LABELS: Record<string, string> = {
-  COMPANY: 'Empresa',
-  CLIENT: 'Cliente',
 };
 
 /** Connectivity sorts by severity rather than by the label's initial. */
@@ -185,8 +177,8 @@ function deviceColumnCatalog({
       label: 'Propietario',
       header: 'Propietario',
       className: 'hidden lg:table-cell',
-      sortValue: (device) => (device.ownerType ? OWNER_LABELS[device.ownerType] : null),
-      cell: (device) => <Text value={device.ownerType ? OWNER_LABELS[device.ownerType] : null} />,
+      sortValue: (device) => (device.ownerType ? DEVICE_OWNER_LABELS[device.ownerType] : null),
+      cell: (device) => <Text value={device.ownerType ? DEVICE_OWNER_LABELS[device.ownerType] : null} />,
     },
     {
       key: 'model',

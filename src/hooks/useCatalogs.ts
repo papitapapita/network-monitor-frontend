@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { DeviceModelResponseDTO } from '@/types/device.types';
+import { DeviceModelResponseDTO, DeviceResponseDTO } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
 
-/** Both list endpoints cap `limit` at 100, so the whole catalog takes several calls. */
+/** These list endpoints cap `limit` at 100, so a whole catalog takes several calls. */
 const PAGE_SIZE = 100;
 
 export async function fetchAllDeviceModels(): Promise<DeviceModelResponseDTO[]> {
@@ -17,6 +17,26 @@ export async function fetchAllDeviceModels(): Promise<DeviceModelResponseDTO[]> 
     all.push(...r.data.deviceModels);
     hasMore = r.data.hasMore;
     offset += PAGE_SIZE;
+  }
+  return all;
+}
+
+/**
+ * Devices for the ticket form's picker. The device list caps `limit` at 300 and
+ * is the one catalog that can grow past a few hundred rows, so this is the only
+ * fetch-all here that could get expensive — it stays behind `enabled` on the
+ * pages that need it.
+ */
+export async function fetchAllDevices(): Promise<DeviceResponseDTO[]> {
+  const all: DeviceResponseDTO[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const r = await apiService.listDevices({ limit: 300, offset, sortBy: 'name', sortOrder: 'ASC' });
+    if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar dispositivos');
+    all.push(...r.data.devices);
+    hasMore = r.data.hasMore;
+    offset += 300;
   }
   return all;
 }

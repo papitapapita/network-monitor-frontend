@@ -2,8 +2,10 @@
 
 import React, { Suspense, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useDevices } from '@/hooks/useDevices';
 import { useDeviceLookups } from '@/hooks/useCatalogs';
+import { apiService } from '@/services/api.service';
 import { DeviceFilters } from '@/components/devices/DeviceFilters';
 import {
   buildDeviceColumns,
@@ -11,7 +13,6 @@ import {
   DEVICE_COLUMN_OPTIONS,
   LOOKUP_DEVICE_COLUMNS,
 } from '@/components/devices/deviceColumns';
-import { apiService } from '@/services/api.service';
 import {
   Button,
   ColumnPicker,
@@ -22,8 +23,28 @@ import {
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
+import { RESTORE_GRACE_DAYS } from '@/constants/device.constants';
 
 const COLUMNS_STORAGE_KEY = 'nms:devices-columns';
+
+function TrashIcon() {
+  return (
+    <svg
+      className="mr-1.5 h-4 w-4"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
+}
 
 function DevicesPageContent() {
   const router = useRouter();
@@ -40,6 +61,7 @@ function DevicesPageContent() {
     statusFilter,
     categoryFilter,
     connectivityFilter,
+    locationFilter,
     search,
     sortField,
     sortDirection,
@@ -47,6 +69,7 @@ function DevicesPageContent() {
     setStatusFilter,
     setCategoryFilter,
     setConnectivityFilter,
+    setLocationFilter,
     setSearch,
     setCurrentPage,
     handleSort,
@@ -56,6 +79,15 @@ function DevicesPageContent() {
     setLimit,
     PAGE_SIZE_OPTIONS,
   } = useDevices();
+
+  const { data: filteredLocation } = useQuery({
+    queryKey: ['location', locationFilter],
+    queryFn: async () => {
+      const result = await apiService.getLocation(locationFilter);
+      return result.success ? result.data : null;
+    },
+    enabled: !!locationFilter,
+  });
 
   const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
     COLUMNS_STORAGE_KEY,
@@ -96,10 +128,30 @@ function DevicesPageContent() {
               onReset={reset}
               isDefault={isDefault}
             />
+            <Button variant="outline" onClick={() => router.push('/devices/trash')}>
+              <TrashIcon />
+              Papelera
+            </Button>
             <Button onClick={() => router.push('/devices/create')}>Agregar Dispositivo</Button>
           </>
         }
       />
+
+      {locationFilter && (
+        <div className="flex items-center gap-2 mb-4 text-sm text-gray-700 dark:text-gray-300">
+          <span>
+            Mostrando dispositivos de{' '}
+            <span className="font-medium">{filteredLocation ? filteredLocation.name : 'esta ubicación'}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => { setLocationFilter(''); setCurrentPage(1); }}
+            className="text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Quitar filtro
+          </button>
+        </div>
+      )}
 
       <DeviceFilters
         statusFilter={statusFilter}
@@ -133,8 +185,10 @@ function DevicesPageContent() {
         selectionResetKey={`${currentPage}|${statusFilter}|${categoryFilter}|${connectivityFilter}|${search}`}
         bulkDelete={{
           deleteOne: (id) => apiService.deleteDevice(id),
+          undoOne: (id) => apiService.restoreDevice(id),
           onFinished: () => { fetchDevices(); },
           entity: { singular: 'dispositivo', plural: 'dispositivos', gender: 'm' },
+          confirmNote: `Saldrán de todos los listados y dejarán de monitorearse, pero podrás restaurarlos durante ${RESTORE_GRACE_DAYS} días desde la papelera.`,
         }}
         pagination={{
           currentPage,

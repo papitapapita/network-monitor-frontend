@@ -14,4 +14,10 @@ export interface ApiResponse<T> {
    */
   status?: number;
   message?: string;
+  /**
+   * Set only on the DEV-030 refusal: a device model delete blocked purely by
+   * devices already in the recycle bin. Lets the caller offer a confirmation
+   * and retry with the purge flag instead of dead-ending on the error text.
+   */
+  binnedDeviceCount?: number;
 }

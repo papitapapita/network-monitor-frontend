@@ -15,7 +15,7 @@ import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Textarea, Select, Combobox, LoadingSpinner } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 
 
@@ -102,9 +102,10 @@ export default function CreateDevicePage() {
     setFormData((prev) => ({
       ...prev,
       status: value,
+      // Every retired status stops polling on the backend's side anyway, and no
+      // status can hold monitoring on without an IP to ping.
       monitoringEnabled:
-        value === 'INVENTORY' || value === 'DAMAGED' ? false
-        : !prev.ipAddress.trim() ? false
+        !canEnableMonitoring(value, prev.ipAddress) ? false
         : value === 'COMMISSIONING' ? true
         : prev.monitoringEnabled,
     }));
@@ -372,7 +373,7 @@ export default function CreateDevicePage() {
                     const st = (formData.status || 'INVENTORY') as DeviceStatus;
                     const noIp = !formData.ipAddress.trim();
                     const suggestOn = st === 'COMMISSIONING';
-                    const autoOff = st === 'INVENTORY' || st === 'DAMAGED' || noIp;
+                    const autoOff = !canEnableMonitoring(st, formData.ipAddress);
                     const effectiveMonitoring = autoOff ? false : formData.monitoringEnabled;
                     return (
                       <>

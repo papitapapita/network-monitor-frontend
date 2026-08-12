@@ -6,7 +6,7 @@ export type { BadgeVariant } from './Badge';
 
 export { Card } from './Card';
 
-export { Modal, ConfirmModal } from './Modal';
+export { Modal, ConfirmModal, UndoModal } from './Modal';
 
 export {
   Table,

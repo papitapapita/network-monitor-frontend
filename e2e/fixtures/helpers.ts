@@ -15,19 +15,21 @@ export function field(scope: Page | Locator, label: string): Locator {
 }
 
 /**
- * Picks an option from a `Combobox`.
+ * Picks an option from a `Combobox` the caller has already located.
  *
  * The component only renders its dropdown while focused, and the list is
  * portalled to <body> rather than nested under the field — so this focuses,
  * types to filter, then clicks the option wherever it landed in the DOM.
+ *
+ * Take this overload when the combobox carries no `label` prop of its own and
+ * `field()` therefore cannot find it — the device form's location picker, for
+ * one, labels itself with a plain <label> that points at nothing.
  */
-export async function selectCombobox(
+export async function pickFromCombobox(
   page: Page,
-  label: string,
-  optionLabel: string,
-  scope: Page | Locator = page
+  input: Locator,
+  optionLabel: string
 ): Promise<void> {
-  const input = field(scope, label);
   await input.click();
   await input.fill(optionLabel);
 
@@ -37,6 +39,16 @@ export async function selectCombobox(
 
   // The input shows the chosen label once the dropdown closes.
   await expect(input).toHaveValue(optionLabel);
+}
+
+/** Picks an option from the `Combobox` carrying a given visible label. */
+export async function selectCombobox(
+  page: Page,
+  label: string,
+  optionLabel: string,
+  scope: Page | Locator = page
+): Promise<void> {
+  await pickFromCombobox(page, field(scope, label), optionLabel);
 }
 
 /**

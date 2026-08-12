@@ -3,17 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { DeviceStatus } from '@/types/device.types';
 import { Card, Badge, LoadingSpinner, getDeviceStatusBadgeVariant } from '@/components/ui';
 import type { BadgeVariant } from '@/components/ui';
 import { useDashboardData } from '@/hooks/useDashboardData';
-
-const STATUS_LABELS: Record<DeviceStatus, string> = {
-  ACTIVE: 'Activo',
-  COMMISSIONING: 'Comisionamiento',
-  INVENTORY: 'Inventario',
-  DAMAGED: 'Dañado',
-};
+import { DEVICE_STATUS_LABELS as STATUS_LABELS } from '@/constants/device.constants';
 
 const SEVERITY_LABELS: Record<string, string> = {
   WARNING: 'Advertencia',

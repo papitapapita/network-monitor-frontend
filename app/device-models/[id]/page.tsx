@@ -20,6 +20,7 @@ export default function DeviceModelDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [purgeConfirmMessage, setPurgeConfirmMessage] = useState<string | null>(null);
 
   const fetchModel = useCallback(async () => {
     setIsLoading(true);
@@ -59,17 +60,36 @@ export default function DeviceModelDetailPage() {
     );
   }
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    const result = await apiService.deleteDeviceModel(modelId);
-    setIsDeleting(false);
+  const finishDelete = (result: { success: boolean; error?: string }) => {
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       router.push('/device-models');
     } else {
-      setShowDeleteModal(false);
       setError(result.error || 'Error al eliminar el modelo');
     }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    const result = await apiService.deleteDeviceModel(modelId);
+    setIsDeleting(false);
+    setShowDeleteModal(false);
+
+    // DEV-030: the only thing in the way is devices already in the recycle
+    // bin — offer the purge-and-delete confirmation instead of dead-ending.
+    if (!result.success && result.binnedDeviceCount) {
+      setPurgeConfirmMessage(result.error || null);
+      return;
+    }
+    finishDelete(result);
+  };
+
+  const handlePurgeAndDelete = async () => {
+    setIsDeleting(true);
+    const result = await apiService.deleteDeviceModel(modelId, true);
+    setIsDeleting(false);
+    setPurgeConfirmMessage(null);
+    finishDelete(result);
   };
 
   if (!model) return null;
@@ -83,6 +103,18 @@ export default function DeviceModelDetailPage() {
         title="Eliminar modelo"
         message={`¿Estás seguro de que deseas eliminar "${model.vendorName} — ${model.model}"? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isDeleting}
+      />
+
+      <ConfirmModal
+        isOpen={purgeConfirmMessage !== null}
+        onClose={() => setPurgeConfirmMessage(null)}
+        onConfirm={handlePurgeAndDelete}
+        title="Vaciar la papelera y eliminar"
+        message={purgeConfirmMessage ?? ''}
+        confirmText="Eliminar de todas formas"
         cancelText="Cancelar"
         variant="danger"
         isLoading={isDeleting}

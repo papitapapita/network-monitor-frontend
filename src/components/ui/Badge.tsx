@@ -55,6 +55,10 @@ export function getDeviceStatusBadgeVariant(status: string): BadgeVariant {
       return 'info';
     case 'DAMAGED':
       return 'danger';
+    // Retired for good — off the network like INVENTORY, but not coming back,
+    // so it reads apart from it without borrowing DAMAGED's alarm.
+    case 'DECOMMISSIONED':
+      return 'draft';
     case 'INVENTORY':
     default:
       return 'neutral';

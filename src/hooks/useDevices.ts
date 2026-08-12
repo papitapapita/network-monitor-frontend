@@ -40,12 +40,13 @@ async function fetchDevicesData(params: {
   statusFilter: string;
   categoryFilter: string;
   connectivityFilter: string;
+  locationFilter: string;
   search: string;
 }) {
-  const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search } = params;
+  const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search } = params;
 
   if (connectivityFilter) {
-    const allResult = await apiService.listDevices({ limit: 300 });
+    const allResult = await apiService.listDevices({ limit: 300, locationId: locationFilter || undefined });
     if (!allResult.success || !allResult.data) {
       throw new Error(allResult.error || 'Error al cargar dispositivos');
     }
@@ -83,6 +84,7 @@ async function fetchDevicesData(params: {
   };
   if (statusFilter) query.status = statusFilter as DeviceStatus;
   if (categoryFilter) query.category = categoryFilter as DeviceCategory;
+  if (locationFilter) query.locationId = locationFilter;
   if (search) query.search = search;
 
   const result = await apiService.listDevices(query);
@@ -111,16 +113,19 @@ export function useDevices() {
   const [connectivityFilter, setConnectivityFilter] = useState(
     () => searchParams.get('connectivity') ?? ''
   );
+  const [locationFilter, setLocationFilter] = useState(
+    () => searchParams.get('locationId') ?? ''
+  );
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, debouncedSearch];
+  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, debouncedSearch];
 
   const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = useQuery({
     queryKey,
-    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, search: debouncedSearch }),
+    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch }),
     placeholderData: keepPreviousData,
   });
 
@@ -139,6 +144,7 @@ export function useDevices() {
     setStatusFilter('');
     setCategoryFilter('');
     setConnectivityFilter('');
+    setLocationFilter('');
     setSearch('');
     setCurrentPage(1);
   };
@@ -167,13 +173,15 @@ export function useDevices() {
     statusFilter,
     categoryFilter,
     connectivityFilter,
+    locationFilter,
     search,
     sortField,
     sortDirection,
-    hasFilters: !!(statusFilter || categoryFilter || connectivityFilter || search),
+    hasFilters: !!(statusFilter || categoryFilter || connectivityFilter || locationFilter || search),
     setStatusFilter,
     setCategoryFilter,
     setConnectivityFilter,
+    setLocationFilter,
     setSearch,
     setCurrentPage,
     handleSort,

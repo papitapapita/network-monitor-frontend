@@ -49,13 +49,40 @@ export const MOCK_LOCATIONS: LocationResponseDTO[] = [
   },
 ];
 
-export const MOCK_DEVICES: DeviceResponseDTO[] = [
+/**
+ * The soft-delete and lineage fields only carry a value once something acts on
+ * the record, so the fixtures below name them only where that happened and
+ * `liveDevice` fills in the rest.
+ */
+type DeviceFixture = Omit<
+  DeviceResponseDTO,
+  'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
+> &
+  Partial<
+    Pick<
+      DeviceResponseDTO,
+      'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
+    >
+  >;
+
+const liveDevice = (d: DeviceFixture): DeviceResponseDTO => ({
+  deletedAt: null,
+  deletedBy: null,
+  replacedAt: null,
+  replacesDeviceId: null,
+  replacedByDeviceId: null,
+  ...d,
+});
+
+const DEVICE_FIXTURES: DeviceFixture[] = [
   {
     id: 'dev-1', name: 'Core-Router-01', status: 'ACTIVE', category: 'GATEWAY',
     ownerType: 'COMPANY', deviceModelId: 'dm-1', locationId: 'loc-1',
     ipAddress: '10.0.0.1', macAddress: 'AA:BB:CC:DD:EE:01', serialNumber: 'MT-001',
     monitoringEnabled: true, description: 'Primary edge router',
     installedDate: daysAgo(180), createdAt: daysAgo(180), updatedAt: daysAgo(2),
+    // Took over from dev-10, so the detail page has a lineage to follow.
+    replacesDeviceId: 'dev-10', replacedAt: daysAgo(180),
   },
   {
     id: 'dev-2', name: 'AP-Floor-2-01', status: 'ACTIVE', category: 'ACCESS_POINT',
@@ -119,8 +146,11 @@ export const MOCK_DEVICES: DeviceResponseDTO[] = [
     ipAddress: null, macAddress: 'AA:BB:CC:DD:EE:10', serialNumber: 'UBI-OLD-001',
     monitoringEnabled: false, description: 'Replaced by Core-Router-01',
     installedDate: daysAgo(400), createdAt: daysAgo(400), updatedAt: daysAgo(60),
+    replacedByDeviceId: 'dev-1',
   },
 ];
+
+export const MOCK_DEVICES: DeviceResponseDTO[] = DEVICE_FIXTURES.map(liveDevice);
 
 function lastResult(deviceId: string, status: 'SUCCESS' | 'FAILED', deviceStatus: 'ONLINE' | 'OFFLINE', latencyMs?: number): PollingResultDTO {
   return {

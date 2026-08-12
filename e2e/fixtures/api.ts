@@ -10,7 +10,9 @@ export type Resource =
   | 'device-models'
   | 'customers'
   | 'service-plans'
-  | 'contracted-services';
+  | 'contracted-services'
+  | 'tickets'
+  | 'technicians';
 
 /**
  * Pulls the JWT out of the session saved by auth.setup.ts, so talking to the
@@ -161,10 +163,19 @@ export class ApiClient {
    * Deletes a record mid-test and stops tracking it. Use it when the record
    * *ceasing to exist* is the precondition — a page holding a stale id, say —
    * rather than when the test is done with it.
+   *
+   * For devices that means a purge on top of the delete, since a plain delete
+   * only tombstones the row and the record has to actually be gone.
    */
   async remove(resource: Resource, id: string): Promise<void> {
     const res = await this.send('delete', this.url(`${resource}/${id}`));
     if (!res.ok()) throw new Error(`DELETE /${resource}/${id} → ${res.status()} ${await res.text()}`);
+    if (resource === 'devices') {
+      const purged = await this.send('delete', this.url(`devices/${id}/purge`));
+      if (!purged.ok()) {
+        throw new Error(`DELETE /devices/${id}/purge → ${purged.status()} ${await purged.text()}`);
+      }
+    }
     this.untrack(resource, id);
   }
 
@@ -172,6 +183,10 @@ export class ApiClient {
    * Deletes everything tracked, newest first so children go before parents.
    * Failures are reported but never thrown: cleanup must not turn a passing
    * test red, and a 404 just means the test already deleted it.
+   *
+   * Deleting a device only starts its 7-day grace period, so cleanup follows up
+   * with a purge — otherwise every run leaves its fixtures piling up in the
+   * recycle bin, where the bin's own specs would then trip over them.
    */
   async cleanup(): Promise<void> {
     for (const { resource, id } of this.trash) {
@@ -179,6 +194,14 @@ export class ApiClient {
         const res = await this.send('delete', this.url(`${resource}/${id}`));
         if (!res.ok() && res.status() !== 404) {
           console.warn(`[e2e cleanup] DELETE /${resource}/${id} → ${res.status()}`);
+        }
+        // A 404 means the test already deleted it — through the UI, most
+        // likely — so it is sitting in the bin and still needs purging.
+        if (resource === 'devices' && (res.ok() || res.status() === 404)) {
+          const purged = await this.send('delete', this.url(`devices/${id}/purge`));
+          if (!purged.ok() && purged.status() !== 404) {
+            console.warn(`[e2e cleanup] DELETE /devices/${id}/purge → ${purged.status()}`);
+          }
         }
       } catch (err) {
         console.warn(`[e2e cleanup] DELETE /${resource}/${id} failed:`, err);

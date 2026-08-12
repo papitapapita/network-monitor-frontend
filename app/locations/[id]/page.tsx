@@ -6,7 +6,7 @@ import { apiService } from '@/services/api.service';
 import { LocationResponseDTO, UpdateLocationDTO } from '@/types/location.types';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { LOCATION_TYPE_LABELS, LOCATION_TYPE_BADGE_VARIANTS } from '@/constants/location.constants';
-import { deviceCategoryLabel } from '@/constants/device.constants';
+import { DEVICE_STATUS_LABELS, deviceCategoryLabel } from '@/constants/device.constants';
 import { Button, Badge, LoadingSpinner, Card, Table, TableEmptyState } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import {
@@ -18,20 +18,15 @@ import {
   locationToForm,
   inferLocationFromCoords,
 } from '@/components/locations/LocationForm';
+import { AssignDeviceModal } from '@/components/locations/AssignDeviceModal';
 import type { BadgeVariant } from '@/components/ui';
-
-const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
-  ACTIVE: 'Activo',
-  COMMISSIONING: 'Comisionamiento',
-  INVENTORY: 'Inventario',
-  DAMAGED: 'Dañado',
-};
 
 const DEVICE_STATUS_VARIANTS: Record<DeviceStatus, BadgeVariant> = {
   ACTIVE: 'active',
   COMMISSIONING: 'info',
   INVENTORY: 'neutral',
   DAMAGED: 'warning',
+  DECOMMISSIONED: 'draft',
 };
 
 // ─────────────────────────────────────────────
@@ -60,6 +55,8 @@ export default function LocationDetailPage() {
   const [devices, setDevices] = useState<DeviceResponseDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -316,10 +313,23 @@ export default function LocationDetailPage() {
               <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({devices.length})</span>
             )}
           </h2>
-          <Button size="sm" onClick={() => router.push(`/devices?locationId=${locationId}`)}>
-            Ver todos
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => setShowAssignModal(true)}>
+              Agregar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => router.push(`/devices?locationId=${locationId}`)}>
+              Ver todos
+            </Button>
+          </div>
         </div>
+
+        <AssignDeviceModal
+          isOpen={showAssignModal}
+          onClose={() => setShowAssignModal(false)}
+          locationId={locationId}
+          onAssigned={(device) => setDevices((prev) => [...prev, device])}
+        />
+
         <Card padding="none">
           <Table>
             <Table.Header>

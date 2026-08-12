@@ -23,7 +23,7 @@ import {
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
-import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
+import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -137,9 +137,10 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     setFormData((prev) => ({
       ...prev,
       status: value,
+      // Every retired status stops polling on the backend's side anyway, and no
+      // status can hold monitoring on without an IP to ping.
       monitoringEnabled:
-        value === 'INVENTORY' || value === 'DAMAGED' ? false
-        : !prev.ipAddress.trim() ? false
+        !canEnableMonitoring(value, prev.ipAddress) ? false
         : value === 'COMMISSIONING' ? true
         : prev.monitoringEnabled,
     }));
@@ -334,15 +335,14 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   </p>
                 </div>
               )}
+              {/* The empty entry is what a device with no owner sits on — without
+                  it the field would read "Empresa" for an owner nobody set. */}
               <Select
                 label="Tipo de Propietario"
                 name="ownerType"
                 value={formData.ownerType}
                 onChange={handleChange}
-                options={[
-                  { value: 'COMPANY', label: 'Empresa' },
-                  { value: 'CLIENT', label: 'Cliente' }
-                ]}
+                options={DEVICE_OWNER_OPTIONS}
                 fullWidth
               />
               <Select
@@ -478,7 +478,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                     )
                   },
                   { label: 'Categoría', value: deviceCategoryLabel(device.category) },
-                  { label: 'Tipo de Propietario', value: device.ownerType === 'COMPANY' ? 'Empresa' : 'Cliente' },
+                  { label: 'Tipo de Propietario', value: deviceOwnerLabel(device.ownerType) },
                   { label: 'Dirección IP', value: device.ipAddress || '—', mono: true },
                   { label: 'Dirección MAC', value: device.macAddress || '—', mono: true },
                   { label: 'Número de Serie', value: device.serialNumber || '—' },

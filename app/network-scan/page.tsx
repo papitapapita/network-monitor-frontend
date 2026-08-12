@@ -27,7 +27,7 @@ import {
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { isValidMacAddress, normalizeMacAddress, requiresIdentifier, DEVICE_CATEGORY_OPTIONS, MISSING_IDENTIFIER_MESSAGE } from '@/constants/device.constants';
+import { isValidMacAddress, normalizeMacAddress, requiresIdentifier, DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 
 function isValidCidr(value: string): boolean {
@@ -333,11 +333,7 @@ function AddDeviceModal({
                   name="status"
                   value={form.status}
                   onChange={handleChange}
-                  options={[
-                    { value: 'ACTIVE', label: 'Activo' },
-                    { value: 'INVENTORY', label: 'Inventario' },
-                    { value: 'DAMAGED', label: 'Dañado' },
-                  ]}
+                  options={DEVICE_STATUS_OPTIONS}
                   fullWidth
                 />
                 <Select
@@ -353,11 +349,7 @@ function AddDeviceModal({
                   name="ownerType"
                   value={form.ownerType}
                   onChange={handleChange}
-                  options={[
-                    { value: '', label: 'Seleccionar tipo' },
-                    { value: 'COMPANY', label: 'Empresa' },
-                    { value: 'CLIENT', label: 'Cliente' },
-                  ]}
+                  options={DEVICE_OWNER_OPTIONS}
                   error={errors.ownerType}
                   fullWidth
                 />

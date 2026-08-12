@@ -198,3 +198,55 @@ export function ConfirmModal({
     </Modal>
   );
 }
+
+interface UndoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUndo: () => void;
+  title: string;
+  message: string;
+  /** Hidden when the viewer lacks the authority to undo — restoring is ADMIN work. */
+  canUndo?: boolean;
+  isUndoing?: boolean;
+  /** A failed undo, shown in place rather than behind the modal. */
+  error?: string | null;
+  closeText?: string;
+}
+
+/**
+ * What a delete leaves behind: one line saying it happened and the undo. The
+ * point is to be small — an operator who meant to delete dismisses it without
+ * reading, and the one who did not needs a single button, so anything else on
+ * it (grace-period prose, links to the bin) only stands between them and that
+ * button. The detail is still on the bin page for whoever wants it.
+ */
+export function UndoModal({
+  isOpen,
+  onClose,
+  onUndo,
+  title,
+  message,
+  canUndo = true,
+  isUndoing = false,
+  error = null,
+  closeText = 'Cerrar',
+}: UndoModalProps) {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
+      <div className="mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-300">{message}</p>
+        {error && <p className="mt-3 text-sm text-red-700 dark:text-red-400">{error}</p>}
+      </div>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose} disabled={isUndoing}>
+          {closeText}
+        </Button>
+        {canUndo && (
+          <Button onClick={onUndo} isLoading={isUndoing}>
+            Deshacer
+          </Button>
+        )}
+      </Modal.Footer>
+    </Modal>
+  );
+}

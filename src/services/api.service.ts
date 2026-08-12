@@ -14,6 +14,8 @@ import {
   UpdateDeviceModelDTO,
   DeviceCredentialsResponseDTO,
   SetDeviceCredentialsDTO,
+  ReplaceDeviceDTO,
+  ReplaceDeviceResultDTO,
 } from '../types/device.types';
 import {
   LocationResponseDTO,
@@ -48,7 +50,15 @@ import {
   UpdateWirelessConfigDTO,
 } from '../types/wireless.types';
 import { ApiResponse } from '../types/common.types';
-import { translateDeviceConflict, translateDeviceInvariant } from '../constants/device.constants';
+import {
+  translateDeviceConflict,
+  translateDeviceInvariant,
+  translateDeviceDeleteBlocker,
+  translateDeviceBinError,
+  translateDeviceReplaceError,
+  liveDeviceModelMessage,
+  binnedDeviceModelMessage,
+} from '../constants/device.constants';
 import { LoginResponseDTO } from '../types/auth.types';
 import {
   CustomerDTO,
@@ -244,6 +254,8 @@ class ApiService {
       locationId: query?.locationId,
       deviceModelId: query?.deviceModelId,
       monitoringEnabled: query?.monitoringEnabled,
+      // Omitted means live devices only; 'true' is the recycle bin.
+      deleted: query?.deleted,
       search: query?.search,
       sortBy: query?.sortBy,
       sortOrder: query?.sortOrder
@@ -263,21 +275,86 @@ class ApiService {
     return this.translateDeviceError(result);
   }
 
+  /**
+   * Soft delete: the device leaves every listing at once, but the row and its
+   * collected history survive a 7-day grace period, so `restoreDevice` can bring
+   * it back and `purgeDevice` can end it early.
+   *
+   * Refused while a live contracted service or an open ticket still points at
+   * the device — both `400`s the caller is expected to show, since neither is
+   * fixable from a delete dialog.
+   */
   async deleteDevice(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/devices/${id}`, { method: 'DELETE' });
+    const result = await this.request<void>(`/devices/${id}`, { method: 'DELETE' });
+    if (!result.success && result.error) {
+      const blocked = translateDeviceDeleteBlocker(result.error);
+      if (blocked) return { success: false, status: result.status, error: blocked.message };
+    }
+    return result;
+  }
+
+  /** Undoes a soft delete, inside the grace period. Comes back with monitoring off. */
+  async restoreDevice(id: string): Promise<ApiResponse<DeviceResponseDTO>> {
+    const result = await this.request<DeviceResponseDTO>(`/devices/${id}/restore`, {
+      method: 'POST',
+    });
+    return this.translateBinError(result);
+  }
+
+  /**
+   * Ends the grace period now instead of waiting it out. Every ping result,
+   * alert, wireless snapshot and credential belonging to the device goes with
+   * it — there is no undo.
+   */
+  async purgeDevice(id: string): Promise<ApiResponse<void>> {
+    const result = await this.request<void>(`/devices/${id}/purge`, { method: 'DELETE' });
+    return this.translateBinError(result);
+  }
+
+  /**
+   * Swaps one physical box for another: retires this device into `retiredStatus`
+   * and creates its successor, carrying the location, category, owner, IP,
+   * credentials and contracted service across.
+   */
+  async replaceDevice(
+    id: string,
+    data: ReplaceDeviceDTO
+  ): Promise<ApiResponse<ReplaceDeviceResultDTO>> {
+    const result = await this.request<ReplaceDeviceResultDTO>(`/devices/${id}/replace`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!result.success && result.error) {
+      const translated = translateDeviceReplaceError(result.error);
+      if (translated) {
+        return { success: false, status: result.status, error: translated.message, errorField: translated.field ?? undefined };
+      }
+    }
+    return result;
   }
 
   // The backend replies in English when a MAC or IP is already taken by another
-  // device, and likewise when a status invariant is broken (an INVENTORY or
-  // DAMAGED device without a serial number or MAC, an ACTIVE one without an IP
-  // or location). The rest of this UI is in Spanish, so surface the same fact in
-  // that language and tag the field it belongs to.
+  // device, and likewise when a status invariant is broken (a retired device
+  // without a serial number or MAC, an ACTIVE one without an IP or location).
+  // The rest of this UI is in Spanish, so surface the same fact in that language
+  // and tag the field it belongs to.
   private translateDeviceError<T>(result: ApiResponse<T>): ApiResponse<T> {
     if (!result.success && result.error) {
       const translated = translateDeviceConflict(result.error) ?? translateDeviceInvariant(result.error);
       if (translated) {
         return { success: false, error: translated.message, errorField: translated.field ?? undefined };
       }
+    }
+    return result;
+  }
+
+  // Restore and purge are refused on the state of the tombstone — an expired
+  // grace period, a device that was never deleted — so the answer belongs in a
+  // banner, not on a form field.
+  private translateBinError<T>(result: ApiResponse<T>): ApiResponse<T> {
+    if (!result.success && result.error) {
+      const translated = translateDeviceBinError(result.error);
+      if (translated) return { success: false, status: result.status, error: translated };
     }
     return result;
   }
@@ -469,8 +546,14 @@ class ApiService {
     return this.translateDeviceModelError(result);
   }
 
-  async deleteDeviceModel(id: string): Promise<ApiResponse<void>> {
-    const result = await this.request<void>(`/device-models/${id}`, { method: 'DELETE' });
+  /**
+   * `purgeBinnedDevices` is the DEV-030 confirmation: only send it once the
+   * operator has agreed to permanently remove the model's recycled devices
+   * along with it. Omitting it (the default) refuses instead of guessing.
+   */
+  async deleteDeviceModel(id: string, purgeBinnedDevices?: boolean): Promise<ApiResponse<void>> {
+    const qs = this.buildQuery({ purgeBinnedDevices: purgeBinnedDevices ? true : undefined });
+    const result = await this.request<void>(`/device-models/${id}${qs}`, { method: 'DELETE' });
     return this.translateDeviceModelError(result);
   }
 
@@ -510,15 +593,18 @@ class ApiService {
         /^Cannot delete device model: it has (\d+) device\(s\) associated\. Reassign or remove those devices first\.$/
       );
       if (devicesMatch) {
-        const count = Number(devicesMatch[1]);
-        const noun = count === 1 ? 'dispositivo asociado' : 'dispositivos asociados';
-        const tail = count === 1
-          ? 'Reasigna o elimina ese dispositivo primero.'
-          : 'Reasigna o elimina esos dispositivos primero.';
-        return {
-          success: false,
-          error: `No se puede eliminar el modelo: tiene ${count} ${noun}. ${tail}`,
-        };
+        return { success: false, error: liveDeviceModelMessage(Number(devicesMatch[1])) };
+      }
+
+      // DEV-030: every remaining device on the model is already in the recycle
+      // bin. Surface the count so the caller can confirm and retry with
+      // purgeBinnedDevices=true rather than treating this as a dead end.
+      const binnedMatch = result.error.match(
+        /^Cannot delete device model: it has (\d+) device\(s\) in the recycle bin\. Retry with purgeBinnedDevices=true to remove them permanently along with the model\.$/
+      );
+      if (binnedMatch) {
+        const count = Number(binnedMatch[1]);
+        return { success: false, binnedDeviceCount: count, error: binnedDeviceModelMessage(count) };
       }
     }
     return result;

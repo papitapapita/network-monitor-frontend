@@ -450,6 +450,179 @@ test.describe('device model conventions', () => {
     await expect(page.getByRole('heading', { name: `${vendor.name} — ${model.model}` })).toBeVisible();
   });
 
+  /**
+   * DEV-030 — DEV-026 only counts live devices, so a model whose last unit was
+   * soft-deleted (DEV-070) looks free. The delete is refused anyway, naming the
+   * tombstones, and only proceeds — cascading their permanent removal — once the
+   * operator confirms with a second request.
+   */
+  test('DEV-030: refuses to delete a model whose only device is in the recycle bin', async ({ page, api }) => {
+    const vendor = await makeVendor(api);
+    const model = await api.create<{ id: string; model: string }>('device-models', {
+      vendorId: vendor.id,
+      model: uniqueName('model'),
+      deviceType: 'ROUTER',
+      isWireless: false,
+    });
+    const device = await api.create<{ id: string; name: string }>('devices', {
+      name: uniqueName('device'),
+      deviceModelId: model.id,
+      status: 'INVENTORY',
+      ownerType: 'COMPANY',
+      serialNumber: uniqueName('sn'),
+    });
+
+    // Soft-delete through the real flow, the same way an operator would.
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar dispositivo');
+    await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
+
+    await page.goto(`/device-models/${model.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar modelo');
+
+    // Named as a tombstone in the bin, not the raw FK error the DB would throw,
+    // and not the "associated" wording DEV-026 uses for a live device.
+    await expect(
+      page.getByText('Este modelo tiene 1 dispositivo en la papelera. Si confirmas, se eliminará de forma permanente junto con el modelo.')
+    ).toBeVisible();
+
+    // Declining leaves both the model and its tombstoned device untouched.
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page).toHaveURL(new RegExp(`/device-models/${model.id}$`));
+    await expect(page.getByRole('heading', { name: `${vendor.name} — ${model.model}` })).toBeVisible();
+  });
+
+  test('DEV-030: confirming purges the recycle-bin device along with the model', async ({ page, api }) => {
+    const vendor = await makeVendor(api);
+    const model = await api.create<{ id: string; model: string }>('device-models', {
+      vendorId: vendor.id,
+      model: uniqueName('model'),
+      deviceType: 'ROUTER',
+      isWireless: false,
+    });
+    const device = await api.create<{ id: string; name: string }>('devices', {
+      name: uniqueName('device'),
+      deviceModelId: model.id,
+      status: 'INVENTORY',
+      ownerType: 'COMPANY',
+      serialNumber: uniqueName('sn'),
+    });
+
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar dispositivo');
+    await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
+
+    await page.goto(`/device-models/${model.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar modelo');
+    await expect(page.getByText(/Este modelo tiene 1 dispositivo en la papelera/)).toBeVisible();
+
+    await confirmDialog(page, 'Vaciar la papelera y eliminar', 'Eliminar de todas formas');
+
+    await page.waitForURL('**/device-models');
+    api.untrack('device-models', model.id);
+    api.untrack('devices', device.id);
+
+    await searchFor(page, model.model);
+    await expect(page.getByRole('row').filter({ hasText: model.model })).toHaveCount(0);
+
+    // Gone for good, not just soft-deleted a second time — nothing on the model
+    // is left in the bin either.
+    const binned = await api.get<{ devices: unknown[] }>(`devices?deleted=true&deviceModelId=${model.id}`);
+    expect(binned.devices).toHaveLength(0);
+  });
+
+  test('DEV-030: a live device still refuses the delete whatever the purge flag would do', async ({ page, api }) => {
+    const vendor = await makeVendor(api);
+    const model = await api.create<{ id: string; model: string }>('device-models', {
+      vendorId: vendor.id,
+      model: uniqueName('model'),
+      deviceType: 'ROUTER',
+      isWireless: false,
+    });
+    const binnedDevice = await api.create<{ id: string; name: string }>('devices', {
+      name: uniqueName('device'),
+      deviceModelId: model.id,
+      status: 'INVENTORY',
+      ownerType: 'COMPANY',
+      serialNumber: uniqueName('sn'),
+    });
+    // A second, live device on the same model — DEV-026's guard, not DEV-030's.
+    await api.create('devices', {
+      name: uniqueName('device'),
+      deviceModelId: model.id,
+      status: 'INVENTORY',
+      ownerType: 'COMPANY',
+      serialNumber: uniqueName('sn'),
+    });
+
+    await page.goto(`/devices/${binnedDevice.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar dispositivo');
+    await expect(page.getByText(`«${binnedDevice.name}» se eliminó`)).toBeVisible();
+
+    await page.goto(`/device-models/${model.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar modelo');
+
+    // The live device wins: DEV-026's message, not DEV-030's — no confirmation
+    // dialog is offered to purge around it.
+    await expect(
+      page.getByText('No se puede eliminar el modelo: tiene 1 dispositivo asociado. Reasigna o elimina ese dispositivo primero.')
+    ).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/device-models/${model.id}$`));
+  });
+
+  test('DEV-030: the list view offers the same purge confirmation for a selection', async ({ page, api }) => {
+    const vendor = await makeVendor(api);
+    const model = await api.create<{ id: string; model: string }>('device-models', {
+      vendorId: vendor.id,
+      model: uniqueName('model'),
+      deviceType: 'ROUTER',
+      isWireless: false,
+    });
+    const device = await api.create<{ id: string; name: string }>('devices', {
+      name: uniqueName('device'),
+      deviceModelId: model.id,
+      status: 'INVENTORY',
+      ownerType: 'COMPANY',
+      serialNumber: uniqueName('sn'),
+    });
+
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar dispositivo');
+    await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
+
+    await page.goto('/device-models');
+    await searchFor(page, model.model);
+    await page
+      .getByRole('checkbox', { name: `Seleccionar ${vendor.name} ${model.model}` })
+      .click();
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar modelos');
+
+    // The plain delete is refused behind the scenes, and the table swaps straight
+    // to the purge confirmation — never a dead-end banner in between.
+    await expect(
+      page.getByText('Este modelo tiene 1 dispositivo en la papelera. Si confirmas, se eliminará de forma permanente junto con el modelo.')
+    ).toBeVisible();
+
+    await confirmDialog(page, 'Vaciar la papelera y eliminar', 'Eliminar de todas formas');
+
+    api.untrack('device-models', model.id);
+    api.untrack('devices', device.id);
+
+    await expect(page.getByRole('row').filter({ hasText: model.model })).toHaveCount(0);
+
+    const binned = await api.get<{ devices: unknown[] }>(`devices?deleted=true&deviceModelId=${model.id}`);
+    expect(binned.devices).toHaveLength(0);
+  });
+
   test('DEV-028: copies the vendor name and slug onto the model', async ({ page, api }) => {
     const vendor = await makeVendor(api);
     const model = uniqueName('model');

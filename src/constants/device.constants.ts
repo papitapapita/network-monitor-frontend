@@ -1,4 +1,9 @@
-import type { DeviceCategory, DeviceStatus } from '@/types/device.types';
+import type {
+  DeviceCategory,
+  DeviceOwnerType,
+  DeviceStatus,
+  RetiredDeviceStatus,
+} from '@/types/device.types';
 
 /**
  * Categories that require a wireless-capable device model. These are also the
@@ -40,12 +45,23 @@ export type DeviceConflict = {
 };
 
 /**
+ * The statuses a unit that is off the network can hold: back in stock, broken
+ * but still ours, or retired for good. None of them polls, and each is a legal
+ * destination for the outgoing unit of a hardware replacement.
+ */
+export const RETIRED_STATUSES: RetiredDeviceStatus[] = [
+  'INVENTORY',
+  'DAMAGED',
+  'DECOMMISSIONED',
+];
+
+/**
  * A device the network cannot reach is tracked by what is written on the box,
- * so the backend requires a serial number or a MAC for these two statuses —
+ * so the backend requires a serial number or a MAC for every retired status —
  * on create and on update alike, whether or not an IP happens to be recorded.
  */
 export const requiresIdentifier = (status: DeviceStatus | '' | null | undefined): boolean =>
-  status === 'INVENTORY' || status === 'DAMAGED';
+  !!status && (RETIRED_STATUSES as string[]).includes(status);
 
 /** Shown under the serial-number input, the field the operator is likeliest to fill. */
 export const MISSING_IDENTIFIER_MESSAGE = 'Se requiere número de serie o dirección MAC';
@@ -183,6 +199,126 @@ export function translateDeviceInvariant(error: string): DeviceConflict | null {
   return null;
 }
 
+/**
+ * Deleting a device is refused while something downstream still points at it.
+ * Neither refusal is fixable from the delete dialog — the operator has to go
+ * cancel the service or close the tickets — so the blocker is named separately
+ * from the message, letting the caller offer the link that gets them there.
+ */
+export type DeviceDeleteBlocker = {
+  blocker: 'contractedService' | 'openTickets';
+  message: string;
+};
+
+const CONTRACT_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente',
+  ACTIVE: 'Activo',
+  SUSPENDED: 'Suspendido',
+  CANCELLED: 'Cancelado',
+};
+
+/** Returns null for anything else, so callers keep the original error. */
+export function translateDeviceDeleteBlocker(error: string): DeviceDeleteBlocker | null {
+  const service = error.match(
+    /^Cannot delete a device with a live contracted service \(status (\w+)\)\. Cancel the service first\.$/
+  );
+  if (service) {
+    const status = CONTRACT_STATUS_LABELS[service[1]] ?? service[1];
+    return {
+      blocker: 'contractedService',
+      message: `Este dispositivo tiene un servicio contratado vigente (estado «${status}»). Cancele el servicio antes de eliminarlo.`,
+    };
+  }
+
+  const tickets = error.match(
+    /^Cannot delete a device with (\d+) open ticket\(s\)\. Resolve or cancel them first\.$/
+  );
+  if (tickets) {
+    const count = Number(tickets[1]);
+    return {
+      blocker: 'openTickets',
+      message: `Este dispositivo tiene ${count} ${count === 1 ? 'ticket abierto' : 'tickets abiertos'}. Resuélvalos o cancélelos antes de eliminarlo.`,
+    };
+  }
+
+  return null;
+}
+
+/** How long a deleted device can still be brought back. */
+export const RESTORE_GRACE_DAYS = 7;
+
+/**
+ * A restored device comes back with monitoring off whatever it had before, and
+ * a retired status is not undone either — so say what is still missing instead
+ * of letting the operator find it later on a grey status pill.
+ */
+export const RESTORE_SUCCESS_MESSAGE =
+  'Dispositivo restaurado con el monitoreo deshabilitado. Vuelva a habilitarlo — y a cambiar el estado si el dispositivo estaba retirado — para ponerlo en servicio.';
+
+/**
+ * The restore and purge refusals. Both are `400`s about the state of the
+ * tombstone rather than about anything the operator typed, so neither belongs
+ * on a form field.
+ */
+export function translateDeviceBinError(error: string): string | null {
+  if (error === 'Cannot restore a device whose 7-day grace period expired') {
+    return `El plazo de ${RESTORE_GRACE_DAYS} días para restaurar este dispositivo ya venció; no se puede recuperar.`;
+  }
+  if (error === 'Cannot restore a device that is not deleted') {
+    return 'Este dispositivo no está eliminado, así que no hay nada que restaurar.';
+  }
+  if (
+    error ===
+    'Cannot permanently delete a device that is not in the recycle bin. Delete it first.'
+  ) {
+    return 'Este dispositivo no está en la papelera. Elimínelo primero para poder borrarlo de forma permanente.';
+  }
+  return null;
+}
+
+/**
+ * The replacement's own refusals. A device is one physical box, so the new unit
+ * needs its own identifier and the outgoing one can only be swapped once.
+ */
+export function translateDeviceReplaceError(error: string): DeviceConflict | null {
+  if (error === 'The replacement device must have at least a serial number or MAC address') {
+    return { field: 'serialNumber', message: MISSING_IDENTIFIER_MESSAGE };
+  }
+  if (error === 'Device has already been replaced') {
+    return {
+      field: null,
+      message:
+        'Este dispositivo ya fue reemplazado. Para registrar otro cambio de equipo, reemplace la unidad actual.',
+    };
+  }
+  return translateDeviceConflict(error) ?? translateDeviceInvariant(error);
+}
+
+/**
+ * DEV-026: a device model can't be deleted while devices still point at it.
+ * Shared by the real translator and the mock so both say the same thing.
+ */
+export function liveDeviceModelMessage(count: number): string {
+  const noun = count === 1 ? 'dispositivo asociado' : 'dispositivos asociados';
+  const tail = count === 1
+    ? 'Reasigna o elimina ese dispositivo primero.'
+    : 'Reasigna o elimina esos dispositivos primero.';
+  return `No se puede eliminar el modelo: tiene ${count} ${noun}. ${tail}`;
+}
+
+/**
+ * DEV-030: DEV-026 only counts live devices, so a model whose last units are
+ * soft-deleted (DEV-070) reads as unused even though the tombstones still
+ * hold the foreign key. Named here rather than left to a raw DB error, and
+ * gated behind a confirmation since retrying with `purgeBinnedDevices` burns
+ * those devices' 7-day restore window for good.
+ */
+export function binnedDeviceModelMessage(count: number): string {
+  const noun = count === 1 ? 'dispositivo' : 'dispositivos';
+  const verb = count === 1 ? 'se eliminará' : 'se eliminarán';
+  return `Este modelo tiene ${count} ${noun} en la papelera. Si confirmas, ${verb} de forma permanente junto con el modelo.`;
+}
+
 // The category says what role the unit plays in the network. Hardware traits
 // (PoE, port count, …) belong to the device model's deviceType, never here.
 const DEVICE_CATEGORY_CORE: { value: DeviceCategory; label: string }[] = [
@@ -217,6 +353,7 @@ const DEVICE_STATUS_CORE = [
   { value: 'COMMISSIONING', label: 'Comisionamiento' },
   { value: 'ACTIVE', label: 'Activo' },
   { value: 'DAMAGED', label: 'Dañado' },
+  { value: 'DECOMMISSIONED', label: 'Dado de baja' },
 ];
 
 export const DEVICE_STATUS_OPTIONS = DEVICE_STATUS_CORE;
@@ -231,22 +368,48 @@ export const DEVICE_STATUS_FILTER_OPTIONS = [
   ...DEVICE_STATUS_CORE,
 ];
 
+export const DEVICE_OWNER_LABELS: Record<DeviceOwnerType, string> = {
+  COMPANY: 'Empresa',
+  CLIENT: 'Cliente',
+};
+
+/** An owner is optional, so no owner reads as absent rather than as one of the two. */
+export const deviceOwnerLabel = (ownerType: DeviceOwnerType | null | undefined): string =>
+  ownerType ? DEVICE_OWNER_LABELS[ownerType] ?? ownerType : '—';
+
 export const DEVICE_OWNER_OPTIONS = [
   { value: '', label: 'Seleccionar tipo' },
-  { value: 'COMPANY', label: 'Empresa' },
-  { value: 'CLIENT', label: 'Cliente' },
+  ...(Object.entries(DEVICE_OWNER_LABELS) as [DeviceOwnerType, string][]).map(([value, label]) => ({
+    value,
+    label,
+  })),
 ];
 
-export const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
-  INVENTORY: 'Inventario',
-  COMMISSIONING: 'Comisionamiento',
-  ACTIVE: 'Activo',
-  DAMAGED: 'Dañado',
-};
+export const DEVICE_STATUS_LABELS = Object.fromEntries(
+  DEVICE_STATUS_CORE.map(({ value, label }) => [value, label])
+) as Record<DeviceStatus, string>;
+
+/** Falls back to the raw literal so a status we don't know yet still renders. */
+export const deviceStatusLabel = (status: DeviceStatus | '' | null | undefined): string =>
+  status ? DEVICE_STATUS_LABELS[status] ?? status : '—';
+
+/**
+ * The three retired statuses offered as the destination for the unit coming out
+ * of a hardware swap. Ordered by how a replacement usually ends: an upgraded
+ * antenna that still works goes back in stock, a failed one is broken, an
+ * obsolete one is done for good.
+ */
+export const RETIRED_STATUS_OPTIONS = RETIRED_STATUSES.map((value) => ({
+  value,
+  label: DEVICE_STATUS_LABELS[value],
+}));
 
 export const DEVICE_STATUS_COLORS: Record<DeviceStatus, string> = {
   ACTIVE: '#10b981',
   COMMISSIONING: '#3b82f6',
   INVENTORY: '#6b7280',
   DAMAGED: '#ef4444',
+  // Retired for good: off the network like INVENTORY, but not coming back — so
+  // distinct from it without borrowing DAMAGED's alarm.
+  DECOMMISSIONED: '#a16207',
 };

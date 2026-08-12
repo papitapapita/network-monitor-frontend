@@ -5,7 +5,7 @@ import { Table, TableEmptyState } from './Table';
 import { SelectCheckbox } from './SelectCheckbox';
 import { Pagination } from './Pagination';
 import { LoadingSpinner } from './LoadingSpinner';
-import { ConfirmModal } from './Modal';
+import { ConfirmModal, UndoModal } from './Modal';
 import { ErrorBanner } from './ErrorBanner';
 import { ApiResponse } from '@/types/common.types';
 import { BulkDeleteProgress, runBulkDelete } from '@/services/bulk-delete';
@@ -43,13 +43,34 @@ export interface EntityNoun {
 export interface BulkDeleteConfig<T> {
   /** Deletes a single row; DataTable fans out over the selection and aggregates the results. */
   deleteOne: (id: string) => Promise<ApiResponse<void>>;
+  /**
+   * Puts a deleted row back. Providing it turns the batch's result into an undo
+   * offer; leave it off where the delete is final, as the recycle bin's purge is.
+   */
+  undoOne?: (id: string) => Promise<ApiResponse<unknown>>;
   /** Runs once the batch settles, so the page can refetch. */
   onFinished?: () => void | Promise<void>;
+  /**
+   * Retries a single row's delete once the operator confirms a second time —
+   * for a refusal `deleteOne` flagged as recoverable via `binnedDeviceCount`
+   * on its `ApiResponse` (DEV-030: a device model whose only devices are
+   * already in the recycle bin). Offered only when exactly one row is being
+   * deleted and it is the one blocked this way; anything else falls back to
+   * the plain error banner.
+   */
+  confirmAndRetry?: (id: string) => Promise<ApiResponse<void>>;
   entity: EntityNoun;
   /** Rows failing this cannot be selected (e.g. alerts that are still open). */
   canDelete?: (row: T) => boolean;
   /** Tooltip explaining why a blocked row cannot be selected. */
   blockedHint?: string;
+  /**
+   * Replaces the "cannot be undone" sentence in the confirmation. Set it wherever
+   * that is not true — devices are soft-deleted and restorable for a week — since
+   * promising permanence the API does not deliver makes the dialog scarier than
+   * the action.
+   */
+  confirmNote?: string;
 }
 
 export interface DataTablePagination {
@@ -150,6 +171,13 @@ function progressMessage(progress: BulkDeleteProgress, entity: EntityNoun): stri
   return `${head} El servidor limitó el ritmo de eliminación; se reanuda en ${seconds} s.`;
 }
 
+/** "Dispositivo eliminado" / "Alertas eliminadas" — the undo modal's title. */
+function deletedTitle(n: number, entity: EntityNoun): string {
+  const noun = n === 1 ? entity.singular : entity.plural;
+  const participle = `eliminad${entity.gender === 'f' ? 'a' : 'o'}${n === 1 ? '' : 's'}`;
+  return `${noun.charAt(0).toUpperCase()}${noun.slice(1)} ${participle}`;
+}
+
 function selectedLabel(n: number, entity: EntityNoun): string {
   const suffix = entity.gender === 'f' ? 'seleccionada' : 'seleccionado';
   return `${n} ${suffix}${n === 1 ? '' : 's'}`;
@@ -185,12 +213,20 @@ export function DataTable<T>({
   const [isDeleting, setIsDeleting] = useState(false);
   const [progress, setProgress] = useState<BulkDeleteProgress | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /** The single row blocked behind a DEV-030-style confirm-and-retry, awaiting the second confirmation. */
+  const [blockedRetry, setBlockedRetry] = useState<{ id: string; message: string } | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  /** Ids the last batch took, held only to offer them back. */
+  const [undoableIds, setUndoableIds] = useState<string[]>([]);
+  const [isUndoing, setIsUndoing] = useState(false);
+  const [undoError, setUndoError] = useState<string | null>(null);
   /** Last row toggled on its own — the anchor a Shift+click extends from. */
   const anchorId = useRef<string | null>(null);
 
   useEffect(() => {
     setSelectedIds(new Set());
     setShowConfirm(false);
+    setBlockedRetry(null);
     anchorId.current = null;
   }, [selectionResetKey]);
 
@@ -240,16 +276,30 @@ export function DataTable<T>({
 
     setIsDeleting(true);
     setDeleteError(null);
+    setUndoError(null);
     setProgress({ done: 0, total: ids.length, retryAt: null });
     try {
-      const { deleted, failed, rateLimited } = await runBulkDelete(
+      const { deletedIds, failed, rateLimited } = await runBulkDelete(
         ids,
         bulkDelete.deleteOne,
         setProgress
       );
+      const deleted = deletedIds.length;
+      // However the batch went, whatever it did take can be put back — that
+      // offer is the whole report on a run that worked.
+      if (bulkDelete.undoOne && deleted > 0) setUndoableIds(deletedIds);
 
       if (failed.length === 0) {
         setSelectedIds(new Set());
+      } else if (
+        failed.length === 1 &&
+        failed[0].binnedDeviceCount !== undefined &&
+        bulkDelete.confirmAndRetry
+      ) {
+        // Refused for a recoverable reason rather than a hard failure: offer the
+        // second confirmation instead of dead-ending on the error banner.
+        setBlockedRetry({ id: failed[0].id, message: failed[0].error });
+        setSelectedIds(new Set(failed.map((f) => f.id)));
       } else {
         // A run stopped by the rate limit is not a per-row failure: say what is
         // left and that waiting fixes it, rather than repeating the 429 prose.
@@ -275,6 +325,50 @@ export function DataTable<T>({
       setProgress(null);
       await bulkDelete.onFinished?.();
     }
+  };
+
+  const handleConfirmRetry = async () => {
+    if (!blockedRetry || !bulkDelete?.confirmAndRetry) return;
+    setIsRetrying(true);
+    setDeleteError(null);
+    const result = await bulkDelete.confirmAndRetry(blockedRetry.id);
+    setIsRetrying(false);
+    setBlockedRetry(null);
+
+    if (result.success) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(blockedRetry.id);
+        return next;
+      });
+    } else {
+      setDeleteError(result.error ?? `Error al eliminar ${bulkDelete.entity.singular}`);
+    }
+    await bulkDelete.onFinished?.();
+  };
+
+  const handleUndo = async () => {
+    const undoOne = bulkDelete?.undoOne;
+    if (!undoOne || undoableIds.length === 0) return;
+
+    setIsUndoing(true);
+    setUndoError(null);
+    // Same runner as the delete: a restore per row is the same fan-out against
+    // the same per-IP budget, so it wants the same pacing and 429 backoff.
+    const { failed } = await runBulkDelete(undoableIds, undoOne);
+    setIsUndoing(false);
+
+    if (failed.length === 0) {
+      setUndoableIds([]);
+    } else {
+      setUndoError(
+        `No se pudieron restaurar ${countLabel(failed.length, bulkDelete!.entity)}. ${failed[0].error}`
+      );
+      // Leaves the modal open on exactly what is still missing, so the button
+      // retries those and not the rows that already came back.
+      setUndoableIds(failed.map((f) => f.id));
+    }
+    await bulkDelete?.onFinished?.();
   };
 
   const selectionEnabled = !!bulkDelete;
@@ -429,12 +523,43 @@ export function DataTable<T>({
           message={
             progress
               ? progressMessage(progress, bulkDelete.entity)
-              : `¿Estás seguro de que deseas eliminar ${countLabel(selectedCount, bulkDelete.entity)}? Esta acción no se puede deshacer.`
+              : `¿Estás seguro de que deseas eliminar ${countLabel(selectedCount, bulkDelete.entity)}? ${
+                  bulkDelete.confirmNote ?? 'Esta acción no se puede deshacer.'
+                }`
           }
           confirmText="Eliminar"
           cancelText="Cancelar"
           variant="danger"
           isLoading={isDeleting}
+        />
+      )}
+
+      {bulkDelete?.confirmAndRetry && (
+        <ConfirmModal
+          isOpen={blockedRetry !== null}
+          onClose={() => setBlockedRetry(null)}
+          onConfirm={handleConfirmRetry}
+          title="Vaciar la papelera y eliminar"
+          message={blockedRetry?.message ?? ''}
+          confirmText="Eliminar de todas formas"
+          cancelText="Cancelar"
+          variant="danger"
+          isLoading={isRetrying}
+        />
+      )}
+
+      {bulkDelete?.undoOne && (
+        <UndoModal
+          isOpen={undoableIds.length > 0}
+          onClose={() => { setUndoableIds([]); setUndoError(null); }}
+          onUndo={handleUndo}
+          title={deletedTitle(undoableIds.length, bulkDelete.entity)}
+          message={`${undoableIds.length === 1 ? 'Se eliminó' : 'Se eliminaron'} ${countLabel(
+            undoableIds.length,
+            bulkDelete.entity
+          )}.`}
+          isUndoing={isUndoing}
+          error={undoError}
         />
       )}
     </>

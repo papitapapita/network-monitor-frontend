@@ -2,7 +2,8 @@ export type DeviceStatus =
   | 'INVENTORY'
   | 'COMMISSIONING'
   | 'ACTIVE'
-  | 'DAMAGED';
+  | 'DAMAGED'
+  | 'DECOMMISSIONED';
 
 // The role the unit plays in the network — not what kind of hardware it is
 // (that is DeviceType, and it lives on the device model).
@@ -45,6 +46,24 @@ export interface DeviceResponseDTO {
   monitoringEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+
+  /**
+   * Soft delete. Null on anything a normal read returns — a deleted device is
+   * absent from every listing and 404s on GET. They carry a value only on the
+   * recycle bin (`listDevices({ deleted: 'true' })`) and on the record `restore`
+   * hands back.
+   */
+  deletedAt: string | null;
+  deletedBy: string | null;
+
+  /**
+   * Replacement lineage, both directions readable. A device record is one
+   * physical box, so a swap creates a second record and links the two rather
+   * than editing the model in place.
+   */
+  replacedAt: string | null;
+  replacesDeviceId: string | null;
+  replacedByDeviceId: string | null;
 }
 
 export interface CreateDeviceDTO {
@@ -91,8 +110,13 @@ export interface ListDevicesQuery {
   locationId?: string;
   deviceModelId?: string;
   monitoringEnabled?: boolean;
+  /**
+   * Soft-deleted devices are hidden unless asked for: 'false' (the default) is
+   * live devices only, 'true' is the recycle bin, 'any' is both.
+   */
+  deleted?: 'true' | 'false' | 'any';
   search?: string;
-  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'status';
+  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt';
   sortOrder?: 'ASC' | 'DESC';
 }
 
@@ -102,6 +126,44 @@ export interface DeviceListResponse {
   hasMore: boolean;
   limit: number;
   offset: number;
+}
+
+/**
+ * The three statuses a unit that is off the network can hold. Each needs an
+ * identifier you can read off the box, none of them polls, and they are the
+ * only values `replaceDevice` accepts for the outgoing unit.
+ */
+export type RetiredDeviceStatus = 'INVENTORY' | 'DAMAGED' | 'DECOMMISSIONED';
+
+/**
+ * Swapping one physical box for another. Everything the new unit does not carry
+ * itself — location, category, owner, the released IP, the credentials and the
+ * customer's contracted service — is inherited from the unit being retired.
+ */
+export interface ReplaceDeviceDTO {
+  deviceModelId: string;
+  /** Where the outgoing unit lands: back in stock, broken, or retired for good. */
+  retiredStatus: RetiredDeviceStatus;
+  /** Defaults to the retired unit's name. */
+  name?: string;
+  /** At least one of serialNumber / macAddress is required — it is a different box. */
+  serialNumber?: string;
+  macAddress?: string;
+  description?: string;
+  /** ISO 8601; defaults to now. */
+  installedDate?: string;
+}
+
+export interface ReplaceDeviceResultDTO {
+  retiredDevice: DeviceResponseDTO;
+  newDevice: DeviceResponseDTO;
+  /**
+   * True when the new model has no radio, so the site's wireless config was
+   * deleted along with the swap. Nothing re-creates it — worth saying loudly.
+   */
+  wirelessConfigRemoved: boolean;
+  credentialsTransferred: boolean;
+  contractedServiceTransferred: boolean;
 }
 
 // ============================================================

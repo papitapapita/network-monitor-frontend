@@ -154,6 +154,10 @@ function DeviceModelsPageContent() {
         selectionResetKey={`${currentPage}|${search}|${typeFilter}`}
         bulkDelete={{
           deleteOne: (id) => apiService.deleteDeviceModel(id),
+          // DEV-030: a delete refused purely because the model's remaining
+          // devices are in the recycle bin gets a second confirmation instead of
+          // a dead-end error — confirming retries with the purge flag.
+          confirmAndRetry: (id) => apiService.deleteDeviceModel(id, true),
           onFinished: () => { refetch(); },
           entity: { singular: 'modelo', plural: 'modelos', gender: 'm' },
         }}

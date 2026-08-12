@@ -18,6 +18,8 @@ import {
   DeviceModelListResponse,
   CreateDeviceModelDTO,
   UpdateDeviceModelDTO,
+  ReplaceDeviceDTO,
+  ReplaceDeviceResultDTO,
 } from '../types/device.types';
 import {
   LocationResponseDTO,
@@ -46,6 +48,9 @@ import {
   missingIdentifierError,
   normalizeMacAddress,
   requiresIdentifier,
+  RESTORE_GRACE_DAYS,
+  liveDeviceModelMessage,
+  binnedDeviceModelMessage,
 } from '../constants/device.constants';
 import {
   CustomerDTO,
@@ -109,15 +114,49 @@ function conflict(c: DeviceConflict): ApiResponse<never> {
 }
 
 /**
+ * Deleting a device is a soft delete, so the array keeps tombstones and every
+ * read path has to step over them — a deleted device is absent from listings
+ * and 404s on GET, exactly as it does on the real API.
+ */
+const liveDevices = (): DeviceResponseDTO[] => devices.filter((d) => !d.deletedAt);
+
+const findLiveDevice = (id: string): DeviceResponseDTO | undefined =>
+  devices.find((d) => d.id === id && !d.deletedAt);
+
+/** Stands in for the authenticated user id the backend records on a delete. */
+const MOCK_USER_ID = 'mock-user';
+
+/**
+ * The part of the backend's "monitoring stopped" transition mock mode can
+ * honour: polling stops and the last reading is dropped, because nothing will
+ * poll again to correct it. The config's settings survive for a later resume,
+ * and `lastResult` stays so "last checked N days ago" copy still has a date.
+ * Resolving an open device_unreachable alert has no counterpart here — mock
+ * mode does not keep an alerts store.
+ */
+function stopMonitoring(deviceId: string): void {
+  const status = pollingStatus[deviceId];
+  if (!status) return;
+  status.pollingEnabled = false;
+  status.currentStatus = 'UNKNOWN';
+  status.consecutiveFailures = 0;
+  status.lastPolled = null;
+  status.nextScheduled = null;
+}
+
+/**
  * A MAC address belongs to at most one device, and so does an IP — the backend
  * enforces both, so mock mode has to as well or the forms look permissive here
  * and reject on the real API. `exceptId` is the device being updated.
+ *
+ * Only live devices are considered: a delete releases its MAC and IP straight
+ * away, without waiting for the grace period to lapse.
  */
 function findDeviceConflict(
   data: { macAddress?: string | null; ipAddress?: string | null },
   exceptId?: string
 ): DeviceConflict | null {
-  const others = devices.filter((d) => d.id !== exceptId);
+  const others = liveDevices().filter((d) => d.id !== exceptId);
 
   if (data.macAddress) {
     const mac = normalizeMacAddress(data.macAddress);
@@ -134,10 +173,12 @@ function findDeviceConflict(
 }
 
 /**
- * An INVENTORY or DAMAGED device must carry a serial number or a MAC — the
- * backend refuses the write otherwise, so mock mode has to as well. Takes the
- * device as it would stand after the write, since an update can drop the last
- * identifier it had or move it into a status that demands one.
+ * A retired device — INVENTORY, DAMAGED or DECOMMISSIONED — must carry a serial
+ * number or a MAC, since the network cannot reach it and what is written on the
+ * box is all there is to track it by. The backend refuses the write otherwise,
+ * so mock mode has to as well. Takes the device as it would stand after the
+ * write, since an update can drop the last identifier it had or move it into a
+ * status that demands one.
  */
 function findMissingIdentifier(next: DeviceResponseDTO): DeviceConflict | null {
   return requiresIdentifier(next.status) && !next.serialNumber && !next.macAddress
@@ -173,6 +214,11 @@ class MockApiService {
       monitoringEnabled: data.monitoringEnabled ?? false,
       createdAt: now,
       updatedAt: now,
+      deletedAt: null,
+      deletedBy: null,
+      replacedAt: null,
+      replacesDeviceId: null,
+      replacedByDeviceId: null,
     };
     const missing = findMissingIdentifier(device);
     if (missing) return conflict(missing);
@@ -182,7 +228,13 @@ class MockApiService {
   }
 
   async listDevices(query?: ListDevicesQuery): Promise<ApiResponse<DeviceListResponse>> {
-    let result = [...devices];
+    // Soft-deleted devices are hidden unless asked for: 'true' is the recycle
+    // bin on its own, 'any' is the only way both share a page.
+    const deleted = query?.deleted ?? 'false';
+    let result =
+      deleted === 'true' ? devices.filter((d) => d.deletedAt)
+      : deleted === 'any' ? [...devices]
+      : liveDevices();
 
     if (query?.status) result = result.filter((d) => d.status === query.status);
     if (query?.category) result = result.filter((d) => d.category === query.category);
@@ -202,6 +254,17 @@ class MockApiService {
       );
     }
 
+    // The bin is read newest-deleted-first, so the sort has to work here too.
+    if (query?.sortBy) {
+      const field = query.sortBy;
+      const direction = query.sortOrder === 'ASC' ? 1 : -1;
+      result = [...result].sort((a, b) => {
+        const l = a[field] ?? '';
+        const r = b[field] ?? '';
+        return l === r ? 0 : (l < r ? -1 : 1) * direction;
+      });
+    }
+
     const limit = query?.limit ?? 20;
     const offset = query?.offset ?? 0;
     const { items, total } = paginate(result, limit, offset);
@@ -216,12 +279,12 @@ class MockApiService {
   }
 
   async getDevice(id: string): Promise<ApiResponse<DeviceResponseDTO>> {
-    const device = devices.find((d) => d.id === id);
+    const device = findLiveDevice(id);
     return device ? ok(device) : err('Device not found');
   }
 
   async updateDevice(id: string, data: UpdateDeviceDTO): Promise<ApiResponse<DeviceResponseDTO>> {
-    const idx = devices.findIndex((d) => d.id === id);
+    const idx = devices.findIndex((d) => d.id === id && !d.deletedAt);
     if (idx === -1) return err('Device not found');
 
     const taken = findDeviceConflict(data, id);
@@ -235,11 +298,157 @@ class MockApiService {
     return ok(updated);
   }
 
+  /**
+   * Soft delete. The row survives a 7-day grace period so `restoreDevice` can
+   * bring it back, but it leaves every listing at once and monitoring stops.
+   *
+   * The live-contracted-service guard is simulated; the open-ticket one is not,
+   * since mock mode does not simulate tickets at all.
+   */
   async deleteDevice(id: string): Promise<ApiResponse<void>> {
+    const idx = devices.findIndex((d) => d.id === id && !d.deletedAt);
+    if (idx === -1) return err('Device not found');
+
+    const live = contractedServices.find((cs) => cs.deviceId === id && cs.status !== 'CANCELLED');
+    if (live) {
+      return err(
+        `Cannot delete a device with a live contracted service (status ${live.status}). Cancel the service first.`
+      );
+    }
+
+    devices[idx] = {
+      ...devices[idx],
+      deletedAt: new Date().toISOString(),
+      deletedBy: MOCK_USER_ID,
+      monitoringEnabled: false,
+    };
+    stopMonitoring(id);
+    return { success: true };
+  }
+
+
+  /**
+   * Undoes a soft delete. Monitoring stays off whatever the device had before —
+   * putting it back in service is a second, deliberate action.
+   */
+  async restoreDevice(id: string): Promise<ApiResponse<DeviceResponseDTO>> {
     const idx = devices.findIndex((d) => d.id === id);
     if (idx === -1) return err('Device not found');
+    if (!devices[idx].deletedAt) return err('Cannot restore a device that is not deleted');
+
+    const deletedAt = new Date(devices[idx].deletedAt!).getTime();
+    if (Date.now() - deletedAt > RESTORE_GRACE_DAYS * 24 * 60 * 60 * 1000) {
+      return err('Cannot restore a device whose 7-day grace period expired');
+    }
+
+    const restored: DeviceResponseDTO = {
+      ...devices[idx],
+      deletedAt: null,
+      deletedBy: null,
+      monitoringEnabled: false,
+      updatedAt: new Date().toISOString(),
+    };
+    devices[idx] = restored;
+    return ok(restored);
+  }
+
+  /** Ends the grace period now. Everything hanging off the device goes with it. */
+  async purgeDevice(id: string): Promise<ApiResponse<void>> {
+    const device = devices.find((d) => d.id === id);
+    if (!device) return err('Device not found');
+    if (!device.deletedAt) {
+      return err(
+        'Cannot permanently delete a device that is not in the recycle bin. Delete it first.'
+      );
+    }
+
     devices = devices.filter((d) => d.id !== id);
+    delete pollingStatus[id];
+    delete pollingHistory[id];
     return { success: true };
+  }
+
+  /**
+   * Retires this unit and creates its successor in one step, carrying the
+   * location, category, owner, released IP and credentials across.
+   */
+  async replaceDevice(
+    id: string,
+    data: ReplaceDeviceDTO
+  ): Promise<ApiResponse<ReplaceDeviceResultDTO>> {
+    const idx = devices.findIndex((d) => d.id === id && !d.deletedAt);
+    if (idx === -1) return err('Device not found');
+
+    const retiring = devices[idx];
+    if (retiring.replacedByDeviceId) return err('Device has already been replaced');
+    if (!data.serialNumber?.trim() && !data.macAddress?.trim()) {
+      return err('The replacement device must have at least a serial number or MAC address');
+    }
+
+    const model = deviceModels.find((m) => m.id === data.deviceModelId);
+    if (!model) return err(`Device model not found: ${data.deviceModelId}`);
+
+    const taken = findDeviceConflict(data, id);
+    if (taken) return conflict(taken);
+
+    const now = new Date().toISOString();
+    // The retired unit releases its IP, and the successor takes it over — which
+    // is what decides whether the new one starts commissioning or on the shelf.
+    const inheritedIp = retiring.ipAddress;
+
+    const newDevice: DeviceResponseDTO = {
+      id: `dev-${uid()}`,
+      deviceModelId: data.deviceModelId,
+      locationId: retiring.locationId,
+      status: inheritedIp ? 'COMMISSIONING' : 'INVENTORY',
+      category: retiring.category,
+      ownerType: retiring.ownerType,
+      name: data.name?.trim() || retiring.name,
+      serialNumber: data.serialNumber?.trim() || null,
+      macAddress: data.macAddress?.trim() || null,
+      ipAddress: inheritedIp,
+      description: data.description?.trim() || null,
+      installedDate: data.installedDate ?? now,
+      monitoringEnabled: false,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      deletedBy: null,
+      replacedAt: now,
+      replacesDeviceId: retiring.id,
+      replacedByDeviceId: null,
+    };
+
+    const retiredDevice: DeviceResponseDTO = {
+      ...retiring,
+      status: data.retiredStatus,
+      ipAddress: null,
+      monitoringEnabled: false,
+      replacedByDeviceId: newDevice.id,
+      updatedAt: now,
+    };
+
+    devices[idx] = retiredDevice;
+    devices = [newDevice, ...devices];
+    stopMonitoring(retiring.id);
+    if (pollingHistory[retiring.id]) pollingHistory[newDevice.id] = [];
+
+    // The contracted service follows the hardware, so the customer keeps their
+    // service on the box that is actually installed.
+    const service = contractedServices.find(
+      (cs) => cs.deviceId === retiring.id && cs.status !== 'CANCELLED'
+    );
+    if (service) service.deviceId = newDevice.id;
+
+    return ok({
+      retiredDevice,
+      newDevice,
+      // Mock mode stubs out credentials and wireless configs, so there is
+      // nothing to carry across or drop — the real API reports both.
+      wirelessConfigRemoved: false,
+      credentialsTransferred: false,
+      contractedServiceTransferred: !!service,
+    });
   }
 
   // ── Locations ──────────────────────────────────────────────
@@ -316,7 +525,7 @@ class MockApiService {
         municipality: loc.municipality,
         neighborhood: loc.neighborhood,
         address: loc.address,
-        devices: devices
+        devices: liveDevices()
           .filter((d) => d.locationId === loc.id)
           .map((d) => ({
             id: d.id,
@@ -440,9 +649,34 @@ class MockApiService {
     return ok(updated);
   }
 
-  async deleteDeviceModel(id: string): Promise<ApiResponse<void>> {
+  /**
+   * Mirrors the real DeleteDeviceModelUseCase: a live device blocks the
+   * delete outright (DEV-026); a model whose only remaining devices are
+   * soft-deleted is stalled behind a confirmation (DEV-030) instead of either
+   * silently succeeding or purging the recycle bin unasked.
+   */
+  async deleteDeviceModel(id: string, purgeBinnedDevices?: boolean): Promise<ApiResponse<void>> {
     const idx = deviceModels.findIndex((m) => m.id === id);
     if (idx === -1) return err('Device model not found');
+
+    const live = devices.filter((d) => d.deviceModelId === id && !d.deletedAt);
+    if (live.length > 0) return err(liveDeviceModelMessage(live.length));
+
+    const binned = devices.filter((d) => d.deviceModelId === id && d.deletedAt);
+    if (binned.length > 0 && !purgeBinnedDevices) {
+      return {
+        success: false,
+        binnedDeviceCount: binned.length,
+        error: binnedDeviceModelMessage(binned.length),
+      };
+    }
+
+    for (const device of binned) {
+      devices = devices.filter((d) => d.id !== device.id);
+      delete pollingStatus[device.id];
+      delete pollingHistory[device.id];
+    }
+
     deviceModels = deviceModels.filter((m) => m.id !== id);
     return { success: true };
   }
@@ -450,7 +684,7 @@ class MockApiService {
   // ── Polling ────────────────────────────────────────────────
 
   async getPollingStatus(deviceId: string): Promise<ApiResponse<PollingStatusDTO>> {
-    const device = devices.find((d) => d.id === deviceId);
+    const device = findLiveDevice(deviceId);
     if (!device) return err('Device not found');
 
     if (!pollingStatus[deviceId]) {
@@ -506,7 +740,7 @@ class MockApiService {
     deviceId: string,
     data: CreatePollingConfigDTO
   ): Promise<ApiResponse<PollingConfigDTO>> {
-    const device = devices.find((d) => d.id === deviceId);
+    const device = findLiveDevice(deviceId);
     if (!device) return err('Device not found');
     pollingStatus[deviceId] = {
       deviceId,
@@ -537,7 +771,7 @@ class MockApiService {
     data: UpdatePollingConfigDTO
   ): Promise<ApiResponse<void>> {
     if (!pollingStatus[deviceId]) {
-      const device = devices.find((d) => d.id === deviceId);
+      const device = findLiveDevice(deviceId);
       if (!device) return err('Device not found');
       pollingStatus[deviceId] = {
         deviceId,
@@ -560,7 +794,7 @@ class MockApiService {
   }
 
   async triggerPoll(deviceId: string): Promise<ApiResponse<ManualPollResultDTO>> {
-    const device = devices.find((d) => d.id === deviceId);
+    const device = findLiveDevice(deviceId);
     if (!device) return err('Device not found');
 
     const success = Math.random() > 0.2;

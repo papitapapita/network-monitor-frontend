@@ -1,26 +1,32 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
-import { DeviceModelResponseDTO, DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
+import { useAuth } from '@/contexts/auth.context';
+import {
+  DeviceModelResponseDTO,
+  DeviceResponseDTO,
+  ReplaceDeviceResultDTO,
+} from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
 import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant, getPollingStatusBadgeVariant } from '@/components/ui';
-import { ConfirmModal } from '@/components/ui/Modal';
+import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
 import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab';
-import { isWirelessCategory, deviceCategoryLabel } from '@/constants/device.constants';
+import { ReplaceDeviceModal } from '@/components/devices/ReplaceDeviceModal';
+import {
+  DEVICE_STATUS_LABELS as STATUS_LABELS,
+  RESTORE_GRACE_DAYS,
+  RESTORE_SUCCESS_MESSAGE,
+  deviceCategoryLabel,
+  isWirelessCategory,
+} from '@/constants/device.constants';
 
 type Tab = 'details' | 'polling' | 'wireless' | 'credentials';
-
-const STATUS_LABELS: Record<DeviceStatus, string> = {
-  ACTIVE: 'Activo',
-  COMMISSIONING: 'Comisionamiento',
-  INVENTORY: 'Inventario',
-  DAMAGED: 'Dañado',
-};
 
 const ONLINE_STATUS_LABELS: Record<PollingStatus | 'NOT_ACTIVATED', string> = {
   ONLINE: 'En línea',
@@ -36,6 +42,13 @@ export default function DeviceDetailPage() {
   const params = useParams();
   const deviceId = params.id as string;
 
+  // Deleting takes ADMIN, and so does undoing it — restoring is the inverse of
+  // deleting, so the same authority governs both. Replacing hardware is an
+  // `activate` operation, which an operator also holds.
+  const { user } = useAuth();
+  const canDelete = user?.role === 'ADMIN';
+  const canReplace = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+
   const [device, setDevice] = useState<DeviceResponseDTO | null>(null);
   const [deviceModel, setDeviceModel] = useState<DeviceModelResponseDTO | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<PollingStatus | null>(null);
@@ -44,6 +57,17 @@ export default function DeviceDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('details');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [replaceResult, setReplaceResult] = useState<ReplaceDeviceResultDTO | null>(null);
+
+  /**
+   * Set once the delete lands. The device is gone from every read path, so the
+   * page cannot show it any more — but it holds the id the restore endpoint
+   * needs, which is the cheapest undo there is.
+   */
+  const [deletedDevice, setDeletedDevice] = useState<DeviceResponseDTO | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreNotice, setRestoreNotice] = useState<string | null>(null);
 
   // The model decides whether wireless applies at all, so it is loaded before the
   // page renders — otherwise the wireless tab would flash in after the fact.
@@ -85,11 +109,63 @@ export default function DeviceDetailPage() {
   // can lose its wireless flag, or the device its category, mid-visit.
   const currentTab: Tab = activeTab === 'wireless' && !showWireless ? 'details' : activeTab;
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    const result = await apiService.deleteDevice(deviceId);
+    setIsDeleting(false);
+    setShowDeleteModal(false);
+    if (result.success && device) {
+      setDeletedDevice(device);
+      setError(null);
+    } else {
+      // A live contracted service or an open ticket blocks the delete. Neither
+      // is fixable here, so the message stays on the page rather than in a
+      // dialog the operator is about to close.
+      setError(result.error || 'Error al eliminar el dispositivo');
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!deletedDevice) return;
+    setIsRestoring(true);
+    const result = await apiService.restoreDevice(deletedDevice.id);
+    setIsRestoring(false);
+    if (result.success) {
+      setDeletedDevice(null);
+      // It comes back with monitoring off whatever it had before, so say so
+      // instead of letting them find it later on a grey status pill.
+      setRestoreNotice(RESTORE_SUCCESS_MESSAGE);
+      await fetchDevice();
+    } else {
+      setError(result.error || 'Error al restaurar el dispositivo');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <LoadingSpinner size="lg" message="Cargando dispositivo..." />
       </div>
+    );
+  }
+
+  // The device is out of every listing now, so the page behind has nothing left
+  // to show — this stands in its place until the operator undoes the delete or
+  // leaves. Closing it goes to the listing rather than back to a page whose
+  // device no longer exists. The grace period and the freed IP are the bin's
+  // story to tell; here they would only bury the one button that matters.
+  if (deletedDevice) {
+    return (
+      <UndoModal
+        isOpen
+        onClose={() => router.push('/devices')}
+        onUndo={handleRestore}
+        title="Dispositivo eliminado"
+        message={`«${deletedDevice.name}» se eliminó.`}
+        canUndo={canDelete}
+        isUndoing={isRestoring}
+        error={error}
+      />
     );
   }
 
@@ -107,18 +183,6 @@ export default function DeviceDetailPage() {
     );
   }
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    const result = await apiService.deleteDevice(deviceId);
-    setIsDeleting(false);
-    if (result.success) {
-      router.push('/devices');
-    } else {
-      setShowDeleteModal(false);
-      setError(result.error || 'Error al eliminar el dispositivo');
-    }
-  };
-
   if (!device) return null;
 
   return (
@@ -128,11 +192,25 @@ export default function DeviceDetailPage() {
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
         title="Eliminar dispositivo"
-        message={`¿Estás seguro de que deseas eliminar "${device.name}"? Esta acción no se puede deshacer.`}
+        message={`¿Estás seguro de que deseas eliminar "${device.name}"? Saldrá de todos los listados y dejará de monitorearse, pero podrás restaurarlo durante ${RESTORE_GRACE_DAYS} días desde la papelera.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
         variant="danger"
         isLoading={isDeleting}
+      />
+
+      <ReplaceDeviceModal
+        isOpen={showReplaceModal}
+        onClose={() => setShowReplaceModal(false)}
+        device={device}
+        onReplaced={(result) => {
+          setShowReplaceModal(false);
+          setReplaceResult(result);
+          // This page is now the retired unit: it lost its IP and its status
+          // changed, so take the record the call handed back.
+          setDevice(result.retiredDevice);
+          setOnlineStatus(null);
+        }}
       />
 
       {/* Header */}
@@ -156,10 +234,120 @@ export default function DeviceDetailPage() {
             </div>
           </div>
         </div>
-        <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-          Eliminar
-        </Button>
+        <div className="flex flex-wrap gap-2 justify-end">
+          {/* A unit can only be swapped once — after that the successor is the
+              one to replace, and its page offers the button. */}
+          {canReplace && !device.replacedByDeviceId && (
+            <Button variant="outline" size="sm" onClick={() => setShowReplaceModal(true)}>
+              Reemplazar equipo
+            </Button>
+          )}
+          {canDelete && (
+            <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
+              Eliminar
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* What the swap moved — wireless first, since nothing re-creates a config. */}
+      {replaceResult && (
+        <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                Equipo reemplazado
+              </p>
+              <p className="mt-1 text-sm text-blue-800 dark:text-blue-400">
+                Esta unidad quedó en «{STATUS_LABELS[replaceResult.retiredDevice.status] ?? replaceResult.retiredDevice.status}»
+                y conserva todo su historial.{' '}
+                <Link
+                  href={`/devices/${replaceResult.newDevice.id}`}
+                  className="font-medium underline"
+                >
+                  Ir al equipo nuevo «{replaceResult.newDevice.name}»
+                </Link>
+                .
+              </p>
+              <ul className="mt-2 text-sm text-blue-800 dark:text-blue-400 list-disc list-inside space-y-0.5">
+                {replaceResult.credentialsTransferred && <li>Se trasladaron las credenciales.</li>}
+                {replaceResult.contractedServiceTransferred && (
+                  <li>El servicio contratado del cliente ahora apunta al equipo nuevo.</li>
+                )}
+              </ul>
+              {replaceResult.wirelessConfigRemoved && (
+                <p className="mt-2 text-sm font-medium text-yellow-800 dark:text-yellow-400">
+                  Se eliminó la configuración inalámbrica porque el modelo nuevo no tiene radio:
+                  el monitoreo inalámbrico de este sitio se detuvo y nada lo vuelve a crear.
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplaceResult(null)}
+              className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 shrink-0"
+            >
+              <span className="sr-only">Descartar</span>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lineage. Makes "this CPE, current box since March" answerable. */}
+      {(device.replacesDeviceId || device.replacedByDeviceId) && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+          {device.replacesDeviceId && (
+            <span>
+              Sustituyó a{' '}
+              <Link
+                href={`/devices/${device.replacesDeviceId}`}
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                la unidad anterior
+              </Link>
+              {device.replacedAt && ` el ${new Date(device.replacedAt).toLocaleDateString('es')}`}
+            </span>
+          )}
+          {device.replacedByDeviceId && (
+            <span>
+              Esta unidad fue reemplazada por{' '}
+              <Link
+                href={`/devices/${device.replacedByDeviceId}`}
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                el equipo actual
+              </Link>
+            </span>
+          )}
+        </div>
+      )}
+
+      {restoreNotice && (
+        <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-green-800 dark:text-green-400">{restoreNotice}</p>
+            <button
+              type="button"
+              onClick={() => setRestoreNotice(null)}
+              className="text-green-500 hover:text-green-700 dark:hover:text-green-300 shrink-0"
+            >
+              <span className="sr-only">Descartar</span>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-800 dark:text-red-400">{error}</p>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">

@@ -41,8 +41,14 @@ export interface BulkDeleteProgress {
 }
 
 export interface BulkDeleteOutcome {
-  deleted: number;
-  failed: Array<{ id: string; error: string }>;
+  /** Ids that went through, in completion order — the set an undo has to put back. */
+  deletedIds: string[];
+  /**
+   * `binnedDeviceCount` passes through the same field on `ApiResponse` — set
+   * only on a refusal a caller can turn into a confirm-and-retry (DEV-030)
+   * instead of a dead-end failure.
+   */
+  failed: Array<{ id: string; error: string; binnedDeviceCount?: number }>;
   /** Ids abandoned because the rate limit never cleared, a subset of `failed`. */
   rateLimited: string[];
 }
@@ -65,18 +71,22 @@ function createPacer() {
   };
 }
 
+/**
+ * `deleteOne` is only ever called for its success flag, so the undo path can
+ * hand over a restore — which answers with the row it brought back — unchanged.
+ */
 export async function runBulkDelete(
   ids: string[],
-  deleteOne: (id: string) => Promise<ApiResponse<void>>,
+  deleteOne: (id: string) => Promise<ApiResponse<unknown>>,
   onProgress?: (progress: BulkDeleteProgress) => void
 ): Promise<BulkDeleteOutcome> {
   const total = ids.length;
   const acquire = createPacer();
-  const failed: Array<{ id: string; error: string }> = [];
-  let deleted = 0;
+  const failed: Array<{ id: string; error: string; binnedDeviceCount?: number }> = [];
+  const deletedIds: string[] = [];
 
   const report = (retryAt: number | null = null) =>
-    onProgress?.({ done: deleted + failed.length, total, retryAt });
+    onProgress?.({ done: deletedIds.length + failed.length, total, retryAt });
 
   let pending = ids;
 
@@ -101,7 +111,7 @@ export async function runBulkDelete(
         const result = await deleteOne(id);
 
         if (result.success) {
-          deleted++;
+          deletedIds.push(id);
           report();
           continue;
         }
@@ -112,7 +122,7 @@ export async function runBulkDelete(
           deferred.push(id);
           return;
         }
-        failed.push({ id, error: result.error ?? 'Error desconocido' });
+        failed.push({ id, error: result.error ?? 'Error desconocido', binnedDeviceCount: result.binnedDeviceCount });
         report();
       }
     };
@@ -130,7 +140,7 @@ export async function runBulkDelete(
       const error = 'Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.';
       deferred.forEach((id) => failed.push({ id, error }));
       report();
-      return { deleted, failed, rateLimited: deferred };
+      return { deletedIds, failed, rateLimited: deferred };
     }
 
     const retryAt = Date.now() + RETRY_DELAYS_MS[round];
@@ -144,5 +154,5 @@ export async function runBulkDelete(
     pending = deferred;
   }
 
-  return { deleted, failed, rateLimited: [] };
+  return { deletedIds, failed, rateLimited: [] };
 }
