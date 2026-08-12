@@ -86,6 +86,23 @@ import {
   GenerateBulkBillsDTO,
   BulkGenerateResult,
 } from '../types/bill.types';
+import {
+  TicketDTO,
+  TicketDetailDTO,
+  TicketListResponse,
+  ListTicketsQuery,
+  CreateTicketDTO,
+  UpdateTicketDTO,
+  AssignTicketDTO,
+  TechnicianDaySheetDTO,
+} from '../types/ticket.types';
+import {
+  TechnicianDTO,
+  TechnicianListResponse,
+  ListTechniciansQuery,
+  CreateTechnicianDTO,
+  UpdateTechnicianDTO,
+} from '../types/technician.types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
@@ -930,6 +947,269 @@ class ApiService {
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Network error' };
     }
+  }
+
+  // ==================== Tickets ====================
+
+  /**
+   * The list endpoint returns flat tickets — no customer, device or technician.
+   * Use `getTicket` for those.
+   *
+   * Two query pairs contradict each other and the backend resolves them
+   * silently: `unassignedOnly` wins over `technicianId`, and `openOnly` wins
+   * over `status`. Callers are expected to send only one side of each; the
+   * tickets page prevents the combination in the UI rather than letting the
+   * operator pick filters the backend will quietly ignore.
+   */
+  async listTickets(query?: ListTicketsQuery): Promise<ApiResponse<TicketListResponse>> {
+    const qs = this.buildQuery({
+      // Drop the losing half of each contradicting pair rather than sending it
+      // and having the backend ignore it. The tickets page cannot produce the
+      // combination — each pair is one control there — but a caller that asks
+      // for a technician's backlog and for the unassigned inbox at once should
+      // get a request that says what it will actually return.
+      status: query?.openOnly ? undefined : query?.status,
+      technicianId: query?.unassignedOnly ? undefined : query?.technicianId,
+      priority: query?.priority,
+      category: query?.category,
+      customerId: query?.customerId,
+      deviceId: query?.deviceId,
+      scheduledFrom: query?.scheduledFrom,
+      scheduledTo: query?.scheduledTo,
+      unassignedOnly: query?.unassignedOnly,
+      openOnly: query?.openOnly,
+      limit: query?.limit,
+      offset: query?.offset,
+    });
+    return this.request<TicketListResponse>(`/tickets${qs}`);
+  }
+
+  async getTicket(id: string): Promise<ApiResponse<TicketDetailDTO>> {
+    return this.request<TicketDetailDTO>(`/tickets/${id}`);
+  }
+
+  async createTicket(data: CreateTicketDTO): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>('/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return this.translateTicketError(result);
+  }
+
+  /** Descriptive fields only — status, technician and schedule have their own endpoints. */
+  async updateTicket(id: string, data: UpdateTicketDTO): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>(`/tickets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return this.translateTicketError(result);
+  }
+
+  async deleteTicket(id: string): Promise<ApiResponse<void>> {
+    const result = await this.request<void>(`/tickets/${id}`, { method: 'DELETE' });
+    return this.translateTicketError(result);
+  }
+
+  async assignTicket(id: string, data: AssignTicketDTO): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>(`/tickets/${id}/assign`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return this.translateTicketError(result);
+  }
+
+  /** `null` clears the visit day. A date in the past is accepted on purpose (TKT-075). */
+  async scheduleTicket(id: string, scheduledFor: string | null): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>(`/tickets/${id}/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({ scheduledFor }),
+    });
+    return this.translateTicketError(result);
+  }
+
+  async startTicket(id: string): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>(`/tickets/${id}/start`, { method: 'POST' });
+    return this.translateTicketError(result);
+  }
+
+  async resolveTicket(id: string, resolutionNotes: string): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>(`/tickets/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ resolutionNotes }),
+    });
+    return this.translateTicketError(result);
+  }
+
+  async cancelTicket(id: string, reason: string): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>(`/tickets/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+    return this.translateTicketError(result);
+  }
+
+  /**
+   * A technician's tasks for one calendar day, already ordered. `date` defaults
+   * to today (UTC) on the backend, so the caller passes its own local day
+   * rather than letting the two disagree near midnight.
+   */
+  async getTechnicianDaySheet(
+    technicianId: string,
+    date?: string
+  ): Promise<ApiResponse<TechnicianDaySheetDTO>> {
+    const qs = this.buildQuery({ technicianId, date });
+    return this.request<TechnicianDaySheetDTO>(`/tickets/my-day${qs}`);
+  }
+
+  // The backend answers these in English; the rest of this UI is in Spanish, so
+  // restate the same facts in that language and, where the failure is about one
+  // field in particular, name it so the form can mark that input.
+  private translateTicketError<T>(result: ApiResponse<T>): ApiResponse<T> {
+    if (result.success || !result.error) return result;
+
+    const say = (error: string, errorField?: string): ApiResponse<T> => ({
+      success: false,
+      status: result.status,
+      error,
+      ...(errorField ? { errorField } : {}),
+    });
+
+    // A schema rejection arrives from `request()` already flattened to
+    // "body.title: Ticket title cannot be empty" — the field, a colon, then the
+    // message. Domain refusals carry the message alone. Strip the prefix so one
+    // set of matches covers both.
+    const message = stripValidationPrefix(result.error);
+
+    switch (message) {
+      // A terminal ticket is history: PUT and every action endpoint refuse it.
+      case 'Cannot modify a resolved ticket':
+        return say('Este ticket está resuelto y no admite cambios.');
+      case 'Cannot modify a cancelled ticket':
+        return say('Este ticket está cancelado y no admite cambios.');
+      case 'Cannot cancel a resolved ticket':
+        return say('No se puede cancelar un ticket resuelto.');
+      case 'Ticket is already cancelled':
+        return say('El ticket ya está cancelado.');
+
+      // Someone is on site — swapping the technician now would lose who did what.
+      case 'Cannot reassign a ticket that is already in progress':
+        return say('No se puede reasignar un ticket en progreso. Resuélvelo o cancélalo primero.');
+      case 'Cannot assign a ticket to an inactive technician':
+        return say('El técnico está inactivo y no puede recibir trabajo.', 'technicianId');
+
+      case 'Only an assigned ticket can be started':
+      case 'Cannot start a ticket with no technician assigned':
+        return say('Solo se puede iniciar un ticket que ya tiene técnico asignado.');
+      case 'Ticket is already in progress':
+        return say('El ticket ya está en progreso.');
+      case 'Cannot resolve a ticket that has not been assigned':
+        return say('No se puede resolver un ticket sin técnico asignado.');
+
+      case 'Resolution notes are required to resolve a ticket':
+        return say('Las notas de resolución son obligatorias.', 'resolutionNotes');
+      case 'A reason is required to cancel a ticket':
+        return say('El motivo de cancelación es obligatorio.', 'reason');
+
+      case 'A ticket must reference a customer or a device':
+        return say('Indica al menos un cliente o un dispositivo.', 'customerId');
+      case 'An address requires a street, municipality, and neighborhood':
+        return say('Una dirección necesita calle, municipio y barrio.', 'street');
+      case 'Date must be a calendar date in YYYY-MM-DD format':
+        return say('La fecha debe ser un día del calendario (AAAA-MM-DD).', 'scheduledFor');
+
+      case 'Ticket not found':
+        return say('No se encontró el ticket.');
+      case 'Technician not found':
+        return say('No se encontró el técnico.', 'technicianId');
+    }
+
+    // These two carry the id that was not found, which is noise for the operator.
+    if (/^Customer not found: /.test(message)) {
+      return say('No se encontró el cliente indicado.', 'customerId');
+    }
+    if (/^Device not found: /.test(message)) {
+      return say('No se encontró el dispositivo indicado.', 'deviceId');
+    }
+
+    return result;
+  }
+
+  // ==================== Technicians ====================
+
+  async listTechnicians(query?: ListTechniciansQuery): Promise<ApiResponse<TechnicianListResponse>> {
+    const qs = this.buildQuery({
+      activeOnly: query?.activeOnly,
+      limit: query?.limit,
+      offset: query?.offset,
+    });
+    return this.request<TechnicianListResponse>(`/technicians${qs}`);
+  }
+
+  async getTechnician(id: string): Promise<ApiResponse<TechnicianDTO>> {
+    return this.request<TechnicianDTO>(`/technicians/${id}`);
+  }
+
+  async createTechnician(data: CreateTechnicianDTO): Promise<ApiResponse<TechnicianDTO>> {
+    const result = await this.request<TechnicianDTO>('/technicians', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return this.translateTechnicianError(result);
+  }
+
+  async updateTechnician(
+    id: string,
+    data: UpdateTechnicianDTO
+  ): Promise<ApiResponse<TechnicianDTO>> {
+    const result = await this.request<TechnicianDTO>(`/technicians/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return this.translateTechnicianError(result);
+  }
+
+  async deleteTechnician(id: string): Promise<ApiResponse<void>> {
+    const result = await this.request<void>(`/technicians/${id}`, { method: 'DELETE' });
+    return this.translateTechnicianError(result);
+  }
+
+  private translateTechnicianError<T>(result: ApiResponse<T>): ApiResponse<T> {
+    if (result.success || !result.error) return result;
+
+    const message = stripValidationPrefix(result.error);
+
+    // Deleting would blank the technician on every ticket they ever worked —
+    // the FK is SET NULL — so the backend refuses and names the count.
+    const ticketsMatch = message.match(
+      /^Cannot delete a technician with (\d+) ticket\(s\); deactivate them instead$/
+    );
+    if (ticketsMatch) {
+      const count = Number(ticketsMatch[1]);
+      return {
+        success: false,
+        status: result.status,
+        error:
+          `No se puede eliminar el técnico: tiene ${count} ticket${count === 1 ? '' : 's'} asociado${count === 1 ? '' : 's'}. ` +
+          'Desactívalo en su lugar para quitarlo de la rota sin perder su historial.',
+      };
+    }
+
+    // The backend checks phone, email and user account in one query and does not
+    // say which of the three collided, so neither can we — blaming a field here
+    // would point the operator at the wrong input half the time.
+    if (message === 'A technician with this phone, email or user account already exists') {
+      return {
+        success: false,
+        status: result.status,
+        error: 'Ya existe un técnico con ese teléfono, email o cuenta de usuario.',
+      };
+    }
+
+    if (message === 'Technician not found') {
+      return { success: false, status: result.status, error: 'No se encontró el técnico.' };
+    }
+
+    return result;
   }
 }
 

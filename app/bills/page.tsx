@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { BillDTO, BulkGenerateResult } from '@/types/bill.types';
 import { CustomerDTO } from '@/types/customer.types';
+import { fetchAllCustomers } from '@/hooks/useCatalogs';
 import {
   BILL_STATUS_LABELS,
   BILL_STATUS_VARIANTS,
@@ -40,20 +41,6 @@ async function fetchAllBills(): Promise<BillDTO[]> {
     const r = await apiService.listBills({ limit: 100, offset });
     if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar las facturas');
     all.push(...r.data.bills);
-    hasMore = r.data.hasMore;
-    offset += 100;
-  }
-  return all;
-}
-
-async function fetchAllCustomers(): Promise<CustomerDTO[]> {
-  const all: CustomerDTO[] = [];
-  let offset = 0;
-  let hasMore = true;
-  while (hasMore) {
-    const r = await apiService.listCustomers({ limit: 100, offset });
-    if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar clientes');
-    all.push(...r.data.customers);
     hasMore = r.data.hasMore;
     offset += 100;
   }

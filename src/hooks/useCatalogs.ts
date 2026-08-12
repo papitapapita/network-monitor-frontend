@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO, DeviceResponseDTO } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
+import { CustomerDTO } from '@/types/customer.types';
+import { TechnicianDTO } from '@/types/technician.types';
 
 /** These list endpoints cap `limit` at 100, so a whole catalog takes several calls. */
 const PAGE_SIZE = 100;
@@ -15,6 +17,34 @@ export async function fetchAllDeviceModels(): Promise<DeviceModelResponseDTO[]> 
     const r = await apiService.listDeviceModels({ limit: PAGE_SIZE, offset });
     if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar modelos');
     all.push(...r.data.deviceModels);
+    hasMore = r.data.hasMore;
+    offset += PAGE_SIZE;
+  }
+  return all;
+}
+
+export async function fetchAllCustomers(): Promise<CustomerDTO[]> {
+  const all: CustomerDTO[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const r = await apiService.listCustomers({ limit: PAGE_SIZE, offset });
+    if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar clientes');
+    all.push(...r.data.customers);
+    hasMore = r.data.hasMore;
+    offset += PAGE_SIZE;
+  }
+  return all;
+}
+
+export async function fetchAllTechnicians(): Promise<TechnicianDTO[]> {
+  const all: TechnicianDTO[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const r = await apiService.listTechnicians({ limit: PAGE_SIZE, offset });
+    if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar los técnicos');
+    all.push(...r.data.technicians);
     hasMore = r.data.hasMore;
     offset += PAGE_SIZE;
   }

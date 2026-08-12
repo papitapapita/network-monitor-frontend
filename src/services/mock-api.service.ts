@@ -30,6 +30,13 @@ import {
 } from '../types/location.types';
 import { LocationMapResponse, MapPin } from '../types/map.types';
 import {
+  TicketDTO,
+  TicketDetailDTO,
+  TicketListResponse,
+  TechnicianDaySheetDTO,
+} from '../types/ticket.types';
+import { TechnicianDTO, TechnicianListResponse } from '../types/technician.types';
+import {
   PollingStatusDTO,
   PollingHistoryResponse,
   PollingHistoryQuery,
@@ -1106,6 +1113,66 @@ class MockApiService {
   }
   async downloadBillPdf() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+
+  // ── Tickets & technicians ──────────────────────────────────
+  // A ticket is a state machine with terminal states, and half-simulating it
+  // here would teach the UI rules the backend does not actually have. Mock mode
+  // says so instead.
+  //
+  // These are typed as `ApiResponse<T>` rather than inferred: `apiService` is a
+  // union of this class and the real one, so a stub that infers the narrower
+  // `{ success: false; error: string }` strips `errorField` and `status` off
+  // every call site that reads them.
+
+  async listTickets(): Promise<ApiResponse<TicketListResponse>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async getTicket(): Promise<ApiResponse<TicketDetailDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async createTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async updateTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async deleteTicket(): Promise<ApiResponse<void>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async assignTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async scheduleTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async startTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async resolveTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async cancelTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async getTechnicianDaySheet(): Promise<ApiResponse<TechnicianDaySheetDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+
+  async listTechnicians(): Promise<ApiResponse<TechnicianListResponse>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async getTechnician(): Promise<ApiResponse<TechnicianDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async createTechnician(): Promise<ApiResponse<TechnicianDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async updateTechnician(): Promise<ApiResponse<TechnicianDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async deleteTechnician(): Promise<ApiResponse<void>> {
+    return { success: false, error: 'No disponible en modo mock' };
   }
 }
 

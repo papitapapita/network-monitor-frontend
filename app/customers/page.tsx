@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CustomerDTO } from '@/types/customer.types';
+import { fetchAllCustomers } from '@/hooks/useCatalogs';
 import {
   Button,
   DataTable,
@@ -19,20 +20,6 @@ import {
 import type { DataTableColumn } from '@/components/ui';
 
 const LIMIT = 20;
-
-async function fetchAllCustomers(): Promise<CustomerDTO[]> {
-  const all: CustomerDTO[] = [];
-  let offset = 0;
-  let hasMore = true;
-  while (hasMore) {
-    const r = await apiService.listCustomers({ limit: 100, offset });
-    if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar clientes');
-    all.push(...r.data.customers);
-    hasMore = r.data.hasMore;
-    offset += 100;
-  }
-  return all;
-}
 
 const columns: DataTableColumn<CustomerDTO>[] = [
   {
