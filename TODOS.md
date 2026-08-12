@@ -17,6 +17,19 @@ is for items the frontend can land on its own.
   - Precedent: `DeviceDetailsTab.tsx:263` already does the flat single-combobox picker with `Vendor — Model (Type)` labels. The create page is the outlier, not the proposal
   - Optional, only if the flat list proves noisy in practice: vendor group headers in the dropdown (needs a `group` field on `ComboboxOption`), and a "recientes" section from the last few models used
 
+## Priority 2 — Tickets
+
+- [ ] **Tickets on the device and customer detail pages** — reach the work order from the thing it is about, not only the other way round
+  - The ticket detail page already links out to `/devices/<id>`, `/customers/<id>` and `/technicians/<id>`; only the technician page links back. A device with a live ticket should say so on the page an operator is already looking at
+  - Devices: a fifth tab in the hand-rolled tab bar in `app/devices/[id]/page.tsx` plus a `DeviceTicketsTab`, fed by `listTickets({ deviceId, openOnly: true })`. Deliberately deferred out of the tickets change: `src/components/devices/DeviceDetailsTab.tsx` and `deviceColumns.tsx` were carrying uncommitted work at the time and the new feature stayed off them
+  - Customers: a "Tickets" card on `app/customers/[id]/page.tsx` alongside the contracted-services card, plus **Crear ticket** → `/tickets/create?customerId=<id>`
+  - Both are read-only lists — the state machine stays on `/tickets/<id>`, where `TicketActions` lives
+
+- [ ] **Role gating has no e2e coverage** — every write in the app is gated on `user.role`, and nothing tests it
+  - Not specific to tickets, but tickets made it visible: `canWrite` hides the whole action bar for a VIEWER, and that is now the main thing the page does
+  - The harness logs in once as `E2E_EMAIL` (an ADMIN) in `e2e/auth.setup.ts` and every project reuses that `storageState`, so there is no way to exercise a VIEWER or OPERATOR path
+  - Needs a second setup project writing a second `storageState`, and seeded non-admin users to log in as
+
 ## Priority 2 — Credentials
 
 - [ ] **Stop asking for SNMP credentials** — the form asks operators for secrets nothing in the system consumes
@@ -33,6 +46,12 @@ is for items the frontend can land on its own.
 _Frontend work that cannot start until a backend endpoint exists. The parent items live in
 `backend/docs/TODOS.md` and stay there — these are the consumer halves._
 
+- [ ] **`DELETE /api/devices/:id` doesn't free its model or vendor** — a device is soft-deleted, not removed, so anything that ever owned one can never be deleted again
+  - Repro: create a vendor, a device model under it, and a device on that model. `DELETE /api/devices/:id` → `204`, and a following `GET` on the same id correctly `404`s ("Device not found"). But the row still physically exists — `DELETE /api/device-models/:id` on its model then crashes with a raw `500`: `"Database error deleting device model: update or delete on table \"device_models\" violates RESTRICT setting of foreign key constraint \"devices_device_model_id_fkey\" on table \"devices\""`. The vendor delete then correctly reports `409` (still sees the model), so it's stuck too
+  - `BACKEND_API.md:618` documents `DELETE /api/devices/:id` as "Permanently removes the device" — the soft delete contradicts the documented contract, and either way `device-models` DELETE should never surface a raw Postgres constraint message as a `500`
+  - Found via `e2e/device-models.spec.ts` — DEV-026 and both DEV-027 tests create a device to exercise a delete-blocked path, then delete it and expect the model/vendor to clean up after. They can't: no API call can un-stick a model/vendor once any device, even a deleted one, has ever pointed at it. `npm run e2e:sweep` hits the same wall. As of 2026-08-11 this has stranded 6 vendor/device-model pairs that only a direct DB delete can remove (ids in the `e2e:sweep` output around 2026-08-12T02:10 and 02:14 UTC)
+  - Needs a backend call: either devices hard-delete for real, or `device-models` DELETE explicitly counts (and reports) devices — including soft-deleted ones — as a clean `409` instead of letting the DB constraint throw
+
 - [ ] **Alert stream listener** — `new EventSource('/alerts/stream')` to replace manual reload, reconnects on its own
   - Blocked on the backend's "Real-time alerts via SSE" (its Priority 2): endpoint + `clients` Set + broadcast at alert creation
   - Touches the alerts list and the alert detail page added in `ad5b652`
@@ -41,6 +60,15 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
   - Blocked on the backend's "Live map refresh notification" (its Priority 2), which pushes a lightweight changed-signal only
   - On click, re-fetch `GET /api/locations/map` — the pin rendering itself does not change
   - Whichever of these two lands first establishes the shared SSE client helper; the second should reuse it
+
+- [ ] **Link an alert to the ticket it opened** — the alert detail page should show "Ticket #42" when monitoring opened one
+  - The link only exists in one direction today: a ticket carries `originAlertId`, and `/tickets/<id>` already renders "Ver alerta" from it. The reverse has no key to search on
+  - Blocked on an `originAlertId` filter for `GET /api/tickets`. Without one, `/alerts/<id>` can only find its ticket by listing that device's tickets and scanning for a match client-side — bounded in practice, but a workaround that silently returns nothing once a device has more tickets than the page size
+  - When it lands: a header line on `app/alerts/[id]/page.tsx`, plus a "Crear ticket" button deep-linking to `/tickets/create?deviceId=<id>` when no ticket exists yet (the create form already reads `customerId` / `deviceId` / `title` from the query string)
+
+- [ ] **Free-text search over tickets** — the "Buscar" box on `/tickets` filters only the page already fetched
+  - `GET /api/tickets` has no `search` parameter, and the list is server-paginated because tickets accumulate on their own. So the box narrows the current page and says so in its helper text
+  - Blocked on a backend `search` over `code` and `title`. Until then, the rich filters are what actually reach the database
 
 ---
 

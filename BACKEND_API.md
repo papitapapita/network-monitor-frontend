@@ -8,13 +8,14 @@
 
 ## Base
 
-| Key | Value |
-|-----|-------|
+| Key          | Value                   |
+| ------------ | ----------------------- |
 | Dev base URL | `http://localhost:3000` |
-| API prefix | `/api` |
-| Content-Type | `application/json` |
+| API prefix   | `/api`                  |
+| Content-Type | `application/json`      |
 
 Most API responses are wrapped:
+
 ```ts
 // Success
 { success: true, data: T }
@@ -40,11 +41,11 @@ Missing or invalid tokens return `401`. Insufficient role returns `403`.
 
 ### Roles
 
-| Role | Allowed operations |
-|------|--------------------|
-| `ADMIN` | read, create, update, delete, activate, bulk-import, manage-credentials |
-| `OPERATOR` | read, create, update, activate, bulk-import |
-| `VIEWER` | read only |
+| Role       | Allowed operations                                                      |
+| ---------- | ----------------------------------------------------------------------- |
+| `ADMIN`    | read, create, update, delete, activate, bulk-import, manage-credentials |
+| `OPERATOR` | read, create, update, activate, bulk-import                             |
+| `VIEWER`   | read only                                                               |
 
 `manage-credentials` gates writes to `/api/devices/:id/credentials` only — those
 endpoints carry device passwords and SNMP keys, so they are not covered by the
@@ -53,12 +54,12 @@ masked.
 
 ### Rate limits (per authenticated user)
 
-| Operation type | Limit |
-|----------------|-------|
-| Read (`GET`) | 100 / min |
-| Write (`POST`, `PATCH`, `PUT`) | 60 / min |
-| Delete (`DELETE`) | 60 / min |
-| Bulk import | 5 / hr |
+| Operation type                 | Limit     |
+| ------------------------------ | --------- |
+| Read (`GET`)                   | 100 / min |
+| Write (`POST`, `PATCH`, `PUT`) | 60 / min  |
+| Delete (`DELETE`)              | 60 / min  |
+| Bulk import                    | 5 / hr    |
 
 Counters are keyed by user id, falling back to IP for unauthenticated requests,
 so operators sharing one office address do not share a budget. Each resource
@@ -70,6 +71,7 @@ is fine. Exceeding a bucket returns `429` with `{ success: false, error: 'Too ma
 ## Auth `/api/auth`
 
 ### `POST /api/auth/login` — Login
+
 **Status:** 200 | 400 | 401  
 **Auth required:** No
 
@@ -102,31 +104,70 @@ is fine. Exceeding a bucket returns `429` with `{ success: false, error: 'Too ma
 ## Enums
 
 ```ts
-type LocationType   = 'TOWER' | 'DATACENTER' | 'POINT_OF_PRESENCE' | 'OFFICE' | 'CUSTOMER_PREMISES' | 'OTHER'
-type DeviceStatus   = 'INVENTORY' | 'COMMISSIONING' | 'ACTIVE' | 'DAMAGED'
-type DeviceCategory = 'CPE' | 'WIRELESS_CPE' | 'ACCESS_POINT' | 'GATEWAY' | 'AGGREGATION_SWITCH' | 'OTHER'
-type DeviceOwner    = 'COMPANY' | 'CLIENT'
-type DeviceType     = 'ANTENNA' | 'OTHER' | 'RADIO' | 'ROUTER' | 'ROUTERBOARD' | 'SERVER' | 'SWITCH'
-type PollingStatus      = 'SUCCESS' | 'FAILED' | 'SKIPPED'
-type BillStatus         = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
-type DeviceOnlineStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN'  // UNKNOWN = not monitored / never polled — see "monitoring stopped"
-type AlertSeverity      = 'WARNING' | 'CRITICAL'
-type AlertStatus        = 'OPEN' | 'RESOLVED'
+type LocationType =
+  | 'TOWER'
+  | 'DATACENTER'
+  | 'POINT_OF_PRESENCE'
+  | 'OFFICE'
+  | 'CUSTOMER_PREMISES'
+  | 'OTHER';
+type DeviceStatus =
+  | 'INVENTORY'
+  | 'COMMISSIONING'
+  | 'ACTIVE'
+  | 'DAMAGED'
+  | 'DECOMMISSIONED';
+type DeviceCategory =
+  | 'CPE'
+  | 'WIRELESS_CPE'
+  | 'ACCESS_POINT'
+  | 'GATEWAY'
+  | 'AGGREGATION_SWITCH'
+  | 'OTHER';
+type DeviceOwner = 'COMPANY' | 'CLIENT';
+type DeviceType =
+  | 'ANTENNA'
+  | 'OTHER'
+  | 'RADIO'
+  | 'ROUTER'
+  | 'ROUTERBOARD'
+  | 'SERVER'
+  | 'SWITCH';
+type PollingStatus = 'SUCCESS' | 'FAILED' | 'SKIPPED';
+type BillStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+type DeviceOnlineStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN'; // UNKNOWN = not monitored / never polled — see "monitoring stopped"
+type AlertSeverity = 'WARNING' | 'CRITICAL';
+type AlertStatus = 'OPEN' | 'RESOLVED';
+type TicketStatus =
+  | 'OPEN'
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'RESOLVED'
+  | 'CANCELLED';
+type TicketPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+type TicketCategory =
+  | 'CONNECTIVITY'
+  | 'INSTALLATION'
+  | 'HARDWARE_FAILURE'
+  | 'MAINTENANCE'
+  | 'RELOCATION'
+  | 'OTHER';
+type TicketOrigin = 'MANUAL' | 'DEVICE_ALERT' | 'WIRELESS_ALERT';
 ```
 
 > **`DeviceCategory` vs `DeviceType` — two different questions.**  
-> `DeviceCategory` lives on the **device** and says *what role the unit plays in the network*: `ACCESS_POINT` serves subscribers, `WIRELESS_CPE` is the station end of that link, `GATEWAY` routes, `AGGREGATION_SWITCH` aggregates, `CPE` is customer equipment, `OTHER` is the escape hatch.  
-> `DeviceType` lives on the **device model** and says *what kind of hardware it is* (`ANTENNA`, `ROUTER`, `SWITCH`, …).  
+> `DeviceCategory` lives on the **device** and says _what role the unit plays in the network_: `ACCESS_POINT` serves subscribers, `WIRELESS_CPE` is the station end of that link, `GATEWAY` routes, `AGGREGATION_SWITCH` aggregates, `CPE` is customer equipment, `OTHER` is the escape hatch.  
+> `DeviceType` lives on the **device model** and says _what kind of hardware it is_ (`ANTENNA`, `ROUTER`, `SWITCH`, …).  
 > One box can be a `SWITCH` by type and an `AGGREGATION_SWITCH` by role — PoE, port count and so on are hardware traits and belong to the model, never to the category.
 >
 > **⚠ Breaking change (2026-07-29):** the category set changed, and a migration rewrote existing rows:
 >
-> | Old category | New category | |
-> |---|---|---|
-> | `AP` | `ACCESS_POINT` | renamed for clarity |
-> | `ROUTERBOARD` | `GATEWAY` | the role is "where upstream internet enters"; `ROUTERBOARD` survives as a `DeviceType` |
-> | `SMART_SWITCH` | `AGGREGATION_SWITCH` | the node switch radios converge on |
-> | `SMART_SWITCH_POE` | `AGGREGATION_SWITCH` | PoE is a hardware trait, not a role |
+> | Old category       | New category         |                                                                                        |
+> | ------------------ | -------------------- | -------------------------------------------------------------------------------------- |
+> | `AP`               | `ACCESS_POINT`       | renamed for clarity                                                                    |
+> | `ROUTERBOARD`      | `GATEWAY`            | the role is "where upstream internet enters"; `ROUTERBOARD` survives as a `DeviceType` |
+> | `SMART_SWITCH`     | `AGGREGATION_SWITCH` | the node switch radios converge on                                                     |
+> | `SMART_SWITCH_POE` | `AGGREGATION_SWITCH` | PoE is a hardware trait, not a role                                                    |
 >
 > `CPE`, `WIRELESS_CPE` and `OTHER` are unchanged. Any frontend picker, filter or badge map holding the old literals must be updated — sending an old value now returns `400`, and a device that used to read `SMART_SWITCH_POE` now reads `AGGREGATION_SWITCH`.
 >
@@ -138,64 +179,75 @@ type AlertStatus        = 'OPEN' | 'RESOLVED'
 
 ```ts
 interface LocationDTO {
-  id: string            // UUID
-  name: string
-  type: LocationType
-  municipality: string | null
-  neighborhood: string | null
-  address: string | null
-  latitude: number | null
-  longitude: number | null
-  altitude: number | null
-  createdAt: string     // ISO 8601
-  updatedAt: string
+  id: string; // UUID
+  name: string;
+  type: LocationType;
+  municipality: string | null;
+  neighborhood: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  createdAt: string; // ISO 8601
+  updatedAt: string;
 }
 
 interface DeviceDTO {
-  id: string            // UUID
-  deviceModelId: string // UUID
-  locationId: string | null
-  status: DeviceStatus
-  category: DeviceCategory | null
-  ownerType: DeviceOwner | null
-  name: string
-  serialNumber: string | null
-  macAddress: string | null
-  ipAddress: string | null
-  description: string | null
-  installedDate: string | null  // ISO 8601
-  monitoringEnabled: boolean
-  createdAt: string
-  updatedAt: string
+  id: string; // UUID
+  deviceModelId: string; // UUID
+  locationId: string | null;
+  status: DeviceStatus;
+  category: DeviceCategory | null;
+  ownerType: DeviceOwner | null;
+  name: string;
+  serialNumber: string | null;
+  macAddress: string | null;
+  ipAddress: string | null;
+  description: string | null;
+  installedDate: string | null; // ISO 8601
+  monitoringEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+
+  // Soft delete. Always null on anything you can fetch — a deleted device is
+  // absent from every listing and 404s on GET. They are here because the
+  // restore endpoint returns the record it just brought back.
+  deletedAt: string | null; // ISO 8601
+  deletedBy: string | null; // UUID of the user who deleted it
+
+  // Replacement lineage. Both directions are readable; only one is stored.
+  replacedAt: string | null; // when this unit took over from its predecessor
+  replacesDeviceId: string | null; // the unit this one replaced
+  replacedByDeviceId: string | null; // the unit that replaced this one
 }
 
 interface VendorDTO {
-  id: string            // UUID
-  name: string
-  slug: string          // URL-safe lowercase, e.g. "tp-link"
-  description: string | null
-  createdAt: string     // ISO 8601
-  updatedAt: string
+  id: string; // UUID
+  name: string;
+  slug: string; // URL-safe lowercase, e.g. "tp-link"
+  description: string | null;
+  createdAt: string; // ISO 8601
+  updatedAt: string;
 }
 
 interface DeviceModelDTO {
-  id: string            // UUID
-  vendorId: string      // UUID
-  vendorName: string    // e.g. "MikroTik"
-  vendorSlug: string    // e.g. "mikrotik"
-  model: string
-  deviceType: DeviceType
-  isWireless: boolean   // hardware has a radio — gates wireless configs
-  createdAt: string     // ISO 8601
-  updatedAt: string
+  id: string; // UUID
+  vendorId: string; // UUID
+  vendorName: string; // e.g. "MikroTik"
+  vendorSlug: string; // e.g. "mikrotik"
+  model: string;
+  deviceType: DeviceType;
+  isWireless: boolean; // hardware has a radio — gates wireless configs
+  createdAt: string; // ISO 8601
+  updatedAt: string;
 }
 
 interface PaginatedResponse<T> {
   // (field name varies — see each endpoint below)
-  total: number
-  hasMore: boolean
-  limit: number
-  offset: number
+  total: number;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
 }
 ```
 
@@ -204,6 +256,7 @@ interface PaginatedResponse<T> {
 ## Locations `/api/locations`
 
 ### `POST /api/locations` — Create
+
 **Status:** 201
 
 ```ts
@@ -228,6 +281,7 @@ interface PaginatedResponse<T> {
 ---
 
 ### `GET /api/locations` — List
+
 **Status:** 200
 
 ```ts
@@ -252,6 +306,7 @@ type?:   LocationType
 ---
 
 ### `GET /api/locations/map` — Map pins
+
 **Status:** 200  
 **Auth required:** Yes (any role)
 
@@ -294,6 +349,7 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ---
 
 ### `GET /api/locations/:id` — Get by ID
+
 **Status:** 200 | 404
 
 ```ts
@@ -304,6 +360,7 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ---
 
 ### `DELETE /api/locations/:id` — Delete
+
 **Status:** 204 | 400 | 404 | 409
 
 ```ts
@@ -317,6 +374,7 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ---
 
 ### `PATCH /api/locations/:id` — Update
+
 **Status:** 200 | 404
 
 ```ts
@@ -341,6 +399,7 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ## Devices `/api/devices`
 
 ### `POST /api/devices` — Create
+
 **Status:** 201 | 400 | 404
 
 ```ts
@@ -362,8 +421,9 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ```
 
 **Business rules:**
+
 - `deviceModelId` must name an existing device model — a well-formed UUID for a model that does not exist returns `404` with `Device model not found: <id>`
-- `INVENTORY` / `DAMAGED` status → at least one of `serialNumber` or `macAddress` required (status defaults to `INVENTORY`, so a minimal request must include at least one)
+- `INVENTORY` / `DAMAGED` / `DECOMMISSIONED` status → at least one of `serialNumber` or `macAddress` required (status defaults to `INVENTORY`, so a minimal request must include at least one)
 - `COMMISSIONING` status → `ipAddress` required; `monitoringEnabled` defaults to `true`, but an explicit `monitoringEnabled: false` in the same request is respected (staging a device without polling it yet is legitimate)
 - `ACTIVE` status → `ipAddress` and `locationId` required
 - `installedDate` must be ISO 8601 — `YYYY-MM-DD` or `YYYY-MM-DDThh:mm[:ss[.sss]]` with an optional `Z`/`±hh:mm` offset. Locale forms (`March 5, 2020`) and impossible dates (`2024-02-31`) are rejected, not reinterpreted
@@ -376,6 +436,7 @@ Returns all locations that have coordinates, each with their nested devices. Int
 ---
 
 ### `GET /api/devices` — List
+
 **Status:** 200
 
 ```ts
@@ -388,8 +449,9 @@ owner?:            DeviceOwner
 locationId?:       string          // UUID
 deviceModelId?:    string          // UUID
 monitoringEnabled?: 'true' | 'false'
+deleted?:          'true' | 'false' | 'any'   // default: 'false' — see below
 search?:           string          // free-text
-sortBy?:           'createdAt' | 'updatedAt' | 'name' | 'status'  // default: createdAt
+sortBy?:           'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt'  // default: createdAt
 sortOrder?:        'ASC' | 'DESC'  // default: DESC
 
 // Response
@@ -409,9 +471,31 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 > in `devices`. Filtered and unfiltered listings both paginate in the database,
 > so page size bounds the work the query does.
 
+**`deleted` — the recycle bin.** Soft-deleted devices are hidden from every
+listing unless you ask for them:
+
+| Value              | Returns                                          |
+| ------------------ | ------------------------------------------------ |
+| omitted or `false` | live devices only — unchanged from before        |
+| `true`             | **deleted devices only** — this is the bin       |
+| `any`              | both; the only way a tombstone and a live device share a page |
+
+Bin rows carry `deletedAt` and `deletedBy`. Pair it with
+`sortBy=deletedAt&sortOrder=DESC` for most-recently-deleted first. It combines
+with every other filter, so `?deleted=true&owner=CLIENT` is a customer-scoped
+bin.
+
+Needs only the `read` permission — seeing the bin is not the same as acting on
+it. Restoring takes `delete` (ADMIN), and so does emptying.
+
+```
+GET /api/devices?deleted=true&sortBy=deletedAt&sortOrder=DESC
+```
+
 ---
 
 ### `GET /api/devices/:id` — Get by ID
+
 **Status:** 200 | 404
 
 ```ts
@@ -423,14 +507,28 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 
 **Device status lifecycle:**
 
-| Transition | Requirements | Side effects |
-|------------|--------------|--------------|
-| any → `COMMISSIONING` | `ipAddress` must be set on the device | `monitoringEnabled` turned on **unless** the same request sends `monitoringEnabled: false` |
-| any → `ACTIVE` | `ipAddress` and `locationId` must both be set | — |
-| any → `DAMAGED` | — | monitoring stopped (see below) |
-| any → `INVENTORY` | — | monitoring stopped (see below) |
+| Transition              | Requirements                                  | Side effects                                                                               |
+| ----------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| any → `COMMISSIONING`   | `ipAddress` must be set on the device         | `monitoringEnabled` turned on **unless** the same request sends `monitoringEnabled: false` |
+| any → `ACTIVE`          | `ipAddress` and `locationId` must both be set | —                                                                                          |
+| any → `DAMAGED`         | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
+| any → `DECOMMISSIONED`  | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
+| any → `INVENTORY`       | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
 
 `DAMAGED` is a side-state (e.g. hardware failure) and can be set from any status.
+
+**`INVENTORY`, `DAMAGED` and `DECOMMISSIONED` are the _retired_ statuses** — the
+unit is off the network, so none of them polls and each needs an identifier you
+can read off the box. They are also the only values
+[`POST /api/devices/:id/replace`](#post-apidevicesidreplace--replace-hardware)
+accepts for the outgoing unit.
+
+> ⚠ **New status (2026-08-12): `DECOMMISSIONED`.** It means "retired for good" —
+> as opposed to `DAMAGED` ("broken, still ours") and `INVENTORY` ("working,
+> back in stock"). Add it to any status picker or filter. It existed before
+> 2026-05-09, was removed, and is back because hardware replacement needs to
+> distinguish an upgraded-but-working unit from a failed one. No existing row
+> changed status: units remapped to `DAMAGED` in May stay `DAMAGED`.
 
 > When transitioning to `DAMAGED` or `INVENTORY`, the backend stops monitoring the device automatically. There is no need to also send `monitoringEnabled: false`.
 
@@ -459,6 +557,7 @@ change above, `PATCH /api/devices/:id` with `monitoringEnabled: false`, and
 ---
 
 ### `PATCH /api/devices/:id` — Update
+
 **Status:** 200 | 404
 
 ```ts
@@ -492,7 +591,7 @@ replacement. It is accepted **only while the device's status is `INVENTORY`** �
 the one status in which the unit has never been polled, so no collected metric
 can end up attributed to the wrong hardware.
 
-- Device is `ACTIVE`, `COMMISSIONING` or `DAMAGED` → `400` `"Cannot change the device model of a device with status <status> — only an INVENTORY device may have its model corrected"`
+- Device is `ACTIVE`, `COMMISSIONING`, `DAMAGED` or `DECOMMISSIONED` → `400` `"Cannot change the device model of a device with status <status> — only an INVENTORY device may have its model corrected"`
 - Target model does not exist → `404` `"Device model not found: <id>"`
 - Sending the model the device **already has** is a no-op that succeeds in any
   status — so a UI that PATCHes the whole form back is safe.
@@ -502,9 +601,12 @@ can end up attributed to the wrong hardware.
 
 > **Frontend:** show the model picker as editable only on `INVENTORY` devices; on
 > any other status render it read-only. Replacing a unit with different hardware
-> is not this endpoint — that path does not exist yet (a device is one physical
-> box, and its metric history belongs to that box). For now, retire the old
-> device and create a new one.
+> is not this endpoint — a device is one physical box, and its metric history
+> belongs to that box. Use
+> [`POST /api/devices/:id/replace`](#post-apidevicesidreplace--replace-hardware),
+> which creates the new unit, links the two, and carries the IP, credentials and
+> contracted service across. **(Changed 2026-08-12 — this used to say the path
+> did not exist. Stop telling operators to retire and re-create by hand.)**
 
 **`category` — frozen while a wireless config exists**
 
@@ -554,7 +656,8 @@ that got its location but not its status.
 
 ---
 
-### `DELETE /api/devices/:id` — Delete
+### `DELETE /api/devices/:id` — Delete (soft)
+
 **Status:** 204 | 400 | 404
 
 ```ts
@@ -563,8 +666,165 @@ that got its location but not its status.
 // Response: 204 No Content (no body)
 ```
 
-> Permanently removes the device. Returns 400 if the id is not a valid UUID v4, 404 if no device exists with that id.
+**Since 2026-08-12 this is a soft delete.** The device disappears from every
+read path immediately — `GET /api/devices/:id` returns `404`, listings omit it
+and do not count it in `total` — but the row and all its collected history
+(pings, alerts, wireless snapshots, credentials) survive for a **7-day grace
+period**. Within that window
+[`POST /api/devices/:id/restore`](#post-apidevicesidrestore--restore-a-deleted-device)
+brings it back. After it, a daily job removes the row permanently and everything
+hanging off it goes with it.
 
+**Business rules:**
+
+- The device must exist and not already be deleted → otherwise `404` `"Device not found: <id>"`. Deleting twice still fails; the second call cannot see the first one's tombstone
+- A **live contracted service** blocks the delete → `400` `"Cannot delete a device with a live contracted service (status <status>). Cancel the service first."`. Any status except `CANCELLED` counts as live, so `PENDING`, `ACTIVE` and `SUSPENDED` all block
+- **Open tickets** block the delete → `400` `"Cannot delete a device with <N> open ticket(s). Resolve or cancel them first."`. `RESOLVED` and `CANCELLED` tickets do not block
+- Monitoring is turned off automatically — see [stopping monitoring](#stopping-monitoring). There is no need to also send `monitoringEnabled: false`
+- The device's MAC and IP addresses are **released immediately** and can be reassigned to another device, without waiting for the grace period to lapse
+- `400` if the id is not a valid UUID v4
+
+> **Frontend:** the two guards are the ones worth surfacing well — both are `400`
+> with an actionable sentence naming what is in the way. Neither is a validation
+> error the user can fix in the delete dialog; both need them to go elsewhere
+> first (cancel the service, close the tickets). Consider offering a link rather
+> than just the message.
+>
+> **Build a recycle-bin view, not an undo toast.** `GET /api/devices?deleted=true`
+> lists everything in the bin with `deletedAt` and `deletedBy`; from there
+> `POST /:id/restore` puts one back and `DELETE /:id/purge` removes it for good.
+> Nothing needs to hold onto an id after the delete. A toast with an inline undo
+> is still a nice touch, but it is no longer the only way back.
+
+---
+
+### `POST /api/devices/:id/restore` — Restore a deleted device
+
+**Status:** 200 | 400 | 403 | 404
+
+```ts
+// No request body
+
+// Response
+{ success: true, data: DeviceDTO }
+```
+
+Undoes a soft delete. Requires the **`delete`** permission (ADMIN only) —
+restoring is the inverse of deleting, so the same authority governs both.
+
+**Business rules:**
+
+- Only inside the grace period → past it, `400` `"Cannot restore a device whose 7-day grace period expired"`. There is no recovery after that; the row is gone or about to be
+- The device must actually be deleted → otherwise `400` `"Cannot restore a device that is not deleted"`
+- Unknown id → `404` `"Device not found: <id>"`
+- **Monitoring stays off.** The restored device comes back with `monitoringEnabled: false` regardless of what it had before
+
+> **Frontend:** the restored device is not polling. If the user expects it back
+> in service, they need a second action — `PATCH { monitoringEnabled: true }`,
+> plus a status change if it was retired. Say so in the success message rather
+> than letting them discover it from a grey status pill later.
+
+---
+
+### `DELETE /api/devices/:id/purge` — Empty the bin (permanent)
+
+**Status:** 204 | 400 | 403 | 404
+
+```ts
+// No request body
+
+// Response: 204 No Content (no body)
+```
+
+Removes a device that is **already in the recycle bin**, now, instead of
+waiting out the grace period. Requires the **`delete`** permission (ADMIN).
+
+This is the same destruction the nightly retention job performs, on demand.
+Every ping result, alert, wireless snapshot, credential and polling
+configuration belonging to the device goes with it. **There is no undo.**
+
+**Business rules:**
+
+- The device must already be soft-deleted → otherwise `400` `"Cannot permanently delete a device that is not in the recycle bin. Delete it first."`. This is deliberate: routing everything through `DELETE /api/devices/:id` first is what guarantees the live-contracted-service and open-ticket guards were applied
+- Unknown id → `404` `"Device not found: <id>"`
+- `400` if the id is not a valid UUID v4
+
+> **Frontend:** this is the destructive twin of restore, so treat it that way —
+> a confirmation step naming the device, and wording that says the history goes
+> too. "Empty the whole bin" is this call per device; there is no bulk endpoint
+> yet, and the `delete` rate limiter allows 60/minute, so a very large bin needs
+> throttling or a bulk endpoint (ask the backend for one if you hit it).
+---
+
+### `POST /api/devices/:id/replace` — Replace hardware
+
+**Status:** 201 | 400 | 403 | 404
+
+`:id` is the unit **being replaced**. Use this whenever a physical box is swapped
+for a different one — a failure, or an upgrade. It is not
+`PATCH { deviceModelId }`: a device record is one physical unit, and every
+metric hangs off its id, so editing the model in place would retroactively
+re-attribute months of readings to hardware that never produced them.
+
+Requires the **`activate`** permission (ADMIN and OPERATOR).
+
+```ts
+// Request body
+{
+  deviceModelId: string   // required, UUID — the replacement's model
+  retiredStatus: string   // required, INVENTORY | DAMAGED | DECOMMISSIONED
+  name?: string           // defaults to the retired unit's name
+  serialNumber?: string   // at least one of serialNumber / macAddress required
+  macAddress?: string
+  description?: string
+  installedDate?: string  // ISO 8601, defaults to now
+}
+```
+
+```ts
+// Response
+{
+  success: true,
+  data: {
+    retiredDevice: DeviceDTO
+    newDevice: DeviceDTO
+    wirelessConfigRemoved: boolean
+    credentialsTransferred: boolean
+    contractedServiceTransferred: boolean
+  }
+}
+```
+
+**What it does, in one call:**
+
+1. Retires `:id` into `retiredStatus` and **releases its IP address**
+2. Creates a new device on `deviceModelId`, inheriting the retired unit's
+   **location, category and owner**, and taking over the released IP.
+   It starts in `COMMISSIONING` if it inherited an address, `INVENTORY` if not
+3. Links the two — `newDevice.replacesDeviceId` and
+   `retiredDevice.replacedByDeviceId`
+4. Moves `DeviceCredentials` onto the new unit
+5. Re-points the customer's `ContractedService` at the new unit
+6. Deletes the retired unit's wireless config **if the new model is not
+   wireless** — reported as `wirelessConfigRemoved`
+
+**Business rules:**
+
+- `retiredStatus` is **required** and must be one of `INVENTORY`, `DAMAGED`, `DECOMMISSIONED` → otherwise `400`. This is deliberately the caller's choice: a swap is not always a failure. An upgraded antenna that still works belongs back in `INVENTORY`; a failed one is `DAMAGED`; an obsolete one is `DECOMMISSIONED`
+- At least one of `serialNumber` / `macAddress` → otherwise `400` `"The replacement device must have at least a serial number or MAC address"`. It is a different physical box with its own
+- A device can be replaced **at most once** → `400` `"Device has already been replaced"`. To model a chain of swaps, replace the most recent unit
+- A deleted device cannot be replaced → `404` (it is invisible to reads)
+- Unknown `deviceModelId` → `404` `"Device model not found: <id>"`. Nothing is retired when this fails
+
+> **Frontend:** the retired unit keeps all of its history and the new one starts
+> empty — that is the point. A device detail page can follow
+> `replacesDeviceId` / `replacedByDeviceId` to offer "previous unit" /
+> "current unit" navigation, which is what makes "this CPE, current box since
+> March" answerable.
+>
+> Surface `wirelessConfigRemoved: true` prominently — it means wireless
+> monitoring for that site has stopped because the new hardware has no radio,
+> and nothing will re-create the config automatically.
 ---
 
 ## Device Credentials `/api/devices/:id/credentials`
@@ -577,26 +837,27 @@ Sensitive fields (`snmpCommunity`, `snmpV3AuthKey`, `snmpV3PrivKey`, `httpPasswo
 
 ```ts
 interface DeviceCredentialsResponseDTO {
-  deviceId: string               // UUID
-  snmpVersion: 1 | 2 | 3
-  snmpCommunity: '***' | null    // masked; null if not set
-  snmpV3AuthUser: string | null
-  snmpV3AuthProto: 'MD5' | 'SHA' | null
-  snmpV3AuthKey: '***' | null    // masked; null if not set
-  snmpV3PrivProto: 'DES' | 'AES' | null
-  snmpV3PrivKey: '***' | null    // masked; null if not set
-  snmpPort: number               // default 161
-  httpUsername: string | null
-  httpPassword: '***' | null     // masked; null if not set
-  httpPort: number               // default 443
-  hasSnmpCredentials: boolean    // true if the effective SNMP secret is present
-  hasHttpCredentials: boolean    // true if both httpUsername and httpPassword are set
+  deviceId: string; // UUID
+  snmpVersion: 1 | 2 | 3;
+  snmpCommunity: '***' | null; // masked; null if not set
+  snmpV3AuthUser: string | null;
+  snmpV3AuthProto: 'MD5' | 'SHA' | null;
+  snmpV3AuthKey: '***' | null; // masked; null if not set
+  snmpV3PrivProto: 'DES' | 'AES' | null;
+  snmpV3PrivKey: '***' | null; // masked; null if not set
+  snmpPort: number; // default 161
+  httpUsername: string | null;
+  httpPassword: '***' | null; // masked; null if not set
+  httpPort: number; // default 443
+  hasSnmpCredentials: boolean; // true if the effective SNMP secret is present
+  hasHttpCredentials: boolean; // true if both httpUsername and httpPassword are set
 }
 ```
 
 ---
 
 ### `PUT /api/devices/:id/credentials` — Set Credentials
+
 **Status:** 200 | 400 | 403 | 404  
 **Roles:** ADMIN (`manage-credentials`)
 
@@ -633,6 +894,7 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ```
 
 **Business rules:**
+
 - `httpUsername` and `httpPassword` are both required; neither may be blank.
 - SNMP validation runs only when the request carries an SNMP field:
   - `snmpVersion` is required as soon as any other SNMP field is sent.
@@ -645,6 +907,7 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ---
 
 ### `GET /api/devices/:id/credentials` — Get Credentials
+
 **Status:** 200 | 404  
 **Roles:** ADMIN, OPERATOR, VIEWER (`read` — the response is masked)
 
@@ -657,6 +920,7 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ---
 
 ### `DELETE /api/devices/:id/credentials` — Delete Credentials
+
 **Status:** 204 | 403 | 404  
 **Roles:** ADMIN (`manage-credentials`)
 
@@ -672,6 +936,7 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ## Vendors `/api/vendors`
 
 ### `POST /api/vendors` — Create
+
 **Status:** 201 | 400 | 409
 
 ```ts
@@ -693,6 +958,7 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ---
 
 ### `GET /api/vendors` — List
+
 **Status:** 200
 
 ```ts
@@ -716,6 +982,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `GET /api/vendors/:id` — Get by ID
+
 **Status:** 200 | 404
 
 ```ts
@@ -726,6 +993,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `PUT /api/vendors/:id` — Update
+
 **Status:** 200 | 400 | 404 | 409
 
 ```ts
@@ -746,6 +1014,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `DELETE /api/vendors/:id` — Delete
+
 **Status:** 204 | 404 | 409
 
 ```ts
@@ -760,6 +1029,7 @@ offset?: number  // ≥0, default 0
 ## Device Models `/api/device-models`
 
 ### `POST /api/device-models` — Create
+
 **Status:** 201 | 400 | 409
 
 ```ts
@@ -784,6 +1054,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `GET /api/device-models` — List
+
 **Status:** 200
 
 ```ts
@@ -807,6 +1078,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `GET /api/device-models/:id` — Get by ID
+
 **Status:** 200 | 404
 
 ```ts
@@ -817,6 +1089,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `PUT /api/device-models/:id` — Update
+
 **Status:** 200 | 400 | 404 | 409
 
 ```ts
@@ -865,6 +1138,7 @@ each listed device first, then send `isWireless: false`.
 ---
 
 ### `DELETE /api/device-models/:id` — Delete
+
 **Status:** 204 | 404 | 409
 
 ```ts
@@ -882,6 +1156,7 @@ each listed device first, then send `isWireless: false`.
 > Error: `{ error: string }`.
 
 ### `POST /api/devices/:id/poll` — Trigger Manual Poll
+
 **Status:** 200 | 404 | 409
 
 ```ts
@@ -900,7 +1175,7 @@ each listed device first, then send `isWireless: false`.
 
 > **⚠ Since 2026-08-03: a device whose monitoring is off cannot be polled on
 > demand.** It returns `409` `"Monitoring is disabled for device <id> — enable
-> monitoring before polling it"`. A manual poll would write a real reading over
+monitoring before polling it"`. A manual poll would write a real reading over
 > the `UNKNOWN` state with nothing scheduled to correct it afterwards, and could
 > raise an outage alert for a device nobody is watching.
 >
@@ -911,6 +1186,7 @@ each listed device first, then send `isWireless: false`.
 ---
 
 ### `GET /api/devices/:id/polling/status` — Current Status
+
 **Status:** 200 | 404
 
 ```ts
@@ -947,6 +1223,7 @@ each listed device first, then send `isWireless: false`.
 ---
 
 ### `GET /api/devices/:id/polling/history` — History + Stats
+
 **Status:** 200
 
 ```ts
@@ -982,6 +1259,7 @@ offset?:   number   // ≥0
 ---
 
 ### `POST /api/devices/:id/polling/config` — Create / Upsert Polling Config
+
 **Status:** 201 | 400 | 404
 
 ```ts
@@ -1010,6 +1288,7 @@ offset?:   number   // ≥0
 ---
 
 ### `PATCH /api/devices/:id/polling/config` — Configure Polling
+
 **Status:** 204 (no body) | 400 | 404
 
 ```ts
@@ -1036,27 +1315,27 @@ This is the **unified operational-alert list**. Every bounded context that detec
 
 ```ts
 interface AlertDTO {
-  id: string                        // UUID
-  deviceId: string                  // UUID
-  severity: AlertSeverity
-  source: string                    // human-readable origin — e.g. "Disponibilidad", "Enlace inalámbrico"
-  type: string                      // machine discriminator (see table); at most one OPEN alert per (deviceId, type)
-  description: string               // human-readable detail line, ready to display
-  details: Record<string, unknown>  // producer-specific structured payload — shape varies by source (see table)
-  status: AlertStatus
-  startedAt: string                 // ISO 8601
-  resolvedAt: string | null         // ISO 8601 — null while alert is open
-  notifiedAt: string | null         // ISO 8601 — null if Telegram send failed
-  recoveryNotifiedAt: string | null // ISO 8601 — null if not yet resolved/sent
-  durationSecs: number | null       // seconds device was offline; null while open
+  id: string; // UUID
+  deviceId: string; // UUID
+  severity: AlertSeverity;
+  source: string; // human-readable origin — e.g. "Disponibilidad", "Enlace inalámbrico"
+  type: string; // machine discriminator (see table); at most one OPEN alert per (deviceId, type)
+  description: string; // human-readable detail line, ready to display
+  details: Record<string, unknown>; // producer-specific structured payload — shape varies by source (see table)
+  status: AlertStatus;
+  startedAt: string; // ISO 8601
+  resolvedAt: string | null; // ISO 8601 — null while alert is open
+  notifiedAt: string | null; // ISO 8601 — null if Telegram send failed
+  recoveryNotifiedAt: string | null; // ISO 8601 — null if not yet resolved/sent
+  durationSecs: number | null; // seconds device was offline; null while open
 }
 ```
 
 **Producers** — who writes alerts and what they put in `type` / `details`:
 
-| `source` | `type` | `details` shape | Notes |
-|----------|--------|-----------------|-------|
-| `Disponibilidad` | `device_unreachable` | `{ consecutiveFailures: number, ipAddress: string \| null }` | Device stopped answering ICMP ping. Resolves automatically on recovery. |
+| `source`             | `type`                                                                   | `details` shape                                                                                  | Notes                                                                                     |
+| -------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `Disponibilidad`     | `device_unreachable`                                                     | `{ consecutiveFailures: number, ipAddress: string \| null }`                                     | Device stopped answering ICMP ping. Resolves automatically on recovery.                   |
 | `Enlace inalámbrico` | `wireless:<metric>:<severity>`<br>e.g. `wireless:signal_rx_dbm:CRITICAL` | `{ metric: string, severity: 'WARNING' \| 'CRITICAL', threshold: number, currentValue: number }` | One row per wireless metric + severity. Resolves automatically when the condition clears. |
 
 > **Dedup:** at most **one OPEN alert per `(deviceId, type)`**. A repeated trigger for a condition that is already open does **not** create a duplicate — the existing open alert stands until it resolves.  
@@ -1064,6 +1343,7 @@ interface AlertDTO {
 > **Not the same as `/api/devices/:id/wireless/alerts`** (`WirelessAlertDTO`): those remain the live, per-poll wireless view. This `/api/alerts` list is the **persisted, cross-context record** — a wireless problem appears in both.
 
 ### `GET /api/alerts` — List
+
 **Status:** 200
 
 ```ts
@@ -1091,6 +1371,7 @@ offset?:   number  // ≥0, default 0
 ---
 
 ### `GET /api/alerts/:id` — Get by ID
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -1103,6 +1384,7 @@ offset?:   number  // ≥0, default 0
 ---
 
 ### `DELETE /api/alerts/:id` — Delete
+
 **Status:** 204 | 400 | 404 | 409  
 **Roles:** ADMIN
 
@@ -1120,6 +1402,7 @@ offset?:   number  // ≥0, default 0
 ## Network Scan `/api/network/scan`
 
 ### `POST /api/network/scan` — Scan a network segment
+
 **Status:** 200 | 400 | 404 | 500
 
 ```ts
@@ -1158,99 +1441,100 @@ offset?:   number  // ≥0, default 0
 > Error: `{ error: string }`.
 
 ```ts
-type WirelessDeviceType      = 'STATION' | 'ACCESS_POINT'
-type WirelessCollectionMethod = 'snmp' | 'http_api' | 'mixed'
-type WirelessAlertSeverity   = 'WARNING' | 'CRITICAL'
+type WirelessDeviceType = 'STATION' | 'ACCESS_POINT';
+type WirelessCollectionMethod = 'snmp' | 'http_api' | 'mixed';
+type WirelessAlertSeverity = 'WARNING' | 'CRITICAL';
 ```
 
 ```ts
 interface WirelessMetricsDTO {
-  signalRxDbm: number | null
-  signalTxDbm: number | null
-  noiseFloorDbm: number | null
-  snrDb: number | null
-  ccqPercent: number | null
-  frequencyMhz: number | null
-  channelWidthMhz: number | null
-  throughputTxBps: number | null
-  throughputRxBps: number | null
-  throughputTxPps: number | null
-  throughputRxPps: number | null
-  lanStatus: string | null
-  lanSpeedMbps: number | null
-  lanDuplex: string | null
-  uptimeSeconds: number | null
-  cpuLoadPercent: number | null
-  memoryUsedPercent: number | null
-  firmwareVersion: string | null
-  deviceName: string | null
-  remoteApMac: string | null
-  remoteApName: string | null
-  distanceM: number | null
-  latencyMs: number | null
-  clientsConnected: number | null
+  signalRxDbm: number | null;
+  signalTxDbm: number | null;
+  noiseFloorDbm: number | null;
+  snrDb: number | null;
+  ccqPercent: number | null;
+  frequencyMhz: number | null;
+  channelWidthMhz: number | null;
+  throughputTxBps: number | null;
+  throughputRxBps: number | null;
+  throughputTxPps: number | null;
+  throughputRxPps: number | null;
+  lanStatus: string | null;
+  lanSpeedMbps: number | null;
+  lanDuplex: string | null;
+  uptimeSeconds: number | null;
+  cpuLoadPercent: number | null;
+  memoryUsedPercent: number | null;
+  firmwareVersion: string | null;
+  deviceName: string | null;
+  remoteApMac: string | null;
+  remoteApName: string | null;
+  distanceM: number | null;
+  latencyMs: number | null;
+  clientsConnected: number | null;
 }
 
 interface WirelessStatusDTO {
-  deviceId: string                        // UUID
-  deviceType: WirelessDeviceType
-  collectedAt: string                     // ISO 8601
-  collectionMethod: WirelessCollectionMethod
-  metrics: WirelessMetricsDTO
-  activeAlerts: WirelessAlertDTO[]
-  clients: WirelessClientDTO[]
+  deviceId: string; // UUID
+  deviceType: WirelessDeviceType;
+  collectedAt: string; // ISO 8601
+  collectionMethod: WirelessCollectionMethod;
+  metrics: WirelessMetricsDTO;
+  activeAlerts: WirelessAlertDTO[];
+  clients: WirelessClientDTO[];
 }
 
 interface WirelessAlertDTO {
-  id: string                // UUID
-  deviceId: string          // UUID
-  metric: string            // e.g. "signal_rx_dbm", "latency_ms", "clock_drift_s", "firmware_version_changed", "remote_ap_mac_changed"
-  severity: WirelessAlertSeverity
-  threshold: number
-  lastValue: number
-  message: string
-  triggeredAt: string       // ISO 8601
-  clearedAt: string | null  // ISO 8601 — null while active
-  isActive: boolean
+  id: string; // UUID
+  deviceId: string; // UUID
+  metric: string; // e.g. "signal_rx_dbm", "latency_ms", "clock_drift_s", "firmware_version_changed", "remote_ap_mac_changed"
+  severity: WirelessAlertSeverity;
+  threshold: number;
+  lastValue: number;
+  message: string;
+  triggeredAt: string; // ISO 8601
+  clearedAt: string | null; // ISO 8601 — null while active
+  isActive: boolean;
 }
 
 interface WirelessClientDTO {
-  macAddress: string
-  ipAddress: string | null           // last known IP (sta[].lastip)
-  signalRxDbm: number | null         // signal AP receives from this client (dBm)
-  noiseFloorDbm: number | null       // client-side noise floor (dBm)
-  distanceM: number | null           // distance to AP (m)
-  uptimeSeconds: number | null       // association uptime (s)
-  txLatencyMs: number | null         // TX latency (ms)
-  dlLinkScore: number | null         // downlink link score 0–100
-  ulLinkScore: number | null         // uplink link score 0–100
-  dlCapacityKbps: number | null      // airMAX downlink capacity (kbps)
-  ulCapacityKbps: number | null      // airMAX uplink capacity (kbps)
-  dlCinr: number | null              // downlink CINR (dB)
-  ulCinr: number | null              // uplink CINR (dB)
-  txBytesTotal: string | null        // cumulative TX bytes since association (serialised bigint)
-  rxBytesTotal: string | null        // cumulative RX bytes since association (serialised bigint)
-  txPps: number | null               // current TX packets/s
-  rxPps: number | null               // current RX packets/s
+  macAddress: string;
+  ipAddress: string | null; // last known IP (sta[].lastip)
+  signalRxDbm: number | null; // signal AP receives from this client (dBm)
+  noiseFloorDbm: number | null; // client-side noise floor (dBm)
+  distanceM: number | null; // distance to AP (m)
+  uptimeSeconds: number | null; // association uptime (s)
+  txLatencyMs: number | null; // TX latency (ms)
+  dlLinkScore: number | null; // downlink link score 0–100
+  ulLinkScore: number | null; // uplink link score 0–100
+  dlCapacityKbps: number | null; // airMAX downlink capacity (kbps)
+  ulCapacityKbps: number | null; // airMAX uplink capacity (kbps)
+  dlCinr: number | null; // downlink CINR (dB)
+  ulCinr: number | null; // uplink CINR (dB)
+  txBytesTotal: string | null; // cumulative TX bytes since association (serialised bigint)
+  rxBytesTotal: string | null; // cumulative RX bytes since association (serialised bigint)
+  txPps: number | null; // current TX packets/s
+  rxPps: number | null; // current RX packets/s
   // Remote CPE info (from sta[].remote — AP-side view of the CPE)
-  remoteHostname: string | null
-  remotePlatform: string | null      // CPE model string
-  remoteVersion: string | null       // CPE firmware version
-  remoteCpuLoad: number | null       // CPE CPU load %
-  remoteTotalRam: number | null      // CPE total RAM (bytes)
-  remoteFreeRam: number | null       // CPE free RAM (bytes)
-  remoteSignal: number | null        // signal CPE receives from AP (dBm)
-  remoteNoiseFloor: number | null    // CPE noise floor (dBm)
-  remoteTxPower: number | null       // CPE TX power (dBm)
-  remoteTxThroughputKbps: number | null
-  remoteRxThroughputKbps: number | null
-  remoteIpAddresses: string[]        // CPE IP addresses
+  remoteHostname: string | null;
+  remotePlatform: string | null; // CPE model string
+  remoteVersion: string | null; // CPE firmware version
+  remoteCpuLoad: number | null; // CPE CPU load %
+  remoteTotalRam: number | null; // CPE total RAM (bytes)
+  remoteFreeRam: number | null; // CPE free RAM (bytes)
+  remoteSignal: number | null; // signal CPE receives from AP (dBm)
+  remoteNoiseFloor: number | null; // CPE noise floor (dBm)
+  remoteTxPower: number | null; // CPE TX power (dBm)
+  remoteTxThroughputKbps: number | null;
+  remoteRxThroughputKbps: number | null;
+  remoteIpAddresses: string[]; // CPE IP addresses
 }
 ```
 
 ---
 
 ### `POST /api/devices/:id/wireless/config` — Register Wireless Config
+
 **Status:** 201 | 400 | 404 | 409
 
 ```ts
@@ -1281,9 +1565,9 @@ interface WirelessClientDTO {
 `category`, which already encodes that distinction:
 
 | Device `category` | Resulting `deviceType` |
-|---|---|
-| `ACCESS_POINT` | `ACCESS_POINT` |
-| `WIRELESS_CPE` | `STATION` |
+| ----------------- | ---------------------- |
+| `ACCESS_POINT`    | `ACCESS_POINT`         |
+| `WIRELESS_CPE`    | `STATION`              |
 
 Only those two categories may hold a wireless config at all — any other category
 returns `400` `"Only WIRELESS_CPE and ACCESS_POINT devices can have a wireless
@@ -1291,6 +1575,7 @@ config"`. The derived value is still returned in the response, so read it from
 there rather than assuming it.
 
 **Business rules:**
+
 - `linkCapacityKbps` may only be set (non-null) when the derived type is `STATION` — returns 400 for an `ACCESS_POINT` category device.
 - `clientsProvisionedLimit` may only be set (non-null) when the derived type is `ACCESS_POINT` — returns 400 for a `WIRELESS_CPE` category device.
 - `intervalSecs` must be **at least 60**. Polling AirOS faster than that overloads the embedded web server on the radio, so the floor is a hardware constraint, not a preference.
@@ -1304,6 +1589,7 @@ there rather than assuming it.
 ---
 
 ### `GET /api/devices/:id/wireless/config` — Get Config
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -1315,6 +1601,7 @@ there rather than assuming it.
 ---
 
 ### `PATCH /api/devices/:id/wireless/config` — Update Config
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -1336,6 +1623,7 @@ there rather than assuming it.
 ---
 
 ### `DELETE /api/devices/:id/wireless/config` — Remove Config
+
 **Status:** 204 | 400 | 404
 
 ```ts
@@ -1350,6 +1638,7 @@ there rather than assuming it.
 ---
 
 ### `GET /api/devices/:id/wireless/status` — Latest Snapshot
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -1370,6 +1659,7 @@ there rather than assuming it.
 ---
 
 ### `GET /api/devices/:id/wireless/history` — Historical Snapshots
+
 **Status:** 200 | 400
 
 ```ts
@@ -1388,6 +1678,7 @@ limit?: number // 1–1000
 ---
 
 ### `GET /api/devices/:id/wireless/clients` — Client List
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -1405,6 +1696,7 @@ limit?: number // 1–1000
 ---
 
 ### `GET /api/devices/:id/wireless/alerts` — Active Alerts for Device
+
 **Status:** 200 | 400
 
 ```ts
@@ -1418,6 +1710,7 @@ WirelessAlertDTO[]
 ---
 
 ### `GET /api/devices/:id/wireless/alerts/history` — Alert History for Device
+
 **Status:** 200 | 400
 
 ```ts
@@ -1436,6 +1729,7 @@ WirelessAlertDTO[]
 ---
 
 ### `POST /api/devices/:id/wireless/poll` — Trigger Immediate Poll
+
 **Status:** 202 | 400 | 404
 
 ```ts
@@ -1459,6 +1753,7 @@ WirelessAlertDTO[]
 ---
 
 ### `POST /api/devices/:id/wireless/reboot` — Reboot Device (AirOS 8)
+
 **Status:** 202 | 400 | 404 | 500  
 **Roles:** ADMIN, OPERATOR
 
@@ -1469,8 +1764,8 @@ Reboots the antenna remotely via its AirOS 8 HTTP API. Requires the device to ha
 
 // Response (202) — raw, no wrapper
 {
-  deviceId: string      // UUID
-  requestedAt: string   // ISO 8601 — when the reboot was accepted
+  deviceId: string; // UUID
+  requestedAt: string; // ISO 8601 — when the reboot was accepted
 }
 ```
 
@@ -1483,6 +1778,7 @@ Reboots the antenna remotely via its AirOS 8 HTTP API. Requires the device to ha
 ---
 
 ### `GET /api/wireless/alerts` — All Active Alerts (Global)
+
 **Status:** 200 | 400
 
 ```ts
@@ -1498,6 +1794,7 @@ WirelessAlertDTO[]
 ---
 
 ### `GET /api/wireless/alerts/history` — Alert History (Global, filtered by device)
+
 **Status:** 200 | 400
 
 ```ts
@@ -1520,17 +1817,18 @@ WirelessAlertDTO[]
 
 ```ts
 interface CustomerDTO {
-  id: string          // UUID
-  fullName: string
-  phone: string
-  email: string | null
-  cedula: string | null
-  createdAt: string   // ISO 8601
-  updatedAt: string
+  id: string; // UUID
+  fullName: string;
+  phone: string;
+  email: string | null;
+  cedula: string | null;
+  createdAt: string; // ISO 8601
+  updatedAt: string;
 }
 ```
 
 ### `POST /api/customers` — Create
+
 **Status:** 201 | 400
 
 ```ts
@@ -1549,6 +1847,7 @@ interface CustomerDTO {
 ---
 
 ### `GET /api/customers` — List
+
 **Status:** 200
 
 ```ts
@@ -1572,6 +1871,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `GET /api/customers/:id` — Get by ID
+
 **Status:** 200 | 404
 
 ```ts
@@ -1582,6 +1882,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `PUT /api/customers/:id` — Update
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -1600,6 +1901,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `DELETE /api/customers/:id` — Delete
+
 **Status:** 204 | 400 | 404
 
 ```ts
@@ -1613,19 +1915,20 @@ offset?: number  // ≥0, default 0
 
 ```ts
 interface ServicePlanDTO {
-  id: string             // UUID
-  name: string
-  downloadMbps: number   // positive integer
-  uploadMbps: number     // positive integer
-  monthlyPrice: number   // non-negative decimal
-  description: string | null
-  isActive: boolean
-  createdAt: string      // ISO 8601
-  updatedAt: string
+  id: string; // UUID
+  name: string;
+  downloadMbps: number; // positive integer
+  uploadMbps: number; // positive integer
+  monthlyPrice: number; // non-negative decimal
+  description: string | null;
+  isActive: boolean;
+  createdAt: string; // ISO 8601
+  updatedAt: string;
 }
 ```
 
 ### `POST /api/service-plans` — Create
+
 **Status:** 201 | 400
 
 ```ts
@@ -1646,6 +1949,7 @@ interface ServicePlanDTO {
 ---
 
 ### `GET /api/service-plans` — List
+
 **Status:** 200
 
 ```ts
@@ -1669,6 +1973,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `GET /api/service-plans/:id` — Get by ID
+
 **Status:** 200 | 404
 
 ```ts
@@ -1679,6 +1984,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `PUT /api/service-plans/:id` — Update
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -1699,6 +2005,7 @@ offset?: number  // ≥0, default 0
 ---
 
 ### `DELETE /api/service-plans/:id` — Delete
+
 **Status:** 204 | 400 | 404
 
 ```ts
@@ -1711,21 +2018,26 @@ offset?: number  // ≥0, default 0
 ## Contracted Services `/api/contracted-services`
 
 ```ts
-type ContractedServiceStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'
+type ContractedServiceStatus =
+  | 'PENDING'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'CANCELLED';
 
 interface ContractedServiceDTO {
-  id: string                        // UUID
-  customerId: string                // UUID
-  servicePlanId: string             // UUID
-  deviceId: string | null           // UUID — the CPE device assigned to this service
-  status: ContractedServiceStatus
-  startDate: string                 // ISO 8601
-  createdAt: string                 // ISO 8601
-  updatedAt: string
+  id: string; // UUID
+  customerId: string; // UUID
+  servicePlanId: string; // UUID
+  deviceId: string | null; // UUID — the CPE device assigned to this service
+  status: ContractedServiceStatus;
+  startDate: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  updatedAt: string;
 }
 ```
 
 ### `POST /api/contracted-services` — Create
+
 **Status:** 201 | 400
 
 ```ts
@@ -1746,13 +2058,13 @@ interface ContractedServiceDTO {
 
 **Contracted service status lifecycle:**
 
-| Transition | Requirements | Notes |
-|------------|--------------|-------|
-| (create) → `PENDING` | — | only possible initial status |
-| `PENDING` / `SUSPENDED` → `ACTIVE` | `deviceId` must be set | 409 `"Cannot activate a contracted service without a device assigned"` otherwise |
-| `PENDING` / `ACTIVE` → `SUSPENDED` | — | triggers suspension side effects (see below) |
-| any → `CANCELLED` | — | **terminal** — every later update returns 409 `"Cannot modify a cancelled contracted service"` |
-| any → `PENDING` | **not allowed** | `PENDING` is not a valid `status` value on `PUT` — returns 400 |
+| Transition                         | Requirements           | Notes                                                                                          |
+| ---------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
+| (create) → `PENDING`               | —                      | only possible initial status                                                                   |
+| `PENDING` / `SUSPENDED` → `ACTIVE` | `deviceId` must be set | 409 `"Cannot activate a contracted service without a device assigned"` otherwise               |
+| `PENDING` / `ACTIVE` → `SUSPENDED` | —                      | triggers suspension side effects (see below)                                                   |
+| any → `CANCELLED`                  | —                      | **terminal** — every later update returns 409 `"Cannot modify a cancelled contracted service"` |
+| any → `PENDING`                    | **not allowed**        | `PENDING` is not a valid `status` value on `PUT` — returns 400                                 |
 
 **Suspension side effects (automatic, server-side):**
 
@@ -1771,6 +2083,7 @@ When a service transitions **out of `SUSPENDED`** (→ `ACTIVE` or `CANCELLED`),
 ---
 
 ### `GET /api/contracted-services` — List
+
 **Status:** 200
 
 ```ts
@@ -1795,6 +2108,7 @@ offset?:     number  // ≥0, default 0
 ---
 
 ### `GET /api/contracted-services/:id` — Get by ID
+
 **Status:** 200 | 404
 
 ```ts
@@ -1805,6 +2119,7 @@ offset?:     number  // ≥0, default 0
 ---
 
 ### `PUT /api/contracted-services/:id` — Update
+
 **Status:** 200 | 400 | 404 | 409
 
 ```ts
@@ -1820,6 +2135,7 @@ offset?:     number  // ≥0, default 0
 ```
 
 **Business rules:**
+
 - `status: 'PENDING'` is rejected with 400 — services can never return to PENDING.
 - `status: 'ACTIVE'` requires the service to have a device (either already assigned or included as `deviceId` in the same request) — otherwise 409 `"Cannot activate a contracted service without a device assigned"`.
 - `deviceId: null` on an **ACTIVE** service returns 409 `"Cannot release the device of an ACTIVE service; suspend it first"`.
@@ -1830,6 +2146,7 @@ offset?:     number  // ≥0, default 0
 ---
 
 ### `DELETE /api/contracted-services/:id` — Delete
+
 **Status:** 204 | 400 | 404
 
 ```ts
@@ -1848,6 +2165,7 @@ A suspended service is "enforced" when its throttle queue exists on the router. 
 Uses the standard `{ success, data }` envelope.
 
 ### `GET /api/enforcement/suspensions` — All Enforced Suspensions
+
 **Status:** 200 | 503
 
 ```ts
@@ -1872,6 +2190,7 @@ Uses the standard `{ success, data }` envelope.
 ---
 
 ### `GET /api/contracted-services/:id/enforcement` — Enforcement Status for One Service
+
 **Status:** 200 | 400 | 503
 
 ```ts
@@ -1901,28 +2220,29 @@ One bill per customer per billing period (`'YYYY-MM'`). Line items snapshot the 
 
 ```ts
 interface BillLineItemDTO {
-  contractedServiceId: string  // UUID
-  servicePlanId: string        // UUID
-  planName: string             // snapshot at generation time
-  monthlyPrice: number         // snapshot at generation time
+  contractedServiceId: string; // UUID
+  servicePlanId: string; // UUID
+  planName: string; // snapshot at generation time
+  monthlyPrice: number; // snapshot at generation time
 }
 
 interface BillDTO {
-  id: string                // UUID
-  customerId: string        // UUID
-  period: string            // 'YYYY-MM', e.g. '2026-07'
-  status: BillStatus
-  issueDate: string         // ISO 8601
-  dueDate: string           // ISO 8601
-  paidAt: string | null     // ISO 8601 — null until marked paid
-  total: number             // sum of lineItems monthlyPrice
-  lineItems: BillLineItemDTO[]
-  createdAt: string         // ISO 8601
-  updatedAt: string
+  id: string; // UUID
+  customerId: string; // UUID
+  period: string; // 'YYYY-MM', e.g. '2026-07'
+  status: BillStatus;
+  issueDate: string; // ISO 8601
+  dueDate: string; // ISO 8601
+  paidAt: string | null; // ISO 8601 — null until marked paid
+  total: number; // sum of lineItems monthlyPrice
+  lineItems: BillLineItemDTO[];
+  createdAt: string; // ISO 8601
+  updatedAt: string;
 }
 ```
 
 ### `POST /api/bills/generate` — Generate Bill for a Customer
+
 **Status:** 201 | 400 | 404 | 409 | 500  
 **Roles:** ADMIN, OPERATOR
 
@@ -1941,6 +2261,7 @@ interface BillDTO {
 ```
 
 **Business rules:**
+
 - One line item per **ACTIVE** contracted service of the customer (PENDING/SUSPENDED/CANCELLED services are excluded).
 - Returns 409 if the customer has no ACTIVE contracted services.
 - Returns 409 if a non-cancelled bill already exists for this customer + period. Cancelled bills don't block regeneration.
@@ -1949,6 +2270,7 @@ interface BillDTO {
 ---
 
 ### `POST /api/bills/generate-bulk` — Generate Bills for All Customers
+
 **Status:** 200 | 400  
 **Roles:** ADMIN, OPERATOR  
 **Rate limit:** bulk-import bucket — 5 / hr
@@ -1979,6 +2301,7 @@ Generates bills for **every customer that has at least one ACTIVE contracted ser
 ---
 
 ### `GET /api/bills` — List
+
 **Status:** 200 | 400
 
 ```ts
@@ -2009,6 +2332,7 @@ offset?:     number      // ≥0, default 0
 ---
 
 ### `GET /api/bills/:id` — Get by ID
+
 **Status:** 200 | 400 | 404
 
 ```ts
@@ -2019,6 +2343,7 @@ offset?:     number      // ≥0, default 0
 ---
 
 ### `GET /api/bills/:id/pdf` — Download as PDF
+
 **Status:** 200 | 400 | 404
 
 Returns the bill as a **PDF document** — not the JSON envelope.
@@ -2036,6 +2361,7 @@ The PDF includes the bill header (period, status, issue/due/paid dates), the cus
 ---
 
 ### `POST /api/bills/:id/pay` — Mark as Paid
+
 **Status:** 200 | 400 | 404 | 409  
 **Roles:** ADMIN, OPERATOR
 
@@ -2051,6 +2377,7 @@ The PDF includes the bill header (period, status, issue/due/paid dates), the cus
 ---
 
 ### `POST /api/bills/:id/overdue` — Mark as Overdue
+
 **Status:** 200 | 400 | 404 | 409  
 **Roles:** ADMIN, OPERATOR
 
@@ -2066,6 +2393,7 @@ The PDF includes the bill header (period, status, issue/due/paid dates), the cus
 ---
 
 ### `POST /api/bills/:id/cancel` — Cancel
+
 **Status:** 200 | 400 | 404 | 409  
 **Roles:** ADMIN, OPERATOR
 
@@ -2078,6 +2406,517 @@ The PDF includes the bill header (period, status, issue/due/paid dates), the cus
 
 > Allowed from `PENDING` or `OVERDUE`. Returns 409 for a `PAID` bill ("Cannot cancel a paid bill") or an already-cancelled one.  
 > Cancelling frees the customer + period for regeneration via `POST /generate`.
+
+---
+
+## Tickets `/api/tickets`
+
+Field work orders. A ticket is the unit of work a technician is dispatched to do: what broke, who to call, which device, and where to go.
+
+**Lifecycle:**
+
+```
+OPEN ──assign──▶ ASSIGNED ──start──▶ IN_PROGRESS ──resolve──▶ RESOLVED
+ │                  │                    │
+ └──────────────────┴───────cancel───────┴──────────────────▶ CANCELLED
+```
+
+`RESOLVED` and `CANCELLED` are terminal — **no field can change afterwards**, and every write endpoint returns `409` on a terminal ticket. Use `POST /:id/cancel` to close a ticket that should not be worked; `DELETE` is for tickets raised in error.
+
+**Scheduling is by calendar day, not by instant.** `scheduledFor` is always `'YYYY-MM-DD'` in both directions — sending an ISO datetime returns `400`. There are no time slots and no overlap detection.
+
+```ts
+interface TicketAddressDTO {
+  street: string;
+  municipality: string;
+  neighborhood: string;
+  reference: string | null; // e.g. "casa azul, portón negro"
+  latitude: number | null;
+  longitude: number | null;
+}
+
+interface TicketCustomerContactDTO {
+  id: string; // UUID
+  fullName: string;
+  phone: string;
+  email: string | null;
+}
+
+interface TicketDeviceSummaryDTO {
+  id: string; // UUID
+  name: string;
+  ipAddress: string | null;
+  macAddress: string | null;
+  status: DeviceStatus;
+  category: DeviceCategory | null;
+  modelName: string | null; // e.g. "LiteBeam 5AC Gen2"
+  vendorName: string | null; // e.g. "Ubiquiti"
+  locationName: string | null;
+}
+
+interface TechnicianSummaryDTO {
+  id: string; // UUID
+  fullName: string;
+  phone: string;
+  email: string | null;
+  isActive: boolean;
+}
+
+interface TicketDTO {
+  id: string; // UUID
+  code: number; // human-readable ticket number, e.g. 42 — quote this on the phone
+  status: TicketStatus;
+  priority: TicketPriority;
+  category: TicketCategory;
+  title: string;
+  description: string;
+  customerId: string | null;
+  deviceId: string | null;
+  technicianId: string | null;
+  address: TicketAddressDTO | null;
+  scheduledFor: string | null; // 'YYYY-MM-DD' — calendar day, never a datetime
+  origin: TicketOrigin;
+  originAlertId: string | null; // the alert that raised this ticket; null when MANUAL
+  resolutionNotes: string | null;
+  cancelReason: string | null;
+  createdBy: string | null; // UUID of the user who filed it
+  assignedAt: string | null; // ISO 8601
+  startedAt: string | null;
+  resolvedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// TicketDTO plus the collaborators resolved — returned by GET /:id and /my-day
+interface TicketDetailDTO extends TicketDTO {
+  customer: TicketCustomerContactDTO | null;
+  device: TicketDeviceSummaryDTO | null;
+  technician: TechnicianSummaryDTO | null;
+}
+```
+
+> **`code` vs `id`.** `id` is the UUID for every API call. `code` is a gapless integer allocated by the database, and it is what a technician says out loud when they phone the office. Show `code`, send `id`.
+
+---
+
+### `GET /api/tickets/my-day` — Technician's Day Sheet
+
+**Status:** 200 | 400 | 404  
+**Roles:** ADMIN, OPERATOR, VIEWER
+
+**This is the endpoint the technician view is built on.** One call returns everything needed before leaving: today's tasks in the order they should be worked, each with the customer to call, the suspected failure, the related device, and the address to drive to.
+
+```ts
+// Query params
+{
+  technicianId: string   // required, UUID
+  date?: string          // 'YYYY-MM-DD'; default: today (UTC)
+}
+
+// Response
+{
+  success: true,
+  data: {
+    technician: TechnicianSummaryDTO
+    date: string                   // 'YYYY-MM-DD', echoed back
+    tickets: TicketDetailDTO[]
+    total: number                  // === tickets.length; the day sheet is never paginated
+  }
+}
+```
+
+**Ordering is the instruction, not a preference:** `URGENT → HIGH → NORMAL → LOW`, then oldest first within a priority. Render the list in the order given.
+
+**What is excluded:**
+
+- tickets scheduled for any other day, and tickets with no `scheduledFor` at all
+- `RESOLVED` and `CANCELLED` tickets — resolve one and it drops off the sheet immediately
+- other technicians' work
+
+`IN_PROGRESS` tickets **are** included, so a half-finished job still shows.
+
+An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404` means the technician does not exist.
+
+> **No ownership scoping yet.** `technicianId` is an explicit query param and any authenticated reader may pass any id, so today this is a dispatcher view. A technician-facing app must supply the id itself; the backend will not infer it from the token.
+
+---
+
+### `POST /api/tickets` — Create
+
+**Status:** 201 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  title: string            // required, 1–150 chars
+  description: string      // required, 1–5000 chars
+  category: TicketCategory // required
+  priority?: TicketPriority        // default: 'NORMAL'
+  customerId?: string | null       // UUID
+  deviceId?: string | null         // UUID
+  technicianId?: string | null     // UUID — assigns on creation
+  address?: {                      // all three parts required together, or omit entirely
+    street: string
+    municipality: string
+    neighborhood: string
+    reference?: string | null
+    latitude?: number | null       // -90..90, paired with longitude
+    longitude?: number | null      // -180..180
+  } | null
+  scheduledFor?: string | null     // 'YYYY-MM-DD'
+}
+
+// Response
+{ success: true, data: TicketDTO }
+```
+
+**Business rules:**
+
+- **At least one of `customerId` / `deviceId` is required** — 400 otherwise. Either alone is fine: an internal tower job has no customer, and a phoned-in complaint may not name a device yet.
+- The address is a **snapshot**, stored on the ticket and never re-resolved. A partial address is refused (400) — a street with no municipality is not navigable. There is no customer address anywhere else in the system, so this is the only place a visit location lives.
+- Passing `technicianId` assigns immediately: the ticket comes back `ASSIGNED` with `assignedAt` set. Assigning an **inactive** technician returns 409.
+- `createdBy` is taken from the JWT and **ignored if sent in the body**.
+- Always created with `origin: 'MANUAL'` and `originAlertId: null`. Sending an `originAlertId` is rejected.
+- 404 if the referenced customer or device does not exist.
+
+---
+
+### `GET /api/tickets` — List
+
+**Status:** 200 | 400  
+**Roles:** ADMIN, OPERATOR, VIEWER
+
+```ts
+// Query params — all optional
+{
+  status?: TicketStatus
+  priority?: TicketPriority
+  category?: TicketCategory
+  technicianId?: string    // UUID
+  customerId?: string      // UUID
+  deviceId?: string        // UUID
+  scheduledFrom?: string   // 'YYYY-MM-DD', inclusive
+  scheduledTo?: string     // 'YYYY-MM-DD', inclusive
+  unassignedOnly?: boolean // 'true' | 'false' — the dispatcher's inbox
+  openOnly?: boolean       // 'true' | 'false' — excludes RESOLVED and CANCELLED
+  limit?: number           // 1–100, default 20
+  offset?: number          // default 0
+}
+
+// Response
+{
+  success: true,
+  data: {
+    tickets: TicketDTO[]   // flat — no customer/device/technician; use GET /:id for those
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+> **Two filter pairs contradict, and one side wins silently — do not send both:**  
+> `unassignedOnly=true` overrides `technicianId` ("nobody" wins), and `openOnly=true` overrides `status`.  
+> `scheduledFrom` later than `scheduledTo` returns 400.
+
+---
+
+### `GET /api/tickets/:id` — Get by ID
+
+**Status:** 200 | 400 | 404  
+**Roles:** ADMIN, OPERATOR, VIEWER
+
+```ts
+// Response — the enriched shape, same as the day sheet entries
+{ success: true, data: TicketDetailDTO }
+```
+
+> `customer`, `device` and `technician` are each `null` when the ticket does not reference one. A referenced record that has since been deleted also reads `null` — the FKs are `SET NULL`, so the ticket survives.
+
+---
+
+### `PUT /api/tickets/:id` — Update
+
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body — at least one field required
+{
+  title?: string
+  description?: string
+  category?: TicketCategory
+  priority?: TicketPriority
+  customerId?: string | null
+  deviceId?: string | null
+  address?: { … } | null   // same shape as create; null clears it
+}
+
+// Response
+{ success: true, data: TicketDTO }
+```
+
+**Business rules:**
+
+- 409 on a `RESOLVED` or `CANCELLED` ticket — terminal tickets are history.
+- Cannot drop **both** `customerId` and `deviceId` (400).
+- Does not change status, technician or schedule — use the action endpoints below.
+
+---
+
+### `DELETE /api/tickets/:id` — Delete
+
+**Status:** 204 | 400 | 404  
+**Roles:** ADMIN
+
+```ts
+// No response body
+```
+
+> For tickets raised in error. Cancelling is the normal way to close one, and it keeps the record and the reason.
+
+---
+
+### `POST /api/tickets/:id/assign` — Assign to a Technician
+
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  technicianId: string     // required, UUID
+  scheduledFor?: string | null   // 'YYYY-MM-DD' — set the visit day in the same call
+}
+
+// Response — TicketDTO with status 'ASSIGNED' and assignedAt set
+{ success: true, data: TicketDTO }
+```
+
+**Business rules:**
+
+- Allowed from `OPEN` or `ASSIGNED`. **Reassignment is allowed until work starts** and re-stamps `assignedAt`.
+- 409 from `IN_PROGRESS` — someone is on site; swapping the technician mid-visit would lose who did what. Resolve or cancel first.
+- 409 if the technician is inactive; 404 if they do not exist.
+
+---
+
+### `POST /api/tickets/:id/schedule` — Set or Move the Visit Day
+
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  scheduledFor: string | null   // required key; 'YYYY-MM-DD', or null to clear
+}
+
+// Response
+{ success: true, data: TicketDTO }
+```
+
+> **A past date is accepted on purpose** — work done off the books gets entered afterwards. 409 on a terminal ticket.
+
+---
+
+### `POST /api/tickets/:id/start` — Start Work
+
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response — TicketDTO with status 'IN_PROGRESS' and startedAt set
+{ success: true, data: TicketDTO }
+```
+
+> Allowed **only** from `ASSIGNED` — 409 from `OPEN` (nobody owns it) or from `IN_PROGRESS` (already started; restarting would overwrite `startedAt`).
+
+---
+
+### `POST /api/tickets/:id/resolve` — Resolve
+
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  resolutionNotes: string   // required, 1–5000 chars
+}
+
+// Response — TicketDTO with status 'RESOLVED' and resolvedAt set
+{ success: true, data: TicketDTO }
+```
+
+**Business rules:**
+
+- Allowed from `ASSIGNED` or `IN_PROGRESS`. Resolving straight from `ASSIGNED` is normal — plenty of faults are fixed remotely without a visit.
+- 409 from `OPEN`: nobody is attached, so there is no one whose work the notes describe.
+- Notes are **required and non-blank** (400) — they are the only record of what was done.
+- The ticket drops off `/my-day` immediately.
+
+---
+
+### `POST /api/tickets/:id/cancel` — Cancel
+
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  reason: string   // required, 1–255 chars
+}
+
+// Response — TicketDTO with status 'CANCELLED' and cancelledAt set
+{ success: true, data: TicketDTO }
+```
+
+> Allowed from `OPEN`, `ASSIGNED` or `IN_PROGRESS`. 409 for a `RESOLVED` ticket ("Cannot cancel a resolved ticket") or an already-cancelled one.  
+> The reason is required — a cancelled ticket with no reason is indistinguishable from one dropped by mistake, and the same fault gets reported again next week.
+
+---
+
+### Tickets opened automatically from alerts
+
+Tickets are not only created by hand. When a **new** alert is recorded — ICMP device-down or wireless — the backend opens a ticket for it with `origin: 'DEVICE_ALERT'` or `'WIRELESS_ALERT'` and `originAlertId` set to the alert.
+
+Two levels of deduplication mean the technician does not drown:
+
+1. The same alert re-firing (monitoring re-emits every poll while the fault persists) reuses the existing ticket.
+2. A **second alert on a device that already has a live alert-origin ticket** folds into that ticket — a device breaching five metrics is one site visit, not five jobs.
+
+A new ticket is only opened once the earlier one reaches `RESOLVED` or `CANCELLED`. Severity maps to priority: `CRITICAL → URGENT`, everything else `→ HIGH`.
+
+Filter these with `GET /api/tickets?openOnly=true` and read `origin` to badge them apart from phoned-in work.
+
+---
+
+## Technicians `/api/technicians`
+
+The field workers tickets are dispatched to. Separate from `User` (the login accounts): a technician does not need to log in, and `userId` is an optional link for when they do.
+
+```ts
+interface TechnicianDTO {
+  id: string; // UUID
+  fullName: string;
+  phone: string; // normalized to '+' + digits, e.g. '+573001112233'
+  email: string | null; // lowercased
+  userId: string | null; // optional link to a login account
+  isActive: boolean;
+  createdAt: string; // ISO 8601
+  updatedAt: string;
+}
+```
+
+---
+
+### `POST /api/technicians` — Create
+
+**Status:** 201 | 400 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  fullName: string      // required, 1–150 chars
+  phone: string         // required, 7–15 digits; '+57 (300) 111-2233' is accepted
+  email?: string | null
+  userId?: string | null // UUID of a login account
+  isActive?: boolean     // default: true
+}
+
+// Response
+{ success: true, data: TechnicianDTO }
+```
+
+**Business rules:**
+
+- **Phone is the natural key and must be unique** (409). It is normalized before comparison, so `+57 300 111 2233` and `+573001112233` collide.
+- Email must be unique when present (409). Any number of technicians may have none.
+- New technicians are active — someone being added is someone about to be given work.
+
+---
+
+### `GET /api/technicians` — List
+
+**Status:** 200 | 400  
+**Roles:** ADMIN, OPERATOR, VIEWER
+
+```ts
+// Query params
+{
+  activeOnly?: boolean  // 'true' | 'false' — use for assignment pickers
+  limit?: number        // 1–100, default 20
+  offset?: number       // default 0
+}
+
+// Response
+{
+  success: true,
+  data: {
+    technicians: TechnicianDTO[]   // ordered by fullName
+    total: number                  // respects activeOnly
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+---
+
+### `GET /api/technicians/:id` — Get by ID
+
+**Status:** 200 | 400 | 404  
+**Roles:** ADMIN, OPERATOR, VIEWER
+
+```ts
+{ success: true, data: TechnicianDTO }
+```
+
+---
+
+### `PUT /api/technicians/:id` — Update
+
+**Status:** 200 | 400 | 404 | 409  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body — at least one field required
+{
+  fullName?: string
+  phone?: string
+  email?: string | null   // null clears it
+  userId?: string | null  // null unlinks the login account
+  isActive?: boolean      // false takes them off the rota
+}
+
+// Response
+{ success: true, data: TechnicianDTO }
+```
+
+> A technician may keep their own phone or email — only a collision with a **different** technician returns 409.  
+> **`isActive: false` is how you retire someone.** They stop being assignable immediately, existing tickets keep their name, and history stays intact.
+
+---
+
+### `DELETE /api/technicians/:id` — Delete
+
+**Status:** 204 | 400 | 404 | 409  
+**Roles:** ADMIN
+
+```ts
+// No response body
+```
+
+> **409 if any ticket references them** — open or closed. The FK is `SET NULL`, so deleting would silently blank the technician on every ticket they ever worked and erase who did what. Deactivate instead (`PUT` with `isActive: false`); the error message says so.
 
 ---
 
@@ -2099,15 +2938,15 @@ The PDF includes the bill header (period, status, issue/due/paid dates), the cus
 
 ## Error Status Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Validation error or business rule violation (e.g. duplicate MAC/IP) |
-| 401 | Missing, expired, or invalid JWT |
-| 403 | Valid token but insufficient role for this operation |
-| 404 | Resource not found |
-| 409 | Conflict — resource already exists, or cannot be deleted/changed while dependents exist (e.g. vendor has models, model has devices, model has wireless configs) |
-| 429 | Rate limit exceeded |
-| 500 | Unexpected server error |
-| 503 | Dependent system unavailable — enforcement router unreachable or enforcement not configured (enforcement endpoints only) |
+| Code | Meaning                                                                                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | Validation error or business rule violation (e.g. duplicate MAC/IP)                                                                                             |
+| 401  | Missing, expired, or invalid JWT                                                                                                                                |
+| 403  | Valid token but insufficient role for this operation                                                                                                            |
+| 404  | Resource not found                                                                                                                                              |
+| 409  | Conflict — resource already exists, or cannot be deleted/changed while dependents exist (e.g. vendor has models, model has devices, model has wireless configs) |
+| 429  | Rate limit exceeded                                                                                                                                             |
+| 500  | Unexpected server error                                                                                                                                         |
+| 503  | Dependent system unavailable — enforcement router unreachable or enforcement not configured (enforcement endpoints only)                                        |
 
 Error body: `{ success: false, error: string }` (standard endpoints) / `{ error: string }` (credentials, polling, wireless)
