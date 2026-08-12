@@ -79,6 +79,28 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
+/**
+ * The backend allows 100 reads and 60 writes per minute per resource, and
+ * answers a 429 with `Retry-After` in seconds. A read that gives up on the
+ * first one leaves the caller with an empty list it cannot tell apart from
+ * "there is nothing" — a model picker with no models, a device page with no
+ * wireless tab — so reads wait the window out instead. Bounded, because a
+ * page that hangs is no better than one that is empty.
+ */
+const RATE_LIMIT_RETRIES = 2;
+const RATE_LIMIT_MAX_WAIT_MS = 8_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Drops the `body.` / `params.` / `query.` prefix `request()` prepends when it
+ * flattens a schema rejection, leaving just the message the backend wrote. The
+ * same rule can be refused by the schema or by the domain depending on which
+ * layer catches it first, and a translator should not have to know which.
+ */
+const stripValidationPrefix = (error: string): string =>
+  error.replace(/^(body|params|query)(\.[\w.[\]]+)?:\s*/, '');
+
 class ApiService {
   private baseUrl: string;
   private token: string | null = null;
@@ -89,6 +111,29 @@ class ApiService {
 
   setToken(token: string | null) {
     this.token = token;
+  }
+
+  /**
+   * Sends the request, retrying a rate-limited **read** once the window the
+   * server names has passed. Only reads: replaying a POST or a PATCH could
+   * create the same record twice, and no header can tell us whether the first
+   * attempt landed before the limiter turned it away.
+   */
+  private async send(url: string, init: RequestInit): Promise<Response> {
+    const isRead = (init.method ?? 'GET').toUpperCase() === 'GET';
+    let response = await fetch(url, init);
+
+    for (let attempt = 0; isRead && response.status === 429 && attempt < RATE_LIMIT_RETRIES; attempt++) {
+      const retryAfter = Number(response.headers.get('retry-after'));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000;
+      // Past the cap the honest answer is the 429 itself: a page frozen for a
+      // minute helps nobody, and the caller can offer a retry.
+      if (waitMs > RATE_LIMIT_MAX_WAIT_MS) break;
+      await sleep(waitMs);
+      response = await fetch(url, init);
+    }
+
+    return response;
   }
 
   private async request<T>(
@@ -104,10 +149,7 @@ class ApiService {
         headers['Authorization'] = `Bearer ${this.token}`;
       }
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        ...options,
-        headers,
-      });
+      const response = await this.send(`${this.baseUrl}${endpoint}`, { ...options, headers });
 
       if (response.status === 204) {
         return { success: true };
@@ -291,11 +333,32 @@ class ApiService {
   }
 
   async deleteLocation(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/locations/${id}`, { method: 'DELETE' });
+    const result = await this.request<void>(`/locations/${id}`, { method: 'DELETE' });
+    return this.translateLocationError(result);
   }
 
   async getLocationMapPins(): Promise<ApiResponse<LocationMapResponse>> {
     return this.request<LocationMapResponse>('/locations/map');
+  }
+
+  // The backend replies in English when a location still has devices assigned to
+  // it, refusing the delete; the rest of this UI is in Spanish, so surface the
+  // same fact in that language.
+  private translateLocationError<T>(result: ApiResponse<T>): ApiResponse<T> {
+    if (!result.success && result.error) {
+      const match = result.error.match(
+        /^Cannot delete location: it has (\d+) device\(s\) assigned\. Reassign or remove those devices first\.$/
+      );
+      if (match) {
+        const count = Number(match[1]);
+        const noun = count === 1 ? 'dispositivo asignado' : 'dispositivos asignados';
+        return {
+          success: false,
+          error: `No se puede eliminar la ubicación: tiene ${count} ${noun}. Reasigne o elimine esos dispositivos primero.`,
+        };
+      }
+    }
+    return result;
   }
 
   // ============================================================
@@ -366,6 +429,12 @@ class ApiService {
           success: false,
           error: `No se puede eliminar el fabricante: tiene ${count} ${noun}. Elimina primero todos los modelos de dispositivo.`,
         };
+      }
+
+      // Deleting an id nobody recognizes (a stale tab, say) is a caller error,
+      // not a no-op — it fails loudly instead of the record just staying gone.
+      if (/^Vendor not found: /.test(result.error)) {
+        return { success: false, error: 'No se encontró el fabricante.' };
       }
     }
     return result;
