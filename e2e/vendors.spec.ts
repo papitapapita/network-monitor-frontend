@@ -95,7 +95,7 @@ test.describe('vendors', () => {
 });
 
 /**
- * Vendor conventions (see BACKEND_API.md, DEV-001..DEV-006).
+ * Vendor conventions (see BACKEND_API.md, DEV-001..DEV-008).
  *
  * "Accepts" tests submit values right at a rule's edge and confirm the real
  * backend created the record — proving the frontend's understanding of the
@@ -108,10 +108,10 @@ test.describe('vendors', () => {
  *     proving the client-side guard fires correctly with real DOM
  *     interaction — no request reaches the backend, same as clicking through
  *     the app by hand would.
- *   - DEV-003 and DEV-005 are enforced by the backend only, so submitting
- *     always makes a real request; these tests only pass if the backend
- *     rejected it AND the frontend correctly relayed and translated the
- *     real response.
+ *   - DEV-003, DEV-005, DEV-007 and DEV-008 are enforced by the backend
+ *     only, so submitting always makes a real request; these tests only pass
+ *     if the backend rejected it AND the frontend correctly relayed and
+ *     translated the real response.
  */
 test.describe('vendor conventions', () => {
   test('DEV-001: accepts a name at the 100-character limit', async ({ page, api }) => {
@@ -288,5 +288,83 @@ test.describe('vendor conventions', () => {
     await expect(page.getByText(/No se puede eliminar el fabricante: tiene 1 modelo de dispositivo asociado/)).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/vendors/${vendor.id}$`));
     await expect(page.getByRole('heading', { name: vendor.name })).toBeVisible();
+  });
+
+  test('DEV-007: rejects a name that already belongs to another vendor', async ({ page, api }) => {
+    const existing = await api.create<{ id: string; name: string }>('vendors', {
+      name: uniqueName('vendor'),
+      slug: uniqueName('vendor'),
+    });
+
+    await page.goto('/vendors/create');
+    await field(page, 'Nombre').fill(existing.name);
+    await field(page, 'Slug').fill(uniqueName('vendor')); // distinct slug isolates the name collision
+
+    await page.getByRole('button', { name: 'Crear Fabricante' }).click();
+
+    // Nothing client-side knows about this collision, so this only passes if
+    // the request reached the backend and the response came back translated —
+    // twice over: in the banner, and under the name input that has to change.
+    const taken = page.getByText(`Ya existe un fabricante con el nombre "${existing.name}"`);
+    await expect(taken.first()).toBeVisible();
+    await expect(taken).toHaveCount(2);
+    await expect(page).toHaveURL(/\/vendors\/create$/);
+  });
+
+  test('DEV-007: rejects a name that already belongs to another vendor, on update', async ({ page, api }) => {
+    const existing = await api.create<{ id: string; name: string }>('vendors', {
+      name: uniqueName('vendor'),
+      slug: uniqueName('vendor'),
+    });
+    const vendor = await api.create<{ id: string; name: string }>('vendors', {
+      name: uniqueName('vendor'),
+      slug: uniqueName('vendor'),
+    });
+
+    await page.goto(`/vendors/${vendor.id}`);
+    await page.getByRole('button', { name: 'Editar' }).click();
+    await field(page, 'Nombre').fill(existing.name);
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+
+    const taken = page.getByText(`Ya existe un fabricante con el nombre "${existing.name}"`);
+    await expect(taken.first()).toBeVisible();
+    await expect(taken).toHaveCount(2);
+    await expect(page).toHaveURL(new RegExp(`/vendors/${vendor.id}$`));
+  });
+
+  test("DEV-007: accepts keeping a vendor's own name on update", async ({ page, api }) => {
+    const vendor = await api.create<{ id: string; name: string }>('vendors', {
+      name: uniqueName('vendor'),
+      slug: uniqueName('vendor'),
+    });
+
+    await page.goto(`/vendors/${vendor.id}`);
+    await page.getByRole('button', { name: 'Editar' }).click();
+    // Only the description changes; the name round-trips unchanged. If the
+    // backend compared it against itself, this would 409 instead of saving.
+    await page.locator('textarea[name="description"]').fill('Updated by an E2E test.');
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+
+    await expect(page.getByText('Updated by an E2E test.')).toBeVisible();
+    await expect(page.getByText(/Ya existe un fabricante con el nombre/)).toHaveCount(0);
+  });
+
+  test('DEV-008: fails to delete a vendor that no longer exists', async ({ page, api }) => {
+    const vendor = await api.create<{ id: string; name: string }>('vendors', {
+      name: uniqueName('vendor'),
+      slug: uniqueName('vendor'),
+    });
+
+    await page.goto(`/vendors/${vendor.id}`);
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+
+    // Another tab already deleted it; this tab's confirm click is the caller
+    // error DEV-008 refuses to treat as a silent no-op.
+    await api.remove('vendors', vendor.id);
+
+    await confirmDialog(page, 'Eliminar fabricante');
+
+    await expect(page.getByText('No se encontró el fabricante.')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/vendors/${vendor.id}$`));
   });
 });
