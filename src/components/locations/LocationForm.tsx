@@ -97,8 +97,13 @@ export function validateLocationForm(formData: LocationFormData): Record<string,
     errors.altitude = 'La altitud requiere latitud y longitud';
   }
 
-  if (!errors.address && formData.address.trim() && (!formData.municipality.trim() || !formData.neighborhood.trim())) {
-    errors.address = 'La dirección requiere municipio y barrio';
+  const hasAddress = !!formData.address.trim();
+  const hasMunicipality = !!formData.municipality.trim();
+  const hasNeighborhood = !!formData.neighborhood.trim();
+  if ((hasAddress || hasMunicipality || hasNeighborhood) && !(hasAddress && hasMunicipality && hasNeighborhood)) {
+    if (!errors.address && !hasAddress) errors.address = 'La dirección es requerida junto con el municipio y el barrio';
+    if (!errors.municipality && !hasMunicipality) errors.municipality = 'El municipio es requerido junto con la dirección y el barrio';
+    if (!errors.neighborhood && !hasNeighborhood) errors.neighborhood = 'El barrio es requerido junto con la dirección y el municipio';
   }
   const hasCoords = !!(formData.latitude.trim() && formData.longitude.trim());
   if (!errors.address && formData.type === 'CUSTOMER_PREMISES' && !formData.address.trim() && !hasCoords) {
@@ -201,8 +206,8 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
         maxLength={255}
         helperText={
           formData.type === 'CUSTOMER_PREMISES'
-            ? 'Una instalación de cliente requiere dirección o coordenadas. La dirección requiere municipio y barrio.'
-            : undefined
+            ? 'Una instalación de cliente requiere dirección o coordenadas. Dirección, municipio y barrio van juntos.'
+            : 'Dirección, municipio y barrio van juntos: si completa uno, debe completar los tres.'
         }
         fullWidth
       />
