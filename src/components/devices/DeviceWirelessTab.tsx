@@ -18,6 +18,8 @@ import {
   INTERVAL_MAX_SECONDS,
   validateIntervalSeconds,
 } from '@/constants/polling.constants';
+import { fmtBps, fmtKbps } from '@/constants/wireless.constants';
+import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
 
 interface Props {
   deviceId: string;
@@ -28,20 +30,6 @@ interface Props {
 function fmt(val: number | null | undefined, unit: string, decimals = 1): string {
   if (val == null) return '—';
   return `${val.toFixed(decimals)} ${unit}`;
-}
-
-function fmtBps(val: number | null | undefined): string {
-  if (val == null) return '—';
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)} Mbps`;
-  if (val >= 1_000) return `${(val / 1_000).toFixed(1)} Kbps`;
-  return `${val} bps`;
-}
-
-function fmtKbps(val: number | null | undefined): string {
-  if (val == null) return '—';
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)} Gbps`;
-  if (val >= 1_000) return `${(val / 1_000).toFixed(1)} Mbps`;
-  return `${val} Kbps`;
 }
 
 function fmtBytes(val: string | null): string {
@@ -636,6 +624,10 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
 
       {config && (
         <>
+          {/* Live throughput — pushed by the poller over SSE, so it moves on
+              its own while the snapshot below stays where "Actualizar" left it. */}
+          <WirelessThroughputCard deviceId={deviceId} intervalSecs={config.intervalSecs} />
+
           {/* Latest snapshot */}
           <Card>
             <Card.Header>

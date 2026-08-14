@@ -48,7 +48,10 @@ import {
   WirelessAlertHistoryQuery,
   CreateWirelessConfigDTO,
   UpdateWirelessConfigDTO,
+  WirelessThroughputDTO,
+  WirelessThroughputSnapshot,
 } from '../types/wireless.types';
+import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
 import {
   translateDeviceConflict,
@@ -129,6 +132,28 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const stripValidationPrefix = (error: string): string =>
   error.replace(/^(body|params|query)(\.[\w.[\]]+)?:\s*/, '');
 
+/**
+ * A malformed frame is not worth tearing the stream down for — the next
+ * reading is seconds away, and the view keeps showing the last good one.
+ */
+function parseStreamJson<T>(data: string): T | null {
+  try {
+    return JSON.parse(data) as T;
+  } catch {
+    return null;
+  }
+}
+
+export interface WirelessThroughputStreamHandlers {
+  onThroughput: (reading: WirelessThroughputDTO) => void;
+  onState?: (state: SseState) => void;
+}
+
+export interface FleetThroughputStreamHandlers extends WirelessThroughputStreamHandlers {
+  /** The opening frame only — the whole fleet at once. */
+  onSnapshot: (snapshot: WirelessThroughputSnapshot) => void;
+}
+
 class ApiService {
   private baseUrl: string;
   private token: string | null = null;
@@ -139,6 +164,28 @@ class ApiService {
 
   setToken(token: string | null) {
     this.token = token;
+  }
+
+  /** Drops the session the app is holding and lets the shell route to /login. */
+  private clearSession() {
+    this.token = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('nms_token');
+      localStorage.removeItem('nms_user');
+      window.dispatchEvent(new Event('nms:unauthorized'));
+    }
+  }
+
+  /**
+   * Streams miss `request()`'s 401 handling, so an expired session would leave
+   * a live view retrying forever behind a logged-out app. Route it through the
+   * same exit.
+   */
+  private onStreamState(onState?: (state: SseState) => void) {
+    return (state: SseState) => {
+      if (state.status === 'error' && state.httpStatus === 401) this.clearSession();
+      onState?.(state);
+    };
   }
 
   /**
@@ -192,12 +239,7 @@ class ApiService {
       }
 
       if (response.status === 401) {
-        this.token = null;
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('nms_token');
-          localStorage.removeItem('nms_user');
-          window.dispatchEvent(new Event('nms:unauthorized'));
-        }
+        this.clearSession();
         return { success: false, status: 401, error: 'Sesión expirada. Por favor inicia sesión nuevamente.' };
       }
 
@@ -810,6 +852,52 @@ class ApiService {
       limit: query?.limit
     });
     return this.request<WirelessAlertDTO[]>(`/wireless/alerts/history${qs}`);
+  }
+
+  /**
+   * Live throughput for one device, over SSE. Returns the closer — call it on
+   * unmount: a user may hold only 5 concurrent streams, and a leaked one keeps
+   * its slot until the socket dies.
+   *
+   * The first `throughput` event carries the current reading, so there is no
+   * separate fetch to seed the view. 404 means the device has never been
+   * polled, which is a state to render, not a fault.
+   */
+  streamWirelessThroughput(
+    deviceId: string,
+    handlers: WirelessThroughputStreamHandlers
+  ): () => void {
+    return openSseStream(`${this.baseUrl}/devices/${deviceId}/wireless/throughput/stream`, {
+      token: this.token,
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        if (event !== 'throughput') return;
+        const dto = parseStreamJson<WirelessThroughputDTO>(data);
+        if (dto) handlers.onThroughput(dto);
+      },
+    });
+  }
+
+  /**
+   * Live throughput for every polled wireless device. The opening frame is a
+   * different event with a different shape from the ones that follow: seed
+   * from `throughput-snapshot`, then upsert each `throughput` delta by
+   * `deviceId`. A consumer that expects a full list every frame renders wrong.
+   */
+  streamFleetThroughput(handlers: FleetThroughputStreamHandlers): () => void {
+    return openSseStream(`${this.baseUrl}/wireless/throughput/stream`, {
+      token: this.token,
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        if (event === 'throughput-snapshot') {
+          const snapshot = parseStreamJson<WirelessThroughputSnapshot>(data);
+          if (snapshot) handlers.onSnapshot(snapshot);
+        } else if (event === 'throughput') {
+          const dto = parseStreamJson<WirelessThroughputDTO>(data);
+          if (dto) handlers.onThroughput(dto);
+        }
+      },
+    });
   }
 
   // ============================================================

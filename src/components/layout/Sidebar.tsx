@@ -47,6 +47,13 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
       'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
     ),
   },
+  // Live throughput sits with the monitoring views, ahead of the alerts it is
+  // the leading indicator for.
+  {
+    href: '/wireless',
+    label: 'Tráfico en vivo',
+    icon: icon('M13 10V3L4 14h7v7l9-11h-7z'),
+  },
   {
     href: '/alerts',
     label: 'Alertas',

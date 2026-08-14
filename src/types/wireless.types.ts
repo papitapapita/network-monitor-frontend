@@ -84,6 +84,37 @@ export interface WirelessStatusDTO {
   clients: WirelessClientDTO[];
 }
 
+/**
+ * A single live throughput reading, as carried by the two SSE streams. It is a
+ * narrower view of what `WirelessStatusDTO` already holds, plus the freshness
+ * fields — the stream pushes on the poller's cadence, not on request, so a
+ * reading can be minutes old and the consumer has to be able to say so.
+ */
+export interface WirelessThroughputDTO {
+  deviceId: string;
+  deviceType: WirelessDeviceType;
+  /** When the radio was read, not when we asked. */
+  collectedAt: string;
+  /** Age of the reading in seconds; never negative. */
+  ageSeconds: number;
+  /** True past 2 × the device's `intervalSecs`, or when it has no config. */
+  stale: boolean;
+  throughputTxBps: number | null;
+  throughputRxBps: number | null;
+  /** Null if either leg is null. */
+  throughputTotalBps: number | null;
+  /** The provisioned plan. STATION-only — always null for an AP. */
+  linkCapacityKbps: number | null;
+  /** 2dp. Null without a capacity, so always null for an AP. */
+  utilisationPercent: number | null;
+}
+
+/** The fleet stream's opening frame — every device that has ever been polled. */
+export interface WirelessThroughputSnapshot {
+  devices: WirelessThroughputDTO[];
+  total: number;
+}
+
 export interface WirelessConfigDTO {
   id: string;
   deviceId: string;
