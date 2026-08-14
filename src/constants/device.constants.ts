@@ -190,6 +190,14 @@ export function translateDeviceInvariant(error: string): DeviceConflict | null {
     return { field: 'deviceModelId', message: 'El modelo seleccionado ya no existe' };
   }
 
+  // DEV-067: the location picker only offers locations that existed when the
+  // form loaded, so this only fires against a stale tab or a race with
+  // another operator deleting the location in between.
+  const locationMissing = error.match(/^Location not found: /);
+  if (locationMissing) {
+    return { field: 'locationId', message: 'La ubicación seleccionada ya no existe' };
+  }
+
   // The wireless config's radio mode was derived from the category when it was
   // created, so the category is frozen for as long as that config exists.
   if (error.startsWith('Cannot change the category of a device that has a wireless config')) {
@@ -241,6 +249,18 @@ export function translateDeviceDeleteBlocker(error: string): DeviceDeleteBlocker
     };
   }
 
+  return null;
+}
+
+/**
+ * DEV-068/DEV-069: an update or delete sent against an id nobody recognizes —
+ * a second click on an already-deleted device, or a stale tab open on one
+ * another operator removed. Not tied to any form field, so it has none.
+ */
+export function translateDeviceNotFoundError(error: string): string | null {
+  if (/^Device not found: /.test(error)) {
+    return 'Este dispositivo ya no existe. Puede haber sido eliminado por otra persona.';
+  }
   return null;
 }
 

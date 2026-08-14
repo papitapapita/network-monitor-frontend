@@ -200,6 +200,12 @@ test.describe('devices', () => {
     await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
 
+    // Deleting no longer redirects straight away — it leaves an undo modal in
+    // its place, and only closing that sends the operator back to the list.
+    const undoDialog = page.getByRole('dialog');
+    await expect(undoDialog.getByText(`«${device.name}» se eliminó.`)).toBeVisible();
+    await undoDialog.getByRole('button', { name: 'Cerrar', exact: true }).last().click();
+
     await page.waitForURL('**/devices');
     api.untrack('devices', device.id);
 
@@ -1453,7 +1459,14 @@ test.describe('device conventions', () => {
     await expect(detailValue(page, 'Categoría')).toHaveText('CPE Inalámbrico');
 
     // Deleting the config is what unfreezes it — the walk the UI asks for.
-    await page.getByRole('button', { name: 'Inalámbrico' }).click();
+    // The tab's presence depends on the device-model read `openEdit`'s page
+    // load kicked off, which can still be inside its own 429 retry (up to
+    // ~16s, see RATE_LIMIT_MAX_WAIT_MS in api.service.ts) this deep into a
+    // long serial suite — give it more room than the default actionTimeout
+    // before clicking.
+    const wirelessTab = page.getByRole('button', { name: 'Inalámbrico' });
+    await expect(wirelessTab).toBeVisible({ timeout: 30_000 });
+    await wirelessTab.click();
     const configHeading = page.getByRole('heading', { name: 'Configuración Inalámbrica' });
     await expect(configHeading).toBeVisible();
     // Scoped to the config card's own header — the page's delete-device button
@@ -1504,6 +1517,75 @@ test.describe('device conventions', () => {
 
     await expect(page.getByText('El modelo seleccionado ya no existe').first()).toBeVisible();
     await expect(page.getByText(/Device model not found/)).toHaveCount(0);
+  });
+
+  // ── DEV-067 — a device's location, when set, must exist ─────────────────
+  test('DEV-067: rejects a location that no longer exists on create', async ({ page, api }) => {
+    const { vendor, model } = await arrangeModel(api);
+    const location = await arrangeLocation(api);
+
+    await page.goto('/devices/create');
+    await fillRequiredFields(page, { vendor, model });
+    await field(page, 'Número de Serie').fill(uniqueName('sn'));
+    await pickFromCombobox(page, locationPicker(page), location.name);
+
+    // The picker only offers locations that existed when the form loaded, so a
+    // dangling locationId is unreachable by clicking alone. Deleting the
+    // location now is what a stale tab would carry.
+    await api.remove('locations', location.id);
+
+    await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
+
+    await expect(page.getByText('La ubicación seleccionada ya no existe').first()).toBeVisible();
+    await expect(page.getByText(/Location not found/)).toHaveCount(0);
+    await expect(page).toHaveURL(/\/devices\/create$/);
+  });
+
+  test('DEV-067: rejects a correction onto a location that no longer exists', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api);
+    const location = await arrangeLocation(api);
+
+    await openEdit(page, device.id);
+    await selectCombobox(page, 'Ubicación', location.name);
+    await api.remove('locations', location.id);
+    await saveEdit(page);
+
+    await expect(page.getByText('La ubicación seleccionada ya no existe').first()).toBeVisible();
+    await expect(page.getByText(/Location not found/)).toHaveCount(0);
+  });
+
+  // ── DEV-068 — only an existing device can be deleted ────────────────────
+  test('DEV-068: refuses to delete a device that is already gone', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api);
+
+    await page.goto(`/devices/${device.id}`);
+    await expect(page.getByRole('button', { name: 'Eliminar', exact: true })).toBeVisible();
+
+    // A stale tab's delete button still fires the request even though another
+    // operator has since purged the device out from under it.
+    await api.remove('devices', device.id);
+
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar dispositivo');
+
+    await expect(page.getByText('Este dispositivo ya no existe')).toBeVisible();
+    await expect(page.getByText(/Device not found/)).toHaveCount(0);
+  });
+
+  // ── DEV-069 — only an existing device can be updated ─────────────────────
+  test('DEV-069: refuses to update a device that is already gone', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api);
+
+    await openEdit(page, device.id);
+    await field(page, 'Nombre').fill(uniqueName('renamed'));
+
+    // Same stale-tab scenario as DEV-068, one operation over.
+    await api.remove('devices', device.id);
+
+    await saveEdit(page);
+
+    await expect(page.getByText('Este dispositivo ya no existe')).toBeVisible();
+    await expect(page.getByText(/Device not found/)).toHaveCount(0);
   });
 });
 
@@ -1680,6 +1762,62 @@ test.describe('devices: recycle bin', () => {
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: device.name })).toBeVisible();
   });
+
+  // ── DEV-074 — restoring is refused once there is nothing to restore ─────
+  test('DEV-074: refuses to restore a device another tab already brought back', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api);
+    await deleteThroughUi(page, device.id);
+    // deleteThroughUi returns as soon as the confirm click fires, not once the
+    // DELETE has round-tripped — wait for the undo dialog so the trash page's
+    // own read below cannot land before the write it depends on.
+    await expect(page.getByRole('heading', { name: 'Dispositivo eliminado' })).toBeVisible();
+
+    await page.goto('/devices/trash');
+    await expect(binRow(page, device.name)).toBeVisible();
+
+    // Same stale-row idea as the purge race below, one action over: another
+    // operator's tab restored it first.
+    await api.post(`/devices/${device.id}/restore`, {});
+
+    await binRow(page, device.name).getByRole('button', { name: 'Restaurar' }).click();
+
+    await expect(
+      page.getByText('Este dispositivo no está eliminado, así que no hay nada que restaurar.')
+    ).toBeVisible();
+    await expect(page.getByText(/not deleted/)).toHaveCount(0);
+  });
+
+  // ── DEV-085 — permanent delete only works from the bin ──────────────────
+  test('DEV-085: refuses to purge a device another tab already restored', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api);
+    await deleteThroughUi(page, device.id);
+    await expect(page.getByRole('heading', { name: 'Dispositivo eliminado' })).toBeVisible();
+
+    await page.goto('/devices/trash');
+    await binRow(page, device.name).getByRole('button', { name: 'Eliminar' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText(device.name)).toBeVisible();
+
+    // Another operator's tab restores it while this confirmation sits open —
+    // by the time "Eliminar permanentemente" lands, there is no tombstone left
+    // to purge.
+    await api.post(`/devices/${device.id}/restore`, {});
+
+    await dialog.getByRole('button', { name: 'Eliminar permanentemente' }).click();
+
+    await expect(
+      page.getByText(
+        'Este dispositivo no está en la papelera. Elimínelo primero para poder borrarlo de forma permanente.'
+      )
+    ).toBeVisible();
+    await expect(page.getByText(/not in the recycle bin/)).toHaveCount(0);
+
+    // It really came back, rather than being stuck between the two states.
+    await page.goto('/devices');
+    await searchFor(page, device.name);
+    await expect(page.getByRole('row').filter({ hasText: device.name })).toBeVisible();
+  });
 });
 
 /**
@@ -1766,5 +1904,75 @@ test.describe('devices: replacement', () => {
       'href',
       `/devices/${device.id}`
     );
+  });
+
+  // ── DEV-082 — a device can be replaced at most once ──────────────────────
+  test('DEV-082: refuses to replace a device another tab already replaced', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api);
+    const { vendor, model } = await arrangeModel(api);
+
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Reemplazar equipo' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await selectCombobox(
+      page,
+      'Modelo del equipo nuevo',
+      `${vendor.name} — ${model.model} (${model.deviceType})`,
+      dialog
+    );
+    await field(dialog, 'Número de Serie').fill(uniqueName('sn'));
+
+    // Another operator's tab already replaced this unit while the dialog was
+    // open — the button that would normally have come off (as in the test
+    // above) is still sitting there, stale.
+    const race = await api.post<{ newDevice: { id: string } }>(`/devices/${device.id}/replace`, {
+      deviceModelId: model.id,
+      retiredStatus: 'DAMAGED',
+      serialNumber: uniqueName('sn'),
+    });
+    api.track('devices', race.newDevice.id);
+
+    await dialog.getByRole('button', { name: 'Reemplazar equipo' }).click();
+
+    await expect(
+      dialog.getByText(
+        'Este dispositivo ya fue reemplazado. Para registrar otro cambio de equipo, reemplace la unidad actual.'
+      )
+    ).toBeVisible();
+    await expect(dialog.getByText(/already been replaced/)).toHaveCount(0);
+    // Nothing about the stale attempt went through: the dialog is still here.
+    await expect(dialog).toBeVisible();
+  });
+
+  // ── DEV-083 — a deleted device cannot be replaced ────────────────────────
+  test('DEV-083: refuses to replace a device deleted out from under the dialog', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api);
+    const { vendor, model } = await arrangeModel(api);
+
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Reemplazar equipo' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await selectCombobox(
+      page,
+      'Modelo del equipo nuevo',
+      `${vendor.name} — ${model.model} (${model.deviceType})`,
+      dialog
+    );
+    await field(dialog, 'Número de Serie').fill(uniqueName('sn'));
+
+    // Same stale-tab scenario as DEV-066..DEV-069, on the replace endpoint:
+    // another operator deletes the unit while this dialog is still open. The
+    // backend never gets far enough to name the delete — findById excludes
+    // tombstones (DEV-072), so it answers "not found" instead.
+    await api.remove('devices', device.id);
+
+    await dialog.getByRole('button', { name: 'Reemplazar equipo' }).click();
+
+    await expect(
+      dialog.getByText('Este dispositivo ya no existe. Puede haber sido eliminado por otra persona.')
+    ).toBeVisible();
+    await expect(dialog.getByText(/Device not found/)).toHaveCount(0);
   });
 });

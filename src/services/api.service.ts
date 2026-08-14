@@ -54,6 +54,7 @@ import {
   translateDeviceConflict,
   translateDeviceInvariant,
   translateDeviceDeleteBlocker,
+  translateDeviceNotFoundError,
   translateDeviceBinError,
   translateDeviceReplaceError,
   liveDeviceModelMessage,
@@ -289,6 +290,10 @@ class ApiService {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
+    if (!result.success && result.error) {
+      const notFound = translateDeviceNotFoundError(result.error);
+      if (notFound) return { success: false, status: result.status, error: notFound };
+    }
     return this.translateDeviceError(result);
   }
 
@@ -306,6 +311,8 @@ class ApiService {
     if (!result.success && result.error) {
       const blocked = translateDeviceDeleteBlocker(result.error);
       if (blocked) return { success: false, status: result.status, error: blocked.message };
+      const notFound = translateDeviceNotFoundError(result.error);
+      if (notFound) return { success: false, status: result.status, error: notFound };
     }
     return result;
   }
@@ -342,6 +349,11 @@ class ApiService {
       body: JSON.stringify(data),
     });
     if (!result.success && result.error) {
+      // DEV-083: a deleted device fails this the same way a stale PATCH does —
+      // findById excludes tombstones, so the backend says "not found" rather
+      // than naming the delete.
+      const notFound = translateDeviceNotFoundError(result.error);
+      if (notFound) return { success: false, status: result.status, error: notFound };
       const translated = translateDeviceReplaceError(result.error);
       if (translated) {
         return { success: false, status: result.status, error: translated.message, errorField: translated.field ?? undefined };
