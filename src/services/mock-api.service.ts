@@ -45,7 +45,14 @@ import {
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
 } from '../types/polling.types';
-import { AlertDTO, AlertListResponse, ListAlertsQuery } from '../types/alert.types';
+import {
+  AlertDTO,
+  AlertListResponse,
+  ListAlertsQuery,
+  BulkClearAlertsRequest,
+  BulkClearAlertsResult,
+  BulkDeleteAlertsResult,
+} from '../types/alert.types';
 import { SseState } from './sse';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
@@ -864,8 +871,22 @@ class MockApiService {
     return err('Alerta no encontrada');
   }
 
+  async clearAlert(_id: string): Promise<ApiResponse<AlertDTO>> {
+    return err('Alerta no encontrada');
+  }
+
   async deleteAlert(_id: string): Promise<ApiResponse<void>> {
     return { success: true };
+  }
+
+  // There is no alerts store to act on, so the bulk routes report empty
+  // buckets rather than inventing refusals the real API would not send.
+  async bulkClearAlerts(_request: BulkClearAlertsRequest): Promise<ApiResponse<BulkClearAlertsResult>> {
+    return ok({ cleared: [], skipped: [], failed: [] });
+  }
+
+  async bulkDeleteAlerts(ids: string[]): Promise<ApiResponse<BulkDeleteAlertsResult>> {
+    return ok({ deleted: ids, skipped: [], failed: [] });
   }
 
   // ── Device Credentials ────────────────────────────────────

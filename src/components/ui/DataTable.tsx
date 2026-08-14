@@ -7,7 +7,7 @@ import { Pagination } from './Pagination';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ConfirmModal, UndoModal } from './Modal';
 import { ErrorBanner } from './ErrorBanner';
-import { ApiResponse } from '@/types/common.types';
+import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import { BulkDeleteProgress, runBulkDelete } from '@/services/bulk-delete';
 
 export type SortDirection = 'asc' | 'desc';
@@ -40,9 +40,39 @@ export interface EntityNoun {
   gender?: 'm' | 'f';
 }
 
+/**
+ * A second thing the selection can be put through, beside deleting it — the
+ * alerts list resolving what it selected, say. Always one call for the whole
+ * selection: an endpoint that takes a batch reports which ids it declined
+ * instead of failing the run, so there is nothing to pace or retry per row.
+ */
+export interface BulkAction {
+  /** Identifies the action; also the React key of its button. */
+  key: string;
+  /** Button label in the floating selection bar. */
+  label: string;
+  confirmTitle: string;
+  confirmMessage: (count: number) => string;
+  confirmText: string;
+  /** Past participle for the result note — "resueltas", "reabiertas". */
+  doneParticiple: string;
+  run: (ids: string[]) => Promise<ApiResponse<BulkActionSummary>>;
+}
+
 export interface BulkDeleteConfig<T> {
-  /** Deletes a single row; DataTable fans out over the selection and aggregates the results. */
-  deleteOne: (id: string) => Promise<ApiResponse<void>>;
+  /**
+   * Deletes a single row; DataTable fans out over the selection and aggregates
+   * the results. Optional so a table can carry `bulkActions` alone — a role
+   * that may resolve alerts but not delete them still needs the checkboxes.
+   */
+  deleteOne?: (id: string) => Promise<ApiResponse<void>>;
+  /**
+   * Deletes the whole selection in one request. Preferred wherever the API
+   * offers it: the fan-out only exists to stay inside the per-IP DELETE budget,
+   * which one call cannot trip, and the endpoint's own report says precisely
+   * which ids it refused. Takes precedence over `deleteOne` when both are set.
+   */
+  deleteMany?: (ids: string[]) => Promise<ApiResponse<BulkActionSummary>>;
   /**
    * Puts a deleted row back. Providing it turns the batch's result into an undo
    * offer; leave it off where the delete is final, as the recycle bin's purge is.
@@ -60,6 +90,8 @@ export interface BulkDeleteConfig<T> {
    */
   confirmAndRetry?: (id: string) => Promise<ApiResponse<void>>;
   entity: EntityNoun;
+  /** Extra buttons in the selection bar, each acting on the whole selection. */
+  bulkActions?: BulkAction[];
   /** Rows failing this cannot be selected (e.g. alerts that are still open). */
   canDelete?: (row: T) => boolean;
   /** Tooltip explaining why a blocked row cannot be selected. */
@@ -171,6 +203,27 @@ function progressMessage(progress: BulkDeleteProgress, entity: EntityNoun): stri
   return `${head} El servidor limitó el ritmo de eliminación; se reanuda en ${seconds} s.`;
 }
 
+/** "3 alertas resueltas" — a count with its participle agreeing in gender and number. */
+function participleLabel(n: number, entity: EntityNoun, stem: string): string {
+  return `${countLabel(n, entity)} ${stem}${entity.gender === 'f' ? 'a' : 'o'}${n === 1 ? '' : 's'}`;
+}
+
+/**
+ * What a batch endpoint's report amounts to, in one line. Both buckets have to
+ * be read out: the call answers 200 whether or not every id went through, so
+ * silence about them would let a half-done run look complete.
+ */
+function summaryMessage(summary: BulkActionSummary, entity: EntityNoun, stem: string): string {
+  const parts = [participleLabel(summary.succeeded.length, entity, stem)];
+  if (summary.skipped.length > 0) {
+    parts.push(`${summary.skipped.length} sin cambios (${summary.skipped[0].reason})`);
+  }
+  if (summary.failed.length > 0) {
+    parts.push(`${summary.failed.length} con error (${summary.failed[0].error})`);
+  }
+  return parts.join(' · ');
+}
+
 /** "Dispositivo eliminado" / "Alertas eliminadas" — the undo modal's title. */
 function deletedTitle(n: number, entity: EntityNoun): string {
   const noun = n === 1 ? entity.singular : entity.plural;
@@ -213,6 +266,10 @@ export function DataTable<T>({
   const [isDeleting, setIsDeleting] = useState(false);
   const [progress, setProgress] = useState<BulkDeleteProgress | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /** The extra action awaiting its confirmation, and the note its run left behind. */
+  const [pendingAction, setPendingAction] = useState<BulkAction | null>(null);
+  const [isRunningAction, setIsRunningAction] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   /** The single row blocked behind a DEV-030-style confirm-and-retry, awaiting the second confirmation. */
   const [blockedRetry, setBlockedRetry] = useState<{ id: string; message: string } | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -269,6 +326,34 @@ export function DataTable<T>({
     anchorId.current = id;
   };
 
+  /**
+   * The one-request path. The endpoint decides each id's fate and reports it,
+   * so there is no partial-run bookkeeping to do here: a failure of the call
+   * itself is the only thing that leaves the selection untouched.
+   */
+  const runDeleteMany = async (
+    deleteMany: NonNullable<BulkDeleteConfig<T>['deleteMany']>,
+    ids: string[]
+  ) => {
+    const result = await deleteMany(ids);
+    if (!result.success || !result.data) {
+      setDeleteError(result.error ?? `Error al eliminar ${bulkDelete!.entity.plural}`);
+      return;
+    }
+    const summary = result.data;
+    if (bulkDelete!.undoOne && summary.succeeded.length > 0) setUndoableIds(summary.succeeded);
+
+    const unresolved = [...summary.skipped.map((s) => s.id), ...summary.failed.map((f) => f.id)];
+    if (unresolved.length > 0) {
+      setDeleteError(summaryMessage(summary, bulkDelete!.entity, 'eliminad'));
+      // Leaves selected exactly what the batch did not take, so a retry aims
+      // at those rows and not at the ones already gone.
+      setSelectedIds(new Set(unresolved));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (!bulkDelete) return;
     const ids = Array.from(selectedIds);
@@ -277,11 +362,33 @@ export function DataTable<T>({
     setIsDeleting(true);
     setDeleteError(null);
     setUndoError(null);
+    setActionNotice(null);
+
+    if (bulkDelete.deleteMany) {
+      try {
+        await runDeleteMany(bulkDelete.deleteMany, ids);
+      } catch {
+        setDeleteError(`Error al eliminar ${bulkDelete.entity.plural}`);
+      } finally {
+        setShowConfirm(false);
+        setIsDeleting(false);
+        await bulkDelete.onFinished?.();
+      }
+      return;
+    }
+
+    const deleteOne = bulkDelete.deleteOne;
+    if (!deleteOne) {
+      setIsDeleting(false);
+      setShowConfirm(false);
+      return;
+    }
+
     setProgress({ done: 0, total: ids.length, retryAt: null });
     try {
       const { deletedIds, failed, rateLimited } = await runBulkDelete(
         ids,
-        bulkDelete.deleteOne,
+        deleteOne,
         setProgress
       );
       const deleted = deletedIds.length;
@@ -323,6 +430,40 @@ export function DataTable<T>({
       setShowConfirm(false);
       setIsDeleting(false);
       setProgress(null);
+      await bulkDelete.onFinished?.();
+    }
+  };
+
+  const handleRunAction = async () => {
+    if (!bulkDelete || !pendingAction) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    setIsRunningAction(true);
+    setDeleteError(null);
+    setActionNotice(null);
+    try {
+      const result = await pendingAction.run(ids);
+      if (!result.success || !result.data) {
+        setDeleteError(result.error ?? `Error al procesar ${bulkDelete.entity.plural}`);
+        return;
+      }
+      const summary = result.data;
+      const message = summaryMessage(summary, bulkDelete.entity, pendingAction.doneParticiple);
+      // A row the endpoint refused outright is a failure worth the red banner;
+      // one it merely skipped (already resolved) is part of a normal run.
+      if (summary.failed.length > 0) {
+        setDeleteError(message);
+        setSelectedIds(new Set(summary.failed.map((f) => f.id)));
+      } else {
+        setActionNotice(message);
+        setSelectedIds(new Set());
+      }
+    } catch {
+      setDeleteError(`Error al procesar ${bulkDelete.entity.plural}`);
+    } finally {
+      setPendingAction(null);
+      setIsRunningAction(false);
       await bulkDelete.onFinished?.();
     }
   };
@@ -373,6 +514,7 @@ export function DataTable<T>({
 
   const selectionEnabled = !!bulkDelete;
   const selectedCount = selectedIds.size;
+  const canRunDelete = !!(bulkDelete?.deleteMany || bulkDelete?.deleteOne);
 
   return (
     <>
@@ -382,6 +524,25 @@ export function DataTable<T>({
           onDismiss={() => setDeleteError(null)}
           className="mb-3"
         />
+      )}
+
+      {actionNotice && (
+        <div
+          role="status"
+          className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20"
+        >
+          <p className="text-sm text-green-800 dark:text-green-400">{actionNotice}</p>
+          <button
+            type="button"
+            onClick={() => setActionNotice(null)}
+            className="shrink-0 text-green-400 transition-colors hover:text-green-600 dark:hover:text-green-300"
+          >
+            <span className="sr-only">Descartar</span>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -496,13 +657,28 @@ export function DataTable<T>({
                 {selectedLabel(selectedCount, bulkDelete.entity)}
               </span>
             </div>
-            <div className="h-4 w-px bg-gray-600" />
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="text-sm text-red-400 hover:text-red-300 font-medium transition-colors"
-            >
-              Eliminar
-            </button>
+            {bulkDelete.bulkActions?.map((action) => (
+              <React.Fragment key={action.key}>
+                <div className="h-4 w-px bg-gray-600" />
+                <button
+                  onClick={() => setPendingAction(action)}
+                  className="text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
+                >
+                  {action.label}
+                </button>
+              </React.Fragment>
+            ))}
+            {canRunDelete && (
+              <>
+                <div className="h-4 w-px bg-gray-600" />
+                <button
+                  onClick={() => setShowConfirm(true)}
+                  className="text-sm text-red-400 hover:text-red-300 font-medium transition-colors"
+                >
+                  Eliminar
+                </button>
+              </>
+            )}
             <div className="h-4 w-px bg-gray-600" />
             <button
               onClick={() => setSelectedIds(new Set())}
@@ -514,7 +690,20 @@ export function DataTable<T>({
         </div>
       )}
 
-      {bulkDelete && (
+      {bulkDelete?.bulkActions && (
+        <ConfirmModal
+          isOpen={pendingAction !== null}
+          onClose={() => setPendingAction(null)}
+          onConfirm={handleRunAction}
+          title={pendingAction?.confirmTitle ?? ''}
+          message={pendingAction?.confirmMessage(selectedCount) ?? ''}
+          confirmText={pendingAction?.confirmText ?? ''}
+          cancelText="Cancelar"
+          isLoading={isRunningAction}
+        />
+      )}
+
+      {bulkDelete && canRunDelete && (
         <ConfirmModal
           isOpen={showConfirm}
           onClose={() => setShowConfirm(false)}

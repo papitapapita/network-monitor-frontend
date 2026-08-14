@@ -82,6 +82,7 @@ export default function AlertDetailPage() {
   const alertId = params.id as string;
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const canWrite = isAdmin || user?.role === 'OPERATOR';
 
   const [alert, setAlert] = useState<AlertDTO | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);
@@ -91,6 +92,9 @@ export default function AlertDetailPage() {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -121,6 +125,21 @@ export default function AlertDetailPage() {
       setError(result.error || 'Error al actualizar la alerta');
     }
     setIsRefreshing(false);
+  };
+
+  const handleClear = async () => {
+    setIsClearing(true);
+    const result = await apiService.clearAlert(alertId);
+    setIsClearing(false);
+    setShowClearModal(false);
+    if (result.success && result.data) {
+      // The response is the resolved alert itself, so the page can move on
+      // without a second read.
+      setAlert(result.data);
+      setError(null);
+    } else {
+      setError(result.error || 'Error al resolver la alerta');
+    }
   };
 
   const handleDelete = async () => {
@@ -173,6 +192,17 @@ export default function AlertDetailPage() {
         isLoading={isDeleting}
       />
 
+      <ConfirmModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClear}
+        title="Resolver alerta"
+        message={`¿Resolver la alerta "${describe(alert)}"? Resolverla a mano equivale a que el sistema la resuelva: si el siguiente ciclo sigue encontrando la falla, volverá a abrirse.`}
+        confirmText="Resolver"
+        cancelText="Cancelar"
+        isLoading={isClearing}
+      />
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-8">
         <div className="flex items-start gap-4">
@@ -192,6 +222,13 @@ export default function AlertDetailPage() {
           <Button variant="outline" size="sm" onClick={refresh} isLoading={isRefreshing}>
             Actualizar
           </Button>
+          {/* Nothing to resolve once it is resolved, and the call is idempotent
+              anyway — so the button simply goes away rather than no-opping. */}
+          {canWrite && alert.status === 'OPEN' && (
+            <Button size="sm" onClick={() => setShowClearModal(true)}>
+              Resolver
+            </Button>
+          )}
           {isAdmin && (
             <Button
               variant="danger"

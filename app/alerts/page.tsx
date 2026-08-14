@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
 import { AlertDTO, AlertSeverity, AlertStatus } from '@/types/alert.types';
+import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import {
   Badge,
+  Button,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -15,6 +17,7 @@ import {
   PageHeader,
   Select,
 } from '@/components/ui';
+import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant, DataTableColumn } from '@/components/ui';
 
 const LIMIT = 50;
@@ -105,10 +108,41 @@ function buildAlertColumns(deviceNames: Record<string, string>): DataTableColumn
   ];
 }
 
+const alertCount = (n: number) => `${n} ${n === 1 ? 'alerta' : 'alertas'}`;
+
+/**
+ * Both bulk endpoints answer 200 with their own success bucket beside the
+ * shared `skipped`/`failed` pair; these map that bucket onto the ids the table
+ * reports on. A refusal of the call itself carries no report at all, so it
+ * passes through as a plain error.
+ */
+async function clearSelectedAlerts(ids: string[]): Promise<ApiResponse<BulkActionSummary>> {
+  const result = await apiService.bulkClearAlerts({ ids });
+  if (!result.success || !result.data) return { success: false, error: result.error };
+  const { cleared, skipped, failed } = result.data;
+  return { success: true, data: { succeeded: cleared.map((a) => a.id), skipped, failed } };
+}
+
+async function deleteSelectedAlerts(ids: string[]): Promise<ApiResponse<BulkActionSummary>> {
+  const result = await apiService.bulkDeleteAlerts(ids);
+  if (!result.success || !result.data) return { success: false, error: result.error };
+  const { deleted, skipped, failed } = result.data;
+  return { success: true, data: { succeeded: deleted, skipped, failed } };
+}
+
+/**
+ * Clearing is a real resolve, not an acknowledgement: the producer's next cycle
+ * reopens the alert if the fault is still there. Say so before the operator
+ * clears a screenful and expects them to stay gone.
+ */
+const CLEAR_REOPEN_NOTE =
+  'Resolver una alerta a mano equivale a que el sistema la resuelva: si el siguiente ciclo sigue encontrando la falla, volverá a abrirse.';
+
 export default function AlertsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const canWrite = isAdmin || user?.role === 'OPERATOR';
 
   const [alerts, setAlerts] = useState<AlertDTO[]>([]);
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
@@ -129,6 +163,12 @@ export default function AlertsPage() {
 
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Clearing a whole device at once — the outage-storm case the ids form makes
+  // tedious, since it needs the operator to select what a filter already names.
+  const [showClearDeviceModal, setShowClearDeviceModal] = useState(false);
+  const [isClearingDevice, setIsClearingDevice] = useState(false);
+  const [clearDeviceNotice, setClearDeviceNotice] = useState<string | null>(null);
 
   const fetchAlerts = useCallback(async () => {
     setIsLoading(true);
@@ -174,6 +214,26 @@ export default function AlertsPage() {
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts]);
+
+  const handleClearDeviceAlerts = async () => {
+    setIsClearingDevice(true);
+    setClearDeviceNotice(null);
+    const result = await apiService.bulkClearAlerts({ deviceId: deviceIdFilter });
+    setIsClearingDevice(false);
+    setShowClearDeviceModal(false);
+
+    if (!result.success || !result.data) {
+      setError(result.error || 'Error al resolver las alertas del dispositivo');
+      return;
+    }
+    const { cleared, failed } = result.data;
+    setClearDeviceNotice(
+      failed.length > 0
+        ? `Se resolvieron ${alertCount(cleared.length)}; ${failed.length} con error (${failed[0].error}).`
+        : `Se resolvieron ${alertCount(cleared.length)}.`
+    );
+    await fetchAlerts();
+  };
 
   const clearFilters = () => {
     setSeverityFilter('');
@@ -277,6 +337,38 @@ export default function AlertsPage() {
         />
       </FilterBar>
 
+      {/* Clears every alert still open on the filtered device, without making
+          the operator select rows a filter has already picked out. */}
+      {canWrite && deviceIdFilter && (
+        <div className="mb-4 flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setShowClearDeviceModal(true)}>
+            Resolver todas las alertas abiertas de este dispositivo
+          </Button>
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={showClearDeviceModal}
+        onClose={() => setShowClearDeviceModal(false)}
+        onConfirm={handleClearDeviceAlerts}
+        title="Resolver alertas del dispositivo"
+        message={`¿Resolver todas las alertas abiertas de ${
+          deviceNames[deviceIdFilter] ?? 'este dispositivo'
+        }? ${CLEAR_REOPEN_NOTE}`}
+        confirmText="Resolver"
+        cancelText="Cancelar"
+        isLoading={isClearingDevice}
+      />
+
+      {clearDeviceNotice && (
+        <div
+          role="status"
+          className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20"
+        >
+          <p className="text-sm text-green-800 dark:text-green-400">{clearDeviceNotice}</p>
+        </div>
+      )}
+
       {error && <ErrorBanner message={error} onRetry={fetchAlerts} />}
 
       <DataTable
@@ -292,16 +384,33 @@ export default function AlertsPage() {
         }
         sort={{ field: sortColumn, direction: sortDirection, onSort: (f) => handleSort(f as SortColumn) }}
         selectionResetKey={`${currentPage}|${severityFilter}|${statusFilter}|${sourceFilter}|${deviceIdFilter}`}
-        // Alerts are opened and resolved by the system; only admins may purge
-        // resolved ones, and the backend rejects deleting an alert still open.
+        /*
+         * Two actions with opposite eligibility — clearing wants the open ones,
+         * deleting only takes the resolved — so nothing gates the checkboxes:
+         * both endpoints report per-id what they declined, and pre-filtering the
+         * selection for one would block the other. Operators may clear;
+         * deleting alert history stays with admins.
+         */
         bulkDelete={
-          isAdmin
+          canWrite
             ? {
-                deleteOne: (id) => apiService.deleteAlert(id),
+                deleteMany: isAdmin ? deleteSelectedAlerts : undefined,
                 onFinished: fetchAlerts,
                 entity: { singular: 'alerta', plural: 'alertas', gender: 'f' },
-                canDelete: (a) => a.status === 'RESOLVED',
-                blockedHint: 'Solo se pueden eliminar alertas resueltas',
+                confirmNote:
+                  'Solo se eliminan las alertas resueltas; las que sigan abiertas se informan sin cambios. Esta acción no se puede deshacer.',
+                bulkActions: [
+                  {
+                    key: 'clear',
+                    label: 'Resolver',
+                    confirmTitle: 'Resolver alertas',
+                    confirmMessage: (n) =>
+                      `¿Resolver ${alertCount(n)}? ${CLEAR_REOPEN_NOTE}`,
+                    confirmText: 'Resolver',
+                    doneParticiple: 'resuelt',
+                    run: clearSelectedAlerts,
+                  },
+                ],
               }
             : undefined
         }

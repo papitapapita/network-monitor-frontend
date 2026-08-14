@@ -21,3 +21,27 @@ export interface ApiResponse<T> {
    */
   binnedDeviceCount?: number;
 }
+
+/**
+ * The two buckets every bulk endpoint reports alongside what it did. They always
+ * answer 200 — one bad id in a batch must not sink the rest, which is the whole
+ * point after an outage storm trips alerts across several devices at once — so
+ * the caller has to read these to know whether the batch fully landed.
+ *
+ * `skipped` is a no-op the backend declined for a reason the operator can live
+ * with (already resolved, still open); `failed` is an id it could not act on at
+ * all (not found, belongs to another device).
+ */
+export interface BulkReportBuckets {
+  skipped: Array<{ id: string; reason: string }>;
+  failed: Array<{ id: string; error: string }>;
+}
+
+/**
+ * A bulk endpoint's report, normalised to what the UI has to say about it: the
+ * ids it acted on, plus the two buckets. Each endpoint names its own success
+ * bucket (`cleared`, `deleted`, …), so callers map theirs onto `succeeded`.
+ */
+export interface BulkActionSummary extends BulkReportBuckets {
+  succeeded: string[];
+}

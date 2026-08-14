@@ -34,7 +34,14 @@ import {
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
 } from '../types/polling.types';
-import { AlertDTO, AlertListResponse, ListAlertsQuery } from '../types/alert.types';
+import {
+  AlertDTO,
+  AlertListResponse,
+  ListAlertsQuery,
+  BulkClearAlertsRequest,
+  BulkClearAlertsResult,
+  BulkDeleteAlertsResult,
+} from '../types/alert.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import {
   WirelessConfigDTO,
@@ -746,9 +753,40 @@ class ApiService {
     return this.request<AlertDTO>(`/alerts/${id}`);
   }
 
+  /**
+   * Resolves an open alert by hand — the same transition the system makes when
+   * the fault clears, `resolvedAt` and all. There is no "acknowledged" state, so
+   * this does not stop the alert reopening if the next producer cycle still
+   * finds the fault. Idempotent: clearing a resolved alert returns it as-is.
+   */
+  async clearAlert(id: string): Promise<ApiResponse<AlertDTO>> {
+    return this.request<AlertDTO>(`/alerts/${id}/clear`, { method: 'POST' });
+  }
+
+  /** Clears an explicit set of alerts, or every OPEN alert on one device. */
+  async bulkClearAlerts(request: BulkClearAlertsRequest): Promise<ApiResponse<BulkClearAlertsResult>> {
+    return this.request<BulkClearAlertsResult>('/alerts/clear', {
+      method: 'POST',
+      body: JSON.stringify(request)
+    });
+  }
+
   /** Only RESOLVED alerts can be deleted; an OPEN one returns 409. ADMIN only. */
   async deleteAlert(id: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/alerts/${id}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Deletes named alerts in one call. Answers 200 with a bucketed report even
+   * when part of the batch was refused — an alert still OPEN is `skipped`, the
+   * same guard the single delete enforces with a 409. ADMIN only, and there is
+   * no "delete everything resolved" shortcut: the caller names what it removes.
+   */
+  async bulkDeleteAlerts(ids: string[]): Promise<ApiResponse<BulkDeleteAlertsResult>> {
+    return this.request<BulkDeleteAlertsResult>('/alerts', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids })
+    });
   }
 
   // ============================================================

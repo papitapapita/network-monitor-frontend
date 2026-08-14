@@ -18,6 +18,7 @@ export type {
   DataTableColumn,
   DataTablePagination,
   BulkDeleteConfig,
+  BulkAction,
   EntityNoun,
   TableSort,
   SortDirection,
