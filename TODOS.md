@@ -30,6 +30,15 @@ is for items the frontend can land on its own.
   - The harness logs in once as `E2E_EMAIL` (an ADMIN) in `e2e/auth.setup.ts` and every project reuses that `storageState`, so there is no way to exercise a VIEWER or OPERATOR path
   - Needs a second setup project writing a second `storageState`, and seeded non-admin users to log in as
 
+## Priority 2 — Devices
+
+- [ ] **Mock service doesn't enforce DEV-066** — `mock-api.service.ts` never checks that `deviceModelId` names a real model
+  - `createDevice` (`src/services/mock-api.service.ts:203-235`) writes the device through with whatever `deviceModelId` was submitted, no lookup against `deviceModels`. `updateDevice` (`:293-306`) is the same — a plain merge, no model check on the correction path either
+  - Contrast with `createDeviceModel` (`:617`), which does check its `vendorId` FK the same way the real backend checks `deviceModelId`
+  - Real backend enforces this since 2026-08-01 and it's covered end-to-end by `e2e/devices.spec.ts:1483` and `:1502` (create and correction paths) — but those tests run against the real backend only (`playwright.config.ts:5`, "Nothing is mocked"), so this gap is invisible to the suite
+  - Effect: in mock mode (`NEXT_PUBLIC_USE_MOCK=true`), a dangling `deviceModelId` silently creates/updates a device instead of returning `Device model not found: <id>` — the friendly mapping in `device.constants.ts:188-191` ("El modelo seleccionado ya no existe") never triggers
+  - Fix: add a `deviceModels.find(...)` guard to both, returning `err('Device model not found: <id>')` on a miss, matching `createDeviceModel`'s pattern
+
 ## Priority 2 — Credentials
 
 - [ ] **Stop asking for SNMP credentials** — the form asks operators for secrets nothing in the system consumes
@@ -52,14 +61,15 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
   - Found via `e2e/device-models.spec.ts` — DEV-026 and both DEV-027 tests create a device to exercise a delete-blocked path, then delete it and expect the model/vendor to clean up after. They can't: no API call can un-stick a model/vendor once any device, even a deleted one, has ever pointed at it. `npm run e2e:sweep` hits the same wall. As of 2026-08-11 this has stranded 6 vendor/device-model pairs that only a direct DB delete can remove (ids in the `e2e:sweep` output around 2026-08-12T02:10 and 02:14 UTC)
   - Needs a backend call: either devices hard-delete for real, or `device-models` DELETE explicitly counts (and reports) devices — including soft-deleted ones — as a clean `409` instead of letting the DB constraint throw
 
-- [ ] **Alert stream listener** — `new EventSource('/alerts/stream')` to replace manual reload, reconnects on its own
+- [ ] **Alert stream listener** — subscribe to `/alerts/stream` to replace manual reload, reconnects on its own
   - Blocked on the backend's "Real-time alerts via SSE" (its Priority 2): endpoint + `clients` Set + broadcast at alert creation
   - Touches the alerts list and the alert detail page added in `ad5b652`
+  - **The client transport already exists** — `openSseStream` (`src/services/sse.ts`), landed with the live throughput view. Reuse it: a new `apiService.stream*` method plus a hook is the whole job, and the connection indicator (`src/components/wireless/StreamStatus.tsx`) is not wireless-specific
 
 - [ ] **Map refresh affordance** — show a "locations changed" prompt instead of making the operator reload
   - Blocked on the backend's "Live map refresh notification" (its Priority 2), which pushes a lightweight changed-signal only
   - On click, re-fetch `GET /api/locations/map` — the pin rendering itself does not change
-  - Whichever of these two lands first establishes the shared SSE client helper; the second should reuse it
+  - Same transport as the alert listener above: `openSseStream`, not a second client
 
 - [ ] **Link an alert to the ticket it opened** — the alert detail page should show "Ticket #42" when monitoring opened one
   - The link only exists in one direction today: a ticket carries `originAlertId`, and `/tickets/<id>` already renders "Ver alerta" from it. The reverse has no key to search on
@@ -73,6 +83,12 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
 ---
 
 ## Done
+
+- [x] **Live throughput view** — consumer half of the backend's SSE streams — **done 2026-08-12**
+  - `/wireless` reads `GET /api/wireless/throughput/stream` (fleet) and the wireless tab reads `GET /api/devices/:id/wireless/throughput/stream` (one radio). Covered by `e2e/wireless-throughput.spec.ts`
+  - Read over `fetch` rather than `EventSource`, so the JWT stays in the `Authorization` header and the caller can tell a 404 ("never polled") from a 429 ("5 streams already open") — `EventSource` reports both as one anonymous error. Reconnect and `retry:` handling are reimplemented in `src/services/sse.ts` as the price
+  - The 429 cap is easy to trip while navigating between two live views, so it auto-retries three times before it becomes something the operator is asked to fix
+  - Not covered: the utilisation bar only renders for a STATION with `linkCapacityKbps` set, and no device in the dev database has one — the code path is unexercised in practice so far
 
 - [x] **HTTP credential port defaults to 443** — `DeviceCredentialsTab.tsx:16,80` send 443, matching `DeviceCredentialsMapper.extractCreateData`. Backend residue (reject or log an explicit 80, migrate existing `http_port = 80` rows) stays in `backend/docs/TODOS.md`
 - [x] **Sorting for IP addresses** — moved here from the backend's Done list, where it had been filed by mistake

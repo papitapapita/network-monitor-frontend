@@ -39,6 +39,10 @@ Authorization: Bearer <token>
 
 Missing or invalid tokens return `401`. Insufficient role returns `403`.
 
+> **SSE exception:** the two wireless throughput streams also accept
+> `?token=<jwt>`, because the browser `EventSource` API cannot set headers. No
+> other endpoint does.
+
 ### Roles
 
 | Role       | Allowed operations                                                      |
@@ -65,6 +69,11 @@ Counters are keyed by user id, falling back to IP for unauthenticated requests,
 so operators sharing one office address do not share a budget. Each resource
 has its own counter — 60 device deletes and 60 vendor deletes in the same minute
 is fine. Exceeding a bucket returns `429` with `{ success: false, error: 'Too many requests' }`.
+
+SSE streams are not rate-limited — a connection held open for hours is the wrong
+thing to count per minute. They are capped by concurrency instead: 5 streams per
+user and 200 per server, exceeding either returns `429` with
+`{ error: 'Too many streams' }`.
 
 ---
 
@@ -544,6 +553,25 @@ change above, `PATCH /api/devices/:id` with `monitoringEnabled: false`, and
 3. **`lastSeen` is kept**, so you can still show how stale the last real observation is.
 4. Any **open `device_unreachable` alert is resolved**, and **no resolution notification is sent** — the device was not fixed, it just stopped being watched.
 5. Ping history is untouched; only the 30-day retention purge removes it.
+
+**Wireless polling follows the _status_ trigger only (since 2026-08-13).** Moving
+a device to a retired status now also disables its `WirelessDeviceConfig`, so
+`GET /api/devices/:id/wireless/config` will report an `enabled: false` you did
+not set. The config is disabled, never deleted, so `intervalSecs` and
+`linkCapacityKbps` survive and resuming is one `PATCH`.
+
+Resuming is deliberately narrow, matching ICMP: **only a move to
+`COMMISSIONING` turns wireless polling back on.** Restoring a device from the
+recycle bin does not, and neither does going straight from a retired status to
+`ACTIVE` — the same as `monitoringEnabled`, which `restore()` leaves off. After
+either, the operator turns polling back on explicitly.
+
+> ⚠ The other two triggers in this section do **not** touch wireless.
+> `PATCH /api/devices/:id` with `monitoringEnabled: false` and
+> `PATCH /api/devices/:id/polling/config` with `enabled: false` stop ICMP only —
+> an `ACTIVE` device paused in the UI keeps collecting wireless snapshots. To
+> stop wireless explicitly, send `PATCH /api/devices/:id/wireless/config` with
+> `enabled: false`.
 
 > **Frontend:** `UNKNOWN` no longer means only "never polled". It now also means
 > "monitoring is off", which is the common case. Render it as a neutral/grey
@@ -1139,14 +1167,47 @@ each listed device first, then send `isWireless: false`.
 
 ### `DELETE /api/device-models/:id` — Delete
 
-**Status:** 204 | 404 | 409
+**Status:** 204 | 400 | 404 | 409
 
 ```ts
+// Query (optional)
+?purgeBinnedDevices=true
+
 // No request body
 // Response: 204 No Content
 ```
 
-> Returns 409 if devices are assigned to this model. Reassign or remove those devices first.
+**Query parameters**
+
+| Param                | Type              | Default | Meaning                                                                  |
+| -------------------- | ----------------- | ------- | ------------------------------------------------------------------------ |
+| `purgeBinnedDevices` | `'true' \| 'false'` | `false` | Permanently delete the model's soft-deleted devices along with the model. |
+
+**Business rules:** DEV-026, DEV-029, DEV-030.
+
+> Returns 409 if **live** devices are assigned to this model. Reassign or remove those devices first.
+
+**Two-step confirmation for deleted devices.** Soft-deleted devices (see
+`DELETE /api/devices/:id`) still belong to the model even though they no longer
+appear in any listing. Deleting a model whose only remaining devices are in the
+recycle bin returns 409:
+
+```
+Cannot delete device model: it has 2 device(s) in the recycle bin.
+Retry with purgeBinnedDevices=true to remove them permanently along with the model.
+```
+
+Show a confirmation dialog, then repeat the same request with
+`?purgeBinnedDevices=true`. That permanently destroys those devices and all
+their history — pings, alerts, snapshots, credentials, configs — and their
+7-day restore window with it. To list exactly what would be destroyed before
+asking, call `GET /api/devices?deleted=true&deviceModelId=<id>`.
+
+The flag never overrides the live-device rule: a model with a live device is
+still 409 with the "Reassign or remove" message, and nothing is purged.
+
+The alternative is to wait — once the grace period expires and the scheduled
+purge removes those devices, the plain delete succeeds with no flag.
 
 ---
 
@@ -1258,6 +1319,26 @@ offset?:   number   // ≥0
 
 ---
 
+### `DELETE /api/devices/:id/polling/history` — Delete Ping History
+
+**Status:** 200 | 400  
+**Roles:** ADMIN
+
+```ts
+// Query params (both optional)
+fromDate?: string   // ISO 8601 with offset
+toDate?:   string
+
+// Response
+{ deletedCount: number }
+```
+
+> Permanently deletes stored `PingResult` rows for this device. Omitting both `fromDate` and `toDate` deletes the device's **entire** ping history; giving one or both scopes the deletion to that window.  
+> ADMIN-only — this destroys diagnostic data at a scale (tens of thousands of rows per device) nothing else in this context reaches with one call. Doesn't change the `PING_RESULT_RETENTION_DAYS` retention window or the daily automatic sweep; it's a scoped, on-demand version of the same deletion.  
+> Not scoped to another device, and there is no "delete for every device" variant — the automatic sweep and the admin's blanket data-retention purge already cover fleet-wide cleanup.
+
+---
+
 ### `POST /api/devices/:id/polling/config` — Create / Upsert Polling Config
 
 **Status:** 201 | 400 | 404
@@ -1342,6 +1423,8 @@ interface AlertDTO {
 > `details` is a free-form JSON bag, easy to render but not queryable server-side — filter/sort in the frontend, don't expect a backend query param for its inner keys.  
 > **Not the same as `/api/devices/:id/wireless/alerts`** (`WirelessAlertDTO`): those remain the live, per-poll wireless view. This `/api/alerts` list is the **persisted, cross-context record** — a wireless problem appears in both.
 
+> **No new alerts are recorded for a device that is deleted, replaced or retired (since 2026-08-13).** The device is re-read at the moment the alert would be written, so a device deleted between the failed poll and the notification produces no alert row, no notification and no ticket. Existing alerts are unaffected: one opened while the device was still live can still be resolved and will keep appearing here. Expect fewer rows after a deletion, not a gap in history.
+
 ### `GET /api/alerts` — List
 
 **Status:** 200
@@ -1383,6 +1466,52 @@ offset?:   number  // ≥0, default 0
 
 ---
 
+### `POST /api/alerts/:id/clear` — Clear
+
+**Status:** 200 | 400 | 404  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response
+{ success: true, data: AlertDTO }  // status: 'RESOLVED'
+```
+
+> Manually resolves an open alert — same effect as the system auto-resolving it (`resolvedAt` is stamped, `status` becomes `RESOLVED`). There is no separate "acknowledged" state: a clear is a real resolve, so it does **not** suppress the alert from reopening if the producer's next cycle still finds the fault.  
+> **Idempotent.** Clearing an alert that is already resolved returns `200` with its current (already-resolved) state, not an error.  
+> Returns 404 if no alert exists with that id.
+
+---
+
+### `POST /api/alerts/clear` — Bulk Clear
+
+**Status:** 200 | 400  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body — exactly one of ids or deviceId
+{
+  ids?: string[]       // explicit alert UUIDs, any device
+  deviceId?: string    // UUID — clear every currently OPEN alert for this device
+}
+
+// Response
+{
+  success: true,
+  data: {
+    cleared: AlertDTO[]
+    skipped: { id: string, reason: string }[]   // e.g. already resolved
+    failed:  { id: string, error: string }[]    // e.g. not found
+  }
+}
+```
+
+> Always returns `200` with a bucketed report — one bad id in a batch does not fail the rest, which is the point after an outage storm trips alerts across several devices at once.  
+> Returns 400 if both `ids` and `deviceId` are provided, or neither.
+
+---
+
 ### `DELETE /api/alerts/:id` — Delete
 
 **Status:** 204 | 400 | 404 | 409  
@@ -1393,9 +1522,33 @@ offset?:   number  // ≥0, default 0
 // Response: 204 No Content
 ```
 
-> **Only resolved alerts can be deleted.** Deleting an alert that is still `OPEN` returns 409 `"Cannot delete an alert that is still open"` — resolve (or let it auto-resolve) first.  
-> Returns 400 for a non-UUID id, 404 if no alert exists with that id.  
-> There is no create/update endpoint — alerts are opened and resolved by the system (producers), never by clients. This is read + delete only.
+> **Only resolved alerts can be deleted.** Deleting an alert that is still `OPEN` returns 409 `"Cannot delete an alert that is still open"` — clear it (`POST .../clear`) or let it auto-resolve first.  
+> Returns 400 for a non-UUID id, 404 if no alert exists with that id.
+
+---
+
+### `DELETE /api/alerts` — Bulk Delete
+
+**Status:** 200 | 400  
+**Roles:** ADMIN
+
+```ts
+// Request body
+{ ids: string[] }   // required, non-empty — no "delete all resolved" shortcut
+
+// Response
+{
+  success: true,
+  data: {
+    deleted: string[]                             // ids actually removed
+    skipped: { id: string, reason: string }[]      // still open — same guard as the single-delete route
+    failed:  { id: string, error: string }[]       // not found
+  }
+}
+```
+
+> Always returns `200` with a bucketed report, same shape as bulk clear. An open alert in the batch is `skipped`, not a hard failure — the rest of the batch still deletes.  
+> There is no filter-based "delete everything resolved" call: deleting alert history is destructive, so the caller must name what it's removing.
 
 ---
 
@@ -1482,6 +1635,19 @@ interface WirelessStatusDTO {
   metrics: WirelessMetricsDTO;
   activeAlerts: WirelessAlertDTO[];
   clients: WirelessClientDTO[];
+}
+
+interface WirelessThroughputDTO {
+  deviceId: string; // UUID
+  deviceType: WirelessDeviceType;
+  collectedAt: string; // ISO 8601 — when the radio was read, not when you asked
+  ageSeconds: number; // age of the reading; never negative
+  stale: boolean; // ageSeconds > 2 × the device's intervalSecs, or no config
+  throughputTxBps: number | null;
+  throughputRxBps: number | null;
+  throughputTotalBps: number | null; // null if either leg is null
+  linkCapacityKbps: number | null; // the provisioned plan; STATION-only
+  utilisationPercent: number | null; // 2dp; null without a capacity, so always null for an AP
 }
 
 interface WirelessAlertDTO {
@@ -1618,6 +1784,8 @@ there rather than assuming it.
 ```
 
 > Returns 404 if no config exists for this device — use `POST` to create it first.  
+> **`enabled` is not yours alone (since 2026-08-13).** The backend turns it off when the device is retired or deleted, and back on when the device is commissioned — see [What "monitoring stopped" does](#stopping-monitoring). A toggle bound to this field can therefore change without the operator touching it; re-read the config after any status change rather than assuming your last write still holds.  
+> **`enabled: true` returns `400` for a device that cannot be polled** — deleted, replaced, retired, or not a `WIRELESS_CPE`/`ACCESS_POINT`. The message names the reason. `enabled: false` is never blocked, and every other field stays editable on a retired device, so a "save" that PATCHes the whole config back will fail rather than silently undoing a retirement.  
 > The STATION / ACCESS_POINT check here runs against the config's **stored** `deviceType` — the value derived from the device's category at creation. The two can no longer drift apart: while this config exists, `PATCH /api/devices/:id` refuses to change the device's category at all. If the role really changed, delete this config, recategorise the device, then create it again.
 
 ---
@@ -1695,6 +1863,83 @@ limit?: number // 1–1000
 
 ---
 
+### `GET /api/devices/:id/wireless/throughput/stream` — Live Throughput (SSE)
+
+**Status:** 200 (`text/event-stream`) | 400 | 401 | 404 | 429
+
+A Server-Sent Events stream, not a JSON endpoint. Errors are still plain JSON —
+the failure path runs before any stream header is written, so a 404 looks like
+every other 404 here.
+
+**Authentication.** These two routes accept `?token=<jwt>` in addition to
+`Authorization: Bearer` — the browser `EventSource` API cannot set headers.
+Every other route in this document remains header-only.
+
+```js
+const es = new EventSource(
+  `/api/devices/${deviceId}/wireless/throughput/stream?token=${jwt}`
+);
+es.addEventListener('throughput', (e) => render(JSON.parse(e.data)));
+```
+
+The first `throughput` event arrives immediately with the current reading; each
+later one arrives when the poller stores a new snapshot for this device. There
+is no fixed cadence — it tracks the device's `intervalSecs`.
+
+```
+retry: 5000
+
+event: throughput
+data: {"deviceId":"…","deviceType":"STATION","collectedAt":"2026-08-12T10:00:00.000Z",
+       "ageSeconds":12,"stale":false,"throughputTxBps":8000000,"throughputRxBps":2000000,
+       "throughputTotalBps":10000000,"linkCapacityKbps":50000,"utilisationPercent":20}
+
+: ping
+```
+
+> `: ping` comment frames arrive every 15s to keep proxies from reaping an idle
+> connection. `retry: 5000` tells `EventSource` to reconnect after 5s.
+
+Returns 404 when the device has never been polled — there is no reading to
+stream. Returns 429 once a user holds 5 concurrent streams, or the server holds
+200; the body is `{ "error": "Too many streams" }`.
+
+---
+
+### `GET /api/wireless/throughput/stream` — Live Fleet Throughput (SSE)
+
+**Status:** 200 (`text/event-stream`) | 401 | 429
+
+Same transport and authentication as the per-device stream. **The opening frame
+has a different event name and a different shape from the ones that follow:**
+
+| Order       | Event                 | Payload                                          |
+| ----------- | --------------------- | ------------------------------------------------ |
+| First only  | `throughput-snapshot` | `{ devices: WirelessThroughputDTO[], total }`     |
+| Every later | `throughput`          | A single `WirelessThroughputDTO` for one device   |
+
+> A client that assumes a full list on every frame will render wrong. Seed state
+> from `throughput-snapshot`, then upsert each `throughput` delta by `deviceId`.
+
+```js
+const es = new EventSource(`/api/wireless/throughput/stream?token=${jwt}`);
+const fleet = new Map();
+
+es.addEventListener('throughput-snapshot', (e) => {
+  for (const d of JSON.parse(e.data).devices) fleet.set(d.deviceId, d);
+});
+es.addEventListener('throughput', (e) => {
+  const d = JSON.parse(e.data);
+  fleet.set(d.deviceId, d);
+});
+```
+
+Devices that have never been polled are absent — a row of nulls would read as
+idle rather than unknown. An empty fleet is `{ "devices": [], "total": 0 }`, not
+a 404.
+
+---
+
 ### `GET /api/devices/:id/wireless/alerts` — Active Alerts for Device
 
 **Status:** 200 | 400
@@ -1725,6 +1970,46 @@ WirelessAlertDTO[]
 
 > Returns all alerts (active and cleared) for the device within the optional time window.  
 > Returns an empty array for unknown device IDs.
+
+---
+
+### `POST /api/devices/:id/wireless/alerts/:alertId/clear` — Clear Alert
+
+**Status:** 200 | 400 | 404  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response
+WirelessAlertDTO   // isActive: false
+```
+
+> Manually clears an active alert — the same transition `PollWirelessDeviceUseCase` makes automatically when a metric recovers, including the recovery notification/ticket-close side effects.  
+> **Idempotent.** Clearing an already-cleared alert returns `200` with its current state, not an error.  
+> Returns 404 if the alert doesn't exist, or exists but belongs to a **different** device than `:id` (the two cases aren't distinguished in the response, so a client can't probe another device's alert ids).
+
+---
+
+### `POST /api/devices/:id/wireless/alerts/clear` — Bulk Clear Alerts
+
+**Status:** 200 | 400  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body (optional)
+{ ids?: string[] }   // omit entirely to clear every active alert for this device
+
+// Response
+{
+  cleared: WirelessAlertDTO[]
+  skipped: { id: string, reason: string }[]   // e.g. already cleared
+  failed:  { id: string, error: string }[]    // e.g. not found, or belongs to another device
+}
+```
+
+> Always returns `200` with a bucketed report — clearing alerts one at a time doesn't scale after a device trips several metrics at once.  
+> Omitting `ids` clears the device's full active-alert list without the caller having to fetch it first.
 
 ---
 
