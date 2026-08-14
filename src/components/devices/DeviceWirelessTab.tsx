@@ -10,7 +10,7 @@ import {
   WirelessDeviceType,
   CreateWirelessConfigDTO,
 } from '@/types/wireless.types';
-import { DeviceCategory } from '@/types/device.types';
+import { DeviceCategory, DeviceStatus } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
 import { useAuth } from '@/contexts/auth.context';
 import {
@@ -18,13 +18,28 @@ import {
   INTERVAL_MAX_SECONDS,
   validateIntervalSeconds,
 } from '@/constants/polling.constants';
-import { fmtBps, fmtKbps } from '@/constants/wireless.constants';
+import {
+  fmtBps,
+  fmtKbps,
+  canEnableWirelessPolling,
+  wirelessEnableBlockedReason,
+  WIRELESS_DISABLED_BY_STATUS_NOTE,
+  WIRELESS_INDEPENDENT_OF_ICMP_NOTE,
+} from '@/constants/wireless.constants';
 import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
 
 interface Props {
   deviceId: string;
   category: DeviceCategory | null;
   deviceIpAddress: string | null;
+  /**
+   * The backend owns `enabled` too — a move to a retired status turns polling
+   * off, a move to COMMISSIONING turns it back on — so the tab re-reads the
+   * config whenever the status changes rather than trusting its last write.
+   */
+  deviceStatus: DeviceStatus;
+  deviceDeletedAt: string | null;
+  deviceReplacedAt: string | null;
 }
 
 function fmt(val: number | null | undefined, unit: string, decimals = 1): string {
@@ -247,7 +262,14 @@ export function validateWirelessConfigForm(form: { intervalSecs: string }): Reco
   return errors;
 }
 
-export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props) {
+export function DeviceWirelessTab({
+  deviceId,
+  category,
+  deviceIpAddress,
+  deviceStatus,
+  deviceDeletedAt,
+  deviceReplacedAt,
+}: Props) {
   const { user } = useAuth();
   const [config, setConfig] = useState<WirelessConfigDTO | null>(null);
   const [noConfig, setNoConfig] = useState(false);
@@ -260,6 +282,12 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
 
   const [alerts, setAlerts] = useState<WirelessAlertDTO[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [alertsNotice, setAlertsNotice] = useState<string | null>(null);
+  /** Which row's clear is in flight; also blocks the other buttons while it runs. */
+  const [clearingAlertId, setClearingAlertId] = useState<string | null>(null);
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
 
   const [polling, setPolling] = useState(false);
   const [pollMsg, setPollMsg] = useState<string | null>(null);
@@ -328,9 +356,60 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
     setAlertsLoading(false);
   }, [deviceId]);
 
+  /**
+   * Clearing by hand makes the same transition the poller makes when the metric
+   * recovers — recovery notification and ticket close included — so it is not a
+   * way to hide a fault: the next poll re-raises the alert if it persists.
+   */
+  const handleClearAlert = async (alertId: string) => {
+    setClearingAlertId(alertId);
+    setAlertsError(null);
+    setAlertsNotice(null);
+    const result = await apiService.clearWirelessAlert(deviceId, alertId);
+    setClearingAlertId(null);
+
+    if (!result.success) {
+      setAlertsError(result.error || 'No se pudo limpiar la alerta');
+      return;
+    }
+    // The list holds only active alerts, so a cleared one leaves it. Refetching
+    // also picks up anything the poller changed meanwhile.
+    await fetchAlerts();
+    fetchStatus();
+  };
+
+  const handleClearAllAlerts = async () => {
+    setClearingAll(true);
+    setAlertsError(null);
+    setAlertsNotice(null);
+    // No ids: the endpoint clears the device's whole active list, so the button
+    // does not depend on the list this tab happens to be showing.
+    const result = await apiService.bulkClearWirelessAlerts(deviceId);
+    setClearingAll(false);
+    setShowClearAllModal(false);
+
+    if (!result.success || !result.data) {
+      setAlertsError(result.error || 'No se pudieron limpiar las alertas');
+      return;
+    }
+    const { cleared, skipped, failed } = result.data;
+    const parts = [`${cleared.length} ${cleared.length === 1 ? 'alerta limpiada' : 'alertas limpiadas'}`];
+    if (skipped.length > 0) parts.push(`${skipped.length} sin cambios`);
+    if (failed.length > 0) parts.push(`${failed.length} con error (${failed[0].error})`);
+    const message = parts.join(' · ');
+    if (failed.length > 0) setAlertsError(message);
+    else setAlertsNotice(message);
+
+    await fetchAlerts();
+    fetchStatus();
+  };
+
+  // `fetchConfig` is keyed on the device id alone, so name the status as its own
+  // dependency: a retirement or a commissioning flips `enabled` server-side, and
+  // the toggle would otherwise keep showing what this tab last wrote.
   useEffect(() => {
     fetchConfig();
-  }, [fetchConfig]);
+  }, [fetchConfig, deviceStatus]);
 
   useEffect(() => {
     if (config) {
@@ -402,7 +481,10 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
     const payload = {
       ipAddress: deviceIpAddress,
       intervalSecs: configForm.intervalSecs ? parseInt(configForm.intervalSecs) : undefined,
-      enabled: configForm.enabled === 'true',
+      // `enabled: true` is a 400 on a device that cannot be polled, and this
+      // save sends the whole config back — so a retired unit's other edits
+      // would fail on a field the form is not even offering.
+      enabled: canEnablePolling && configForm.enabled === 'true',
       linkCapacityKbps: configForm.linkCapacityKbps ? parseInt(configForm.linkCapacityKbps) : null,
       clientsProvisionedLimit: configForm.clientsProvisionedLimit ? parseInt(configForm.clientsProvisionedLimit) : null,
     };
@@ -444,6 +526,16 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
 
   const isRebooting = rebootingUntil !== null;
   const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+
+  const deviceLifecycle = { deletedAt: deviceDeletedAt, replacedAt: deviceReplacedAt };
+  const enableBlockedReason = wirelessEnableBlockedReason(deviceStatus, category, deviceLifecycle);
+  const canEnablePolling = canEnableWirelessPolling(deviceStatus, category, deviceLifecycle);
+  /**
+   * The config the backend disabled on its own, rather than one the operator
+   * turned off. Worth calling out: nothing in this tab did it, and the settings
+   * are still there waiting for the equipment to come back into service.
+   */
+  const disabledByStatus = !!config && !config.enabled && !canEnablePolling;
   // The backend takes the IP from the wireless config and the login from the
   // device credentials — without either it answers 400, so block it up front.
   const rebootBlockedReason = !config?.ipAddress
@@ -465,6 +557,17 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
         cancelText="Cancelar"
         variant="danger"
         isLoading={rebooting}
+      />
+
+      <ConfirmModal
+        isOpen={showClearAllModal}
+        onClose={() => setShowClearAllModal(false)}
+        onConfirm={handleClearAllAlerts}
+        title="Limpiar alertas activas"
+        message="Se limpiarán todas las alertas inalámbricas activas de este equipo, igual que si las métricas se hubieran recuperado. Si el próximo sondeo sigue viendo la falla, volverán a activarse."
+        confirmText="Limpiar"
+        cancelText="Cancelar"
+        isLoading={clearingAll}
       />
 
       {/* Config card */}
@@ -510,6 +613,17 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
               )}
             </div>
           ) : config && !showConfigForm ? (
+            <>
+            {disabledByStatus && (
+              <p className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+                {WIRELESS_DISABLED_BY_STATUS_NOTE}
+              </p>
+            )}
+            {config.enabled && (
+              <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+                {WIRELESS_INDEPENDENT_OF_ICMP_NOTE}
+              </p>
+            )}
             <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Tipo</dt>
@@ -552,6 +666,7 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                 </div>
               )}
             </dl>
+            </>
           ) : null}
 
           {showConfigForm && (
@@ -580,16 +695,29 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                   error={configFormErrors.intervalSecs}
                   fullWidth
                 />
-                <Select
-                  label="Habilitado"
-                  value={configForm.enabled}
-                  onChange={(e) => setConfigForm((p) => ({ ...p, enabled: e.target.value }))}
-                  options={[
-                    { value: 'true', label: 'Sí' },
-                    { value: 'false', label: 'No' },
-                  ]}
-                  fullWidth
-                />
+                {/* "Sí" is not offered where the backend would answer 400 — a
+                    retired or replaced unit cannot be polled — but the rest of
+                    the form stays editable, so its settings can still be fixed. */}
+                <div>
+                  <Select
+                    label="Habilitado"
+                    value={canEnablePolling ? configForm.enabled : 'false'}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, enabled: e.target.value }))}
+                    options={
+                      canEnablePolling
+                        ? [
+                            { value: 'true', label: 'Sí' },
+                            { value: 'false', label: 'No' },
+                          ]
+                        : [{ value: 'false', label: 'No' }]
+                    }
+                    disabled={!canEnablePolling}
+                    fullWidth
+                  />
+                  {enableBlockedReason && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{enableBlockedReason}</p>
+                  )}
+                </div>
                 {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
                   <Input
                     label="Capacidad de enlace (kbps)"
@@ -834,12 +962,30 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                     </span>
                   )}
                 </h2>
-                <Button size="sm" variant="outline" onClick={fetchAlerts} disabled={alertsLoading}>
-                  Actualizar
-                </Button>
+                <div className="flex items-center gap-2">
+                  {canWrite && alerts.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowClearAllModal(true)}
+                      disabled={clearingAlertId !== null}
+                    >
+                      Limpiar todas
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={fetchAlerts} disabled={alertsLoading}>
+                    Actualizar
+                  </Button>
+                </div>
               </div>
             </Card.Header>
             <Card.Body>
+              {alertsError && (
+                <p className="mb-3 text-sm text-red-600 dark:text-red-400">{alertsError}</p>
+              )}
+              {alertsNotice && (
+                <p className="mb-3 text-sm text-green-700 dark:text-green-400">{alertsNotice}</p>
+              )}
               {alertsLoading ? (
                 <div className="flex justify-center py-4">
                   <LoadingSpinner message="Cargando alertas..." />
@@ -862,9 +1008,22 @@ export function DeviceWirelessTab({ deviceId, category, deviceIpAddress }: Props
                             {alert.message}
                           </span>
                         </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {new Date(alert.triggeredAt).toLocaleString('es')}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            {new Date(alert.triggeredAt).toLocaleString('es')}
+                          </span>
+                          {canWrite && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleClearAlert(alert.id)}
+                              isLoading={clearingAlertId === alert.id}
+                              disabled={clearingAlertId !== null}
+                            >
+                              Limpiar
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Métrica: <code className="font-mono">{alert.metric}</code> — valor: {alert.lastValue}, umbral: {alert.threshold}

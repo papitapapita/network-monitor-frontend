@@ -47,6 +47,7 @@ import {
   WirelessConfigDTO,
   WirelessStatusDTO,
   WirelessAlertDTO,
+  WirelessAlertBulkClearResult,
   WirelessClientsResponse,
   WirelessPollResult,
   WirelessRebootResult,
@@ -836,6 +837,29 @@ class ApiService {
 
   async getWirelessAlerts(deviceId: string): Promise<ApiResponse<WirelessAlertDTO[]>> {
     return this.request<WirelessAlertDTO[]>(`/devices/${deviceId}/wireless/alerts`);
+  }
+
+  /**
+   * Clears one active wireless alert by hand — the same transition the poller
+   * makes when the metric recovers, recovery notification and ticket close
+   * included. Idempotent. A 404 covers both "no such alert" and "belongs to
+   * another device", so the two can't be told apart from the response.
+   */
+  async clearWirelessAlert(deviceId: string, alertId: string): Promise<ApiResponse<WirelessAlertDTO>> {
+    return this.request<WirelessAlertDTO>(`/devices/${deviceId}/wireless/alerts/${alertId}/clear`, {
+      method: 'POST'
+    });
+  }
+
+  /** Omitting `ids` clears every active alert on the device, no prior fetch needed. */
+  async bulkClearWirelessAlerts(
+    deviceId: string,
+    ids?: string[]
+  ): Promise<ApiResponse<WirelessAlertBulkClearResult>> {
+    return this.request<WirelessAlertBulkClearResult>(`/devices/${deviceId}/wireless/alerts/clear`, {
+      method: 'POST',
+      body: JSON.stringify(ids ? { ids } : {})
+    });
   }
 
   async triggerWirelessPoll(deviceId: string): Promise<ApiResponse<WirelessPollResult>> {

@@ -383,7 +383,14 @@ export default function DeviceDetailPage() {
       )}
 
       {currentTab === 'wireless' && (
-        <DeviceWirelessTab deviceId={deviceId} category={device.category} deviceIpAddress={device.ipAddress} />
+        <DeviceWirelessTab
+          deviceId={deviceId}
+          category={device.category}
+          deviceIpAddress={device.ipAddress}
+          deviceStatus={device.status}
+          deviceDeletedAt={device.deletedAt}
+          deviceReplacedAt={device.replacedAt}
+        />
       )}
 
       {currentTab === 'credentials' && (

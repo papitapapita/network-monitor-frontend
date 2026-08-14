@@ -53,9 +53,9 @@ import {
   BulkClearAlertsResult,
   BulkDeleteAlertsResult,
 } from '../types/alert.types';
-import { SseState } from './sse';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
+import { SseState } from './sse';
 import {
   DeviceConflict,
   duplicateIpError,
@@ -955,6 +955,12 @@ class MockApiService {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
   async getWirelessAlerts() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async clearWirelessAlert() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async bulkClearWirelessAlerts() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
   async triggerWirelessPoll() {

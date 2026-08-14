@@ -1,3 +1,5 @@
+import { BulkReportBuckets } from './common.types';
+
 export type WirelessDeviceType = 'STATION' | 'ACCESS_POINT';
 export type WirelessCollectionMethod = 'snmp' | 'http_api' | 'mixed';
 export type WirelessAlertSeverity = 'WARNING' | 'CRITICAL';
@@ -40,6 +42,10 @@ export interface WirelessAlertDTO {
   triggeredAt: string;
   clearedAt: string | null;
   isActive: boolean;
+}
+
+export interface WirelessAlertBulkClearResult extends BulkReportBuckets {
+  cleared: WirelessAlertDTO[];
 }
 
 export interface WirelessClientDTO {
