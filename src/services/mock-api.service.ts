@@ -44,6 +44,8 @@ import {
   PollingConfigDTO,
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
+  DeletePingHistoryQuery,
+  DeletePingHistoryResult,
 } from '../types/polling.types';
 import {
   AlertDTO,
@@ -749,6 +751,21 @@ class MockApiService {
         uptimePercentage: total > 0 ? (successes.length / items.length) * 100 : 0,
       },
     });
+  }
+
+  async deletePollingHistory(
+    deviceId: string,
+    query?: DeletePingHistoryQuery
+  ): Promise<ApiResponse<DeletePingHistoryResult>> {
+    const history = pollingHistory[deviceId] ?? [];
+    // Same window semantics as the real route: no bounds means the whole
+    // history, either bound scopes it to that side.
+    const inWindow = (timestamp: string) =>
+      (!query?.fromDate || timestamp >= query.fromDate) &&
+      (!query?.toDate || timestamp <= query.toDate);
+    const kept = history.filter((r) => !inWindow(r.timestamp));
+    pollingHistory[deviceId] = kept;
+    return ok({ deletedCount: history.length - kept.length });
   }
 
   async createPollingConfig(

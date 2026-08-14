@@ -48,6 +48,19 @@ export interface PollingHistoryQuery {
   offset?: number;
 }
 
+/**
+ * Omitting both bounds deletes the device's *entire* ping history; giving one
+ * or both scopes the deletion to that window.
+ */
+export interface DeletePingHistoryQuery {
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface DeletePingHistoryResult {
+  deletedCount: number;
+}
+
 export interface CreatePollingConfigDTO {
   ipAddress?: string | null;
   intervalSeconds?: number;

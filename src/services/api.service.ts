@@ -33,6 +33,8 @@ import {
   PollingConfigDTO,
   UpdatePollingConfigDTO,
   ManualPollResultDTO,
+  DeletePingHistoryQuery,
+  DeletePingHistoryResult,
 } from '../types/polling.types';
 import {
   AlertDTO,
@@ -709,6 +711,22 @@ class ApiService {
       offset: query?.offset
     });
     return this.request<PollingHistoryResponse>(`/devices/${deviceId}/polling/history${qs}`);
+  }
+
+  /**
+   * Permanently drops stored ping results. Omitting both bounds wipes the
+   * device's whole history; either bound scopes it to that window. ADMIN only —
+   * it destroys tens of thousands of rows per device in one call. It does not
+   * touch the retention window or the daily sweep, which keep running.
+   */
+  async deletePollingHistory(
+    deviceId: string,
+    query?: DeletePingHistoryQuery
+  ): Promise<ApiResponse<DeletePingHistoryResult>> {
+    const qs = this.buildQuery({ fromDate: query?.fromDate, toDate: query?.toDate });
+    return this.request<DeletePingHistoryResult>(`/devices/${deviceId}/polling/history${qs}`, {
+      method: 'DELETE'
+    });
   }
 
   async createPollingConfig(

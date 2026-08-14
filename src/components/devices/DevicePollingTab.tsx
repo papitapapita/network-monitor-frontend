@@ -14,8 +14,10 @@ import {
   Select,
   LoadingSpinner,
   Badge,
+  ConfirmModal,
   getPollingStatusBadgeVariant
 } from '@/components/ui';
+import { useAuth } from '@/contexts/auth.context';
 import {
   POLLING_INTERVAL_MIN_SECONDS,
   INTERVAL_MAX_SECONDS,
@@ -24,7 +26,12 @@ import {
   validateIntervalSeconds,
   validateFailuresBeforeDown,
 } from '@/constants/polling.constants';
-import { canEnableMonitoring, monitoringBlockedReason } from '@/constants/device.constants';
+import {
+  canEnableMonitoring,
+  monitoringBlockedReason,
+  isWirelessCategory,
+} from '@/constants/device.constants';
+import { WIRELESS_INDEPENDENT_OF_ICMP_NOTE } from '@/constants/wireless.constants';
 import { DeviceResponseDTO } from '@/types/device.types';
 
 function toISOWithOffset(dateStr: string, endOfDay = false): string {
@@ -68,6 +75,8 @@ interface Props {
 }
 
 export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const deviceId = device.id;
   // Polling targets the device IP, so nothing can be configured or triggered without one.
   const hasIp = !!device.ipAddress;
@@ -118,6 +127,11 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const [pollingHistory, setPollingHistory] = useState<PollingHistoryResponse | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // ── History deletion (ADMIN) ──────────────────────────────
+  const [showDeleteHistoryModal, setShowDeleteHistoryModal] = useState(false);
+  const [deletingHistory, setDeletingHistory] = useState(false);
+  const [deleteHistoryNotice, setDeleteHistoryNotice] = useState<string | null>(null);
 
   const fetchPollingStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -252,8 +266,59 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     setHistoryLoading(false);
   };
 
+  /**
+   * The same window the history filters describe, so what is deleted is what
+   * the operator is looking at. `status` is deliberately not passed on: the
+   * route deletes by date only, and quietly ignoring a "solo fallidos" filter
+   * would delete far more than the screen suggests.
+   */
+  const deleteWindow = {
+    fromDate: historyQuery.fromDate ? toISOWithOffset(historyQuery.fromDate) : undefined,
+    toDate: historyQuery.toDate ? toISOWithOffset(historyQuery.toDate, true) : undefined,
+  };
+  const deletesWholeHistory = !deleteWindow.fromDate && !deleteWindow.toDate;
+
+  const handleDeleteHistory = async () => {
+    setDeletingHistory(true);
+    setHistoryError(null);
+    setDeleteHistoryNotice(null);
+    const result = await apiService.deletePollingHistory(deviceId, deleteWindow);
+    setDeletingHistory(false);
+    setShowDeleteHistoryModal(false);
+
+    if (!result.success || !result.data) {
+      setHistoryError(result.error || 'Error al eliminar el historial');
+      return;
+    }
+    const { deletedCount } = result.data;
+    setDeleteHistoryNotice(
+      `Se eliminaron ${deletedCount} ${deletedCount === 1 ? 'registro' : 'registros'} de sondeo.`
+    );
+    // Re-reads what is left, from the first page: the rows the current offset
+    // pointed at may well be the ones just deleted.
+    await fetchHistory(0);
+  };
+
   return (
     <div className="space-y-6">
+
+      <ConfirmModal
+        isOpen={showDeleteHistoryModal}
+        onClose={() => setShowDeleteHistoryModal(false)}
+        onConfirm={handleDeleteHistory}
+        title="Eliminar historial de sondeo"
+        message={
+          deletesWholeHistory
+            ? `Se eliminará TODO el historial de ping de ${device.name}, sin filtro de fechas. Es permanente y no se puede deshacer; las estadísticas de disponibilidad se pierden con él. Indica un rango en «Desde»/«Hasta» si solo quieres borrar una parte.`
+            : `Se eliminarán permanentemente los registros de ping de ${device.name} entre ${
+                historyQuery.fromDate || 'el inicio del historial'
+              } y ${historyQuery.toDate || 'hoy'}. No se puede deshacer.`
+        }
+        confirmText="Eliminar historial"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={deletingHistory}
+      />
 
       {/* Status */}
       <Card>
@@ -285,6 +350,14 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 Este dispositivo no tiene el monitoreo habilitado, por lo que no se está sondeando.
                 Habilítelo en «Configuración de Sondeo» para conocer su conectividad.
               </p>
+              {/* Pausing here stops ICMP and nothing else: the radio keeps being
+                  read on its own schedule, so an operator who thinks they have
+                  stopped all polling has not. */}
+              {isWirelessCategory(device.category) && (
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  {WIRELESS_INDEPENDENT_OF_ICMP_NOTE} Para detenerlo, deshabilítalo en la pestaña «Inalámbrico».
+                </p>
+              )}
               {/* No schedule and no interval to show — only what the last poll, if
                   any, left behind. */}
               <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-4">
@@ -503,12 +576,31 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
               fullWidth
             />
           </div>
-          <Button size="sm" onClick={() => fetchHistory(0)} isLoading={historyLoading}>
-            Obtener Historial
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={() => fetchHistory(0)} isLoading={historyLoading}>
+              Obtener Historial
+            </Button>
+            {/* ADMIN only: one call drops tens of thousands of rows, and the
+                retention sweep keeps running either way — this is the scoped,
+                on-demand version of it. */}
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => setShowDeleteHistoryModal(true)}
+                disabled={deletingHistory}
+              >
+                {deletesWholeHistory ? 'Eliminar todo el historial' : 'Eliminar historial del rango'}
+              </Button>
+            )}
+          </div>
 
           {historyError && (
             <p className="mt-3 text-sm text-red-600 dark:text-red-400">{historyError}</p>
+          )}
+
+          {deleteHistoryNotice && (
+            <p className="mt-3 text-sm text-green-700 dark:text-green-400">{deleteHistoryNotice}</p>
           )}
 
           {pollingHistory && (
