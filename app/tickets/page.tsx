@@ -13,6 +13,7 @@ import {
   TICKET_PRIORITY_FILTER_OPTIONS,
   TICKET_STATUS_FILTER_OPTIONS,
   UNASSIGNED_VALUE,
+  canResolve,
   isTerminal,
 } from '@/constants/ticket.constants';
 import {
@@ -26,6 +27,8 @@ import {
   Select,
   sortRows,
 } from '@/components/ui';
+
+const ticketCount = (n: number) => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
 
 function TicketsPageContent() {
   const router = useRouter();
@@ -168,18 +171,48 @@ function TicketsPageContent() {
         sort={{ field: t.sortField, direction: t.sortDirection, onSort: t.handleSort }}
         selectionResetKey={`${t.currentPage}|${t.statusFilter}|${t.technicianFilter}|${t.priorityFilter}|${t.categoryFilter}`}
         bulkDelete={
-          isAdmin
+          canWrite
             ? {
-                deleteOne: (id) => apiService.deleteTicket(id),
+                // Deleting stays ADMIN work; resolving is what an OPERATOR is
+                // here to do, and it needs the same checkboxes.
+                deleteOne: isAdmin ? (id) => apiService.deleteTicket(id) : undefined,
                 onFinished: () => {
                   t.fetchTickets();
                 },
                 entity: { singular: 'ticket', plural: 'tickets', gender: 'm' },
                 // Deleting is for tickets raised in error. A closed one is the
                 // record of work that happened, so it is cancelled, not erased.
+                // Terminal tickets refuse every write, so this gates the whole bar.
                 canDelete: (row) => !isTerminal(row.status),
                 blockedHint:
                   'Los tickets resueltos o cancelados son historial; ciérralos con «Cancelar», no los borres',
+                bulkActions: [
+                  {
+                    key: 'resolve',
+                    label: 'Resolver',
+                    confirmTitle: 'Resolver tickets',
+                    confirmMessage: (n) =>
+                      n === 1
+                        ? '¿Resolver 1 ticket? Saldrá de la jornada de su técnico de inmediato.'
+                        : `¿Resolver ${ticketCount(n)}? Saldrán de la jornada de su técnico de inmediato, con la misma nota de resolución en todos — si el trabajo no fue el mismo, resuélvelos por separado.`,
+                    confirmText: 'Resolver',
+                    doneParticiple: 'resuelt',
+                    progressVerb: 'Resolviendo',
+                    // Resolving straight from ASSIGNED is normal; from OPEN the
+                    // backend refuses (TKT-042) — nobody is attached for the
+                    // notes to describe.
+                    skipRow: (row) =>
+                      canResolve(row.status) ? null : 'sin técnico o ya cerrados',
+                    prompt: {
+                      label: 'Notas de resolución',
+                      placeholder: 'Qué se hizo para cerrar estos tickets',
+                      helper: 'Se guarda la misma nota en cada ticket.',
+                      maxLength: 5000,
+                      requiredMessage: 'Las notas de resolución son obligatorias.',
+                    },
+                    runOne: (id, notes) => apiService.resolveTicket(id, notes ?? ''),
+                  },
+                ],
               }
             : undefined
         }

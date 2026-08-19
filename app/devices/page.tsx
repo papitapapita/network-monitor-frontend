@@ -27,6 +27,8 @@ import { RESTORE_GRACE_DAYS } from '@/constants/device.constants';
 
 const COLUMNS_STORAGE_KEY = 'nms:devices-columns';
 
+const deviceCount = (n: number) => `${n} ${n === 1 ? 'dispositivo' : 'dispositivos'}`;
+
 function TrashIcon() {
   return (
     <svg
@@ -189,6 +191,24 @@ function DevicesPageContent() {
           onFinished: () => { fetchDevices(); },
           entity: { singular: 'dispositivo', plural: 'dispositivos', gender: 'm' },
           confirmNote: `Saldrán de todos los listados y dejarán de monitorearse, pero podrás restaurarlos durante ${RESTORE_GRACE_DAYS} días desde la papelera.`,
+          bulkActions: [
+            {
+              key: 'poll',
+              label: 'Sondear',
+              confirmTitle: 'Sondear dispositivos',
+              confirmMessage: (n) =>
+                `¿Sondear ${deviceCount(n)} ahora? Cada uno recibe un ping inmediato y el resultado queda en su historial; la tabla se actualiza al terminar.`,
+              confirmText: 'Sondear',
+              doneParticiple: 'sondead',
+              progressVerb: 'Sondeando',
+              // The backend refuses a device nobody is watching (409): the reading
+              // would sit there with nothing scheduled to correct it. Say so up
+              // front instead of collecting one error per row.
+              skipRow: (device) =>
+                device.monitoringEnabled ? null : 'monitoreo deshabilitado',
+              runOne: (id) => apiService.triggerPoll(id),
+            },
+          ],
         }}
         pagination={{
           currentPage,

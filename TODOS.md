@@ -84,6 +84,14 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
 
 ## Done
 
+- [x] **Acciones rápidas en la barra de selección: sondear dispositivos y resolver tickets** — **done 2026-08-18**
+  - `/devices` gained **Sondear** and `/tickets` gained **Resolver**, beside the existing delete. Neither endpoint takes a batch, so `BulkAction` grew `runOne` — a paced fan-out over the selection — alongside the existing whole-selection `run` the alerts list uses
+  - `src/services/bulk-delete.ts` is now `bulk-fanout.ts` (`runBulkFanOut`): the pacing and 429 backoff were never delete-specific, and writes share the same 60/min per-user budget
+  - Rows the action cannot touch are reported, not hidden: `BulkAction.skipRow` returns a reason, the confirmation says what it will leave alone ("Se omitirán 3 dispositivos: monitoreo deshabilitado"), and those rows stay selected afterwards. It is deliberately not `canDelete`, which gates the checkbox for *every* action on the table — an unmonitored device is still deletable
+  - `BulkAction.prompt` renders one extra field in the confirmation, for the resolution notes `POST /tickets/:id/resolve` requires. One note for the whole selection is all the UI can offer, so the dialog says so and points at resolving separately when the work differed
+  - Selection on `/tickets` moved from ADMIN-only to `canWrite`, with `deleteOne` kept behind `isAdmin` — resolving is OPERATOR work. Same shape `/alerts` already had
+  - Verified against the real backend: 4 devices selected → "1 dispositivo sondeado · 3 sin cambios (monitoreo deshabilitado)"; 3 tickets → "2 tickets resueltos · 1 sin cambios (sin técnico o ya cerrados)". No e2e spec yet — the suite has no ticket coverage to hang it on
+
 - [x] **Live throughput view** — consumer half of the backend's SSE streams — **done 2026-08-12**
   - `/wireless` reads `GET /api/wireless/throughput/stream` (fleet) and the wireless tab reads `GET /api/devices/:id/wireless/throughput/stream` (one radio). Covered by `e2e/wireless-throughput.spec.ts`
   - Read over `fetch` rather than `EventSource`, so the JWT stays in the `Authorization` header and the caller can tell a 404 ("never polled") from a 429 ("5 streams already open") — `EventSource` reports both as one anonymous error. Reconnect and `retry:` handling are reimplemented in `src/services/sse.ts` as the price

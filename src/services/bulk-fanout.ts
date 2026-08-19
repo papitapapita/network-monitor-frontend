@@ -1,14 +1,19 @@
 import { ApiResponse } from '../types/common.types';
 
 /**
- * Deletes a set of ids one batch at a time, staying inside the backend's
- * per-IP DELETE budget.
+ * Runs one request per id, a few at a time, staying inside the backend's
+ * per-user budget for the verb.
  *
- * The naive `Promise.all(ids.map(deleteOne))` fires the whole selection at once,
+ * Every endpoint a selection bar fans out over — deleting devices, restoring
+ * them, polling them, resolving tickets — is capped at 60/min for the user
+ * (`BACKEND_API.md`), so they all want the same pacing and none of them wants
+ * its own copy of it.
+ *
+ * The naive `Promise.all(ids.map(runOne))` fires the whole selection at once,
  * so any selection larger than the budget is *guaranteed* to half-finish: the
- * first N deletes land and the rest come back 429. Worse, rejected requests
- * still count against the bucket, so an immediate manual retry keeps it pinned
- * and the operator concludes the app is broken.
+ * first N land and the rest come back 429. Worse, rejected requests still
+ * count against the bucket, so an immediate manual retry keeps it pinned and
+ * the operator concludes the app is broken.
  *
  * Two defences, because the client cannot see the server's counter:
  *  - self-pacing, which keeps a normal run from ever tripping the limit, and
@@ -21,10 +26,11 @@ import { ApiResponse } from '../types/common.types';
 const CONCURRENCY = 4;
 
 /**
- * Deletes we allow ourselves per minute. The backend's per-IP budget is 60/min
+ * Requests we allow ourselves per minute. The backend's per-user budget is
+ * 60/min for writes and the same for deletes, each resource counted separately
  * (`BACKEND_API.md`); the margin absorbs the drift between our window and its.
  */
-const DELETES_PER_MINUTE = 55;
+const REQUESTS_PER_MINUTE = 55;
 const WINDOW_MS = 60_000;
 
 /**
@@ -33,16 +39,16 @@ const WINDOW_MS = 60_000;
  */
 const RETRY_DELAYS_MS = [20_000, 65_000];
 
-export interface BulkDeleteProgress {
+export interface BulkFanOutProgress {
   done: number;
   total: number;
   /** Epoch ms the paused run resumes at — set only while waiting out a 429. */
   retryAt: number | null;
 }
 
-export interface BulkDeleteOutcome {
-  /** Ids that went through, in completion order — the set an undo has to put back. */
-  deletedIds: string[];
+export interface BulkFanOutOutcome {
+  /** Ids that went through, in completion order — for a delete, the set an undo has to put back. */
+  succeededIds: string[];
   /**
    * `binnedDeviceCount` passes through the same field on `ApiResponse` — set
    * only on a refusal a caller can turn into a confirm-and-retry (DEV-030)
@@ -55,14 +61,14 @@ export interface BulkDeleteOutcome {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Sliding-window pacer: never lets more than `DELETES_PER_MINUTE` starts fall inside any 60s span. */
+/** Sliding-window pacer: never lets more than `REQUESTS_PER_MINUTE` starts fall inside any 60s span. */
 function createPacer() {
   const starts: number[] = [];
   return async function acquire(): Promise<void> {
     for (;;) {
       const now = Date.now();
       while (starts.length > 0 && now - starts[0] >= WINDOW_MS) starts.shift();
-      if (starts.length < DELETES_PER_MINUTE) {
+      if (starts.length < REQUESTS_PER_MINUTE) {
         starts.push(now);
         return;
       }
@@ -72,21 +78,22 @@ function createPacer() {
 }
 
 /**
- * `deleteOne` is only ever called for its success flag, so the undo path can
- * hand over a restore — which answers with the row it brought back — unchanged.
+ * `runOne` is only ever called for its success flag, so any single-row call
+ * fits: a restore answering with the row it brought back, or a poll answering
+ * with a latency, are both handed over unchanged.
  */
-export async function runBulkDelete(
+export async function runBulkFanOut(
   ids: string[],
-  deleteOne: (id: string) => Promise<ApiResponse<unknown>>,
-  onProgress?: (progress: BulkDeleteProgress) => void
-): Promise<BulkDeleteOutcome> {
+  runOne: (id: string) => Promise<ApiResponse<unknown>>,
+  onProgress?: (progress: BulkFanOutProgress) => void
+): Promise<BulkFanOutOutcome> {
   const total = ids.length;
   const acquire = createPacer();
   const failed: Array<{ id: string; error: string; binnedDeviceCount?: number }> = [];
-  const deletedIds: string[] = [];
+  const succeededIds: string[] = [];
 
   const report = (retryAt: number | null = null) =>
-    onProgress?.({ done: deletedIds.length + failed.length, total, retryAt });
+    onProgress?.({ done: succeededIds.length + failed.length, total, retryAt });
 
   let pending = ids;
 
@@ -108,10 +115,10 @@ export async function runBulkDelete(
           deferred.push(id);
           return;
         }
-        const result = await deleteOne(id);
+        const result = await runOne(id);
 
         if (result.success) {
-          deletedIds.push(id);
+          succeededIds.push(id);
           report();
           continue;
         }
@@ -140,7 +147,7 @@ export async function runBulkDelete(
       const error = 'Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.';
       deferred.forEach((id) => failed.push({ id, error }));
       report();
-      return { deletedIds, failed, rateLimited: deferred };
+      return { succeededIds, failed, rateLimited: deferred };
     }
 
     const retryAt = Date.now() + RETRY_DELAYS_MS[round];
@@ -154,5 +161,5 @@ export async function runBulkDelete(
     pending = deferred;
   }
 
-  return { deletedIds, failed, rateLimited: [] };
+  return { succeededIds, failed, rateLimited: [] };
 }

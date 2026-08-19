@@ -5,10 +5,12 @@ import { Table, TableEmptyState } from './Table';
 import { SelectCheckbox } from './SelectCheckbox';
 import { Pagination } from './Pagination';
 import { LoadingSpinner } from './LoadingSpinner';
-import { ConfirmModal, UndoModal } from './Modal';
+import { ConfirmModal, Modal, UndoModal } from './Modal';
+import { Button } from './Button';
+import { Textarea } from './Textarea';
 import { ErrorBanner } from './ErrorBanner';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
-import { BulkDeleteProgress, runBulkDelete } from '@/services/bulk-delete';
+import { BulkFanOutProgress, runBulkFanOut } from '@/services/bulk-fanout';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -42,21 +44,53 @@ export interface EntityNoun {
 
 /**
  * A second thing the selection can be put through, beside deleting it — the
- * alerts list resolving what it selected, say. Always one call for the whole
- * selection: an endpoint that takes a batch reports which ids it declined
- * instead of failing the run, so there is nothing to pace or retry per row.
+ * alerts list resolving what it selected, the devices list polling it.
+ *
+ * Give it `run` where the API takes the whole selection in one request, and
+ * `runOne` where it does not; `run` wins if both are set. The batch form is
+ * always preferable — the endpoint's own report says exactly which ids it
+ * declined, and one call cannot trip a rate limit — but most single-row
+ * endpoints will never grow a batch twin, and an operator selecting fifteen
+ * rows should not have to visit fifteen pages because of that.
  */
-export interface BulkAction {
+export interface BulkAction<T = unknown> {
   /** Identifies the action; also the React key of its button. */
   key: string;
   /** Button label in the floating selection bar. */
   label: string;
   confirmTitle: string;
+  /** Worded for the rows that will actually run, which `skipRow` may have thinned. */
   confirmMessage: (count: number) => string;
   confirmText: string;
   /** Past participle for the result note — "resueltas", "reabiertas". */
   doneParticiple: string;
-  run: (ids: string[]) => Promise<ApiResponse<BulkActionSummary>>;
+  /** One request for the whole selection. */
+  run?: (ids: string[], input?: string) => Promise<ApiResponse<BulkActionSummary>>;
+  /** One request per row, paced and aggregated here. Ignored when `run` is set. */
+  runOne?: (id: string, input?: string) => Promise<ApiResponse<unknown>>;
+  /** Gerund for the progress line of a `runOne` fan-out — "Sondeando", "Resolviendo". */
+  progressVerb?: string;
+  /**
+   * Why this row cannot take *this* action, or `null` if it can. Such rows are
+   * dropped from the run and reported as skipped rather than made unselectable:
+   * `canDelete` blocks the checkbox itself, which is shared by every action on
+   * the table, so an unmonitored device would stop being deletable just because
+   * it cannot be polled.
+   */
+  skipRow?: (row: T) => string | null;
+  /**
+   * An extra value the action needs, collected in the confirmation and passed
+   * to the runner. One value for the whole selection — say so in `helper` where
+   * it gets written into each row's record, as a ticket's resolution notes are.
+   */
+  prompt?: {
+    label: string;
+    placeholder?: string;
+    helper?: string;
+    maxLength?: number;
+    /** Shown under the field while it is empty; the confirm button stays disabled. */
+    requiredMessage: string;
+  };
 }
 
 export interface BulkDeleteConfig<T> {
@@ -91,7 +125,7 @@ export interface BulkDeleteConfig<T> {
   confirmAndRetry?: (id: string) => Promise<ApiResponse<void>>;
   entity: EntityNoun;
   /** Extra buttons in the selection bar, each acting on the whole selection. */
-  bulkActions?: BulkAction[];
+  bulkActions?: BulkAction<T>[];
   /** Rows failing this cannot be selected (e.g. alerts that are still open). */
   canDelete?: (row: T) => boolean;
   /** Tooltip explaining why a blocked row cannot be selected. */
@@ -195,12 +229,16 @@ function countLabel(n: number, entity: EntityNoun): string {
 }
 
 /** What the confirmation says once the batch is running, including any rate-limit wait. */
-function progressMessage(progress: BulkDeleteProgress, entity: EntityNoun): string {
+function progressMessage(
+  progress: BulkFanOutProgress,
+  entity: EntityNoun,
+  verb = 'Eliminando'
+): string {
   const { done, total, retryAt } = progress;
-  const head = `Eliminando ${done} de ${countLabel(total, entity)}...`;
+  const head = `${verb} ${done} de ${countLabel(total, entity)}...`;
   if (retryAt === null) return head;
   const seconds = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
-  return `${head} El servidor limitó el ritmo de eliminación; se reanuda en ${seconds} s.`;
+  return `${head} El servidor limitó el ritmo; se reanuda en ${seconds} s.`;
 }
 
 /** "3 alertas resueltas" — a count with its participle agreeing in gender and number. */
@@ -264,11 +302,14 @@ export function DataTable<T>({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [progress, setProgress] = useState<BulkDeleteProgress | null>(null);
+  const [progress, setProgress] = useState<BulkFanOutProgress | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   /** The extra action awaiting its confirmation, and the note its run left behind. */
-  const [pendingAction, setPendingAction] = useState<BulkAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<BulkAction<T> | null>(null);
   const [isRunningAction, setIsRunningAction] = useState(false);
+  const [actionProgress, setActionProgress] = useState<BulkFanOutProgress | null>(null);
+  /** Value typed into the pending action's `prompt`, cleared with the modal. */
+  const [actionInput, setActionInput] = useState('');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   /** The single row blocked behind a DEV-030-style confirm-and-retry, awaiting the second confirmation. */
   const [blockedRetry, setBlockedRetry] = useState<{ id: string; message: string } | null>(null);
@@ -295,6 +336,35 @@ export function DataTable<T>({
   const selectableIds = useMemo(
     () => selectableRows.map(getRowId),
     [selectableRows, getRowId]
+  );
+
+  /** The page's rows by id — a bulk action needs the row to judge whether it applies to it. */
+  const rowsById = useMemo(
+    () => new Map(rows.map((row) => [getRowId(row), row])),
+    [rows, getRowId]
+  );
+
+  /**
+   * Splits the selection into what `action` can actually run and what it has to
+   * report as skipped. Selection is reset whenever the page changes, so every
+   * selected id is on this page and has a row to judge.
+   */
+  const partitionForAction = useCallback(
+    (action: BulkAction<T>, ids: string[]) => {
+      const skipRow = action.skipRow;
+      if (!skipRow) return { runnable: ids, skipped: [] as Array<{ id: string; reason: string }> };
+
+      const runnable: string[] = [];
+      const skipped: Array<{ id: string; reason: string }> = [];
+      ids.forEach((id) => {
+        const row = rowsById.get(id);
+        const reason = row ? skipRow(row) : null;
+        if (reason) skipped.push({ id, reason });
+        else runnable.push(id);
+      });
+      return { runnable, skipped };
+    },
+    [rowsById]
   );
 
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
@@ -386,15 +456,15 @@ export function DataTable<T>({
 
     setProgress({ done: 0, total: ids.length, retryAt: null });
     try {
-      const { deletedIds, failed, rateLimited } = await runBulkDelete(
+      const { succeededIds, failed, rateLimited } = await runBulkFanOut(
         ids,
         deleteOne,
         setProgress
       );
-      const deleted = deletedIds.length;
+      const deleted = succeededIds.length;
       // However the batch went, whatever it did take can be put back — that
       // offer is the whole report on a run that worked.
-      if (bulkDelete.undoOne && deleted > 0) setUndoableIds(deletedIds);
+      if (bulkDelete.undoOne && deleted > 0) setUndoableIds(succeededIds);
 
       if (failed.length === 0) {
         setSelectedIds(new Set());
@@ -434,35 +504,73 @@ export function DataTable<T>({
     }
   };
 
+  const closeAction = () => {
+    setPendingAction(null);
+    setActionInput('');
+    setActionProgress(null);
+  };
+
   const handleRunAction = async () => {
     if (!bulkDelete || !pendingAction) return;
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const action = pendingAction;
+    const { runnable, skipped } = partitionForAction(action, Array.from(selectedIds));
+    if (runnable.length === 0) return;
+
+    const input = action.prompt ? actionInput.trim() : undefined;
+    if (action.prompt && !input) return;
 
     setIsRunningAction(true);
     setDeleteError(null);
     setActionNotice(null);
     try {
-      const result = await pendingAction.run(ids);
-      if (!result.success || !result.data) {
-        setDeleteError(result.error ?? `Error al procesar ${bulkDelete.entity.plural}`);
+      let summary: BulkActionSummary;
+
+      if (action.run) {
+        const result = await action.run(runnable, input);
+        if (!result.success || !result.data) {
+          setDeleteError(result.error ?? `Error al procesar ${bulkDelete.entity.plural}`);
+          return;
+        }
+        summary = result.data;
+      } else if (action.runOne) {
+        const runOne = action.runOne;
+        setActionProgress({ done: 0, total: runnable.length, retryAt: null });
+        // Same paced fan-out as the delete: one write per row against the same
+        // 60/min budget, so a selection of thirty must not be fired at once.
+        const { succeededIds, failed } = await runBulkFanOut(
+          runnable,
+          (id) => runOne(id, input),
+          setActionProgress
+        );
+        summary = {
+          succeeded: succeededIds,
+          skipped: [],
+          failed: failed.map(({ id, error }) => ({ id, error })),
+        };
+      } else {
         return;
       }
-      const summary = result.data;
-      const message = summaryMessage(summary, bulkDelete.entity, pendingAction.doneParticiple);
+
+      // Rows this action never sent are part of its report too — otherwise a run
+      // that quietly left half the selection alone reads as a clean success.
+      const merged: BulkActionSummary = {
+        ...summary,
+        skipped: [...skipped, ...summary.skipped],
+      };
+      const message = summaryMessage(merged, bulkDelete.entity, action.doneParticiple);
       // A row the endpoint refused outright is a failure worth the red banner;
-      // one it merely skipped (already resolved) is part of a normal run.
-      if (summary.failed.length > 0) {
-        setDeleteError(message);
-        setSelectedIds(new Set(summary.failed.map((f) => f.id)));
-      } else {
-        setActionNotice(message);
-        setSelectedIds(new Set());
-      }
+      // one it merely skipped (already resolved, not monitored) is a normal run.
+      if (merged.failed.length > 0) setDeleteError(message);
+      else setActionNotice(message);
+
+      // Leaves selected exactly what the action did not take, so a retry — or a
+      // different action — aims at those rows and not at the ones already done.
+      const unresolved = [...merged.skipped.map((s) => s.id), ...merged.failed.map((f) => f.id)];
+      setSelectedIds(new Set(unresolved));
     } catch {
       setDeleteError(`Error al procesar ${bulkDelete.entity.plural}`);
     } finally {
-      setPendingAction(null);
+      closeAction();
       setIsRunningAction(false);
       await bulkDelete.onFinished?.();
     }
@@ -496,7 +604,7 @@ export function DataTable<T>({
     setUndoError(null);
     // Same runner as the delete: a restore per row is the same fan-out against
     // the same per-IP budget, so it wants the same pacing and 429 backoff.
-    const { failed } = await runBulkDelete(undoableIds, undoOne);
+    const { failed } = await runBulkFanOut(undoableIds, undoOne);
     setIsUndoing(false);
 
     if (failed.length === 0) {
@@ -514,6 +622,10 @@ export function DataTable<T>({
 
   const selectionEnabled = !!bulkDelete;
   const selectedCount = selectedIds.size;
+  /** What the pending action would run and skip, for the confirmation's wording. */
+  const actionSplit = pendingAction
+    ? partitionForAction(pendingAction, Array.from(selectedIds))
+    : { runnable: [], skipped: [] as Array<{ id: string; reason: string }> };
   const canRunDelete = !!(bulkDelete?.deleteMany || bulkDelete?.deleteOne);
 
   return (
@@ -690,17 +802,67 @@ export function DataTable<T>({
         </div>
       )}
 
-      {bulkDelete?.bulkActions && (
-        <ConfirmModal
-          isOpen={pendingAction !== null}
-          onClose={() => setPendingAction(null)}
-          onConfirm={handleRunAction}
-          title={pendingAction?.confirmTitle ?? ''}
-          message={pendingAction?.confirmMessage(selectedCount) ?? ''}
-          confirmText={pendingAction?.confirmText ?? ''}
-          cancelText="Cancelar"
-          isLoading={isRunningAction}
-        />
+      {bulkDelete?.bulkActions && pendingAction && (
+        <Modal
+          isOpen
+          onClose={closeAction}
+          title={pendingAction.confirmTitle}
+          size="sm"
+          showCloseButton={!isRunningAction}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {actionProgress
+                ? progressMessage(actionProgress, bulkDelete.entity, pendingAction.progressVerb)
+                : actionSplit.runnable.length === 0
+                  ? `Ninguno de los ${bulkDelete.entity.plural} seleccionados admite esta acción.`
+                  : pendingAction.confirmMessage(actionSplit.runnable.length)}
+            </p>
+
+            {/* What the action will leave alone, said before the run rather than after. */}
+            {!actionProgress && actionSplit.skipped.length > 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-500">
+                Se omitirá{actionSplit.skipped.length === 1 ? '' : 'n'}{' '}
+                {countLabel(actionSplit.skipped.length, bulkDelete.entity)}:{' '}
+                {actionSplit.skipped[0].reason}.
+              </p>
+            )}
+
+            {pendingAction.prompt && !actionProgress && (
+              <Textarea
+                label={pendingAction.prompt.label}
+                name={`bulk-${pendingAction.key}-input`}
+                value={actionInput}
+                onChange={(e) => setActionInput(e.target.value)}
+                helperText={pendingAction.prompt.helper}
+                error={
+                  actionInput.trim() ? undefined : pendingAction.prompt.requiredMessage
+                }
+                placeholder={pendingAction.prompt.placeholder}
+                maxLength={pendingAction.prompt.maxLength}
+                rows={4}
+                required
+                fullWidth
+                disabled={isRunningAction}
+              />
+            )}
+          </div>
+          <Modal.Footer>
+            <Button variant="outline" onClick={closeAction} disabled={isRunningAction}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleRunAction}
+              isLoading={isRunningAction}
+              disabled={
+                actionSplit.runnable.length === 0 ||
+                (!!pendingAction.prompt && !actionInput.trim())
+              }
+            >
+              {pendingAction.confirmText}
+            </Button>
+          </Modal.Footer>
+        </Modal>
       )}
 
       {bulkDelete && canRunDelete && (
