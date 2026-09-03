@@ -190,10 +190,10 @@ export default function VendorDetailPage() {
 
       <div className="mb-6">
         <BackLink label="Fabricantes" onClick={() => router.back()} className="mb-2" />
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{vendor.name}</h1>
-            <p className="font-mono text-sm text-gray-500 dark:text-gray-400">{vendor.slug}</p>
+            <p className="font-mono text-sm text-gray-500 dark:text-gray-400 wrap-anywhere">{vendor.slug}</p>
           </div>
           {!isEditing ? (
             <div className="flex gap-2">

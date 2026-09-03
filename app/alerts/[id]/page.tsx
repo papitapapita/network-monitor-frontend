@@ -212,13 +212,13 @@ export default function AlertDetailPage() {
       />
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-8">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div className="flex items-start gap-4 min-w-0">
           <Button variant="outline" size="sm" onClick={() => router.push('/alerts')}>
             ← Alertas
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{describe(alert)}</h1>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 wrap-anywhere">{describe(alert)}</h1>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={getSeverityVariant(alert.severity)}>{SEVERITY_LABELS[alert.severity]}</Badge>
               <Badge variant={getStatusVariant(alert.status)}>{STATUS_LABELS[alert.status]}</Badge>

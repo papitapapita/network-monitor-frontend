@@ -187,12 +187,12 @@ export default function LocationDetailPage() {
       />
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-8">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
+        <div className="flex items-start gap-4 min-w-0">
           <Button variant="outline" size="sm" onClick={() => router.push('/locations')}>
             ← Ubicaciones
           </Button>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">{location.name}</h1>
             <Badge variant={LOCATION_TYPE_BADGE_VARIANTS[location.type]}>
               {LOCATION_TYPE_LABELS[location.type]}

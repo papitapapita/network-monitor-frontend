@@ -137,12 +137,12 @@ export default function BillDetailPage() {
         <BackLink label="Facturas" onClick={() => router.back()} />
       </div>
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatPeriod(bill.period)}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{formatPeriod(bill.period)}</h1>
             <Badge variant={BILL_STATUS_VARIANTS[bill.status]}>{BILL_STATUS_LABELS[bill.status]}</Badge>
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5 wrap-anywhere">
             {customer ? customer.fullName : bill.customerId}
           </p>
         </div>

@@ -132,8 +132,8 @@ export default function DeviceModelDetailPage() {
 
       <div className="mb-6">
         <BackLink label="Modelos" onClick={() => router.back()} className="mb-2" />
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
               {model.vendorName} — {model.model}
             </h1>
