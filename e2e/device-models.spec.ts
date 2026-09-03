@@ -474,7 +474,7 @@ test.describe('device model conventions', () => {
 
     // Soft-delete through the real flow, the same way an operator would.
     await page.goto(`/devices/${device.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
     await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
 
@@ -511,7 +511,7 @@ test.describe('device model conventions', () => {
     });
 
     await page.goto(`/devices/${device.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
     await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
 
@@ -560,7 +560,7 @@ test.describe('device model conventions', () => {
     });
 
     await page.goto(`/devices/${binnedDevice.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
     await expect(page.getByText(`«${binnedDevice.name}» se eliminó`)).toBeVisible();
 
@@ -594,7 +594,7 @@ test.describe('device model conventions', () => {
     });
 
     await page.goto(`/devices/${device.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
     await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
 
@@ -621,6 +621,72 @@ test.describe('device model conventions', () => {
 
     const binned = await api.get<{ devices: unknown[] }>(`devices?deleted=true&deviceModelId=${model.id}`);
     expect(binned.devices).toHaveLength(0);
+  });
+
+  test('DEV-030: a multi-model selection queues the purge confirmation one model at a time', async ({ page, api }) => {
+    const vendor = await makeVendor(api);
+    const modelA = await api.create<{ id: string; model: string }>('device-models', {
+      vendorId: vendor.id,
+      model: uniqueName('model'),
+      deviceType: 'ROUTER',
+      isWireless: false,
+    });
+    const modelB = await api.create<{ id: string; model: string }>('device-models', {
+      vendorId: vendor.id,
+      model: uniqueName('model'),
+      deviceType: 'ROUTER',
+      isWireless: false,
+    });
+    const deviceA = await api.create<{ id: string; name: string }>('devices', {
+      name: uniqueName('device'),
+      deviceModelId: modelA.id,
+      status: 'INVENTORY',
+      ownerType: 'COMPANY',
+      serialNumber: uniqueName('sn'),
+    });
+    const deviceB = await api.create<{ id: string; name: string }>('devices', {
+      name: uniqueName('device'),
+      deviceModelId: modelB.id,
+      status: 'INVENTORY',
+      ownerType: 'COMPANY',
+      serialNumber: uniqueName('sn'),
+    });
+
+    for (const device of [deviceA, deviceB]) {
+      await page.goto(`/devices/${device.id}`);
+      await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
+      await confirmDialog(page, 'Eliminar dispositivo');
+      await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
+    }
+
+    await page.goto('/device-models');
+    await searchFor(page, vendor.name);
+    await page.getByRole('checkbox', { name: `Seleccionar ${vendor.name} ${modelA.model}` }).click();
+    await page.getByRole('checkbox', { name: `Seleccionar ${vendor.name} ${modelB.model}` }).click();
+    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await confirmDialog(page, 'Eliminar modelos');
+
+    // Both rows are blocked behind the recycle bin — one confirmation at a
+    // time, counted, rather than a single dialog glossing over the selection.
+    await expect(page.getByText('Vaciar la papelera y eliminar (1 de 2)')).toBeVisible();
+    await expect(page.getByText(/Este modelo tiene 1 dispositivo en la papelera/)).toBeVisible();
+    await confirmDialog(page, 'Vaciar la papelera y eliminar (1 de 2)', 'Eliminar de todas formas');
+
+    await expect(page.getByText('Vaciar la papelera y eliminar (2 de 2)')).toBeVisible();
+    await confirmDialog(page, 'Vaciar la papelera y eliminar (2 de 2)', 'Eliminar de todas formas');
+
+    api.untrack('device-models', modelA.id);
+    api.untrack('device-models', modelB.id);
+    api.untrack('devices', deviceA.id);
+    api.untrack('devices', deviceB.id);
+
+    await expect(page.getByRole('row').filter({ hasText: modelA.model })).toHaveCount(0);
+    await expect(page.getByRole('row').filter({ hasText: modelB.model })).toHaveCount(0);
+
+    const binnedA = await api.get<{ devices: unknown[] }>(`devices?deleted=true&deviceModelId=${modelA.id}`);
+    expect(binnedA.devices).toHaveLength(0);
+    const binnedB = await api.get<{ devices: unknown[] }>(`devices?deleted=true&deviceModelId=${modelB.id}`);
+    expect(binnedB.devices).toHaveLength(0);
   });
 
   test('DEV-028: copies the vendor name and slug onto the model', async ({ page, api }) => {
@@ -771,11 +837,9 @@ test.describe('device model wireless flag', () => {
     await page.getByRole('button', { name: 'Inalámbrico' }).click();
     const configHeading = page.getByRole('heading', { name: 'Configuración Inalámbrica' });
     await expect(configHeading).toBeVisible();
-    // Scoped to the config card's own header — the page's delete-device button
-    // is also called "Eliminar".
     await configHeading
       .locator('xpath=following-sibling::div')
-      .getByRole('button', { name: 'Eliminar', exact: true })
+      .getByRole('button', { name: 'Eliminar configuración', exact: true })
       .click();
     await expect(page.getByText('Este dispositivo no tiene configuración de monitoreo inalámbrico.')).toBeVisible();
 

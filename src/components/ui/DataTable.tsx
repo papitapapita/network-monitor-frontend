@@ -312,8 +312,14 @@ export function DataTable<T>({
   /** Value typed into the pending action's `prompt`, cleared with the modal. */
   const [actionInput, setActionInput] = useState('');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
-  /** The single row blocked behind a DEV-030-style confirm-and-retry, awaiting the second confirmation. */
-  const [blockedRetry, setBlockedRetry] = useState<{ id: string; message: string } | null>(null);
+  /**
+   * Rows blocked behind a DEV-030-style confirm-and-retry, awaiting the second
+   * confirmation one at a time — `blockedQueue[0]` is on screen now, the rest
+   * wait their turn so each row's own count gets its own confirmation instead
+   * of one dialog glossing over the whole batch.
+   */
+  const [blockedQueue, setBlockedQueue] = useState<Array<{ id: string; message: string }>>([]);
+  const [blockedTotal, setBlockedTotal] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   /** Ids the last batch took, held only to offer them back. */
   const [undoableIds, setUndoableIds] = useState<string[]>([]);
@@ -336,7 +342,8 @@ export function DataTable<T>({
   useEffect(() => {
     setSelectedIds(new Set());
     setShowConfirm(false);
-    setBlockedRetry(null);
+    setBlockedQueue([]);
+    setBlockedTotal(0);
     anchorId.current = null;
   }, [selectionResetKey]);
 
@@ -480,29 +487,35 @@ export function DataTable<T>({
 
       if (failed.length === 0) {
         setSelectedIds(new Set());
-      } else if (
-        failed.length === 1 &&
-        failed[0].binnedDeviceCount !== undefined &&
-        bulkDelete.confirmAndRetry
-      ) {
-        // Refused for a recoverable reason rather than a hard failure: offer the
-        // second confirmation instead of dead-ending on the error banner.
-        setBlockedRetry({ id: failed[0].id, message: failed[0].error });
-        setSelectedIds(new Set(failed.map((f) => f.id)));
       } else {
-        // A run stopped by the rate limit is not a per-row failure: say what is
-        // left and that waiting fixes it, rather than repeating the 429 prose.
-        const throttleNote = `Quedan ${countLabel(rateLimited.length, bulkDelete.entity)} sin eliminar por el límite de solicitudes del servidor. Espera un minuto y vuelve a intentarlo — la selección se conservó.`;
-        const allRateLimited = rateLimited.length === failed.length;
-        reportDeleteError(
-          deleted === 0
-            ? allRateLimited
-              ? throttleNote
-              : failed[0].error
-            : `Se eliminaron ${countLabel(deleted, bulkDelete.entity)} de ${ids.length}. ${
-                allRateLimited ? throttleNote : `Error: ${failed[0].error}`
-              }`
-        );
+        const canRetry = !!bulkDelete.confirmAndRetry;
+        // Refused for a recoverable reason rather than a hard failure: queue the
+        // second confirmation instead of dead-ending on the error banner, one row
+        // at a time, so each row's own device count gets its own confirmation.
+        const blocked = canRetry ? failed.filter((f) => f.binnedDeviceCount !== undefined) : [];
+        const hardFailed = failed.filter((f) => !canRetry || f.binnedDeviceCount === undefined);
+
+        if (blocked.length > 0) {
+          setBlockedQueue(blocked.map((f) => ({ id: f.id, message: f.error })));
+          setBlockedTotal(blocked.length);
+        }
+
+        if (hardFailed.length > 0) {
+          // A run stopped by the rate limit is not a per-row failure: say what is
+          // left and that waiting fixes it, rather than repeating the 429 prose.
+          const throttleNote = `Quedan ${countLabel(rateLimited.length, bulkDelete.entity)} sin eliminar por el límite de solicitudes del servidor. Espera un minuto y vuelve a intentarlo — la selección se conservó.`;
+          const allRateLimited = rateLimited.length === hardFailed.length;
+          reportDeleteError(
+            deleted === 0
+              ? allRateLimited
+                ? throttleNote
+                : hardFailed[0].error
+              : `Se eliminaron ${countLabel(deleted, bulkDelete.entity)} de ${ids.length}. ${
+                  allRateLimited ? throttleNote : `Error: ${hardFailed[0].error}`
+                }`
+          );
+        }
+
         // Keep only the rows that could not be deleted selected.
         setSelectedIds(new Set(failed.map((f) => f.id)));
       }
@@ -589,23 +602,30 @@ export function DataTable<T>({
   };
 
   const handleConfirmRetry = async () => {
-    if (!blockedRetry || !bulkDelete?.confirmAndRetry) return;
+    const current = blockedQueue[0];
+    if (!current || !bulkDelete?.confirmAndRetry) return;
     setIsRetrying(true);
     setDeleteError(null);
-    const result = await bulkDelete.confirmAndRetry(blockedRetry.id);
+    const result = await bulkDelete.confirmAndRetry(current.id);
     setIsRetrying(false);
-    setBlockedRetry(null);
 
     if (result.success) {
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        next.delete(blockedRetry.id);
+        next.delete(current.id);
         return next;
       });
     } else {
       reportDeleteError(result.error ?? `Error al eliminar ${bulkDelete.entity.singular}`);
     }
+    // Move on to the next blocked row, if any — completing one at a time.
+    setBlockedQueue((prev) => prev.slice(1));
     await bulkDelete.onFinished?.();
+  };
+
+  /** Declines this one row's second confirmation and moves on to the next queued. */
+  const handleSkipRetry = () => {
+    setBlockedQueue((prev) => prev.slice(1));
   };
 
   const handleUndo = async () => {
@@ -647,6 +667,10 @@ export function DataTable<T>({
     ? partitionForAction(pendingAction, Array.from(selectedIds))
     : { runnable: [], skipped: [] as Array<{ id: string; reason: string }> };
   const canRunDelete = !!(bulkDelete?.deleteMany || bulkDelete?.deleteOne);
+  const blockedRetry = blockedQueue[0] ?? null;
+  const blockedIndex = blockedTotal - blockedQueue.length + 1;
+  const blockedRow = blockedRetry ? rowsById.get(blockedRetry.id) : undefined;
+  const blockedRetryLabel = blockedRow ? getRowLabel?.(blockedRow) : undefined;
 
   return (
     <>
@@ -1028,10 +1052,20 @@ export function DataTable<T>({
       {bulkDelete?.confirmAndRetry && (
         <ConfirmModal
           isOpen={blockedRetry !== null}
-          onClose={() => setBlockedRetry(null)}
+          onClose={handleSkipRetry}
           onConfirm={handleConfirmRetry}
-          title="Vaciar la papelera y eliminar"
-          message={blockedRetry?.message ?? ''}
+          title={
+            blockedTotal > 1
+              ? `Vaciar la papelera y eliminar (${blockedIndex} de ${blockedTotal})`
+              : 'Vaciar la papelera y eliminar'
+          }
+          message={
+            blockedRetry
+              ? blockedRetryLabel
+                ? `${blockedRetryLabel}: ${blockedRetry.message}`
+                : blockedRetry.message
+              : ''
+          }
           confirmText="Eliminar de todas formas"
           cancelText="Cancelar"
           variant="danger"
