@@ -289,10 +289,6 @@ export default function VendorDetailPage() {
               <Card.Body>
                 <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <dt className="font-medium text-gray-500 dark:text-gray-400">ID</dt>
-                    <dd className="mt-1 font-mono text-xs text-gray-900 dark:text-gray-100">{vendor.id}</dd>
-                  </div>
-                  <div>
                     <dt className="font-medium text-gray-500 dark:text-gray-400">Creado</dt>
                     <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(vendor.createdAt).toLocaleString('es')}</dd>
                   </div>

@@ -325,7 +325,6 @@ export default function TechnicianDetailPage() {
                   label: 'Registrado',
                   value: new Date(technician.createdAt).toLocaleDateString('es'),
                 },
-                { label: 'ID', value: technician.id, mono: true, small: true },
               ].map(({ label, value, mono, small }) => (
                 <div key={label}>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">{label}</dt>

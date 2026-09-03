@@ -463,12 +463,11 @@ export default function TicketDetailPage() {
                     label: ticket.cancelledAt ? 'Cancelado' : 'Resuelto',
                     value: stamp(ticket.cancelledAt ?? ticket.resolvedAt),
                   },
-                  { label: 'ID', value: ticket.id, mono: true, small: true },
-                ].map(({ label, value, mono, small }) => (
+                ].map(({ label, value, mono }) => (
                   <div key={label}>
                     <dt className="font-medium text-gray-500 dark:text-gray-400">{label}</dt>
                     <dd
-                      className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''} ${small ? 'text-xs' : ''}`}
+                      className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''}`}
                     >
                       {value}
                     </dd>

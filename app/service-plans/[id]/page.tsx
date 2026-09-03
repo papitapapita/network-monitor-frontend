@@ -207,10 +207,6 @@ export default function ServicePlanDetailPage() {
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Descripción</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{plan.description ?? '—'}</dd>
                 </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">ID</dt>
-                  <dd className="mt-1 font-mono text-xs text-gray-900 dark:text-gray-100">{plan.id}</dd>
-                </div>
               </dl>
             )}
           </Card.Body>

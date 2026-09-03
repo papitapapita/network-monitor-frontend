@@ -431,11 +431,10 @@ export default function CustomerDetailPage() {
                   { label: 'Email', value: customer.email ?? '—' },
                   { label: 'Cédula', value: customer.cedula ?? '—', mono: true },
                   { label: 'Registrado', value: new Date(customer.createdAt).toLocaleDateString('es') },
-                  { label: 'ID', value: customer.id, mono: true, small: true },
-                ].map(({ label, value, mono, small }) => (
+                ].map(({ label, value, mono }) => (
                   <div key={label}>
                     <dt className="font-medium text-gray-500 dark:text-gray-400">{label}</dt>
-                    <dd className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''} ${small ? 'text-xs' : ''}`}>{value}</dd>
+                    <dd className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''}`}>{value}</dd>
                   </div>
                 ))}
               </dl>

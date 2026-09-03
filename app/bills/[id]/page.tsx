@@ -174,11 +174,10 @@ export default function BillDetailPage() {
               { label: 'Emisión', value: new Date(bill.issueDate).toLocaleDateString('es') },
               { label: 'Vencimiento', value: new Date(bill.dueDate).toLocaleDateString('es') },
               { label: 'Pagada', value: bill.paidAt ? new Date(bill.paidAt).toLocaleDateString('es') : '—' },
-              { label: 'ID', value: bill.id, mono: true, small: true },
-            ].map(({ label, value, mono, small }) => (
+            ].map(({ label, value }) => (
               <div key={label}>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">{label}</dt>
-                <dd className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''} ${small ? 'text-xs break-all' : ''}`}>{value}</dd>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{value}</dd>
               </div>
             ))}
           </dl>
