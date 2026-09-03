@@ -57,17 +57,17 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={`
-              block w-full py-2 rounded-md shadow-sm
+              block w-full py-2 rounded-md shadow-sm transition-colors
               ${icon ? 'pl-9' : 'px-3'} ${icon && !hasClear ? 'pr-3' : ''} ${hasClear ? 'pr-9' : ''}
               bg-white dark:bg-gray-800
               text-gray-900 dark:text-gray-100
               placeholder-gray-400 dark:placeholder-gray-500
               focus:outline-none focus:ring-2 focus:ring-offset-0
-              disabled:opacity-60 disabled:cursor-not-allowed
+              disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-gray-400 dark:disabled:hover:border-gray-600
               ${
                 error
-                  ? 'border border-red-400 focus:border-red-500 focus:ring-red-500'
-                  : 'border border-gray-400 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400'
+                  ? 'border border-red-400 hover:border-red-500 focus:border-red-500 focus:ring-red-500'
+                  : 'border border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-500 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400'
               }
               ${className}
             `}
