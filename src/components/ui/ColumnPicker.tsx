@@ -76,7 +76,7 @@ export function useColumnVisibility(storageKey: string, defaultKeys: string[]): 
 function ColumnsIcon() {
   return (
     <svg
-      className="mr-1.5 h-4 w-4"
+      className="h-4 w-4 shrink-0"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -159,9 +159,10 @@ export function ColumnPicker({
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         aria-haspopup="true"
+        aria-label="Columnas"
       >
         <ColumnsIcon />
-        Columnas
+        <span className="hidden sm:inline">Columnas</span>
       </Button>
 
       {isOpen && (

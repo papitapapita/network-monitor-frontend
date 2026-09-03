@@ -634,6 +634,14 @@ export function DataTable<T>({
 
   const selectionEnabled = !!bulkDelete;
   const selectedCount = selectedIds.size;
+  /**
+   * Mobile card view collapses each row to one prominent field (the first
+   * column — every caller orders its columns with the identifying one first)
+   * plus the rest as label/value pairs, since a phone-width table can only
+   * ever show two or three columns before it has to scroll sideways.
+   */
+  const [primaryColumn, ...secondaryColumns] = columns;
+  const sortableColumns = sort ? columns.filter((c) => c.sortable ?? !!c.sortValue) : [];
   /** What the pending action would run and skip, for the confirmation's wording. */
   const actionSplit = pendingAction
     ? partitionForAction(pendingAction, Array.from(selectedIds))
@@ -676,6 +684,8 @@ export function DataTable<T>({
           </div>
         ) : (
           <>
+            {/* Table — from `lg` up, where the sidebar has left enough room for several columns. */}
+            <div className="hidden lg:block">
             <Table>
               <Table.Header>
                 {selectionEnabled && (
@@ -753,6 +763,124 @@ export function DataTable<T>({
                 )}
               </Table.Body>
             </Table>
+            </div>
+
+            {/* Card list — phones and tablets, where columns beyond one or two
+                force a sideways-scrolling table instead of just stacking. */}
+            <div className="lg:hidden">
+              {(selectionEnabled || sortableColumns.length > 0) && rows.length > 0 && (
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                  {selectionEnabled ? (
+                    <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                      <SelectCheckbox
+                        checked={allSelected}
+                        indeterminate={someSelected}
+                        onChange={toggleAll}
+                        disabled={selectableIds.length === 0}
+                        label="Seleccionar todo"
+                      />
+                      Todo
+                    </label>
+                  ) : (
+                    <span />
+                  )}
+                  {sortableColumns.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={sort!.field ?? ''}
+                        onChange={(e) => sort!.onSort(e.target.value)}
+                        className="text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 py-1 pl-2 pr-6 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="" disabled>
+                          Ordenar por…
+                        </option>
+                        {sortableColumns.map((col) => (
+                          <option key={col.key} value={col.key}>
+                            {typeof col.header === 'string' ? col.header : col.key}
+                          </option>
+                        ))}
+                      </select>
+                      {sort!.field && (
+                        <button
+                          type="button"
+                          onClick={() => sort!.onSort(sort!.field!)}
+                          className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                          aria-label={sort!.direction === 'asc' ? 'Orden ascendente' : 'Orden descendente'}
+                        >
+                          <svg
+                            className={`w-3.5 h-3.5 transition-transform ${sort!.direction === 'desc' ? 'rotate-180' : ''}`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {rows.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">{emptyMessage}</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {rows.map((row) => {
+                    const id = getRowId(row);
+                    const isSelected = selectedIds.has(id);
+                    const rowSelectable = !canDelete || canDelete(row);
+                    return (
+                      <li
+                        key={id}
+                        onClick={onRowClick ? () => onRowClick(row) : undefined}
+                        className={`p-4 ${onRowClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700' : ''} ${
+                          isSelected ? 'bg-blue-50 dark:bg-blue-900/10' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {selectionEnabled && (
+                            <span
+                              className="mt-0.5 shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                              title={rowSelectable ? RANGE_HINT : bulkDelete?.blockedHint}
+                            >
+                              <SelectCheckbox
+                                checked={isSelected}
+                                onChange={(shiftKey) => toggleOne(id, shiftKey)}
+                                disabled={!rowSelectable}
+                                label={`Seleccionar ${getRowLabel?.(row) ?? id}`}
+                              />
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">{primaryColumn?.cell(row)}</div>
+                        </div>
+
+                        {secondaryColumns.length > 0 && (
+                          <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+                            {secondaryColumns.map((col) => (
+                              <div key={col.key} className="min-w-0">
+                                <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                  {col.header}
+                                </dt>
+                                <dd className="mt-0.5">{col.cell(row)}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+
+                        {rowActions && (
+                          <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                            {rowActions(row)}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
 
             {pagination && pagination.totalItems > pagination.itemsPerPage && (
               <Pagination

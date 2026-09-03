@@ -17,7 +17,7 @@ interface PageHeaderProps {
 function RefreshIcon() {
   return (
     <svg
-      className="mr-1.5 h-4 w-4"
+      className="h-4 w-4 shrink-0"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -44,9 +44,9 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
-        {subtitle && <p className="text-gray-600 dark:text-gray-400 mt-1">{subtitle}</p>}
+      <div className="min-w-0">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
+        {subtitle && <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">{subtitle}</p>}
       </div>
 
       <div className="flex flex-col items-end gap-1">
@@ -57,9 +57,10 @@ export function PageHeader({
               onClick={onRefresh}
               isLoading={isRefreshing}
               disabled={isRefreshing}
+              aria-label="Actualizar"
             >
               {!isRefreshing && <RefreshIcon />}
-              Actualizar
+              <span className="hidden sm:inline">Actualizar</span>
             </Button>
           )}
           {actions}
