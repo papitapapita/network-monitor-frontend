@@ -21,9 +21,6 @@ const CONNECTIVITY_LABELS: Record<string, string> = {
   UNKNOWN: 'Desconocido',
 };
 
-/** Connectivity sorts by severity rather than by the label's initial. */
-const CONNECTIVITY_ORDER: Record<string, number> = { ONLINE: 0, OFFLINE: 1, UNKNOWN: 2 };
-
 function ConnectivityBadge({
   device,
   pollingStatuses,
@@ -65,14 +62,6 @@ function DateText({ iso }: { iso: string | null }) {
   return <Text value={iso ? new Date(iso).toLocaleDateString('es') : null} />;
 }
 
-/** An IP sorts by its numeric value, not as text ("10.0.0.9" before "10.0.0.10"). */
-function ipToNumber(ip: string | null): number | null {
-  if (!ip) return null;
-  const octets = ip.split('.');
-  if (octets.length !== 4) return null;
-  return octets.reduce((acc, octet) => acc * 256 + (parseInt(octet, 10) || 0), 0);
-}
-
 /** A DataTable column plus what the column picker needs to list it. */
 type DeviceColumn = DataTableColumn<DeviceResponseDTO> & {
   /** Name shown in the picker. */
@@ -89,8 +78,12 @@ interface DeviceColumnOptions {
 }
 
 /**
- * Every column the devices table can show, in display order. `sortValue` makes
- * each one sortable by a header click; the page orders the rows with `sortRows`.
+ * Every column the devices table can show, in display order. `sortable` marks
+ * a column sortable by a header click, restricted to the fields GET
+ * /api/devices can order by (sortBy: createdAt | updatedAt | name | status |
+ * deletedAt | ipAddress) — the server sorts before pagination, so the page
+ * just requests the field and renders whatever page comes back. The 'ip'
+ * column key maps to the API's `ipAddress` in `useDevices`' `toSortBy`.
  */
 function deviceColumnCatalog({
   pollingStatuses,
@@ -103,7 +96,7 @@ function deviceColumnCatalog({
       label: 'Nombre',
       locked: true,
       header: 'Nombre',
-      sortValue: (device) => device.name.toLowerCase(),
+      sortable: true,
       cell: (device) => (
         <>
           <div className="font-medium text-gray-900 dark:text-gray-100">{device.name}</div>
@@ -117,7 +110,7 @@ function deviceColumnCatalog({
       key: 'ip',
       label: 'Dirección IP',
       header: 'Dirección IP',
-      sortValue: (device) => ipToNumber(device.ipAddress),
+      sortable: true,
       cell: (device) =>
         device.ipAddress ? (
           <a
@@ -138,15 +131,13 @@ function deviceColumnCatalog({
       label: 'Conectividad',
       header: 'Conectividad',
       className: 'hidden md:table-cell',
-      sortValue: (device) =>
-        device.monitoringEnabled ? (CONNECTIVITY_ORDER[pollingStatuses[device.id]] ?? 2) : null,
       cell: (device) => <ConnectivityBadge device={device} pollingStatuses={pollingStatuses} />,
     },
     {
       key: 'status',
       label: 'Estado',
       header: 'Estado',
-      sortValue: (device) => STATUS_LABELS[device.status] ?? device.status,
+      sortable: true,
       cell: (device) => (
         <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
           {STATUS_LABELS[device.status] ?? device.status}
@@ -158,7 +149,6 @@ function deviceColumnCatalog({
       label: 'Categoría',
       header: 'Categoría',
       className: 'hidden lg:table-cell',
-      sortValue: (device) => (device.category ? deviceCategoryLabel(device.category) : null),
       cell: (device) => (
         <Text value={device.category ? deviceCategoryLabel(device.category) : null} />
       ),
@@ -168,22 +158,18 @@ function deviceColumnCatalog({
       label: 'Propietario',
       header: 'Propietario',
       className: 'hidden lg:table-cell',
-      sortValue: (device) => (device.ownerType ? DEVICE_OWNER_LABELS[device.ownerType] : null),
       cell: (device) => <Text value={device.ownerType ? DEVICE_OWNER_LABELS[device.ownerType] : null} />,
     },
     {
       key: 'model',
       label: 'Modelo',
       header: 'Modelo',
-      sortValue: (device) => lookups.modelNames[device.deviceModelId] ?? null,
       cell: (device) => <Text value={lookups.modelNames[device.deviceModelId]} />,
     },
     {
       key: 'location',
       label: 'Ubicación',
       header: 'Ubicación',
-      sortValue: (device) =>
-        device.locationId ? lookups.locationNames[device.locationId] ?? null : null,
       cell: (device) => (
         <Text value={device.locationId ? lookups.locationNames[device.locationId] : null} />
       ),
@@ -192,22 +178,18 @@ function deviceColumnCatalog({
       key: 'serial',
       label: 'Número de serie',
       header: 'Número de serie',
-      sortValue: (device) => device.serialNumber?.toLowerCase() ?? null,
       cell: (device) => <Mono value={device.serialNumber} />,
     },
     {
       key: 'mac',
       label: 'Dirección MAC',
       header: 'Dirección MAC',
-      sortValue: (device) => device.macAddress?.toLowerCase() ?? null,
       cell: (device) => <Mono value={device.macAddress} />,
     },
     {
       key: 'monitoring',
       label: 'Monitoreo',
       header: 'Monitoreo',
-      // Monitored first when ascending.
-      sortValue: (device) => (device.monitoringEnabled ? 0 : 1),
       cell: (device) => (
         <Badge variant={device.monitoringEnabled ? 'success' : 'neutral'}>
           {device.monitoringEnabled ? 'Activo' : 'Inactivo'}
@@ -219,28 +201,26 @@ function deviceColumnCatalog({
       label: 'Descripción',
       header: 'Descripción',
       cellClassName: 'max-w-xs truncate',
-      sortValue: (device) => device.description?.toLowerCase() ?? null,
       cell: (device) => <Text value={device.description} />,
     },
     {
       key: 'installedDate',
       label: 'Fecha de instalación',
       header: 'Instalación',
-      sortValue: (device) => device.installedDate,
       cell: (device) => <DateText iso={device.installedDate} />,
     },
     {
       key: 'createdAt',
       label: 'Fecha de registro',
       header: 'Registrado',
-      sortValue: (device) => device.createdAt,
+      sortable: true,
       cell: (device) => <DateText iso={device.createdAt} />,
     },
     {
       key: 'updatedAt',
       label: 'Última modificación',
       header: 'Modificado',
-      sortValue: (device) => device.updatedAt,
+      sortable: true,
       cell: (device) => <DateText iso={device.updatedAt} />,
     },
   ];

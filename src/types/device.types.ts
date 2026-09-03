@@ -116,7 +116,7 @@ export interface ListDevicesQuery {
    */
   deleted?: 'true' | 'false' | 'any';
   search?: string;
-  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt';
+  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt' | 'ipAddress';
   sortOrder?: 'ASC' | 'DESC';
 }
 

@@ -714,7 +714,9 @@ class ApiService {
       toDate: query?.toDate,
       status: query?.status,
       limit: query?.limit,
-      offset: query?.offset
+      offset: query?.offset,
+      sortBy: query?.sortBy,
+      sortOrder: query?.sortOrder
     });
     return this.request<PollingHistoryResponse>(`/devices/${deviceId}/polling/history${qs}`);
   }

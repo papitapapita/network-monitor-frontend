@@ -15,6 +15,11 @@ const SEARCH_DEBOUNCE_MS = 350;
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
+/** The column key is the URL/localStorage-facing name; only 'ip' diverges from the API's `sortBy`. */
+function toSortBy(field: string): ListDevicesQuery['sortBy'] {
+  return (field === 'ip' ? 'ipAddress' : field) as ListDevicesQuery['sortBy'];
+}
+
 async function buildPollingStatusMap(
   devices: DeviceResponseDTO[]
 ): Promise<Record<string, PollingStatus>> {
@@ -42,11 +47,22 @@ async function fetchDevicesData(params: {
   connectivityFilter: string;
   locationFilter: string;
   search: string;
+  sortField: string | null;
+  sortDirection: 'asc' | 'desc';
 }) {
-  const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search } = params;
+  const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search, sortField, sortDirection } = params;
 
   if (connectivityFilter) {
-    const allResult = await apiService.listDevices({ limit: 300, locationId: locationFilter || undefined });
+    const allResult = await apiService.listDevices({
+      limit: 300,
+      locationId: locationFilter || undefined,
+      // Connectivity itself is filtered locally below (the API has no such
+      // param), but the server-sorted order still holds through that filter
+      // and the slice that follows, so the page stays sorted correctly.
+      ...(sortField
+        ? { sortBy: toSortBy(sortField), sortOrder: sortDirection === 'asc' ? 'ASC' : 'DESC' }
+        : {}),
+    });
     if (!allResult.success || !allResult.data) {
       throw new Error(allResult.error || 'Error al cargar dispositivos');
     }
@@ -86,6 +102,10 @@ async function fetchDevicesData(params: {
   if (categoryFilter) query.category = categoryFilter as DeviceCategory;
   if (locationFilter) query.locationId = locationFilter;
   if (search) query.search = search;
+  if (sortField) {
+    query.sortBy = toSortBy(sortField);
+    query.sortOrder = sortDirection === 'asc' ? 'ASC' : 'DESC';
+  }
 
   const result = await apiService.listDevices(query);
   if (!result.success || !result.data) {
@@ -132,11 +152,11 @@ export function useDevices() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
-  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, debouncedSearch];
+  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, debouncedSearch, sortField, sortDirection];
 
   const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = useQuery({
     queryKey,
-    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch }),
+    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch, sortField, sortDirection }),
     placeholderData: keepPreviousData,
   });
 
@@ -168,15 +188,15 @@ export function useDevices() {
 
   const handleSort = (field: string) => {
     if (sortField === field) {
-      set({ dir: sortDirection === 'asc' ? 'desc' : 'asc' });
+      set({ dir: sortDirection === 'asc' ? 'desc' : 'asc', page: null });
     } else {
-      set({ sort: field, dir: 'asc' });
+      set({ sort: field, dir: 'asc', page: null });
     }
   };
 
   return {
-    // The page orders these itself with `sortRows`, so each column carries its
-    // own `sortValue` and a new column becomes sortable without touching this hook.
+    // The API sorts and paginates together, so a header click here just
+    // requests the new sortBy/sortOrder and the returned page is rendered as-is.
     devices,
     pollingStatuses,
     isLoading: isLoading,

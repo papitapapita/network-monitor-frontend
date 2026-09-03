@@ -46,6 +46,8 @@ export interface PollingHistoryQuery {
   status?: string;
   limit?: number;
   offset?: number;
+  sortBy?: 'checkedAt' | 'latencyMs';
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 /**

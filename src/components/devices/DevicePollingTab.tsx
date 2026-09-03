@@ -174,6 +174,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const [pollingHistory, setPollingHistory] = useState<PollingHistoryResponse | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historySortOrder, setHistorySortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
   // ── History deletion (ADMIN) ──────────────────────────────
   const [showDeleteHistoryModal, setShowDeleteHistoryModal] = useState(false);
@@ -306,7 +307,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     setConfigSaving(false);
   };
 
-  const fetchHistory = async (offset = 0) => {
+  const fetchHistory = async (offset = 0, sortOrder = historySortOrder) => {
     setHistoryLoading(true);
     setHistoryError(null);
     const result = await apiService.getPollingHistory(deviceId, {
@@ -314,7 +315,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       toDate: historyQuery.toDate ? toISOWithOffset(historyQuery.toDate, true) : undefined,
       status: historyQuery.status || undefined,
       limit: parseInt(historyQuery.limit),
-      offset
+      offset,
+      sortBy: 'checkedAt',
+      sortOrder
     });
     if (result.success && result.data) {
       setPollingHistory(result.data);
@@ -323,6 +326,13 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       setHistoryError(result.error || 'Error al cargar el historial');
     }
     setHistoryLoading(false);
+  };
+
+  /** Sorting is a fresh page 1 from the server, not a client re-sort of what's already loaded. */
+  const toggleHistorySort = () => {
+    const next = historySortOrder === 'ASC' ? 'DESC' : 'ASC';
+    setHistorySortOrder(next);
+    fetchHistory(0, next);
   };
 
   /**
@@ -691,7 +701,16 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-gray-500 dark:text-gray-400">
-                      <th className="pb-2 pr-4 font-medium">Fecha/Hora</th>
+                      <th className="pb-2 pr-4 font-medium">
+                        <button
+                          type="button"
+                          onClick={toggleHistorySort}
+                          disabled={historyLoading}
+                          className="inline-flex items-center gap-1 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Fecha/Hora {historySortOrder === 'ASC' ? '▲' : '▼'}
+                        </button>
+                      </th>
                       <th className="pb-2 pr-4 font-medium">Estado</th>
                       <th className="pb-2 pr-4 font-medium">Latencia</th>
                       <th className="pb-2 font-medium">Dispositivo</th>
