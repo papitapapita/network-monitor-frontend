@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
@@ -10,6 +9,7 @@ import {
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useUrlState } from '@/hooks/useUrlState';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -101,25 +101,36 @@ async function fetchDevicesData(params: {
   };
 }
 
+/**
+ * All of pagination, filters and sort live in the URL (via `useUrlState`)
+ * rather than component state, so navigating to a device page and back with
+ * the browser's back button restores the table exactly where it was. `search`
+ * is the one exception: it stays local so typing feels instant, and is
+ * debounced into the URL (and the query) after the operator pauses.
+ */
 export function useDevices() {
-  const searchParams = useSearchParams();
+  const { get, getNumber, set } = useUrlState();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimitState] = useState(20);
-  const [statusFilter, setStatusFilter] = useState(
-    () => searchParams.get('status') ?? ''
-  );
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [connectivityFilter, setConnectivityFilter] = useState(
-    () => searchParams.get('connectivity') ?? ''
-  );
-  const [locationFilter, setLocationFilter] = useState(
-    () => searchParams.get('locationId') ?? ''
-  );
-  const [search, setSearch] = useState('');
+  const currentPage = getNumber('page', 1);
+  const limit = getNumber('limit', 20);
+  const statusFilter = get('status', '');
+  const categoryFilter = get('category', '');
+  const connectivityFilter = get('connectivity', '');
+  const locationFilter = get('locationId', '');
+  const sortField = get('sort', '') || null;
+  const sortDirection = get('dir', 'asc') as 'asc' | 'desc';
+
+  const [search, setSearchState] = useState(() => get('search', ''));
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Mirrors the debounced value into the URL once typing settles, resetting
+  // to page 1 the way every other filter change does.
+  const urlSearch = get('search', '');
+  useEffect(() => {
+    if (debouncedSearch !== urlSearch) set({ search: debouncedSearch || null, page: null });
+    // Only the settled value should push a URL update — not every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, debouncedSearch];
 
@@ -135,26 +146,31 @@ export function useDevices() {
   const totalPages = data?.totalPages ?? 1;
   const lastRefreshed = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
-  const setLimit = (n: number) => {
-    setLimitState(n);
-    setCurrentPage(1);
-  };
+  const setCurrentPage = (page: number) => set({ page: page === 1 ? null : page });
+  const setLimit = (n: number) => set({ limit: n === 20 ? null : n, page: null });
+  const setStatusFilter = (v: string) => set({ status: v || null, page: null });
+  const setCategoryFilter = (v: string) => set({ category: v || null, page: null });
+  const setConnectivityFilter = (v: string) => set({ connectivity: v || null, page: null });
+  const setLocationFilter = (v: string) => set({ locationId: v || null, page: null });
+  const setSearch = (v: string) => setSearchState(v);
 
   const clearFilters = () => {
-    setStatusFilter('');
-    setCategoryFilter('');
-    setConnectivityFilter('');
-    setLocationFilter('');
-    setSearch('');
-    setCurrentPage(1);
+    setSearchState('');
+    set({
+      status: null,
+      category: null,
+      connectivity: null,
+      locationId: null,
+      search: null,
+      page: null,
+    });
   };
 
   const handleSort = (field: string) => {
     if (sortField === field) {
-      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+      set({ dir: sortDirection === 'asc' ? 'desc' : 'asc' });
     } else {
-      setSortField(field);
-      setSortDirection('asc');
+      set({ sort: field, dir: 'asc' });
     }
   };
 

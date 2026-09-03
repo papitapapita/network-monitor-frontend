@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
 import { AlertDTO, AlertSeverity, AlertStatus } from '@/types/alert.types';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
+import { useUrlState } from '@/hooks/useUrlState';
 import {
   Badge,
   Button,
@@ -14,6 +15,7 @@ import {
   ErrorBanner,
   FilterBar,
   Input,
+  LoadingSpinner,
   PageHeader,
   Select,
 } from '@/components/ui';
@@ -138,7 +140,7 @@ async function deleteSelectedAlerts(ids: string[]): Promise<ApiResponse<BulkActi
 const CLEAR_REOPEN_NOTE =
   'Resolver una alerta a mano equivale a que el sistema la resuelva: si el siguiente ciclo sigue encontrando la falla, volverá a abrirse.';
 
-export default function AlertsPage() {
+function AlertsPageContent() {
   const router = useRouter();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -148,21 +150,22 @@ export default function AlertsPage() {
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAlerts, setTotalAlerts] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  const [severityFilter, setSeverityFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [sourceFilter, setSourceFilter] = useState('');
-  const [deviceIdFilter, setDeviceIdFilter] = useState('');
+  const { get, getNumber, set } = useUrlState();
+  const currentPage = getNumber('page', 1);
+  const severityFilter = get('severity', '');
+  const statusFilter = get('status', '');
+  const sourceFilter = get('source', '');
+  const deviceIdFilter = get('deviceId', '');
   // Sources present in the fetched page — the backend exposes no source filter,
   // so the options list can only reflect what we already have.
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
 
-  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const sortColumn = (get('sort', '') || null) as SortColumn | null;
+  const sortDirection = get('dir', 'asc') as SortDirection;
 
   // Clearing a whole device at once — the outage-storm case the ids form makes
   // tedious, since it needs the operator to select what a filter already names.
@@ -235,20 +238,14 @@ export default function AlertsPage() {
     await fetchAlerts();
   };
 
-  const clearFilters = () => {
-    setSeverityFilter('');
-    setStatusFilter('');
-    setSourceFilter('');
-    setDeviceIdFilter('');
-    setCurrentPage(1);
-  };
+  const clearFilters = () =>
+    set({ severity: null, status: null, source: null, deviceId: null, page: null });
 
   const handleSort = (col: SortColumn) => {
     if (sortColumn === col) {
-      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+      set({ dir: sortDirection === 'asc' ? 'desc' : 'asc' });
     } else {
-      setSortColumn(col);
-      setSortDirection('asc');
+      set({ sort: col, dir: 'asc' });
     }
   };
 
@@ -299,7 +296,7 @@ export default function AlertsPage() {
         <Select
           label="Severidad"
           value={severityFilter}
-          onChange={(e) => { setSeverityFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ severity: e.target.value || null, page: null })}
           options={[
             { value: '', label: 'Todas las Severidades' },
             { value: 'WARNING', label: 'Advertencia' },
@@ -310,7 +307,7 @@ export default function AlertsPage() {
         <Select
           label="Estado"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ status: e.target.value || null, page: null })}
           options={[
             { value: '', label: 'Todos los Estados' },
             { value: 'OPEN', label: 'Abierta' },
@@ -321,7 +318,7 @@ export default function AlertsPage() {
         <Select
           label="Origen"
           value={sourceFilter}
-          onChange={(e) => { setSourceFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ source: e.target.value || null, page: null })}
           options={[
             { value: '', label: 'Todos los Orígenes' },
             ...sourceOptions.map((s) => ({ value: s, label: s })),
@@ -331,7 +328,7 @@ export default function AlertsPage() {
         <Input
           label="ID de dispositivo"
           value={deviceIdFilter}
-          onChange={(e) => { setDeviceIdFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ deviceId: e.target.value || null, page: null })}
           placeholder="UUID del dispositivo"
           fullWidth
         />
@@ -419,9 +416,17 @@ export default function AlertsPage() {
           totalPages,
           totalItems: totalAlerts,
           itemsPerPage: LIMIT,
-          onPageChange: setCurrentPage,
+          onPageChange: (page) => set({ page: page === 1 ? null : page }),
         }}
       />
     </div>
+  );
+}
+
+export default function AlertsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><LoadingSpinner /></div>}>
+      <AlertsPageContent />
+    </Suspense>
   );
 }

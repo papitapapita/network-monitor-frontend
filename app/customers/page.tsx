@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo, useState, Suspense } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CustomerDTO } from '@/types/customer.types';
 import { fetchAllCustomers } from '@/hooks/useCatalogs';
+import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Button,
   DataTable,
@@ -15,7 +16,6 @@ import {
   LoadingSpinner,
   PageHeader,
   sortRows,
-  useTableSort,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
 
@@ -52,9 +52,10 @@ const columns: DataTableColumn<CustomerDTO>[] = [
 
 function CustomersPageContent() {
   const router = useRouter();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
+  const { get, getNumber, set } = useUrlState();
+  const currentPage = getNumber('page', 1);
+  const search = get('search', '');
+  const sort = useUrlTableSort({ get, set });
 
   const {
     data: all = [],
@@ -103,12 +104,12 @@ function CustomersPageContent() {
       <FilterBar
         columns={3}
         hasFilters={!!search}
-        onClear={() => { setSearch(''); setCurrentPage(1); }}
+        onClear={() => set({ search: null, page: null })}
       >
         <Input
           label="Buscar"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ search: e.target.value || null, page: null })}
           placeholder="Nombre, teléfono, email o cédula..."
           fullWidth
         />
@@ -141,7 +142,7 @@ function CustomersPageContent() {
           totalPages,
           totalItems: filtered.length,
           itemsPerPage: LIMIT,
-          onPageChange: setCurrentPage,
+          onPageChange: (page) => set({ page: page === 1 ? null : page }),
         }}
       />
     </div>

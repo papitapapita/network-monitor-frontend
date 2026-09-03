@@ -16,6 +16,7 @@ import {
   formatPeriod,
   formatCurrency,
 } from '@/constants/bill.constants';
+import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
   Button,
@@ -28,7 +29,6 @@ import {
   PageHeader,
   Select,
   sortRows,
-  useTableSort,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
 
@@ -102,12 +102,13 @@ function BillsPageContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [yearFilter, setYearFilter] = useState('');
-  const [monthFilter, setMonthFilter] = useState('');
-  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
+  const { get, getNumber, set } = useUrlState();
+  const currentPage = getNumber('page', 1);
+  const search = get('search', '');
+  const statusFilter = get('status', '');
+  const yearFilter = get('year', '');
+  const monthFilter = get('month', '');
+  const sort = useUrlTableSort({ get, set });
 
   const { data: bills = [], isLoading, isFetching, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['bills'],
@@ -151,9 +152,8 @@ function BillsPageContent() {
   }, [filtered]);
 
   const hasFilters = !!(search || statusFilter || yearFilter || monthFilter);
-  const clearFilters = () => {
-    setSearch(''); setStatusFilter(''); setYearFilter(''); setMonthFilter(''); setCurrentPage(1);
-  };
+  const clearFilters = () =>
+    set({ search: null, status: null, year: null, month: null, page: null });
 
   const onGenerated = () => {
     queryClient.invalidateQueries({ queryKey: ['bills'] });
@@ -200,28 +200,28 @@ function BillsPageContent() {
         <Input
           label="Buscar"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ search: e.target.value || null, page: null })}
           placeholder="Cliente o periodo..."
           fullWidth
         />
         <Select
           label="Estado"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ status: e.target.value || null, page: null })}
           options={BILL_STATUS_OPTIONS}
           fullWidth
         />
         <Select
           label="Año"
           value={yearFilter}
-          onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ year: e.target.value || null, page: null })}
           options={[{ value: '', label: 'Todos' }, ...YEAR_OPTIONS]}
           fullWidth
         />
         <Select
           label="Mes"
           value={monthFilter}
-          onChange={(e) => { setMonthFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ month: e.target.value || null, page: null })}
           options={[{ value: '', label: 'Todos' }, ...MONTH_OPTIONS]}
           fullWidth
         />
@@ -248,7 +248,7 @@ function BillsPageContent() {
           totalPages,
           totalItems: filtered.length,
           itemsPerPage: LIMIT,
-          onPageChange: setCurrentPage,
+          onPageChange: (page) => set({ page: page === 1 ? null : page }),
         }}
       />
     </div>

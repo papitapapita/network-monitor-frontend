@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useMemo, useState, Suspense } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO } from '@/types/customer.types';
+import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
   Button,
@@ -16,7 +17,6 @@ import {
   PageHeader,
   Select,
   sortRows,
-  useTableSort,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
 
@@ -84,10 +84,11 @@ const columns: DataTableColumn<ServicePlanDTO>[] = [
 
 function ServicePlansContent() {
   const router = useRouter();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
+  const { get, getNumber, set } = useUrlState();
+  const currentPage = getNumber('page', 1);
+  const search = get('search', '');
+  const statusFilter = get('status', '');
+  const sort = useUrlTableSort({ get, set });
 
   const {
     data: all = [],
@@ -102,11 +103,7 @@ function ServicePlansContent() {
   });
 
   const hasFilters = !!(search || statusFilter);
-  const clearFilters = () => {
-    setSearch('');
-    setStatusFilter('');
-    setCurrentPage(1);
-  };
+  const clearFilters = () => set({ search: null, status: null, page: null });
 
   const filtered = useMemo(() => {
     let rows = search
@@ -140,14 +137,14 @@ function ServicePlansContent() {
         <Input
           label="Buscar"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ search: e.target.value || null, page: null })}
           placeholder="Nombre del plan..."
           fullWidth
         />
         <Select
           label="Estado"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ status: e.target.value || null, page: null })}
           options={[
             { value: '', label: 'Todos los Estados' },
             { value: 'active', label: 'Activo' },
@@ -184,7 +181,7 @@ function ServicePlansContent() {
           totalPages,
           totalItems: filtered.length,
           itemsPerPage: LIMIT,
-          onPageChange: setCurrentPage,
+          onPageChange: (page) => set({ page: page === 1 ? null : page }),
         }}
       />
     </div>

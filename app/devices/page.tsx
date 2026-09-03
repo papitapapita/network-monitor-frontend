@@ -165,7 +165,7 @@ function DevicesPageContent() {
           </span>
           <button
             type="button"
-            onClick={() => { setLocationFilter(''); setCurrentPage(1); }}
+            onClick={() => setLocationFilter('')}
             className="text-blue-600 dark:text-blue-400 hover:underline"
           >
             Quitar filtro
@@ -179,10 +179,10 @@ function DevicesPageContent() {
         connectivityFilter={connectivityFilter}
         search={search}
         hasFilters={hasFilters}
-        onStatusChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
-        onCategoryChange={(v) => { setCategoryFilter(v); setCurrentPage(1); }}
-        onConnectivityChange={(v) => { setConnectivityFilter(v); setCurrentPage(1); }}
-        onSearchChange={(v) => { setSearch(v); setCurrentPage(1); }}
+        onStatusChange={setStatusFilter}
+        onCategoryChange={setCategoryFilter}
+        onConnectivityChange={setConnectivityFilter}
+        onSearchChange={setSearch}
         onClear={clearFilters}
       />
 

@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
@@ -14,6 +13,7 @@ import {
   isReversedDateRange,
 } from '@/constants/ticket.constants';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useUrlState } from '@/hooks/useUrlState';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -78,28 +78,38 @@ async function fetchTicketsPage(filters: TicketFilters, page: number, limit: num
  * doing anything — monitoring opens tickets by itself — so this filters and
  * paginates on the server rather than fetching everything and slicing, the way
  * the customer and vendor pages can afford to.
+ *
+ * Pagination, filters and sort live in the URL (via `useUrlState`), so a
+ * technician, customer or device page can deep-link into a filtered list, and
+ * so navigating to a ticket and back with the browser's back button restores
+ * the table where it was. `search` is the one exception: it stays local so
+ * typing feels instant, and is debounced into the URL after the operator
+ * pauses.
  */
 export function useTickets() {
-  const searchParams = useSearchParams();
+  const { get, getNumber, set } = useUrlState();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimitState] = useState(20);
+  const currentPage = getNumber('page', 1);
+  const limit = getNumber('limit', 20);
 
-  // Read once from the URL so the technician, customer and device pages can
-  // deep-link into a filtered list. Not written back: the filters are page
-  // state from then on.
-  const [statusFilter, setStatusFilterState] = useState(() => searchParams.get('status') ?? '');
-  const [technicianFilter, setTechnicianFilterState] = useState(
-    () => searchParams.get('technicianId') ?? ''
-  );
-  const [priorityFilter, setPriorityFilterState] = useState('');
-  const [categoryFilter, setCategoryFilterState] = useState('');
-  const [scheduledFrom, setScheduledFromState] = useState('');
-  const [scheduledTo, setScheduledToState] = useState('');
-  const [search, setSearch] = useState('');
+  const statusFilter = get('status', '');
+  const technicianFilter = get('technicianId', '');
+  const priorityFilter = get('priority', '');
+  const categoryFilter = get('category', '');
+  const scheduledFrom = get('scheduledFrom', '');
+  const scheduledTo = get('scheduledTo', '');
+  const sortField = get('sort', '') || null;
+  const sortDirection = get('dir', 'asc') as 'asc' | 'desc';
+
+  const [search, setSearchState] = useState(() => get('search', ''));
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const urlSearch = get('search', '');
+  useEffect(() => {
+    if (debouncedSearch !== urlSearch) set({ search: debouncedSearch || null, page: null });
+    // Only the settled value should push a URL update — not every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const filters: TicketFilters = {
     statusFilter,
@@ -153,28 +163,35 @@ export function useTickets() {
 
   // Every filter change resets to the first page — page 4 of the old result set
   // is rarely page 4 of the new one, and is often past its end.
-  const onFirstPage = <T,>(set: (value: T) => void) => (value: T) => {
-    set(value);
-    setCurrentPage(1);
-  };
+  const setCurrentPage = (page: number) => set({ page: page === 1 ? null : page });
+  const setLimit = (n: number) => set({ limit: n === 20 ? null : n, page: null });
+  const setStatusFilter = (v: string) => set({ status: v || null, page: null });
+  const setTechnicianFilter = (v: string) => set({ technicianId: v || null, page: null });
+  const setPriorityFilter = (v: string) => set({ priority: v || null, page: null });
+  const setCategoryFilter = (v: string) => set({ category: v || null, page: null });
+  const setScheduledFrom = (v: string) => set({ scheduledFrom: v || null, page: null });
+  const setScheduledTo = (v: string) => set({ scheduledTo: v || null, page: null });
+  const setSearch = (v: string) => setSearchState(v);
 
   const clearFilters = () => {
-    setStatusFilterState('');
-    setTechnicianFilterState('');
-    setPriorityFilterState('');
-    setCategoryFilterState('');
-    setScheduledFromState('');
-    setScheduledToState('');
-    setSearch('');
-    setCurrentPage(1);
+    setSearchState('');
+    set({
+      status: null,
+      technicianId: null,
+      priority: null,
+      category: null,
+      scheduledFrom: null,
+      scheduledTo: null,
+      search: null,
+      page: null,
+    });
   };
 
   const handleSort = (field: string) => {
     if (sortField === field) {
-      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+      set({ dir: sortDirection === 'asc' ? 'desc' : 'asc' });
     } else {
-      setSortField(field);
-      setSortDirection('asc');
+      set({ sort: field, dir: 'asc' });
     }
   };
 
@@ -205,19 +222,19 @@ export function useTickets() {
       scheduledTo ||
       search
     ),
-    setStatusFilter: onFirstPage(setStatusFilterState),
-    setTechnicianFilter: onFirstPage(setTechnicianFilterState),
-    setPriorityFilter: onFirstPage(setPriorityFilterState),
-    setCategoryFilter: onFirstPage(setCategoryFilterState),
-    setScheduledFrom: onFirstPage(setScheduledFromState),
-    setScheduledTo: onFirstPage(setScheduledToState),
-    setSearch: onFirstPage(setSearch),
+    setStatusFilter,
+    setTechnicianFilter,
+    setPriorityFilter,
+    setCategoryFilter,
+    setScheduledFrom,
+    setScheduledTo,
+    setSearch,
     setCurrentPage,
     handleSort,
     clearFilters,
     fetchTickets: refetch,
     limit,
-    setLimit: onFirstPage(setLimitState),
+    setLimit,
     PAGE_SIZE_OPTIONS,
   };
 }

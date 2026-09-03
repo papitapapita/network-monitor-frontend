@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 /** The list endpoint has no search param, so the page fetches all and filters client-side. */
 import { fetchAllLocations } from '@/hooks/useCatalogs';
 import { LocationResponseDTO } from '@/types/location.types';
+import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   LOCATION_TYPE_LABELS,
   LOCATION_TYPE_BADGE_VARIANTS,
@@ -19,10 +20,10 @@ import {
   ErrorBanner,
   FilterBar,
   Input,
+  LoadingSpinner,
   PageHeader,
   Select,
   sortRows,
-  useTableSort,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
 
@@ -83,13 +84,14 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
   },
 ];
 
-export default function LocationsPage() {
+function LocationsPageContent() {
   const router = useRouter();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
+  const { get, getNumber, set } = useUrlState();
+  const currentPage = getNumber('page', 1);
+  const search = get('search', '');
+  const typeFilter = get('type', '');
+  const sort = useUrlTableSort({ get, set });
 
   const {
     data: allLocations = [],
@@ -104,11 +106,7 @@ export default function LocationsPage() {
   });
 
   const hasFilters = !!(search || typeFilter);
-  const clearFilters = () => {
-    setSearch('');
-    setTypeFilter('');
-    setCurrentPage(1);
-  };
+  const clearFilters = () => set({ search: null, type: null, page: null });
 
   const filtered = useMemo(() => {
     let rows = typeFilter ? allLocations.filter((l) => l.type === typeFilter) : allLocations;
@@ -145,14 +143,14 @@ export default function LocationsPage() {
         <Input
           label="Buscar"
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ search: e.target.value || null, page: null })}
           placeholder="Nombre, municipio, barrio o dirección..."
           fullWidth
         />
         <Select
           label="Tipo"
           value={typeFilter}
-          onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => set({ type: e.target.value || null, page: null })}
           options={LOCATION_TYPE_FILTER_OPTIONS}
           fullWidth
         />
@@ -185,9 +183,17 @@ export default function LocationsPage() {
           totalPages,
           totalItems: filtered.length,
           itemsPerPage: PAGE_LIMIT,
-          onPageChange: setCurrentPage,
+          onPageChange: (page) => set({ page: page === 1 ? null : page }),
         }}
       />
     </div>
+  );
+}
+
+export default function LocationsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><LoadingSpinner /></div>}>
+      <LocationsPageContent />
+    </Suspense>
   );
 }

@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useMemo, useState, Suspense } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { TechnicianDTO } from '@/types/technician.types';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
 import { useAuth } from '@/contexts/auth.context';
+import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   TECHNICIAN_ACTIVE_FILTER_OPTIONS,
   technicianActiveLabel,
@@ -23,7 +24,6 @@ import {
   PageHeader,
   Select,
   sortRows,
-  useTableSort,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
 
@@ -76,10 +76,11 @@ function TechniciansPageContent() {
   const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
   const isAdmin = user?.role === 'ADMIN';
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState('');
-  const sort = useTableSort({ onChange: () => setCurrentPage(1) });
+  const { get, getNumber, set } = useUrlState();
+  const currentPage = getNumber('page', 1);
+  const search = get('search', '');
+  const activeFilter = get('active', '');
+  const sort = useUrlTableSort({ get, set });
 
   // The rota is a few dozen people at most, and the assignment pickers want the
   // whole list anyway — so one cached query serves this page, the ticket form
@@ -129,29 +130,19 @@ function TechniciansPageContent() {
       <FilterBar
         columns={3}
         hasFilters={!!(search || activeFilter)}
-        onClear={() => {
-          setSearch('');
-          setActiveFilter('');
-          setCurrentPage(1);
-        }}
+        onClear={() => set({ search: null, active: null, page: null })}
       >
         <Input
           label="Buscar"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setCurrentPage(1);
-          }}
+          onChange={(e) => set({ search: e.target.value || null, page: null })}
           placeholder="Nombre, teléfono o email..."
           fullWidth
         />
         <Select
           label="Estado"
           value={activeFilter}
-          onChange={(e) => {
-            setActiveFilter(e.target.value);
-            setCurrentPage(1);
-          }}
+          onChange={(e) => set({ active: e.target.value || null, page: null })}
           options={TECHNICIAN_ACTIVE_FILTER_OPTIONS}
           fullWidth
         />
@@ -193,7 +184,7 @@ function TechniciansPageContent() {
           totalPages,
           totalItems: filtered.length,
           itemsPerPage: LIMIT,
-          onPageChange: setCurrentPage,
+          onPageChange: (page) => set({ page: page === 1 ? null : page }),
         }}
       />
     </div>

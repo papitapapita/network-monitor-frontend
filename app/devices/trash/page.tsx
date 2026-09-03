@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
 import { DeviceResponseDTO } from '@/types/device.types';
+import { useUrlState } from '@/hooks/useUrlState';
 import {
   Badge,
   Button,
   DataTable,
   ErrorBanner,
+  LoadingSpinner,
   PageHeader,
   getDeviceStatusBadgeVariant,
 } from '@/components/ui';
@@ -64,13 +66,14 @@ function graceRemaining(deletedAt: string | null): { expired: boolean; label: st
  * first. Seeing it needs only `read`, but both actions on it are ADMIN — undoing
  * a delete and finishing one early are both the delete authority.
  */
-export default function DeviceTrashPage() {
+function DeviceTrashPageContent() {
   const router = useRouter();
   const { user } = useAuth();
   const canManage = user?.role === 'ADMIN';
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const { getNumber, set } = useUrlState();
+  const currentPage = getNumber('page', 1);
+  const limit = getNumber('limit', 20);
   const [actionError, setActionError] = useState<string | null>(null);
   const { showError } = useToast();
   const [notice, setNotice] = useState<string | null>(null);
@@ -304,11 +307,19 @@ export default function DeviceTrashPage() {
           totalPages,
           totalItems: total,
           itemsPerPage: limit,
-          onPageChange: setCurrentPage,
+          onPageChange: (page) => set({ page: page === 1 ? null : page }),
           pageSizeOptions: PAGE_SIZE_OPTIONS,
-          onPageSizeChange: (n) => { setLimit(n); setCurrentPage(1); },
+          onPageSizeChange: (n) => set({ limit: n === 20 ? null : n, page: null }),
         }}
       />
     </div>
+  );
+}
+
+export default function DeviceTrashPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><LoadingSpinner /></div>}>
+      <DeviceTrashPageContent />
+    </Suspense>
   );
 }
