@@ -15,7 +15,7 @@ import {
   canCancel,
   canMarkOverdue,
 } from '@/constants/bill.constants';
-import { Card, Button, LoadingSpinner, Badge, Table } from '@/components/ui';
+import { Card, Button, LoadingSpinner, Badge, Table, IconButton, ArrowLeftIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 
@@ -135,7 +135,7 @@ export default function BillDetailPage() {
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
+          <IconButton icon={<ArrowLeftIcon />} label="Volver a facturas" onClick={() => router.back()} />
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatPeriod(bill.period)}</h1>

@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
-import { Card, Button, EditIcon, IconButton, Input, Textarea, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, ArrowLeftIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -190,7 +190,7 @@ export default function VendorDetailPage() {
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-start gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
+          <IconButton icon={<ArrowLeftIcon />} label="Volver a fabricantes" onClick={() => router.back()} />
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{vendor.name}</h1>
             <p className="font-mono text-sm text-gray-500 dark:text-gray-400">{vendor.slug}</p>

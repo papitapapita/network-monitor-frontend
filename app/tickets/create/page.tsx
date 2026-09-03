@@ -18,7 +18,7 @@ import {
   useAddressGeocoding,
   validateAddress,
 } from '@/components/tickets/TicketAddressFields';
-import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner } from '@/components/ui';
+import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner, IconButton, ArrowLeftIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 function CreateTicketPageContent() {
@@ -163,9 +163,7 @@ function CreateTicketPageContent() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6 flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          ← Atrás
-        </Button>
+        <IconButton icon={<ArrowLeftIcon />} label="Volver a tickets" onClick={() => router.back()} />
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Nuevo Ticket</h1>
           <p className="text-gray-600 dark:text-gray-400">Registra una orden de trabajo en campo</p>

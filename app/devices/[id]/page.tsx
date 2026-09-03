@@ -11,7 +11,7 @@ import {
   ReplaceDeviceResultDTO,
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
-import { Button, LoadingSpinner, Tooltip, IconButton } from '@/components/ui';
+import { Button, LoadingSpinner, Tooltip, IconButton, ArrowLeftIcon } from '@/components/ui';
 import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
@@ -38,14 +38,6 @@ const TAB_LABELS: Record<Tab, string> = {
   credentials: 'Credenciales',
   history: 'Historial',
 };
-
-function ArrowLeftIcon() {
-  return (
-    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-    </svg>
-  );
-}
 
 function SwapIcon() {
   return (

@@ -12,7 +12,7 @@ import {
   VendorDTO,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
-import { Card, Button, Input, Textarea, Select, Combobox, LoadingSpinner } from '@/components/ui';
+import { Card, Button, Input, Textarea, Select, Combobox, LoadingSpinner, IconButton, ArrowLeftIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
@@ -211,9 +211,7 @@ export default function CreateDevicePage() {
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-2">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
-            ← Atrás
-          </Button>
+          <IconButton icon={<ArrowLeftIcon />} label="Volver a dispositivos" onClick={() => router.back()} />
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Dispositivo</h1>
         </div>
         <p className="text-gray-600 dark:text-gray-400">Registra un nuevo dispositivo en la red</p>

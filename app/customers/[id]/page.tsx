@@ -12,7 +12,7 @@ import {
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
-import { Card, Button, EditIcon, IconButton, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, ArrowLeftIcon, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -389,7 +389,7 @@ export default function CustomerDetailPage() {
 
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
+          <IconButton icon={<ArrowLeftIcon />} label="Volver a clientes" onClick={() => router.back()} />
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>

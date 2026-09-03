@@ -42,6 +42,7 @@ import {
   Button,
   EditIcon,
   IconButton,
+  ArrowLeftIcon,
   Input,
   Select,
   Textarea,
@@ -277,9 +278,7 @@ export default function TicketDetailPage() {
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
-            ← Atrás
-          </Button>
+          <IconButton icon={<ArrowLeftIcon />} label="Volver a tickets" onClick={() => router.back()} />
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
               <span className="font-mono text-gray-500 dark:text-gray-400">#{ticket.code}</span>{' '}

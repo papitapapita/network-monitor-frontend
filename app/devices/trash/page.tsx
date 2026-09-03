@@ -8,10 +8,12 @@ import { useAuth } from '@/contexts/auth.context';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { useUrlState } from '@/hooks/useUrlState';
 import {
+  ArrowLeftIcon,
   Badge,
   Button,
   DataTable,
   ErrorBanner,
+  IconButton,
   LoadingSpinner,
   PageHeader,
   getDeviceStatusBadgeVariant,
@@ -28,21 +30,6 @@ import {
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 const GRACE_MS = RESTORE_GRACE_DAYS * 24 * 60 * 60 * 1000;
-
-function ArrowLeftIcon() {
-  return (
-    <svg
-      className="h-4 w-4 shrink-0"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-    </svg>
-  );
-}
 
 /**
  * How much of the grace period is left. Once it lapses the row is gone or about
@@ -195,10 +182,7 @@ function DeviceTrashPageContent() {
       {/* The bin is a detour off the device list, so the way back out sits where
           a back control is looked for: top left, ahead of the title. */}
       <div className="mb-4">
-        <Button variant="outline" size="sm" onClick={() => router.push('/devices')}>
-          <ArrowLeftIcon />
-          Volver a dispositivos
-        </Button>
+        <IconButton icon={<ArrowLeftIcon />} label="Volver a dispositivos" onClick={() => router.push('/devices')} />
       </div>
 
       <PageHeader

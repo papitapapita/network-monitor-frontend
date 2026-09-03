@@ -19,7 +19,7 @@ import {
   formatScheduledFor,
   todayISODate,
 } from '@/constants/ticket.constants';
-import { Card, Button, EditIcon, IconButton, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, ArrowLeftIcon, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function TechnicianDetailPage() {
@@ -194,9 +194,7 @@ export default function TechnicianDetailPage() {
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
-            ← Atrás
-          </Button>
+          <IconButton icon={<ArrowLeftIcon />} label="Volver a técnicos" onClick={() => router.back()} />
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
               {technician.fullName}
