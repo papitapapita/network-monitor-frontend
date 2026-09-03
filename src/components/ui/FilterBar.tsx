@@ -1,14 +1,27 @@
 'use client';
 
-import React from 'react';
-import { Button } from './Button';
+import React, { useState } from 'react';
+import { IconButton } from './IconButton';
+import { Input } from './Input';
+import { SearchIcon, FunnelIcon, XCircleIcon } from './icons';
+
+interface FilterBarSearch {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  maxLength?: number;
+}
 
 interface FilterBarProps {
-  /** Filter controls — Input/Select/Combobox, one per grid cell. */
-  children: React.ReactNode;
+  /** Always-visible search field — icon-only, no redundant "Buscar" label. Omit on pages with only structured (Select) filters. */
+  search?: FilterBarSearch;
+  /** Secondary filters (Select, date range, etc.) — collapsed behind the funnel toggle by default. */
+  children?: React.ReactNode;
   onClear: () => void;
   hasFilters: boolean;
-  /** Grid columns from `lg` up, counting the "Limpiar Filtros" cell. */
+  /** A secondary filter (not the search box) is currently active — expands the panel on mount so it isn't hidden. */
+  secondaryFiltersActive?: boolean;
+  /** Grid columns from `lg` up for the collapsed filters, counting the "Limpiar" cell. */
   columns?: 2 | 3 | 4 | 5;
 }
 
@@ -20,18 +33,68 @@ const columnClasses: Record<NonNullable<FilterBarProps['columns']>, string> = {
   5: 'lg:grid-cols-5',
 };
 
-/** The filter panel above every list table. */
-export function FilterBar({ children, onClear, hasFilters, columns = 3 }: FilterBarProps) {
+/**
+ * The filter panel above every list table. Search stays visible as a single
+ * compact row so the table shows up front instead of a full screen of filter
+ * fields; any secondary filters (Selects, date ranges) collapse behind the
+ * funnel toggle, auto-expanding when one of them already has a value.
+ */
+export function FilterBar({
+  search,
+  children,
+  onClear,
+  hasFilters,
+  secondaryFiltersActive = false,
+  columns = 3,
+}: FilterBarProps) {
+  const [expanded, setExpanded] = useState(secondaryFiltersActive);
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${columnClasses[columns]}`}>
-        {children}
-        <div className="flex items-end">
-          <Button variant="outline" fullWidth onClick={onClear} disabled={!hasFilters}>
-            Limpiar Filtros
-          </Button>
-        </div>
+    <div className="mb-4">
+      <div className="flex items-center gap-2">
+        {search && (
+          <Input
+            icon={<SearchIcon />}
+            aria-label="Buscar"
+            value={search.value}
+            onChange={(e) => search.onChange(e.target.value)}
+            onClear={() => search.onChange('')}
+            placeholder={search.placeholder}
+            maxLength={search.maxLength}
+            fullWidth
+          />
+        )}
+
+        {children && (
+          <div className="relative shrink-0">
+            <IconButton
+              icon={<FunnelIcon />}
+              label={expanded ? 'Ocultar filtros' : 'Más filtros'}
+              variant="outline"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+            />
+            {secondaryFiltersActive && !expanded && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-white dark:ring-gray-900" />
+            )}
+          </div>
+        )}
       </div>
+
+      {children && expanded && (
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 ${columnClasses[columns]}`}>
+          {children}
+          <div className="flex items-end">
+            <IconButton
+              icon={<XCircleIcon />}
+              label="Limpiar filtros"
+              variant="outline"
+              onClick={onClear}
+              disabled={!hasFilters}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

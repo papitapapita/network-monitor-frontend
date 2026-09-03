@@ -13,7 +13,6 @@ import {
   ErrorBanner,
   FilterBar,
   IconButton,
-  Input,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
@@ -134,14 +133,18 @@ function DeviceModelsPageContent() {
         }
       />
 
-      <FilterBar columns={3} hasFilters={hasFilters} onClear={clearFilters}>
-        <Input
-          label="Buscar"
-          value={search}
-          onChange={(e) => set({ search: e.target.value || null, page: null })}
-          placeholder="Fabricante o modelo..."
-          fullWidth
-        />
+      <FilterBar
+        columns={2}
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        secondaryFiltersActive={!!typeFilter}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Fabricante o modelo...',
+          maxLength: 150,
+        }}
+      >
         <Select
           label="Tipo de Dispositivo"
           value={typeFilter}

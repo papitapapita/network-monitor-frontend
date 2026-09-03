@@ -19,7 +19,6 @@ import {
   ErrorBanner,
   FilterBar,
   IconButton,
-  Input,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
@@ -149,14 +148,18 @@ function LocationsPageContent() {
         }
       />
 
-      <FilterBar columns={3} hasFilters={hasFilters} onClear={clearFilters}>
-        <Input
-          label="Buscar"
-          value={search}
-          onChange={(e) => set({ search: e.target.value || null, page: null })}
-          placeholder="Nombre, municipio, barrio o dirección..."
-          fullWidth
-        />
+      <FilterBar
+        columns={2}
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        secondaryFiltersActive={!!typeFilter}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre, municipio, barrio o dirección...',
+          maxLength: 150,
+        }}
+      >
         <Select
           label="Tipo"
           value={typeFilter}

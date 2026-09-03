@@ -11,7 +11,6 @@ import {
   ErrorBanner,
   FilterBar,
   IconButton,
-  Input,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
@@ -125,18 +124,15 @@ function VendorsPageContent() {
       />
 
       <FilterBar
-        columns={3}
         hasFilters={!!search}
         onClear={() => set({ search: null, page: null })}
-      >
-        <Input
-          label="Buscar"
-          value={search}
-          onChange={(e) => set({ search: e.target.value || null, page: null })}
-          placeholder="Nombre o slug..."
-          fullWidth
-        />
-      </FilterBar>
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre o slug...',
+          maxLength: 150,
+        }}
+      />
 
       {error && <ErrorBanner message={(error as Error).message} onRetry={() => refetch()} />}
 

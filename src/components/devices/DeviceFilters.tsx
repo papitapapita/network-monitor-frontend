@@ -1,6 +1,6 @@
 'use client';
 
-import { Select, Input, FilterBar } from '@/components/ui';
+import { Select, FilterBar } from '@/components/ui';
 import { DEVICE_CATEGORY_FILTER_OPTIONS, DEVICE_STATUS_FILTER_OPTIONS } from '@/constants/device.constants';
 
 interface DeviceFiltersProps {
@@ -29,7 +29,18 @@ export function DeviceFilters({
   onClear,
 }: DeviceFiltersProps) {
   return (
-    <FilterBar columns={5} hasFilters={hasFilters} onClear={onClear}>
+    <FilterBar
+      columns={4}
+      hasFilters={hasFilters}
+      onClear={onClear}
+      secondaryFiltersActive={!!(statusFilter || categoryFilter || connectivityFilter)}
+      search={{
+        value: search,
+        onChange: onSearchChange,
+        placeholder: 'Nombre, IP, MAC, serie...',
+        maxLength: 150,
+      }}
+    >
       <Select
         label="Estado"
         value={statusFilter}
@@ -54,13 +65,6 @@ export function DeviceFilters({
           { value: 'OFFLINE', label: 'Desconectado' },
           { value: 'UNKNOWN', label: 'Desconocido' },
         ]}
-        fullWidth
-      />
-      <Input
-        label="Buscar"
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        placeholder="Nombre, IP, MAC, serie..."
         fullWidth
       />
     </FilterBar>

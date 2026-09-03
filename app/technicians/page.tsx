@@ -19,7 +19,6 @@ import {
   ErrorBanner,
   FilterBar,
   IconButton,
-  Input,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
@@ -138,17 +137,17 @@ function TechniciansPageContent() {
       />
 
       <FilterBar
-        columns={3}
+        columns={2}
         hasFilters={!!(search || activeFilter)}
         onClear={() => set({ search: null, active: null, page: null })}
+        secondaryFiltersActive={!!activeFilter}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre, teléfono o email...',
+          maxLength: 150,
+        }}
       >
-        <Input
-          label="Buscar"
-          value={search}
-          onChange={(e) => set({ search: e.target.value || null, page: null })}
-          placeholder="Nombre, teléfono o email..."
-          fullWidth
-        />
         <Select
           label="Estado"
           value={activeFilter}

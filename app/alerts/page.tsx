@@ -290,7 +290,12 @@ function AlertsPageContent() {
         lastRefreshed={lastRefreshed}
       />
 
-      <FilterBar columns={5} hasFilters={!!hasFilters} onClear={clearFilters}>
+      <FilterBar
+        columns={5}
+        hasFilters={!!hasFilters}
+        onClear={clearFilters}
+        secondaryFiltersActive={!!hasFilters}
+      >
         <Select
           label="Severidad"
           value={severityFilter}

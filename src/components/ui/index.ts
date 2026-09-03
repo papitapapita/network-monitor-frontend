@@ -56,4 +56,4 @@ export { IconButton } from './IconButton';
 
 export { BackLink } from './BackLink';
 
-export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon } from './icons';
+export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon } from './icons';

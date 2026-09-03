@@ -199,14 +199,18 @@ function BillsPageContent() {
         }
       />
 
-      <FilterBar columns={5} hasFilters={hasFilters} onClear={clearFilters}>
-        <Input
-          label="Buscar"
-          value={search}
-          onChange={(e) => set({ search: e.target.value || null, page: null })}
-          placeholder="Cliente o periodo..."
-          fullWidth
-        />
+      <FilterBar
+        columns={4}
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        secondaryFiltersActive={!!(statusFilter || yearFilter || monthFilter)}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Cliente o periodo...',
+          maxLength: 150,
+        }}
+      >
         <Select
           label="Estado"
           value={statusFilter}

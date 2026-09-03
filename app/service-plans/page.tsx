@@ -12,7 +12,6 @@ import {
   ErrorBanner,
   FilterBar,
   IconButton,
-  Input,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
@@ -143,14 +142,18 @@ function ServicePlansContent() {
         }
       />
 
-      <FilterBar columns={3} hasFilters={hasFilters} onClear={clearFilters}>
-        <Input
-          label="Buscar"
-          value={search}
-          onChange={(e) => set({ search: e.target.value || null, page: null })}
-          placeholder="Nombre del plan..."
-          fullWidth
-        />
+      <FilterBar
+        columns={2}
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        secondaryFiltersActive={!!statusFilter}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre del plan...',
+          maxLength: 150,
+        }}
+      >
         <Select
           label="Estado"
           value={statusFilter}

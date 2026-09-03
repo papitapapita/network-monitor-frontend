@@ -102,15 +102,25 @@ function TicketsPageContent() {
         }
       />
 
-      <FilterBar columns={4} hasFilters={t.hasFilters} onClear={t.clearFilters}>
-        <Input
-          label="Buscar"
-          value={t.search}
-          onChange={(e) => t.setSearch(e.target.value)}
-          placeholder="Código, asunto o descripción..."
-          helperText="Filtra los tickets de esta página"
-          fullWidth
-        />
+      <FilterBar
+        columns={4}
+        hasFilters={t.hasFilters}
+        onClear={t.clearFilters}
+        secondaryFiltersActive={!!(
+          t.statusFilter ||
+          t.priorityFilter ||
+          t.categoryFilter ||
+          t.technicianFilter ||
+          t.scheduledFrom ||
+          t.scheduledTo
+        )}
+        search={{
+          value: t.search,
+          onChange: (value) => t.setSearch(value),
+          placeholder: 'Código, asunto o descripción...',
+          maxLength: 150,
+        }}
+      >
         {/* "Sin cerrar" is an option here rather than a checkbox beside the
             select, because `openOnly` and `status` contradict each other on the
             backend and the broader one wins silently. One control, one
