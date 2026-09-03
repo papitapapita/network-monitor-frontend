@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { Card, Button, IconButton, ArrowLeftIcon } from '@/components/ui';
+import { Card, Button, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import {
   LocationForm,
@@ -53,10 +53,8 @@ export default function CreateLocationPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
-        <div className="flex items-center gap-4 mb-2">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a ubicaciones" onClick={() => router.back()} />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Ubicación</h1>
-        </div>
+        <BackLink label="Ubicaciones" onClick={() => router.back()} className="mb-2" />
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Ubicación</h1>
         <p className="text-gray-600 dark:text-gray-400">Registra una nueva ubicación de la red</p>
       </div>
 

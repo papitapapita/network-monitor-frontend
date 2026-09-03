@@ -42,7 +42,7 @@ import {
   Button,
   EditIcon,
   IconButton,
-  ArrowLeftIcon,
+  BackLink,
   Input,
   Select,
   Textarea,
@@ -276,26 +276,24 @@ export default function TicketDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+      <BackLink label="Tickets" onClick={() => router.back()} className="mb-2" />
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a tickets" onClick={() => router.back()} />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
-              <span className="font-mono text-gray-500 dark:text-gray-400">#{ticket.code}</span>{' '}
-              {ticket.title}
-            </h1>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={TICKET_STATUS_VARIANTS[ticket.status]}>
-                {TICKET_STATUS_LABELS[ticket.status]}
-              </Badge>
-              <Badge variant={TICKET_PRIORITY_VARIANTS[ticket.priority]}>
-                {TICKET_PRIORITY_LABELS[ticket.priority]}
-              </Badge>
-              <Badge variant="info">{ticketCategoryLabel(ticket.category)}</Badge>
-              {isAlertOrigin(ticket.origin) && (
-                <Badge variant="warning">{ticketOriginLabel(ticket.origin)}</Badge>
-              )}
-            </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
+            <span className="font-mono text-gray-500 dark:text-gray-400">#{ticket.code}</span>{' '}
+            {ticket.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={TICKET_STATUS_VARIANTS[ticket.status]}>
+              {TICKET_STATUS_LABELS[ticket.status]}
+            </Badge>
+            <Badge variant={TICKET_PRIORITY_VARIANTS[ticket.priority]}>
+              {TICKET_PRIORITY_LABELS[ticket.priority]}
+            </Badge>
+            <Badge variant="info">{ticketCategoryLabel(ticket.category)}</Badge>
+            {isAlertOrigin(ticket.origin) && (
+              <Badge variant="warning">{ticketOriginLabel(ticket.origin)}</Badge>
+            )}
           </div>
         </div>
         {isAdmin && (

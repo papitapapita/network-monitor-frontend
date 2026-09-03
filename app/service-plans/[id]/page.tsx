@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, EditIcon, IconButton, ArrowLeftIcon, Input, Textarea, Badge, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, Input, Textarea, Badge, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -132,16 +132,14 @@ export default function ServicePlanDetailPage() {
 
       {loadError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><p className="text-red-800 dark:text-red-400">{loadError}</p></div>}
 
+      <BackLink label="Planes de Servicio" onClick={() => router.back()} className="mb-2" />
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a planes de servicio" onClick={() => router.back()} />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{plan.name}</h1>
-              <Badge variant={plan.isActive ? 'success' : 'neutral'}>{plan.isActive ? 'Activo' : 'Inactivo'}</Badge>
-            </div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5 font-mono">{plan.downloadMbps}↓ / {plan.uploadMbps}↑ Mbps · {fmtPrice(plan.monthlyPrice)}/mes</p>
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{plan.name}</h1>
+            <Badge variant={plan.isActive ? 'success' : 'neutral'}>{plan.isActive ? 'Activo' : 'Inactivo'}</Badge>
           </div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5 font-mono">{plan.downloadMbps}↓ / {plan.uploadMbps}↑ Mbps · {fmtPrice(plan.monthlyPrice)}/mes</p>
         </div>
         <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Eliminar</Button>
       </div>

@@ -11,7 +11,7 @@ import {
   ReplaceDeviceResultDTO,
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
-import { Button, LoadingSpinner, Tooltip, IconButton, ArrowLeftIcon } from '@/components/ui';
+import { Button, LoadingSpinner, Tooltip, IconButton, BackLink, TrashIcon } from '@/components/ui';
 import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
@@ -43,18 +43,6 @@ function SwapIcon() {
   return (
     <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-      />
     </svg>
   );
 }
@@ -279,23 +267,25 @@ export default function DeviceDetailPage() {
       />
 
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3 min-w-0">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a dispositivos" onClick={() => router.back()} />
-          <ConnectivityDot device={device} onlineStatus={onlineStatus} />
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere min-w-0">
-            {device.name}
-          </h1>
-        </div>
-        <div className="flex flex-wrap gap-2 justify-end">
-          {/* A unit can only be swapped once — after that the successor is the
-              one to replace, and its page offers the button. */}
-          {canReplace && !device.replacedByDeviceId && (
-            <IconButton icon={<SwapIcon />} label="Reemplazar equipo" onClick={() => setShowReplaceModal(true)} />
-          )}
-          {canDelete && (
-            <IconButton icon={<TrashIcon />} label="Eliminar dispositivo" variant="danger" onClick={() => setShowDeleteModal(true)} />
-          )}
+      <div className="mb-6">
+        <BackLink label="Dispositivos" onClick={() => router.back()} className="mb-2" />
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <ConnectivityDot device={device} onlineStatus={onlineStatus} />
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere min-w-0">
+              {device.name}
+            </h1>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end">
+            {/* A unit can only be swapped once — after that the successor is the
+                one to replace, and its page offers the button. */}
+            {canReplace && !device.replacedByDeviceId && (
+              <IconButton icon={<SwapIcon />} label="Reemplazar equipo" onClick={() => setShowReplaceModal(true)} />
+            )}
+            {canDelete && (
+              <IconButton icon={<TrashIcon />} label="Eliminar dispositivo" variant="danger" onClick={() => setShowDeleteModal(true)} />
+            )}
+          </div>
         </div>
       </div>
 

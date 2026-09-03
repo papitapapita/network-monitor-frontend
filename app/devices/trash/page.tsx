@@ -8,12 +8,11 @@ import { useAuth } from '@/contexts/auth.context';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { useUrlState } from '@/hooks/useUrlState';
 import {
-  ArrowLeftIcon,
+  BackLink,
   Badge,
   Button,
   DataTable,
   ErrorBanner,
-  IconButton,
   LoadingSpinner,
   PageHeader,
   getDeviceStatusBadgeVariant,
@@ -182,7 +181,7 @@ function DeviceTrashPageContent() {
       {/* The bin is a detour off the device list, so the way back out sits where
           a back control is looked for: top left, ahead of the title. */}
       <div className="mb-4">
-        <IconButton icon={<ArrowLeftIcon />} label="Volver a dispositivos" onClick={() => router.push('/devices')} />
+        <BackLink label="Dispositivos" onClick={() => router.push('/devices')} />
       </div>
 
       <PageHeader

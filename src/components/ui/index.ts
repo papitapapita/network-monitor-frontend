@@ -54,4 +54,6 @@ export { Tooltip } from './Tooltip';
 
 export { IconButton } from './IconButton';
 
-export { PlusIcon, EditIcon, ArrowLeftIcon } from './icons';
+export { BackLink } from './BackLink';
+
+export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon } from './icons';

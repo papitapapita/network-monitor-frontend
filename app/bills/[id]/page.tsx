@@ -15,7 +15,7 @@ import {
   canCancel,
   canMarkOverdue,
 } from '@/constants/bill.constants';
-import { Card, Button, LoadingSpinner, Badge, Table, IconButton, ArrowLeftIcon } from '@/components/ui';
+import { Card, Button, LoadingSpinner, Badge, Table, BackLink } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 
@@ -133,18 +133,18 @@ export default function BillDetailPage() {
         />
       )}
 
+      <div className="mb-2">
+        <BackLink label="Facturas" onClick={() => router.back()} />
+      </div>
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-4">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a facturas" onClick={() => router.back()} />
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatPeriod(bill.period)}</h1>
-              <Badge variant={BILL_STATUS_VARIANTS[bill.status]}>{BILL_STATUS_LABELS[bill.status]}</Badge>
-            </div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
-              {customer ? customer.fullName : bill.customerId}
-            </p>
+        <div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatPeriod(bill.period)}</h1>
+            <Badge variant={BILL_STATUS_VARIANTS[bill.status]}>{BILL_STATUS_LABELS[bill.status]}</Badge>
           </div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
+            {customer ? customer.fullName : bill.customerId}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} isLoading={isDownloading}>Descargar PDF</Button>

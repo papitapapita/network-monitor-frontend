@@ -12,7 +12,7 @@ import {
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
-import { Card, Button, EditIcon, IconButton, ArrowLeftIcon, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -387,13 +387,11 @@ export default function CustomerDetailPage() {
 
       {loadError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><p className="text-red-800 dark:text-red-400">{loadError}</p></div>}
 
+      <BackLink label="Clientes" onClick={() => router.back()} className="mb-2" />
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a clientes" onClick={() => router.back()} />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>
         </div>
         <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Eliminar</Button>
       </div>

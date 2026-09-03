@@ -19,7 +19,7 @@ import {
   formatScheduledFor,
   todayISODate,
 } from '@/constants/ticket.constants';
-import { Card, Button, EditIcon, IconButton, ArrowLeftIcon, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function TechnicianDetailPage() {
@@ -192,21 +192,19 @@ export default function TechnicianDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+      <BackLink label="Técnicos" onClick={() => router.back()} className="mb-2" />
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a técnicos" onClick={() => router.back()} />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
-              {technician.fullName}
-            </h1>
-            <div className="flex items-center gap-2">
-              <Badge variant={technicianActiveVariant(technician.isActive)}>
-                {technicianActiveLabel(technician.isActive)}
-              </Badge>
-              <span className="text-gray-500 dark:text-gray-400 text-sm font-mono">
-                {technician.phone}
-              </span>
-            </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
+            {technician.fullName}
+          </h1>
+          <div className="flex items-center gap-2">
+            <Badge variant={technicianActiveVariant(technician.isActive)}>
+              {technicianActiveLabel(technician.isActive)}
+            </Badge>
+            <span className="text-gray-500 dark:text-gray-400 text-sm font-mono">
+              {technician.phone}
+            </span>
           </div>
         </div>
         <div className="flex flex-wrap justify-end gap-2">

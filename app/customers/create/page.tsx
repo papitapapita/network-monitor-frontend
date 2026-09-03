@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateCustomerDTO } from '@/types/customer.types';
-import { Card, Button, Input, IconButton, ArrowLeftIcon } from '@/components/ui';
+import { Card, Button, Input, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function CreateCustomerPage() {
@@ -54,12 +54,10 @@ export default function CreateCustomerPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <div className="mb-6 flex items-center gap-4">
-        <IconButton icon={<ArrowLeftIcon />} label="Volver a clientes" onClick={() => router.back()} />
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Cliente</h1>
-          <p className="text-gray-600 dark:text-gray-400">Registra un nuevo cliente del servicio</p>
-        </div>
+      <div className="mb-6">
+        <BackLink label="Clientes" onClick={() => router.back()} className="mb-2" />
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Cliente</h1>
+        <p className="text-gray-600 dark:text-gray-400">Registra un nuevo cliente del servicio</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

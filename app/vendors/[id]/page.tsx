@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
-import { Card, Button, EditIcon, IconButton, ArrowLeftIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, TrashIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -188,23 +188,18 @@ export default function VendorDetailPage() {
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="flex items-start gap-4">
-          <IconButton icon={<ArrowLeftIcon />} label="Volver a fabricantes" onClick={() => router.back()} />
+      <div className="mb-6">
+        <BackLink label="Fabricantes" onClick={() => router.back()} className="mb-2" />
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{vendor.name}</h1>
             <p className="font-mono text-sm text-gray-500 dark:text-gray-400">{vendor.slug}</p>
           </div>
-        </div>
-        <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-          Eliminar
-        </Button>
-      </div>
-
-      <div className="space-y-6">
-        <div className="flex justify-end">
           {!isEditing ? (
-            <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
+            <div className="flex gap-2">
+              <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
+              <IconButton icon={<TrashIcon />} label="Eliminar fabricante" variant="danger" onClick={() => setShowDeleteModal(true)} />
+            </div>
           ) : (
             <div className="flex gap-2">
               <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
@@ -212,7 +207,9 @@ export default function VendorDetailPage() {
             </div>
           )}
         </div>
+      </div>
 
+      <div className="space-y-6">
         {isEditing ? (
           <Card>
             <Card.Header>
