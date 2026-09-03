@@ -20,11 +20,24 @@ import {
   Select,
   Combobox,
   Badge,
+  IconButton,
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
+
+function EditIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+      />
+    </svg>
+  );
+}
 
 interface Props {
   device: DeviceResponseDTO;
@@ -253,21 +266,16 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        {!isEditing ? (
-          <Button variant="outline" onClick={() => setIsEditing(true)}>Editar</Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
-            <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
-          </div>
-        )}
-      </div>
-
       {isEditing ? (
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Dispositivo</h2>
+            <div className="flex flex-wrap justify-between items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Dispositivo</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
+                <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
+              </div>
+            </div>
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -457,7 +465,10 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
         <>
           <Card>
             <Card.Header>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Dispositivo</h2>
+              <div className="flex justify-between items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Dispositivo</h2>
+                <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
+              </div>
             </Card.Header>
             <Card.Body>
               <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -544,10 +555,6 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Última Actualización</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(device.updatedAt).toLocaleString('es')}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">ID</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{device.id}</dd>
                 </div>
               </dl>
             </Card.Body>

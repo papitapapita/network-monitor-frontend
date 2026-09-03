@@ -118,29 +118,20 @@ function deviceColumnCatalog({
       label: 'Dirección IP',
       header: 'Dirección IP',
       sortValue: (device) => ipToNumber(device.ipAddress),
-      cell: (device) => (
-        <>
-          {device.ipAddress ? (
-            <a
-              href={`http://${device.ipAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {device.ipAddress}
-            </a>
-          ) : (
-            <span className="text-gray-400 dark:text-gray-500">—</span>
-          )}
-          {/* Connectivity is shown inline where its own column is hidden. */}
-          {device.monitoringEnabled && visibleKeys.includes('connectivity') && (
-            <div className="mt-1 md:hidden">
-              <ConnectivityBadge device={device} pollingStatuses={pollingStatuses} />
-            </div>
-          )}
-        </>
-      ),
+      cell: (device) =>
+        device.ipAddress ? (
+          <a
+            href={`http://${device.ipAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {device.ipAddress}
+          </a>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">—</span>
+        ),
     },
     {
       key: 'connectivity',

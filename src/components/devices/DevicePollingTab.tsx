@@ -15,6 +15,7 @@ import {
   LoadingSpinner,
   Badge,
   ConfirmModal,
+  IconButton,
   getPollingStatusBadgeVariant
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -34,6 +35,47 @@ import {
 } from '@/constants/device.constants';
 import { WIRELESS_INDEPENDENT_OF_ICMP_NOTE } from '@/constants/wireless.constants';
 import { DeviceResponseDTO } from '@/types/device.types';
+
+function RefreshIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  );
+}
+
+function PollIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
 
 function toISOWithOffset(dateStr: string, endOfDay = false): string {
   const time = endOfDay ? 'T23:59:59' : 'T00:00:00';
@@ -108,6 +150,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const lastPolledAt = pollingStatus?.lastPolled ?? pollingStatus?.lastResult?.timestamp ?? null;
 
   // ── Config ────────────────────────────────────────────────
+  /** Hidden until the operator asks for it via the settings icon — most visits
+      only want the current status, not the interval/threshold form. */
+  const [showConfig, setShowConfig] = useState(false);
   const [configForm, setConfigForm] = useState({
     intervalSeconds: '60',
     failuresBeforeDown: '3'
@@ -336,25 +381,114 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
         isLoading={deletingHistory}
       />
 
-      {/* Status */}
+      {/* Status — its own settings icon swaps this card's body for the config
+          form in place, the same way Detalles swaps in "Editar Dispositivo". */}
       <Card>
         <Card.Header>
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Estado del Sondeo</h2>
-            {!monitoringOff && (
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={fetchPollingStatus} disabled={statusLoading}>
-                  Actualizar
-                </Button>
-                <Button size="sm" onClick={handlePollNow} isLoading={isPolling} disabled={!hasIp}>
-                  Sondear Ahora
-                </Button>
-              </div>
-            )}
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {showConfig ? 'Configuración de Sondeo' : 'Estado del Sondeo'}
+            </h2>
+            <div className="flex gap-2">
+              {!monitoringOff && !showConfig && (
+                <>
+                  <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchPollingStatus} disabled={statusLoading} />
+                  <IconButton
+                    icon={<PollIcon />}
+                    label="Sondear ahora"
+                    variant="primary"
+                    onClick={handlePollNow}
+                    isLoading={isPolling}
+                    disabled={!hasIp}
+                  />
+                </>
+              )}
+              <IconButton
+                icon={showConfig ? <CloseIcon /> : <SettingsIcon />}
+                label={showConfig ? 'Cerrar configuración' : 'Configuración de sondeo'}
+                onClick={() => setShowConfig((v) => !v)}
+                aria-pressed={showConfig}
+              />
+            </div>
           </div>
         </Card.Header>
         <Card.Body>
-          {statusLoading ? (
+          {showConfig ? (
+            <>
+              {!hasIp && !monitoringOff && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-4 text-sm text-yellow-800 dark:text-yellow-400">
+                  Este dispositivo no tiene dirección IP. Asigne una en la pestaña «Detalles» para habilitar el sondeo.
+                </div>
+              )}
+              {configError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 mb-4 text-sm text-red-800 dark:text-red-400">
+                  {configError}
+                </div>
+              )}
+              {configSuccess && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3 mb-4 text-sm text-green-800 dark:text-green-400">
+                  Configuración guardada.
+                </div>
+              )}
+              {monitoringOff ? (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    El monitoreo está deshabilitado, así que no hay configuración de sondeo que
+                    ajustar. Al habilitarlo se sondea el dispositivo periódicamente y podrá
+                    afinar el intervalo aquí mismo.
+                  </p>
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleEnableMonitoring}
+                      isLoading={isEnabling}
+                      disabled={!canEnableMonitoring(device.status, device.ipAddress)}
+                    >
+                      Habilitar Monitoreo
+                    </Button>
+                  </div>
+                  {blockedReason && (
+                    <p className="mt-3 text-sm text-yellow-700 dark:text-yellow-500">{blockedReason}</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Intervalo (segundos)"
+                      type="number"
+                      min={POLLING_INTERVAL_MIN_SECONDS}
+                      max={INTERVAL_MAX_SECONDS}
+                      value={configForm.intervalSeconds}
+                      onChange={(e) => {
+                        setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
+                        setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
+                      }}
+                      error={configErrors.intervalSeconds}
+                      fullWidth
+                    />
+                    <Input
+                      label="Fallos Antes de Caída"
+                      type="number"
+                      min={FAILURES_BEFORE_DOWN_MIN}
+                      max={FAILURES_BEFORE_DOWN_MAX}
+                      value={configForm.failuresBeforeDown}
+                      onChange={(e) => {
+                        setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }));
+                        setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
+                      }}
+                      error={configErrors.failuresBeforeDown}
+                      fullWidth
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <Button onClick={handleSaveConfig} isLoading={configSaving} disabled={!hasIp}>
+                      Guardar Configuración
+                    </Button>
+                  </div>
+                </>
+              )}
+            </>
+          ) : statusLoading ? (
             <div className="flex justify-center py-4">
               <LoadingSpinner message="Cargando estado..." />
             </div>
@@ -460,89 +594,6 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
             </>
           ) : (
             <p className="text-gray-500 dark:text-gray-400 text-sm">Sin estado de sondeo disponible.</p>
-          )}
-        </Card.Body>
-      </Card>
-
-      {/* Config */}
-      <Card>
-        <Card.Header>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Configuración de Sondeo
-          </h2>
-        </Card.Header>
-        <Card.Body>
-          {!hasIp && !monitoringOff && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-4 text-sm text-yellow-800 dark:text-yellow-400">
-              Este dispositivo no tiene dirección IP. Asigne una en la pestaña «Detalles» para habilitar el sondeo.
-            </div>
-          )}
-          {configError && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 mb-4 text-sm text-red-800 dark:text-red-400">
-              {configError}
-            </div>
-          )}
-          {configSuccess && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3 mb-4 text-sm text-green-800 dark:text-green-400">
-              Configuración guardada.
-            </div>
-          )}
-          {monitoringOff ? (
-            <>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                El monitoreo está deshabilitado, así que no hay configuración de sondeo que
-                ajustar. Al habilitarlo se sondea el dispositivo periódicamente y podrá
-                afinar el intervalo aquí mismo.
-              </p>
-              <div className="mt-4">
-                <Button
-                  onClick={handleEnableMonitoring}
-                  isLoading={isEnabling}
-                  disabled={!canEnableMonitoring(device.status, device.ipAddress)}
-                >
-                  Habilitar Monitoreo
-                </Button>
-              </div>
-              {blockedReason && (
-                <p className="mt-3 text-sm text-yellow-700 dark:text-yellow-500">{blockedReason}</p>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Intervalo (segundos)"
-                  type="number"
-                  min={POLLING_INTERVAL_MIN_SECONDS}
-                  max={INTERVAL_MAX_SECONDS}
-                  value={configForm.intervalSeconds}
-                  onChange={(e) => {
-                    setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
-                    setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
-                  }}
-                  error={configErrors.intervalSeconds}
-                  fullWidth
-                />
-                <Input
-                  label="Fallos Antes de Caída"
-                  type="number"
-                  min={FAILURES_BEFORE_DOWN_MIN}
-                  max={FAILURES_BEFORE_DOWN_MAX}
-                  value={configForm.failuresBeforeDown}
-                  onChange={(e) => {
-                    setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }));
-                    setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
-                  }}
-                  error={configErrors.failuresBeforeDown}
-                  fullWidth
-                />
-              </div>
-              <div className="mt-4">
-                <Button onClick={handleSaveConfig} isLoading={configSaving} disabled={!hasIp}>
-                  Guardar Configuración
-                </Button>
-              </div>
-            </>
           )}
         </Card.Body>
       </Card>

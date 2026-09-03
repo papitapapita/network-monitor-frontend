@@ -30,7 +30,7 @@ const GRACE_MS = RESTORE_GRACE_DAYS * 24 * 60 * 60 * 1000;
 function ArrowLeftIcon() {
   return (
     <svg
-      className="mr-1.5 h-4 w-4"
+      className="h-4 w-4 shrink-0"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
