@@ -99,7 +99,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="ml-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Network Monitor</span>
         </header>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        {/* x hidden: an edge-positioned IconButton's tooltip label stays in
+            layout while invisible (opacity doesn't remove it from flow), so
+            without this a tooltip like "Eliminar dispositivo" near the right
+            edge quietly pokes past the viewport and turns this into a
+            horizontally-scrollable container. Every wide-content component
+            (tables, the device detail tab bar) already scrolls within its
+            own wrapper, so main never legitimately needs to scroll sideways. */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
       </div>
     </div>
   );
