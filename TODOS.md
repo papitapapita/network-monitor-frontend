@@ -17,6 +17,11 @@ is for items the frontend can land on its own.
   - Precedent: `DeviceDetailsTab.tsx:263` already does the flat single-combobox picker with `Vendor — Model (Type)` labels. The create page is the outlier, not the proposal
   - Optional, only if the flat list proves noisy in practice: vendor group headers in the dropdown (needs a `group` field on `ComboboxOption`), and a "recientes" section from the last few models used
 
+- [ ] **Verbose-labels setting** — a per-user toggle to put text back on the icon-only action buttons
+  - The device detail page (`app/devices/[id]/page.tsx` and its `Device*Tab` components) moved most card-header actions — Editar, Actualizar, Sondear Ahora, Reiniciar, Limpiar, Eliminar — to icon-only via `src/components/ui/IconButton.tsx`, which relies on a hover tooltip or a touch press-and-hold (`src/components/ui/Tooltip.tsx`) to say what each one does. That is a real cost for someone learning the app, or anyone who prefers reading over guessing at glyphs
+  - Add a "Mostrar texto en los botones" toggle in `/settings` (or a lighter per-browser `localStorage` flag, same pattern as `nms:sidebar-collapsed` in `AppShell.tsx`), and have `IconButton` render its `label` next to the icon when it's on instead of only in the tooltip
+  - Worth defaulting new/first-time sessions to verbose until the user opts into icons-only, rather than the other way round
+
 ## Priority 2 — Tickets
 
 - [ ] **Tickets on the device and customer detail pages** — reach the work order from the thing it is about, not only the other way round
@@ -49,6 +54,13 @@ is for items the frontend can land on its own.
   - Safe to hide without data loss: the backend's `extractCreateData` carries stored SNMP values forward when a request omits them, so an HTTP-only save cannot wipe existing keys
 
 ---
+
+## Priority 3 — Nice to have
+
+- [ ] **Polling history: dots on days with data** — a lightweight calendar under "Historial de Sondeo" (`DevicePollingTab.tsx`) marking which days have poll results, so the Desde/Hasta range isn't picked blind
+  - No backend work needed — `GET /devices/:id/polling/history` already returns raw results for any range (up to 1000 rows, `BACKEND_API.md:1295`); the dots are just those results bucketed by day on the frontend
+  - Deferred, not because it's blocked, but because the honest version is a real build: a *pre-fetch* calendar (see dots before you've picked "Desde"/"Hasta") needs its own fetch just to draw them, and 1000 rows only covers ~16h on a device polling every 60s — cheap for an hourly-interval device, wasteful for a fast one
+  - Cheaper version, worth doing first if this comes back: skip the pre-fetch entirely and only show dots for the range **already** returned by the existing "Obtener Historial" click — zero extra requests, just a small calendar rendered from `pollingHistory.results` next to the table
 
 ## Blocked on backend
 
