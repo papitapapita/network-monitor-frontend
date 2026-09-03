@@ -7,13 +7,14 @@ import { apiService } from '@/services/api.service';
 import { VendorDTO } from '@/types/device.types';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
-  Button,
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   PageHeader,
+  PlusIcon,
   sortRows,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
@@ -109,7 +110,15 @@ function VendorsPageContent() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
-        actions={<Button onClick={() => router.push('/vendors/create')}>Agregar Fabricante</Button>}
+        actions={
+          <IconButton
+            icon={<PlusIcon />}
+            label="Agregar Fabricante"
+            variant="primary"
+            size="md"
+            onClick={() => router.push('/vendors/create')}
+          />
+        }
       />
 
       <FilterBar

@@ -15,13 +15,14 @@ import {
 } from '@/constants/location.constants';
 import {
   Badge,
-  Button,
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   PageHeader,
+  PlusIcon,
   Select,
   sortRows,
 } from '@/components/ui';
@@ -136,7 +137,15 @@ function LocationsPageContent() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
-        actions={<Button onClick={() => router.push('/locations/create')}>Agregar Ubicación</Button>}
+        actions={
+          <IconButton
+            icon={<PlusIcon />}
+            label="Agregar Ubicación"
+            variant="primary"
+            size="md"
+            onClick={() => router.push('/locations/create')}
+          />
+        }
       />
 
       <FilterBar columns={3} hasFilters={hasFilters} onClear={clearFilters}>

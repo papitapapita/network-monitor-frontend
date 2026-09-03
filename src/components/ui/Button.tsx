@@ -24,16 +24,27 @@ const variantClasses: Record<ButtonVariant, string> = {
     'bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-400 dark:hover:border-gray-500 focus:ring-gray-500',
 };
 
+// A fixed `h-*` per size, shared by both variants below, is the standard:
+// every button at a given size is exactly the same height, whether it
+// carries a label or is icon-only. Sizing a text button by padding +
+// line-height instead (the old approach) makes it a couple pixels off from
+// its icon-only sibling — close, but never pixel-identical.
+const HEIGHT: Record<ButtonSize, string> = {
+  sm: 'h-8',
+  md: 'h-10',
+  lg: 'h-12',
+};
+
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-2.5 py-1.5 sm:px-3 text-sm',
-  md: 'px-3 py-2 sm:px-4 text-base',
-  lg: 'px-4 py-2.5 sm:px-6 sm:py-3 text-lg',
+  sm: `${HEIGHT.sm} px-2.5 sm:px-3 text-sm`,
+  md: `${HEIGHT.md} px-3 sm:px-4 text-base`,
+  lg: `${HEIGHT.lg} px-4 sm:px-6 text-lg`,
 };
 
 const iconOnlySizeClasses: Record<ButtonSize, string> = {
-  sm: 'p-1.5',
-  md: 'p-2',
-  lg: 'p-2.5',
+  sm: `${HEIGHT.sm} w-8`,
+  md: `${HEIGHT.md} w-10`,
+  lg: `${HEIGHT.lg} w-12`,
 };
 
 export function Button({

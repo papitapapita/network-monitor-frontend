@@ -21,9 +21,11 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   PageHeader,
+  PlusIcon,
   Select,
   sortRows,
 } from '@/components/ui';
@@ -87,7 +89,15 @@ function TicketsPageContent() {
             <Button variant="outline" onClick={() => router.push('/jornada')}>
               Jornada
             </Button>
-            {canWrite && <Button onClick={() => router.push('/tickets/create')}>Nuevo Ticket</Button>}
+            {canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Nuevo Ticket"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/tickets/create')}
+              />
+            )}
           </>
         }
       />

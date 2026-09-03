@@ -40,6 +40,8 @@ import {
 import {
   Card,
   Button,
+  EditIcon,
+  IconButton,
   Input,
   Select,
   Textarea,
@@ -342,9 +344,7 @@ export default function TicketDetailPage() {
             {canWrite &&
               canEdit(ticket.status) &&
               (!isEditing ? (
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                  Editar
-                </Button>
+                <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
               ) : (
                 <div className="flex gap-2">
                   <Button

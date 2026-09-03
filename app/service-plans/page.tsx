@@ -8,13 +8,14 @@ import { ServicePlanDTO } from '@/types/customer.types';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
-  Button,
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   PageHeader,
+  PlusIcon,
   Select,
   sortRows,
 } from '@/components/ui';
@@ -130,7 +131,15 @@ function ServicePlansContent() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
-        actions={<Button onClick={() => router.push('/service-plans/create')}>Agregar Plan</Button>}
+        actions={
+          <IconButton
+            icon={<PlusIcon />}
+            label="Agregar Plan"
+            variant="primary"
+            size="md"
+            onClick={() => router.push('/service-plans/create')}
+          />
+        }
       />
 
       <FilterBar columns={3} hasFilters={hasFilters} onClear={clearFilters}>

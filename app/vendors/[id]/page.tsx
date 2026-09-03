@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
-import { Card, Button, Input, Textarea, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, Input, Textarea, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -204,7 +204,7 @@ export default function VendorDetailPage() {
       <div className="space-y-6">
         <div className="flex justify-end">
           {!isEditing ? (
-            <Button variant="outline" onClick={() => setIsEditing(true)}>Editar</Button>
+            <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
           ) : (
             <div className="flex gap-2">
               <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>

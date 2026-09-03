@@ -15,13 +15,14 @@ import {
 } from '@/constants/technician.constants';
 import {
   Badge,
-  Button,
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   PageHeader,
+  PlusIcon,
   Select,
   sortRows,
 } from '@/components/ui';
@@ -123,7 +124,15 @@ function TechniciansPageContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          canWrite ? <Button onClick={() => router.push('/technicians/create')}>Agregar Técnico</Button> : undefined
+          canWrite ? (
+            <IconButton
+              icon={<PlusIcon />}
+              label="Agregar Técnico"
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/technicians/create')}
+            />
+          ) : undefined
         }
       />
 

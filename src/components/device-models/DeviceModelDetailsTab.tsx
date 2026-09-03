@@ -11,7 +11,7 @@ import {
   VendorDTO,
   DeviceType,
 } from '@/types/device.types';
-import { Card, Button, Input, Select, Badge } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, Input, Select, Badge } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
 
@@ -195,7 +195,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
 
       <div className="flex justify-end">
         {!isEditing ? (
-          <Button variant="outline" onClick={() => setIsEditing(true)}>Editar</Button>
+          <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
         ) : (
           <div className="flex gap-2">
             <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>

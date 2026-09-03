@@ -15,6 +15,7 @@ import { LocationResponseDTO } from '@/types/location.types';
 import {
   Card,
   Button,
+  EditIcon,
   Input,
   Textarea,
   Select,
@@ -26,18 +27,6 @@ import {
 import { useToast } from '@/contexts/toast.context';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
-
-function EditIcon() {
-  return (
-    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-      />
-    </svg>
-  );
-}
 
 interface Props {
   device: DeviceResponseDTO;
@@ -467,7 +456,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
             <Card.Header>
               <div className="flex justify-between items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Dispositivo</h2>
-                <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
+                <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
               </div>
             </Card.Header>
             <Card.Body>

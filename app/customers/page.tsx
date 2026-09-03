@@ -8,13 +8,14 @@ import { CustomerDTO } from '@/types/customer.types';
 import { fetchAllCustomers } from '@/hooks/useCatalogs';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
-  Button,
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   PageHeader,
+  PlusIcon,
   sortRows,
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
@@ -98,7 +99,15 @@ function CustomersPageContent() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
-        actions={<Button onClick={() => router.push('/customers/create')}>Agregar Cliente</Button>}
+        actions={
+          <IconButton
+            icon={<PlusIcon />}
+            label="Agregar Cliente"
+            variant="primary"
+            size="md"
+            onClick={() => router.push('/customers/create')}
+          />
+        }
       />
 
       <FilterBar

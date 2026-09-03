@@ -19,7 +19,7 @@ import {
   formatScheduledFor,
   todayISODate,
 } from '@/constants/ticket.constants';
-import { Card, Button, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function TechnicianDetailPage() {
@@ -251,9 +251,7 @@ export default function TechnicianDetailPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Datos</h2>
             {canWrite &&
               (!isEditing ? (
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                  Editar
-                </Button>
+                <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
               ) : (
                 <div className="flex gap-2">
                   <Button

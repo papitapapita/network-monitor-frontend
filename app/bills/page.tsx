@@ -23,10 +23,12 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   Modal,
   PageHeader,
+  PlusIcon,
   Select,
   sortRows,
 } from '@/components/ui';
@@ -191,7 +193,7 @@ function BillsPageContent() {
         actions={
           <>
             <Button variant="outline" onClick={() => setShowBulk(true)}>Generación Masiva</Button>
-            <Button onClick={() => setShowSingle(true)}>Generar Factura</Button>
+            <IconButton icon={<PlusIcon />} label="Generar Factura" variant="primary" size="md" onClick={() => setShowSingle(true)} />
           </>
         }
       />

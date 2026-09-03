@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, Input, Textarea, Badge, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, Input, Textarea, Badge, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -149,7 +149,7 @@ export default function ServicePlanDetailPage() {
       <div>
         <div className="flex justify-end mb-2">
           {!isEditing ? (
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>Editar</Button>
+            <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
           ) : (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setForm(makeForm(plan)); setFormErrors({}); }} disabled={isSaving}>Cancelar</Button>

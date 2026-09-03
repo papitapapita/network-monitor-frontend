@@ -12,7 +12,7 @@ import {
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
-import { Card, Button, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -402,7 +402,7 @@ export default function CustomerDetailPage() {
       <div>
         <div className="flex justify-end mb-2">
           {!isEditing ? (
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>Editar</Button>
+            <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
           ) : (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setForm(makeForm(customer)); setFormErrors({}); }} disabled={isSaving}>Cancelar</Button>

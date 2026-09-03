@@ -9,13 +9,14 @@ import { DeviceModelResponseDTO, DeviceType } from '@/types/device.types';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
-  Button,
   DataTable,
   ErrorBanner,
   FilterBar,
+  IconButton,
   Input,
   LoadingSpinner,
   PageHeader,
+  PlusIcon,
   Select,
   sortRows,
 } from '@/components/ui';
@@ -120,7 +121,15 @@ function DeviceModelsPageContent() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
-        actions={<Button onClick={() => router.push('/device-models/create')}>Agregar Modelo</Button>}
+        actions={
+          <IconButton
+            icon={<PlusIcon />}
+            label="Agregar Modelo"
+            variant="primary"
+            size="md"
+            onClick={() => router.push('/device-models/create')}
+          />
+        }
       />
 
       <FilterBar columns={3} hasFilters={hasFilters} onClear={clearFilters}>

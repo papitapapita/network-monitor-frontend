@@ -53,3 +53,5 @@ export { SelectCheckbox } from './SelectCheckbox';
 export { Tooltip } from './Tooltip';
 
 export { IconButton } from './IconButton';
+
+export { PlusIcon, EditIcon } from './icons';
