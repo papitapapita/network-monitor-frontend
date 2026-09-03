@@ -8,6 +8,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
   isLoading?: boolean;
   fullWidth?: boolean;
+  /** Square padding for a bare icon, no label — pair with `aria-label` and a `Tooltip`. */
+  iconOnly?: boolean;
   children: React.ReactNode;
 }
 
@@ -16,14 +18,22 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
   danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
   success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500',
+  // Filled with a faint tint (not transparent) so it doesn't wash into the
+  // white card/page behind it — a plain border read as barely-there.
   outline:
-    'bg-transparent border-2 border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:ring-gray-500',
+    'bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-400 dark:hover:border-gray-500 focus:ring-gray-500',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-base',
-  lg: 'px-6 py-3 text-lg',
+  sm: 'px-2.5 py-1.5 sm:px-3 text-sm',
+  md: 'px-3 py-2 sm:px-4 text-base',
+  lg: 'px-4 py-2.5 sm:px-6 sm:py-3 text-lg',
+};
+
+const iconOnlySizeClasses: Record<ButtonSize, string> = {
+  sm: 'p-1.5',
+  md: 'p-2',
+  lg: 'p-2.5',
 };
 
 export function Button({
@@ -31,6 +41,7 @@ export function Button({
   size = 'md',
   isLoading = false,
   fullWidth = false,
+  iconOnly = false,
   disabled,
   className = '',
   children,
@@ -40,13 +51,13 @@ export function Button({
     <button
       className={`
         ${variantClasses[variant]}
-        ${sizeClasses[size]}
+        ${iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]}
         ${fullWidth ? 'w-full' : ''}
         ${disabled || isLoading ? 'opacity-50 cursor-not-allowed' : ''}
         rounded-md font-medium
         focus:outline-none focus:ring-2 focus:ring-offset-2
         transition-colors duration-200
-        inline-flex items-center justify-center
+        inline-flex items-center justify-center gap-1.5
         ${className}
       `}
       disabled={disabled || isLoading}
@@ -54,7 +65,7 @@ export function Button({
     >
       {isLoading && (
         <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4"
+          className="animate-spin h-4 w-4"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"

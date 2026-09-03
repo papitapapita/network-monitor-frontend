@@ -49,3 +49,7 @@ export { Select } from './Select';
 export { Combobox } from './Combobox';
 
 export { SelectCheckbox } from './SelectCheckbox';
+
+export { Tooltip } from './Tooltip';
+
+export { IconButton } from './IconButton';
