@@ -628,6 +628,13 @@ export function DeviceWirelessTab({
     : hasHttpCreds === false
       ? 'Configura credenciales HTTP en la pestaña Credenciales'
       : null;
+  // Wireless collection polls the radio's AirOS HTTP API, so a config created
+  // without HTTP credentials would just sit there never collecting anything —
+  // require them up front instead of letting the operator find out later.
+  const credentialsBlockedReason =
+    hasHttpCreds === false
+      ? 'Configura credenciales HTTP en la pestaña Credenciales antes de crear el sondeo inalámbrico'
+      : null;
 
   return (
     <div className="space-y-6">
@@ -691,8 +698,15 @@ export function DeviceWirelessTab({
                 </span>{' '}
                 según la categoría del dispositivo. Para cambiarlo, ajusta la categoría en la pestaña Detalles.
               </p>
+              {credentialsBlockedReason && (
+                <p className="mb-4 text-xs text-amber-700 dark:text-amber-400">{credentialsBlockedReason}</p>
+              )}
               {!showConfigForm && (
-                <Button size="sm" onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}>
+                <Button
+                  size="sm"
+                  onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
+                  disabled={hasHttpCreds !== true}
+                >
                   Crear Configuración
                 </Button>
               )}
