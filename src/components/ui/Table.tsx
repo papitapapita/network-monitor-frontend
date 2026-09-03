@@ -119,7 +119,7 @@ export function TableHead({
 export function TableCell({ children, className = '' }: TableCellProps) {
   return (
     <td
-      className={`px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 ${className}`}
+      className={`px-3 py-3 sm:px-6 sm:py-4 align-top break-words text-sm text-gray-900 dark:text-gray-100 ${className}`}
     >
       {children}
     </td>

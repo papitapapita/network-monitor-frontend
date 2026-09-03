@@ -46,12 +46,14 @@ const columns: DataTableColumn<DeviceModelResponseDTO>[] = [
     key: 'vendor',
     header: 'Fabricante',
     sortValue: (m) => m.vendorName,
+    cellClassName: 'max-w-xs',
     cell: (m) => <span className="font-medium text-gray-900 dark:text-gray-100">{m.vendorName}</span>,
   },
   {
     key: 'model',
     header: 'Modelo',
     sortValue: (m) => m.model,
+    cellClassName: 'max-w-xs',
     cell: (m) => <span className="text-gray-900 dark:text-gray-100">{m.model}</span>,
   },
   {

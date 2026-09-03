@@ -44,18 +44,21 @@ const columns: DataTableColumn<VendorDTO>[] = [
     key: 'name',
     header: 'Nombre',
     sortValue: (v) => v.name,
+    cellClassName: 'max-w-xs',
     cell: (v) => <span className="font-medium text-gray-900 dark:text-gray-100">{v.name}</span>,
   },
   {
     key: 'slug',
     header: 'Slug',
     sortValue: (v) => v.slug,
+    cellClassName: 'max-w-xs',
     cell: (v) => <span className="font-mono text-xs text-gray-600 dark:text-gray-400">{v.slug}</span>,
   },
   {
     key: 'description',
     header: 'Descripción',
     className: 'hidden md:table-cell',
+    cellClassName: 'max-w-xs',
     cell: (v) => (
       <span className="text-gray-600 dark:text-gray-400 text-sm">
         {v.description ?? <span className="italic text-gray-400 dark:text-gray-600">—</span>}

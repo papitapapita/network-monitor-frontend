@@ -878,7 +878,7 @@ export function DataTable<T>({
                               />
                             </span>
                           )}
-                          <div className="min-w-0 flex-1">{primaryColumn?.cell(row)}</div>
+                          <div className="min-w-0 flex-1 break-words">{primaryColumn?.cell(row)}</div>
                         </div>
 
                         {secondaryColumns.length > 0 && (
@@ -888,7 +888,7 @@ export function DataTable<T>({
                                 <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                   {col.header}
                                 </dt>
-                                <dd className="mt-0.5">{col.cell(row)}</dd>
+                                <dd className="mt-0.5 break-words">{col.cell(row)}</dd>
                               </div>
                             ))}
                           </dl>

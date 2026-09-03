@@ -85,10 +85,7 @@ function buildAlertColumns(deviceNames: Record<string, string>): DataTableColumn
       header: 'Descripción',
       sortable: true,
       cell: (a) => (
-        <span
-          className="block max-w-xs truncate text-sm text-gray-700 dark:text-gray-300"
-          title={describe(a)}
-        >
+        <span className="block max-w-xs text-sm text-gray-700 dark:text-gray-300">
           {describe(a)}
         </span>
       ),
@@ -97,6 +94,7 @@ function buildAlertColumns(deviceNames: Record<string, string>): DataTableColumn
       key: 'device',
       header: 'Dispositivo',
       sortable: true,
+      cellClassName: 'max-w-xs',
       cell: (a) => (
         <Link
           href={`/devices/${a.deviceId}`}

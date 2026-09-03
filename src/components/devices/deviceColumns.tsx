@@ -97,6 +97,7 @@ function deviceColumnCatalog({
       locked: true,
       header: 'Nombre',
       sortable: true,
+      cellClassName: 'max-w-xs',
       cell: (device) => (
         <>
           <div className="font-medium text-gray-900 dark:text-gray-100">{device.name}</div>
@@ -200,7 +201,7 @@ function deviceColumnCatalog({
       key: 'description',
       label: 'Descripción',
       header: 'Descripción',
-      cellClassName: 'max-w-xs truncate',
+      cellClassName: 'max-w-xs',
       cell: (device) => <Text value={device.description} />,
     },
     {

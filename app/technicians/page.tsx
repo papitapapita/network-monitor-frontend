@@ -35,6 +35,7 @@ const columns: DataTableColumn<TechnicianDTO>[] = [
     key: 'fullName',
     header: 'Nombre',
     sortValue: (t) => t.fullName,
+    cellClassName: 'max-w-xs',
     cell: (t) => <span className="font-medium text-gray-900 dark:text-gray-100">{t.fullName}</span>,
   },
   {

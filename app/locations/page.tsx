@@ -40,11 +40,12 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
     key: 'name',
     header: 'Nombre',
     sortValue: (l) => l.name,
+    cellClassName: 'max-w-xs',
     cell: (l) => (
       <>
         <span className="font-medium">{l.name}</span>
         {l.address && (
-          <div className="text-xs text-gray-400 dark:text-gray-500 lg:hidden truncate max-w-[12rem]">
+          <div className="text-xs text-gray-400 dark:text-gray-500 lg:hidden max-w-[12rem]">
             {l.address}
           </div>
         )}
@@ -81,7 +82,7 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
     sortValue: (l) => l.address,
     className: 'hidden lg:table-cell',
     cellClassName: 'text-gray-600 dark:text-gray-300 max-w-xs',
-    cell: (l) => <span className="block truncate">{l.address ?? '—'}</span>,
+    cell: (l) => <span className="block">{l.address ?? '—'}</span>,
   },
 ];
 

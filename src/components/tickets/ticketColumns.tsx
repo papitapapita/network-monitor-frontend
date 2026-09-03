@@ -37,9 +37,7 @@ export function buildTicketColumns(
       sortValue: (t) => t.title.toLowerCase(),
       cell: (t) => (
         <div className="max-w-xs">
-          <div className="font-medium text-gray-900 dark:text-gray-100 truncate" title={t.title}>
-            {t.title}
-          </div>
+          <div className="font-medium text-gray-900 dark:text-gray-100">{t.title}</div>
           {isAlertOrigin(t.origin) && (
             <div className="text-xs text-gray-500 dark:text-gray-400">Abierto por una alerta</div>
           )}

@@ -27,6 +27,7 @@ const columns: DataTableColumn<CustomerDTO>[] = [
     key: 'fullName',
     header: 'Nombre',
     sortValue: (c) => c.fullName,
+    cellClassName: 'max-w-xs',
     cell: (c) => <span className="font-medium text-gray-900 dark:text-gray-100">{c.fullName}</span>,
   },
   {

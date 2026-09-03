@@ -46,11 +46,12 @@ const columns: DataTableColumn<ServicePlanDTO>[] = [
     key: 'name',
     header: 'Nombre',
     sortValue: (p) => p.name,
+    cellClassName: 'max-w-xs',
     cell: (p) => (
       <>
         <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
         {p.description && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-xs">
             {p.description}
           </div>
         )}

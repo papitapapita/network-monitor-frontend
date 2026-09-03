@@ -62,6 +62,7 @@ function buildBillColumns(customerName: (id: string) => string): DataTableColumn
       key: 'customer',
       header: 'Cliente',
       sortValue: (b) => customerName(b.customerId),
+      cellClassName: 'max-w-xs',
       cell: (b) => (
         <span className="font-medium text-gray-900 dark:text-gray-100">{customerName(b.customerId)}</span>
       ),
