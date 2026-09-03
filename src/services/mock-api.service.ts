@@ -48,6 +48,12 @@ import {
   DeletePingHistoryResult,
 } from '../types/polling.types';
 import {
+  DeviceNotificationPolicyDTO,
+  UpsertDeviceNotificationPolicyDTO,
+  BulkUpsertDeviceNotificationPoliciesDTO,
+  BulkUpsertDeviceNotificationPoliciesResponseDTO,
+} from '../types/notification-policy.types';
+import {
   AlertDTO,
   AlertListResponse,
   ListAlertsQuery,
@@ -113,6 +119,8 @@ let vendors: VendorDTO[] = [...MOCK_VENDORS];
 const pollingStatus: Record<string, PollingStatusDTO> = { ...MOCK_POLLING_STATUS };
 const pollingHistory: Record<string, ReturnType<typeof MOCK_POLLING_HISTORY[string]['slice']>> = {};
 for (const [k, v] of Object.entries(MOCK_POLLING_HISTORY)) pollingHistory[k] = [...v];
+/** No row means "never configured" — always-notify defaults, same as the real API. */
+const notificationPolicies: Record<string, DeviceNotificationPolicyDTO> = {};
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -865,6 +873,65 @@ class MockApiService {
       metrics: latencyMs ? { latencyMs } : null,
       deviceStatus: newStatus,
     });
+  }
+
+  // ============================================================
+  // Notification Policy
+  // ============================================================
+
+  async getNotificationPolicy(deviceId: string): Promise<ApiResponse<DeviceNotificationPolicyDTO>> {
+    if (!findLiveDevice(deviceId)) return err('Device not found');
+    return ok(
+      notificationPolicies[deviceId] ?? {
+        deviceId,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        alertDelayMinutes: null,
+        updatedAt: null,
+      }
+    );
+  }
+
+  async updateNotificationPolicy(
+    deviceId: string,
+    data: UpsertDeviceNotificationPolicyDTO
+  ): Promise<ApiResponse<DeviceNotificationPolicyDTO>> {
+    if (!findLiveDevice(deviceId)) return err('Device not found');
+    const hasStart = (data.quietHoursStart ?? null) !== null;
+    const hasEnd = (data.quietHoursEnd ?? null) !== null;
+    if (hasStart !== hasEnd) {
+      return err('quietHoursStart and quietHoursEnd must both be set, or both be null');
+    }
+    const policy: DeviceNotificationPolicyDTO = {
+      deviceId,
+      quietHoursStart: data.quietHoursStart ?? null,
+      quietHoursEnd: data.quietHoursEnd ?? null,
+      alertDelayMinutes: data.alertDelayMinutes ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+    notificationPolicies[deviceId] = policy;
+    return ok(policy);
+  }
+
+  async resetNotificationPolicy(deviceId: string): Promise<ApiResponse<void>> {
+    delete notificationPolicies[deviceId];
+    return { success: true };
+  }
+
+  async bulkUpsertNotificationPolicies(
+    data: BulkUpsertDeviceNotificationPoliciesDTO
+  ): Promise<ApiResponse<BulkUpsertDeviceNotificationPoliciesResponseDTO>> {
+    const updated: BulkUpsertDeviceNotificationPoliciesResponseDTO['updated'] = [];
+    const failed: BulkUpsertDeviceNotificationPoliciesResponseDTO['failed'] = [];
+    for (const deviceId of data.deviceIds) {
+      const result = await this.updateNotificationPolicy(deviceId, data);
+      if (result.success && result.data) {
+        updated.push({ ...result.data, updatedAt: result.data.updatedAt as string });
+      } else {
+        failed.push({ id: deviceId, error: result.error ?? 'Unknown error' });
+      }
+    }
+    return ok({ updated, failed });
   }
 
   // ============================================================

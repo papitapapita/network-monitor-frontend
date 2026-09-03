@@ -483,10 +483,10 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 **`deleted` — the recycle bin.** Soft-deleted devices are hidden from every
 listing unless you ask for them:
 
-| Value              | Returns                                          |
-| ------------------ | ------------------------------------------------ |
-| omitted or `false` | live devices only — unchanged from before        |
-| `true`             | **deleted devices only** — this is the bin       |
+| Value              | Returns                                                       |
+| ------------------ | ------------------------------------------------------------- |
+| omitted or `false` | live devices only — unchanged from before                     |
+| `true`             | **deleted devices only** — this is the bin                    |
 | `any`              | both; the only way a tombstone and a live device share a page |
 
 Bin rows carry `deletedAt` and `deletedBy`. Pair it with
@@ -516,13 +516,13 @@ GET /api/devices?deleted=true&sortBy=deletedAt&sortOrder=DESC
 
 **Device status lifecycle:**
 
-| Transition              | Requirements                                  | Side effects                                                                               |
-| ----------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| any → `COMMISSIONING`   | `ipAddress` must be set on the device         | `monitoringEnabled` turned on **unless** the same request sends `monitoringEnabled: false` |
-| any → `ACTIVE`          | `ipAddress` and `locationId` must both be set | —                                                                                          |
-| any → `DAMAGED`         | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
-| any → `DECOMMISSIONED`  | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
-| any → `INVENTORY`       | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
+| Transition             | Requirements                                  | Side effects                                                                               |
+| ---------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| any → `COMMISSIONING`  | `ipAddress` must be set on the device         | `monitoringEnabled` turned on **unless** the same request sends `monitoringEnabled: false` |
+| any → `ACTIVE`         | `ipAddress` and `locationId` must both be set | —                                                                                          |
+| any → `DAMAGED`        | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
+| any → `DECOMMISSIONED` | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
+| any → `INVENTORY`      | `serialNumber` or `macAddress` must be set    | monitoring stopped (see below)                                                             |
 
 `DAMAGED` is a side-state (e.g. hardware failure) and can be set from any status.
 
@@ -782,6 +782,7 @@ configuration belonging to the device goes with it. **There is no undo.**
 > too. "Empty the whole bin" is this call per device; there is no bulk endpoint
 > yet, and the `delete` rate limiter allows 60/minute, so a very large bin needs
 > throttling or a bulk endpoint (ask the backend for one if you hit it).
+
 ---
 
 ### `POST /api/devices/:id/replace` — Replace hardware
@@ -840,7 +841,7 @@ Requires the **`activate`** permission (ADMIN and OPERATOR).
 
 - `retiredStatus` is **required** and must be one of `INVENTORY`, `DAMAGED`, `DECOMMISSIONED` → otherwise `400`. This is deliberately the caller's choice: a swap is not always a failure. An upgraded antenna that still works belongs back in `INVENTORY`; a failed one is `DAMAGED`; an obsolete one is `DECOMMISSIONED`
 - At least one of `serialNumber` / `macAddress` → otherwise `400` `"The replacement device must have at least a serial number or MAC address"`. It is a different physical box with its own
-- A device can be replaced **at most once** → `400` `"Device has already been replaced"`. To model a chain of swaps, replace the most recent unit
+- A device can be replaced **once per service life** → `400` `"Device has already been replaced"` while the unit is still retired. A unit put back into service after being superseded (an upgraded antenna redeployed from `INVENTORY`) can be replaced again, and gains a second successor. `replacedByDeviceId` always names the **most recent** one
 - A deleted device cannot be replaced → `404` (it is invisible to reads)
 - Unknown `deviceModelId` → `404` `"Device model not found: <id>"`. Nothing is retired when this fails
 
@@ -850,9 +851,17 @@ Requires the **`activate`** permission (ADMIN and OPERATOR).
 > "current unit" navigation, which is what makes "this CPE, current box since
 > March" answerable.
 >
+> Follow it as a **chain, not a single hop**. A unit can be replaced once per
+> service life, so walking `replacesDeviceId` backwards may pass through several
+> boxes. `replacedByDeviceId` names only the most recent successor — if the unit
+> was superseded, redeployed and superseded again, its earlier successor is not
+> reachable from this field. There is no endpoint that returns the whole chain
+> in one call yet; walk it one `GET /api/devices/:id` at a time.
+>
 > Surface `wirelessConfigRemoved: true` prominently — it means wireless
 > monitoring for that site has stopped because the new hardware has no radio,
 > and nothing will re-create the config automatically.
+
 ---
 
 ## Device Credentials `/api/devices/:id/credentials`
@@ -1179,8 +1188,8 @@ each listed device first, then send `isWireless: false`.
 
 **Query parameters**
 
-| Param                | Type              | Default | Meaning                                                                  |
-| -------------------- | ----------------- | ------- | ------------------------------------------------------------------------ |
+| Param                | Type                | Default | Meaning                                                                   |
+| -------------------- | ------------------- | ------- | ------------------------------------------------------------------------- |
 | `purgeBinnedDevices` | `'true' \| 'false'` | `false` | Permanently delete the model's soft-deleted devices along with the model. |
 
 **Business rules:** DEV-026, DEV-029, DEV-030.
@@ -1387,6 +1396,108 @@ toDate?:   string
 > [What "monitoring stopped" does](#stopping-monitoring). Other fields in the same
 > request (`intervalSeconds`, `failuresBeforeDown`) are still applied and kept.  
 > `enabled: true` re-enables polling; it requires the config to have an IP address.
+
+---
+
+## Notification Policy `/api/devices/:id/notification-policy`, `/api/notification-policies/bulk`
+
+> **Response envelope:** these endpoints return **raw data** — no `{ success, data }` wrapper.  
+> Error: `{ error: string }`.
+
+Controls, per device: an optional **quiet-hours window** that mutes outbound
+alert notifications (device-down, device-recovery, and wireless alerts —
+never the alert record itself, which still opens/lists normally), and an
+optional **override of the down-alert delay**
+(`DEVICE_DOWN_ALERT_DELAY_MINUTES` otherwise).
+
+> **A device with no window configured always notifies.** There is no
+> separate "important device" flag — leaving both `quietHoursStart` and
+> `quietHoursEnd` unset (or clearing them) _is_ what marks a device as
+> always-notify. Quiet hours are evaluated against the **server's local
+> wall-clock time**, not the caller's timezone.
+>
+> Down-alert and wireless-alert notifications suppressed by quiet hours are
+> retried automatically once the window ends (as long as the underlying
+> condition is still true). A recovery or cleared-condition notification
+> suppressed during quiet hours is simply not sent — there is no
+> "catch up in the morning" for good news.
+
+### `GET /api/devices/:id/notification-policy` — Get Effective Policy
+
+**Status:** 200 | 400 | 404
+
+```ts
+// Response
+{
+  deviceId: string;
+  quietHoursStart: string | null; // "HH:mm", 24-hour, or null
+  quietHoursEnd: string | null;
+  alertDelayMinutes: number | null; // override; null = use the system default
+  updatedAt: string | null; // ISO 8601; null if never configured
+}
+```
+
+> Returns always-notify defaults (`quietHoursStart`/`quietHoursEnd`/`alertDelayMinutes`/`updatedAt` all `null`) when no policy row has ever been saved for this device — this is not a `404`.
+
+---
+
+### `PUT /api/devices/:id/notification-policy` — Replace Policy
+
+**Status:** 200 | 400 | 404  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body — full replace; both quiet-hours fields must be set together, or both omitted/null
+{
+  quietHoursStart?: string | null  // "HH:mm", 24-hour
+  quietHoursEnd?: string | null
+  alertDelayMinutes?: number | null // ≥ 0
+}
+
+// Response: the resulting policy, same shape as GET
+```
+
+> Upserts — creates the policy row if none exists yet, or replaces it. The device must exist. Omitting a field (or sending it as `null`) clears that setting back to its default (no window / system default delay).
+
+---
+
+### `DELETE /api/devices/:id/notification-policy` — Reset to Defaults
+
+**Status:** 204 (no body) | 400  
+**Roles:** ADMIN, OPERATOR
+
+> Resets the device to always-notify with the system default delay by deleting its policy row. Idempotent — succeeds even if the device never had one, and does **not** 404 for an unknown device id (only a malformed UUID returns `400`).
+
+---
+
+### `PUT /api/notification-policies/bulk` — Configure Many Devices at Once
+
+**Status:** 200 | 400  
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  deviceIds: string[]              // required, at least one
+  quietHoursStart?: string | null
+  quietHoursEnd?: string | null
+  alertDelayMinutes?: number | null
+}
+
+// Response
+{
+  updated: Array<{                 // same shape as GET, one per successfully-updated device
+    deviceId: string
+    quietHoursStart: string | null
+    quietHoursEnd: string | null
+    alertDelayMinutes: number | null
+    updatedAt: string
+  }>
+  failed: Array<{ id: string; error: string }>
+}
+```
+
+> Applies the same settings to every device in `deviceIds`, independently — a bad id (malformed or unknown) lands in `failed` without aborting the rest. Always `200` when the request itself is well-formed; check `failed` for partial failures.
 
 ---
 
@@ -1913,20 +2024,23 @@ stream. Returns 429 once a user holds 5 concurrent streams, or the server holds
 Same transport and authentication as the per-device stream. **The opening frame
 has a different event name and a different shape from the ones that follow:**
 
-| Order       | Event                 | Payload                                          |
-| ----------- | --------------------- | ------------------------------------------------ |
-| First only  | `throughput-snapshot` | `{ devices: WirelessThroughputDTO[], total }`     |
-| Every later | `throughput`          | A single `WirelessThroughputDTO` for one device   |
+| Order       | Event                 | Payload                                         |
+| ----------- | --------------------- | ----------------------------------------------- |
+| First only  | `throughput-snapshot` | `{ devices: WirelessThroughputDTO[], total }`   |
+| Every later | `throughput`          | A single `WirelessThroughputDTO` for one device |
 
 > A client that assumes a full list on every frame will render wrong. Seed state
 > from `throughput-snapshot`, then upsert each `throughput` delta by `deviceId`.
 
 ```js
-const es = new EventSource(`/api/wireless/throughput/stream?token=${jwt}`);
+const es = new EventSource(
+  `/api/wireless/throughput/stream?token=${jwt}`
+);
 const fleet = new Map();
 
 es.addEventListener('throughput-snapshot', (e) => {
-  for (const d of JSON.parse(e.data).devices) fleet.set(d.deviceId, d);
+  for (const d of JSON.parse(e.data).devices)
+    fleet.set(d.deviceId, d);
 });
 es.addEventListener('throughput', (e) => {
   const d = JSON.parse(e.data);
@@ -1982,7 +2096,7 @@ WirelessAlertDTO[]
 // No request body
 
 // Response
-WirelessAlertDTO   // isActive: false
+WirelessAlertDTO; // isActive: false
 ```
 
 > Manually clears an active alert — the same transition `PollWirelessDeviceUseCase` makes automatically when a metric recovers, including the recovery notification/ticket-close side effects.  

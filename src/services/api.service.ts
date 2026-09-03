@@ -37,6 +37,12 @@ import {
   DeletePingHistoryResult,
 } from '../types/polling.types';
 import {
+  DeviceNotificationPolicyDTO,
+  UpsertDeviceNotificationPolicyDTO,
+  BulkUpsertDeviceNotificationPoliciesDTO,
+  BulkUpsertDeviceNotificationPoliciesResponseDTO,
+} from '../types/notification-policy.types';
+import {
   AlertDTO,
   AlertListResponse,
   ListAlertsQuery,
@@ -752,6 +758,41 @@ class ApiService {
   async triggerPoll(deviceId: string): Promise<ApiResponse<ManualPollResultDTO>> {
     return this.request<ManualPollResultDTO>(`/devices/${deviceId}/poll`, {
       method: 'POST'
+    });
+  }
+
+  // ============================================================
+  // Notification Policy
+  // ============================================================
+
+  /** Always-notify defaults (every field `null`) when no policy has ever been saved — not a 404. */
+  async getNotificationPolicy(deviceId: string): Promise<ApiResponse<DeviceNotificationPolicyDTO>> {
+    return this.request<DeviceNotificationPolicyDTO>(`/devices/${deviceId}/notification-policy`);
+  }
+
+  /** Full replace — upserts. Omitting a field (or sending `null`) clears it back to its default. */
+  async updateNotificationPolicy(
+    deviceId: string,
+    data: UpsertDeviceNotificationPolicyDTO
+  ): Promise<ApiResponse<DeviceNotificationPolicyDTO>> {
+    return this.request<DeviceNotificationPolicyDTO>(`/devices/${deviceId}/notification-policy`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /** Resets to always-notify with the system default delay. Idempotent — succeeds even with no policy row yet. */
+  async resetNotificationPolicy(deviceId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/devices/${deviceId}/notification-policy`, { method: 'DELETE' });
+  }
+
+  /** Applies the same settings to many devices at once; a bad id lands in `failed` without aborting the rest. */
+  async bulkUpsertNotificationPolicies(
+    data: BulkUpsertDeviceNotificationPoliciesDTO
+  ): Promise<ApiResponse<BulkUpsertDeviceNotificationPoliciesResponseDTO>> {
+    return this.request<BulkUpsertDeviceNotificationPoliciesResponseDTO>('/notification-policies/bulk', {
+      method: 'PUT',
+      body: JSON.stringify(data)
     });
   }
 

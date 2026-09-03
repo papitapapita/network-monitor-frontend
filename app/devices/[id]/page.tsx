@@ -11,32 +11,99 @@ import {
   ReplaceDeviceResultDTO,
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
-import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant, getPollingStatusBadgeVariant } from '@/components/ui';
+import { Button, LoadingSpinner, Tooltip, IconButton } from '@/components/ui';
 import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
 import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab';
+import { DeviceHistoryTab } from '@/components/devices/DeviceHistoryTab';
+import { DeviceNotificationPolicyTab } from '@/components/devices/DeviceNotificationPolicyTab';
 import { ReplaceDeviceModal } from '@/components/devices/ReplaceDeviceModal';
 import {
   DEVICE_STATUS_LABELS as STATUS_LABELS,
   RESTORE_GRACE_DAYS,
   RESTORE_SUCCESS_MESSAGE,
-  deviceCategoryLabel,
   isWirelessCategory,
 } from '@/constants/device.constants';
 
-type Tab = 'details' | 'polling' | 'wireless' | 'credentials';
+type Tab = 'details' | 'polling' | 'wireless' | 'notifications' | 'credentials' | 'history';
 
-const ONLINE_STATUS_LABELS: Record<PollingStatus | 'NOT_ACTIVATED', string> = {
-  ONLINE: 'En línea',
-  OFFLINE: 'Fuera de línea',
-  UNKNOWN: 'Monitoreo desconocido',
-  NOT_ACTIVATED: 'No activado',
+const TAB_LABELS: Record<Tab, string> = {
+  details: 'Detalles',
+  polling: 'Sondeo',
+  wireless: 'Inalámbrico',
+  notifications: 'Notificaciones',
+  credentials: 'Credenciales',
+  history: 'Historial',
 };
 
-const TAB_LABELS: Record<Tab, string> = { details: 'Detalles', polling: 'Sondeo', wireless: 'Inalámbrico', credentials: 'Credenciales' };
+function ArrowLeftIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+  );
+}
+
+function SwapIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
+}
+
+/**
+ * The device's live connectivity in one glance, replacing three status badges
+ * that already restate what the Detalles tab shows. Only "online" breathes —
+ * a plain CSS ping ring, no timers — since a static color is enough to say
+ * "down" or "not being watched" without drawing the eye every second.
+ */
+function ConnectivityDot({ device, onlineStatus }: { device: DeviceResponseDTO; onlineStatus: PollingStatus | null }) {
+  const state = !device.monitoringEnabled
+    ? 'off'
+    : onlineStatus === 'ONLINE'
+      ? 'online'
+      : onlineStatus === 'OFFLINE'
+        ? 'offline'
+        : 'unknown';
+
+  const label =
+    state === 'off'
+      ? 'No monitoreado'
+      : state === 'online'
+        ? 'En línea'
+        : state === 'offline'
+          ? 'Fuera de línea'
+          : 'Monitoreo desconocido';
+
+  const dotClass = state === 'online' ? 'bg-green-500' : state === 'offline' ? 'bg-red-500' : 'bg-gray-400 dark:bg-gray-500';
+
+  return (
+    <Tooltip label={label} side="bottom">
+      <span className="relative inline-flex h-3 w-3 shrink-0" aria-label={label}>
+        {state === 'online' && (
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+        )}
+        <span className={`relative inline-flex h-3 w-3 rounded-full ${dotClass}`} />
+      </span>
+    </Tooltip>
+  );
+}
 
 export default function DeviceDetailPage() {
   const router = useRouter();
@@ -220,38 +287,22 @@ export default function DeviceDetailPage() {
       />
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="flex items-start gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>← Atrás</Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">{device.name}</h1>
-            <div className="flex items-center gap-2">
-              <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
-                {STATUS_LABELS[device.status] ?? device.status}
-              </Badge>
-              {device.category && (
-                <Badge variant="info">{deviceCategoryLabel(device.category)}</Badge>
-              )}
-              {(() => {
-                const key = !device.monitoringEnabled ? 'NOT_ACTIVATED' : (onlineStatus ?? 'UNKNOWN');
-                const variant = key === 'NOT_ACTIVATED' ? 'neutral' : getPollingStatusBadgeVariant(key);
-                return <Badge variant={variant}>{ONLINE_STATUS_LABELS[key]}</Badge>;
-              })()}
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <IconButton icon={<ArrowLeftIcon />} label="Volver a dispositivos" onClick={() => router.back()} />
+          <ConnectivityDot device={device} onlineStatus={onlineStatus} />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere min-w-0">
+            {device.name}
+          </h1>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
           {/* A unit can only be swapped once — after that the successor is the
               one to replace, and its page offers the button. */}
           {canReplace && !device.replacedByDeviceId && (
-            <Button variant="outline" size="sm" onClick={() => setShowReplaceModal(true)}>
-              Reemplazar equipo
-            </Button>
+            <IconButton icon={<SwapIcon />} label="Reemplazar equipo" onClick={() => setShowReplaceModal(true)} />
           )}
           {canDelete && (
-            <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-              Eliminar
-            </Button>
+            <IconButton icon={<TrashIcon />} label="Eliminar dispositivo" variant="danger" onClick={() => setShowDeleteModal(true)} />
           )}
         </div>
       </div>
@@ -302,35 +353,6 @@ export default function DeviceDetailPage() {
         </div>
       )}
 
-      {/* Lineage. Makes "this CPE, current box since March" answerable. */}
-      {(device.replacesDeviceId || device.replacedByDeviceId) && (
-        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
-          {device.replacesDeviceId && (
-            <span>
-              Sustituyó a{' '}
-              <Link
-                href={`/devices/${device.replacesDeviceId}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                la unidad anterior
-              </Link>
-              {device.replacedAt && ` el ${new Date(device.replacedAt).toLocaleDateString('es')}`}
-            </span>
-          )}
-          {device.replacedByDeviceId && (
-            <span>
-              Esta unidad fue reemplazada por{' '}
-              <Link
-                href={`/devices/${device.replacedByDeviceId}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                el equipo actual
-              </Link>
-            </span>
-          )}
-        </div>
-      )}
-
       {restoreNotice && (
         <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <div className="flex items-start justify-between gap-3">
@@ -355,14 +377,15 @@ export default function DeviceDetailPage() {
         </div>
       )}
 
-      {/* Tab bar */}
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="flex gap-6">
-          {(['details', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'credentials'] as Tab[]).map((tab) => (
+      {/* Tab bar — scrolls within itself on a narrow screen instead of
+          stretching the page, same as the table's own horizontal scroll. */}
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto table-scroll-x">
+        <nav className="flex gap-6 w-max min-w-full">
+          {(['details', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'notifications', 'credentials', 'history'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`shrink-0 pb-3 text-sm font-medium border-b-2 transition-colors ${
                 currentTab === tab
                   ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -399,8 +422,16 @@ export default function DeviceDetailPage() {
         />
       )}
 
+      {currentTab === 'notifications' && (
+        <DeviceNotificationPolicyTab deviceId={deviceId} />
+      )}
+
       {currentTab === 'credentials' && (
         <DeviceCredentialsTab deviceId={deviceId} />
+      )}
+
+      {currentTab === 'history' && (
+        <DeviceHistoryTab device={device} />
       )}
     </div>
   );
