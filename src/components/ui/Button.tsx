@@ -14,14 +14,14 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-  secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
-  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-  success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500',
+  primary: 'bg-blue-600 text-white shadow-sm hover:bg-blue-700 hover:shadow active:bg-blue-800 focus-visible:ring-blue-500',
+  secondary: 'bg-gray-600 text-white shadow-sm hover:bg-gray-700 hover:shadow active:bg-gray-800 focus-visible:ring-gray-500',
+  danger: 'bg-red-600 text-white shadow-sm hover:bg-red-700 hover:shadow active:bg-red-800 focus-visible:ring-red-500',
+  success: 'bg-green-600 text-white shadow-sm hover:bg-green-700 hover:shadow active:bg-green-800 focus-visible:ring-green-500',
   // Filled with a faint tint (not transparent) so it doesn't wash into the
   // white card/page behind it — a plain border read as barely-there.
   outline:
-    'bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-400 dark:hover:border-gray-500 focus:ring-gray-500',
+    'bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-400 dark:hover:border-gray-500 active:bg-gray-200 dark:active:bg-gray-500 focus-visible:ring-gray-500',
 };
 
 // A fixed `h-*` per size, shared by both variants below, is the standard:
@@ -64,10 +64,10 @@ export function Button({
         ${variantClasses[variant]}
         ${iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]}
         ${fullWidth ? 'w-full' : ''}
-        ${disabled || isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+        ${disabled || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
         rounded-md font-medium
-        focus:outline-none focus:ring-2 focus:ring-offset-2
-        transition-colors duration-200
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800
+        transition-all duration-150 ease-out
         inline-flex items-center justify-center gap-1.5
         ${className}
       `}
