@@ -59,6 +59,14 @@ const columns: DataTableColumn<DeviceModelResponseDTO>[] = [
     sortValue: (m) => DEVICE_TYPE_LABELS[m.deviceType] ?? m.deviceType,
     cell: (m) => <Badge variant="info">{DEVICE_TYPE_LABELS[m.deviceType] ?? m.deviceType}</Badge>,
   },
+  {
+    key: 'wireless',
+    header: 'Inalámbrico',
+    sortValue: (m) => (m.isWireless ? 'Sí' : 'No'),
+    cell: (m) => (
+      <Badge variant={m.isWireless ? 'success' : 'neutral'}>{m.isWireless ? 'Sí' : 'No'}</Badge>
+    ),
+  },
 ];
 
 function DeviceModelsPageContent() {

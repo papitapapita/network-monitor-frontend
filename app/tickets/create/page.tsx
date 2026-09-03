@@ -18,6 +18,7 @@ import {
   validateAddress,
 } from '@/components/tickets/TicketAddressFields';
 import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 function CreateTicketPageContent() {
   const router = useRouter();
@@ -25,8 +26,8 @@ function CreateTicketPageContent() {
   const searchParams = useSearchParams();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
 
   // Prefilled from the query string so the customer, device and alert pages can
   // deep-link into a half-written ticket.
@@ -123,14 +124,13 @@ function CreateTicketPageContent() {
     Object.assign(errors, validateAddress(address));
 
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !showFormErrors(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    setError(null);
 
     const dto: CreateTicketDTO = {
       title: formData.title.trim(),
@@ -153,7 +153,7 @@ function CreateTicketPageContent() {
     } else {
       const message = result.error || 'Error al crear el ticket';
       if (result.errorField) setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
-      setError(message);
+      showError(message);
       setIsSubmitting(false);
     }
   };
@@ -169,12 +169,6 @@ function CreateTicketPageContent() {
           <p className="text-gray-600 dark:text-gray-400">Registra una orden de trabajo en campo</p>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

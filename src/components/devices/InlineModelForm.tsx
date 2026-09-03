@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO, DeviceType, VendorDTO } from '@/types/device.types';
 import { Button, Input, Select } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 const DEVICE_TYPE_OPTIONS = [
   { value: '', label: 'Seleccionar tipo' },
@@ -30,8 +31,8 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ model: '', deviceType: '' as DeviceType | '', isWireless: defaultIsWireless });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { showError, showFormErrors } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -46,10 +47,9 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
     else if (form.model.trim().length > 150) errs.model = 'El modelo no puede superar los 150 caracteres';
     if (!form.deviceType) errs.deviceType = 'El tipo de dispositivo es requerido';
     setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
+    if (showFormErrors(errs)) return;
 
     setIsLoading(true);
-    setApiError(null);
 
     const result = await apiService.createDeviceModel({
       vendorId,
@@ -69,9 +69,10 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
       onCreated(newModel);
     } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
       setErrors((prev) => ({ ...prev, model: result.error! }));
+      showError(result.error!);
       setIsLoading(false);
     } else {
-      setApiError(result.error || 'Error al crear el modelo');
+      showError(result.error || 'Error al crear el modelo');
       setIsLoading(false);
     }
   };
@@ -79,12 +80,6 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
   return (
     <div className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
       <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo para este fabricante</p>
-
-      {apiError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2">
-          <p className="text-sm text-red-800 dark:text-red-400">{apiError}</p>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input

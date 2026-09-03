@@ -14,6 +14,7 @@ import {
   terminalNotice,
 } from '@/constants/ticket.constants';
 import { Button, Input, Modal, Textarea, Combobox } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 type PendingAction = 'assign' | 'schedule' | 'start' | 'resolve' | 'cancel';
 
@@ -57,6 +58,7 @@ export function TicketActions({
   const [scheduledFor, setScheduledFor] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [cancelReason, setCancelReason] = useState('');
+  const { showError } = useToast();
 
   const notice = terminalNotice(ticket.status);
   if (notice) {
@@ -99,12 +101,19 @@ export function TicketActions({
       const message = result.error || 'No se pudo completar la acción';
       if (result.errorField) setFieldError(message);
       setActionError(message);
+      showError(message);
     }
+  };
+
+  /** A guard the operator has to fix before the call is worth making. */
+  const rejectField = (message: string) => {
+    setFieldError(message);
+    showError(message);
   };
 
   const submitAssign = () => {
     if (!technicianId) {
-      setFieldError('Elige un técnico');
+      rejectField('Elige un técnico');
       return;
     }
     return run(() =>
@@ -117,7 +126,7 @@ export function TicketActions({
 
   const submitSchedule = () => {
     if (!scheduledFor) {
-      setFieldError('Elige una fecha, o usa «Quitar fecha»');
+      rejectField('Elige una fecha, o usa «Quitar fecha»');
       return;
     }
     // The value of an <input type="date"> is already 'YYYY-MM-DD'. Passing it
@@ -127,7 +136,7 @@ export function TicketActions({
 
   const submitResolve = () => {
     if (!resolutionNotes.trim()) {
-      setFieldError('Las notas de resolución son obligatorias');
+      rejectField('Las notas de resolución son obligatorias');
       return;
     }
     return run(() => apiService.resolveTicket(ticket.id, resolutionNotes.trim()));
@@ -135,7 +144,7 @@ export function TicketActions({
 
   const submitCancel = () => {
     if (!cancelReason.trim()) {
-      setFieldError('Indica el motivo de la cancelación');
+      rejectField('Indica el motivo de la cancelación');
       return;
     }
     return run(() => apiService.cancelTicket(ticket.id, cancelReason.trim()));

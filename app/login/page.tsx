@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { Button, Input } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { showError } = useToast();
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export default function LoginPage() {
     const err = await login(email, password);
     if (err) {
       setError(err);
+      showError(err);
       setSubmitting(false);
     } else {
       router.replace('/');

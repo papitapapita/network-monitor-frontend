@@ -86,3 +86,28 @@ body {
   background-color: var(--scrollbar-track-table);
   border-top: 1px solid var(--scrollbar-track-table-border);
 }
+
+/*
+ * Floating notices: they arrive from the right edge they are pinned to, fast
+ * enough not to delay the message it is carrying.
+ */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0.75rem, -0.25rem, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in {
+    animation: none;
+  }
+}

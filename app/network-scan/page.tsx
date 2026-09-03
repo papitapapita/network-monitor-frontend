@@ -26,6 +26,7 @@ import {
   Modal,
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
+import { useToast } from '@/contexts/toast.context';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
 import { isValidMacAddress, normalizeMacAddress, requiresIdentifier, DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
@@ -135,7 +136,7 @@ function AddDeviceModal({
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
 
   const filteredModels = selectedVendorId
     ? localModels.filter((m) => m.vendorId === selectedVendorId)
@@ -184,14 +185,16 @@ function AddDeviceModal({
       if (failures) e.pollingFailuresBeforeDown = failures;
     }
     setErrors(e);
-    return Object.keys(e).length === 0;
+    // The form scrolls, so a rejected field is routinely off screen when the
+    // submit button is pressed: the floating notice is what explains the
+    // refusal, the message on the field itself is only there once it is reached.
+    return !showFormErrors(e);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
-    setApiError(null);
 
     const dto: CreateDeviceDTO = {
       name: form.name.trim(),
@@ -222,9 +225,9 @@ function AddDeviceModal({
     } else {
       const message = res.error || 'Error al crear el dispositivo';
       // The MAC arrives from the scan and its input is disabled, so a duplicate
-      // has to read on the field too — the banner alone leaves it unexplained.
+      // has to read on the field too — the notice alone leaves it unexplained.
       if (res.errorField) setErrors((prev) => ({ ...prev, [res.errorField!]: message }));
-      setApiError(message);
+      showError(message);
       setSubmitting(false);
     }
   };
@@ -235,12 +238,6 @@ function AddDeviceModal({
         <form onSubmit={handleSubmit} className="flex flex-col">
           {/* Scrollable body */}
           <div className="overflow-y-auto max-h-[calc(100vh-16rem)] space-y-4 pr-1">
-            {apiError && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                <p className="text-sm text-red-800 dark:text-red-400">{apiError}</p>
-              </div>
-            )}
-
             {/* Información Requerida */}
             <Section title="Información Requerida">
               <div className="space-y-4">
@@ -546,6 +543,7 @@ export default function NetworkScanPage() {
   // Maps for detecting already-registered devices: ip → device, normalizedMac → device
   const [devicesByIp, setDevicesByIp] = useState<Map<string, DeviceResponseDTO>>(new Map());
   const [devicesByMac, setDevicesByMac] = useState<Map<string, DeviceResponseDTO>>(new Map());
+  const { showError } = useToast();
 
   const loadDeviceMaps = async () => {
     const devRes = await apiService.listDevices({ limit: 1000 });
@@ -591,7 +589,9 @@ export default function NetworkScanPage() {
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidCidr(segment.trim())) {
-      setSegmentError('Ingresa un bloque CIDR válido, ej. 192.168.1.0/24 (máximo /22)');
+      const message = 'Ingresa un bloque CIDR válido, ej. 192.168.1.0/24 (máximo /22)';
+      setSegmentError(message);
+      showError(message);
       return;
     }
     setSegmentError(null);
@@ -616,7 +616,9 @@ export default function NetworkScanPage() {
 
       await loadDeviceMaps();
     } else {
-      setScanError(res.error || 'Error al escanear la red');
+      const message = res.error || 'Error al escanear la red';
+      setScanError(message);
+      showError(message);
     }
     setIsScanning(false);
   };

@@ -22,7 +22,7 @@ function today(): string {
 async function arrangeCustomer(api: ApiClient) {
   return api.create<{ id: string; fullName: string; phone: string }>('customers', {
     fullName: uniqueName('customer'),
-    phone: '3001112233',
+    phone: uniquePhone(),
   });
 }
 
@@ -165,7 +165,10 @@ test.describe('ticket conventions', () => {
     await page.getByRole('button', { name: 'Crear Ticket' }).click();
 
     // The complaint lands on both fields, because either one satisfies the rule.
-    await expect(page.getByText('Indica al menos un cliente o un dispositivo')).toHaveCount(2);
+    // Scoped to the form: the floating notice carries the same sentence once more.
+    await expect(
+      page.locator('form').getByText('Indica al menos un cliente o un dispositivo')
+    ).toHaveCount(2);
     await expect(page).toHaveURL(/\/tickets\/create$/);
   });
 
@@ -259,7 +262,7 @@ test.describe('ticket conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Ticket' }).click();
 
-    await expect(page.getByText('La latitud y la longitud van juntas')).toBeVisible();
+    await expect(page.getByText('La latitud y la longitud van juntas').first()).toBeVisible();
     await expect(page).toHaveURL(/\/tickets\/create$/);
   });
 
@@ -348,7 +351,7 @@ test.describe('ticket lifecycle', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: 'Resolver', exact: true }).click();
 
-    await expect(page.getByText('Las notas de resolución son obligatorias')).toBeVisible();
+    await expect(page.getByText('Las notas de resolución son obligatorias').first()).toBeVisible();
     // The ticket is untouched — the dialog is still open.
     await expect(dialog).toBeVisible();
   });
@@ -376,7 +379,7 @@ test.describe('ticket lifecycle', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: 'Cancelar ticket', exact: true }).click();
 
-    await expect(page.getByText('Indica el motivo de la cancelación')).toBeVisible();
+    await expect(page.getByText('Indica el motivo de la cancelación').first()).toBeVisible();
     await expect(dialog).toBeVisible();
   });
 

@@ -12,6 +12,7 @@ import {
   DeviceType,
 } from '@/types/device.types';
 import { Card, Button, Input, Select, Badge } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
 
 const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
@@ -33,7 +34,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
 
   const makeFormData = (m: DeviceModelResponseDTO) => ({
@@ -45,6 +45,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
 
   const [formData, setFormData] = useState(makeFormData(model));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
   // Devices standing in the way of turning the model non-wireless — each still
   // holds a wireless config the operator has to delete first. Empty means
   // nothing is blocking.
@@ -97,7 +98,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
 
   const persist = async () => {
     setIsSaving(true);
-    setError(null);
 
     const dto: UpdateDeviceModelDTO = {
       vendorId: formData.vendorId,
@@ -119,7 +119,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
       // translated by the api service. It only lands here when the pre-flight
       // below saw nothing — a config created between the two calls — so there
       // are no names to list and the server's count stands on its own.
-      setError(result.error || 'Error al actualizar el modelo');
+      showError(result.error || 'Error al actualizar el modelo');
     }
     setIsSaving(false);
   };
@@ -131,7 +131,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
     if (!formData.vendorId) errors.vendorId = 'El fabricante es requerido';
     if (!formData.deviceType) errors.deviceType = 'El tipo es requerido';
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setBlockingDevices([]);
 
@@ -141,11 +141,10 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
     // count after a failed save.
     if (model.isWireless && !formData.isWireless) {
       setIsSaving(true);
-      setError(null);
       const configured = await findConfiguredDevices();
       setIsSaving(false);
       if (configured === null) {
-        setError('No se pudieron consultar los dispositivos de este modelo. Inténtalo de nuevo.');
+        showError('No se pudieron consultar los dispositivos de este modelo. Inténtalo de nuevo.');
         return;
       }
       if (configured.length > 0) {
@@ -161,7 +160,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
     setIsEditing(false);
     setFormErrors({});
     setBlockingDevices([]);
-    setError(null);
     setFormData(makeFormData(model));
   };
 
@@ -205,12 +203,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
           </div>
         )}
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       {isEditing ? (
         <Card>

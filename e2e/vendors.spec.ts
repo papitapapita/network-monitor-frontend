@@ -179,7 +179,7 @@ test.describe('vendor conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Fabricante' }).click();
 
-    await expect(page.getByText('El nombre es requerido')).toBeVisible();
+    await expect(page.getByText('El nombre es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/vendors\/create$/);
   });
 
@@ -204,7 +204,7 @@ test.describe('vendor conventions', () => {
     await field(page, 'Slug').fill(uniqueName('vendor'));
     await page.getByRole('button', { name: 'Crear Fabricante' }).click();
 
-    await expect(page.getByText('El nombre no puede superar los 100 caracteres')).toBeVisible();
+    await expect(page.getByText('El nombre no puede superar los 100 caracteres').first()).toBeVisible();
     await expect(page).toHaveURL(/\/vendors\/create$/);
   });
 
@@ -215,7 +215,7 @@ test.describe('vendor conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Fabricante' }).click();
 
-    await expect(page.getByText('Solo minúsculas, números y guiones (ej: tp-link)')).toBeVisible();
+    await expect(page.getByText('Solo minúsculas, números y guiones (ej: tp-link)').first()).toBeVisible();
     await expect(page).toHaveURL(/\/vendors\/create$/);
   });
 
@@ -229,7 +229,7 @@ test.describe('vendor conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Fabricante' }).click();
 
-    await expect(page.getByText('La descripción no puede superar los 500 caracteres')).toBeVisible();
+    await expect(page.getByText('La descripción no puede superar los 500 caracteres').first()).toBeVisible();
     await expect(page).toHaveURL(/\/vendors\/create$/);
   });
 
@@ -243,7 +243,7 @@ test.describe('vendor conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Fabricante' }).click();
 
-    await expect(page.getByText('El slug es requerido')).toBeVisible();
+    await expect(page.getByText('El slug es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/vendors\/create$/);
   });
 
@@ -261,7 +261,7 @@ test.describe('vendor conventions', () => {
 
     // Nothing client-side knows about this collision, so this only passes if
     // the request reached the backend and the response came back translated —
-    // twice over: in the banner, and under the slug input that has to change.
+    // twice over: in the floating notice, and under the slug input that has to change.
     const taken = page.getByText(`Ya existe un fabricante con el slug "${existing.slug}"`);
     await expect(taken.first()).toBeVisible();
     await expect(taken).toHaveCount(2);
@@ -304,7 +304,7 @@ test.describe('vendor conventions', () => {
 
     // Nothing client-side knows about this collision, so this only passes if
     // the request reached the backend and the response came back translated —
-    // twice over: in the banner, and under the name input that has to change.
+    // twice over: in the floating notice, and under the name input that has to change.
     const taken = page.getByText(`Ya existe un fabricante con el nombre "${existing.name}"`);
     await expect(taken.first()).toBeVisible();
     await expect(taken).toHaveCount(2);

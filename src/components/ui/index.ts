@@ -33,6 +33,9 @@ export { FilterBar } from './FilterBar';
 
 export { ErrorBanner } from './ErrorBanner';
 
+export { ToastCard, ToastViewport } from './Toast';
+export type { ToastItem, ToastVariant } from './Toast';
+
 export { LoadingSpinner } from './LoadingSpinner';
 
 export { Pagination } from './Pagination';

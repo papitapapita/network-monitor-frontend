@@ -6,6 +6,7 @@ import { apiService } from '@/services/api.service';
 import { fetchAllDevices } from '@/hooks/useCatalogs';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { Modal, Input, Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { DEVICE_STATUS_LABELS } from '@/constants/device.constants';
 
 interface AssignDeviceModalProps {
@@ -19,7 +20,7 @@ export function AssignDeviceModal({ isOpen, onClose, locationId, onAssigned }: A
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [assigningId, setAssigningId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { showError } = useToast();
 
   const { data: allDevices = [], isLoading } = useQuery({
     queryKey: ['devicesCatalog'],
@@ -36,19 +37,17 @@ export function AssignDeviceModal({ isOpen, onClose, locationId, onAssigned }: A
 
   const handleClose = () => {
     setSearch('');
-    setError(null);
     onClose();
   };
 
   const handleAssign = async (device: DeviceResponseDTO) => {
     setAssigningId(device.id);
-    setError(null);
     const result = await apiService.updateDevice(device.id, { locationId });
     if (result.success && result.data) {
       onAssigned(result.data);
       queryClient.invalidateQueries({ queryKey: ['devicesCatalog'] });
     } else {
-      setError(result.error || 'Error al asignar el dispositivo');
+      showError(result.error || 'Error al asignar el dispositivo');
     }
     setAssigningId(null);
   };
@@ -62,12 +61,6 @@ export function AssignDeviceModal({ isOpen, onClose, locationId, onAssigned }: A
         autoFocus
         fullWidth
       />
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mt-3">
-          <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <div className="mt-3 max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg">
         {isLoading ? (

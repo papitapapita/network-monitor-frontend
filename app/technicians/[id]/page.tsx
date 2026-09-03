@@ -20,6 +20,7 @@ import {
   todayISODate,
 } from '@/constants/ticket.constants';
 import { Card, Button, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 export default function TechnicianDetailPage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function TechnicianDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -107,7 +109,7 @@ export default function TechnicianDetailPage() {
       errors.email = 'El email no tiene un formato válido';
 
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -125,6 +127,7 @@ export default function TechnicianDetailPage() {
       const message = r.error || 'Error al actualizar el técnico';
       if (r.errorField) setFormErrors((prev) => ({ ...prev, [r.errorField!]: message }));
       setSaveError(message);
+      showError(message);
     }
     setIsSaving(false);
   };
@@ -140,7 +143,9 @@ export default function TechnicianDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['technicians'] });
       setTechnician(r.data);
     } else {
-      setSaveError(r.error || 'Error al cambiar el estado del técnico');
+      const message = r.error || 'Error al cambiar el estado del técnico';
+      setSaveError(message);
+      showError(message);
     }
   };
 
@@ -155,7 +160,9 @@ export default function TechnicianDetailPage() {
       setShowDeleteModal(false);
       // The 409 for a technician who has tickets lands here, already translated
       // into the suggestion to deactivate instead.
-      setLoadError(r.error || 'Error al eliminar el técnico');
+      const message = r.error || 'Error al eliminar el técnico';
+      setLoadError(message);
+      showError(message);
     }
   };
 

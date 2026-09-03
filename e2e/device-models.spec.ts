@@ -156,7 +156,7 @@ test.describe('device model conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
-    await expect(page.getByText('El fabricante es requerido')).toBeVisible();
+    await expect(page.getByText('El fabricante es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
 
@@ -172,7 +172,7 @@ test.describe('device model conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
-    await expect(page.getByText('El modelo es requerido')).toBeVisible();
+    await expect(page.getByText('El modelo es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
 
@@ -187,7 +187,7 @@ test.describe('device model conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
-    await expect(page.getByText('El tipo de dispositivo es requerido')).toBeVisible();
+    await expect(page.getByText('El tipo de dispositivo es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
 
@@ -209,7 +209,7 @@ test.describe('device model conventions', () => {
 
     // Untranslated on purpose: the frontend has no Spanish wording for this
     // one, so the backend's own message is what reaches the page.
-    await expect(page.getByText(`Vendor not found: ${vendor.id}`)).toBeVisible();
+    await expect(page.getByText(`Vendor not found: ${vendor.id}`).first()).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
 
@@ -232,7 +232,7 @@ test.describe('device model conventions', () => {
     // Nothing client-side knows about this collision, so this only passes if
     // the request reached the backend and the response came back translated.
     await expect(
-      page.getByText(`Ya existe un modelo de dispositivo "${existing.model}" para este fabricante`)
+      page.getByText(`Ya existe un modelo de dispositivo "${existing.model}" para este fabricante`).first()
     ).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
@@ -255,7 +255,7 @@ test.describe('device model conventions', () => {
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
     await expect(
-      page.getByText(`Ya existe un modelo de dispositivo "${existing.model}" para este fabricante`)
+      page.getByText(`Ya existe un modelo de dispositivo "${existing.model}" para este fabricante`).first()
     ).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
@@ -319,7 +319,7 @@ test.describe('device model conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
-    await expect(page.getByText('El modelo no puede superar los 150 caracteres')).toBeVisible();
+    await expect(page.getByText('El modelo no puede superar los 150 caracteres').first()).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
 
@@ -335,7 +335,7 @@ test.describe('device model conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
-    await expect(page.getByText('El modelo es requerido')).toBeVisible();
+    await expect(page.getByText('El modelo es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/device-models\/create$/);
   });
 
@@ -444,7 +444,7 @@ test.describe('device model conventions', () => {
 
     // The backend's own count is what's on screen, so the model stays put.
     await expect(
-      page.getByText('No se puede eliminar el modelo: tiene 1 dispositivo asociado. Reasigna o elimina ese dispositivo primero.')
+      page.getByText('No se puede eliminar el modelo: tiene 1 dispositivo asociado. Reasigna o elimina ese dispositivo primero.').first()
     ).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/device-models/${model.id}$`));
     await expect(page.getByRole('heading', { name: `${vendor.name} — ${model.model}` })).toBeVisible();
@@ -571,7 +571,7 @@ test.describe('device model conventions', () => {
     // The live device wins: DEV-026's message, not DEV-030's — no confirmation
     // dialog is offered to purge around it.
     await expect(
-      page.getByText('No se puede eliminar el modelo: tiene 1 dispositivo asociado. Reasigna o elimina ese dispositivo primero.')
+      page.getByText('No se puede eliminar el modelo: tiene 1 dispositivo asociado. Reasigna o elimina ese dispositivo primero.').first()
     ).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`/device-models/${model.id}$`));

@@ -15,6 +15,7 @@ import {
 import { Badge, Button, Card, LoadingSpinner } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 const SEVERITY_LABELS: Record<AlertSeverity, string> = {
   WARNING: 'Advertencia',
@@ -89,6 +90,7 @@ export default function AlertDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showError } = useToast();
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -122,7 +124,9 @@ export default function AlertDetailPage() {
     if (result.success && result.data) {
       setAlert(result.data);
     } else {
-      setError(result.error || 'Error al actualizar la alerta');
+      const message = result.error || 'Error al actualizar la alerta';
+      setError(message);
+      showError(message);
     }
     setIsRefreshing(false);
   };
@@ -138,7 +142,9 @@ export default function AlertDetailPage() {
       setAlert(result.data);
       setError(null);
     } else {
-      setError(result.error || 'Error al resolver la alerta');
+      const message = result.error || 'Error al resolver la alerta';
+      setError(message);
+      showError(message);
     }
   };
 
@@ -149,7 +155,9 @@ export default function AlertDetailPage() {
     if (result.success) {
       router.push('/alerts');
     } else {
-      setError(result.error || 'Error al eliminar la alerta');
+      const message = result.error || 'Error al eliminar la alerta';
+      setError(message);
+      showError(message);
       setShowDeleteModal(false);
     }
   };

@@ -13,6 +13,7 @@ import {
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
 import { Card, Button, Input, Textarea, Select, Combobox, LoadingSpinner } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
@@ -22,8 +23,8 @@ import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBef
 export default function CreateDevicePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
 
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
   const [allDeviceModels, setAllDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
@@ -158,14 +159,13 @@ export default function CreateDevicePage() {
     }
 
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !showFormErrors(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    setError(null);
 
     const dto: CreateDeviceDTO = {
       deviceModelId: formData.deviceModelId,
@@ -197,12 +197,12 @@ export default function CreateDevicePage() {
       router.replace(`/devices/${result.data.id}`);
     } else {
       const message = result.error || 'Error al crear el dispositivo';
-      // A rejected MAC or IP belongs on its own input, not only in the banner
-      // above — the fields sit far enough down the form to be off screen.
+      // A rejected MAC or IP belongs on its own input, not only in the floating
+      // notice — that is the field the operator has to go back and change.
       if (result.errorField) {
         setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
       }
-      setError(message);
+      showError(message);
       setIsSubmitting(false);
     }
   };
@@ -218,12 +218,6 @@ export default function CreateDevicePage() {
         </div>
         <p className="text-gray-600 dark:text-gray-400">Registra un nuevo dispositivo en la red</p>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       {loadingOptions ? (
         <div className="flex justify-center py-8">

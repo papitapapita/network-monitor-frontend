@@ -17,6 +17,7 @@ import {
   ConfirmModal,
   getPollingStatusBadgeVariant
 } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 import {
   POLLING_INTERVAL_MIN_SECONDS,
@@ -113,6 +114,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   });
   const [configSaving, setConfigSaving] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
   const [configErrors, setConfigErrors] = useState<Record<string, string>>({});
   const [configSuccess, setConfigSuccess] = useState(false);
 
@@ -176,9 +178,13 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       // if monitoring was turned off elsewhere while this tab was open — so
       // catch the card up first, then say why the click did nothing.
       await fetchPollingStatus();
-      setStatusError('El monitoreo está deshabilitado para este dispositivo; habilítelo antes de sondearlo.');
+      const message = 'El monitoreo está deshabilitado para este dispositivo; habilítelo antes de sondearlo.';
+      setStatusError(message);
+      showError(message);
     } else {
-      setStatusError(result.error || 'Error en el sondeo');
+      const message = result.error || 'Error en el sondeo';
+      setStatusError(message);
+      showError(message);
     }
     setIsPolling(false);
   };
@@ -196,7 +202,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
 
     const updated = await apiService.updateDevice(deviceId, { monitoringEnabled: true });
     if (!updated.success || !updated.data) {
-      setConfigError(updated.error || 'Error al habilitar el monitoreo');
+      const message = updated.error || 'Error al habilitar el monitoreo';
+      setConfigError(message);
+      showError(message);
       setIsEnabling(false);
       return;
     }
@@ -206,7 +214,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       ipAddress: device.ipAddress,
     });
     if (!config.success) {
-      setConfigError(config.error || 'Error al crear la configuración de sondeo');
+      const message = config.error || 'Error al crear la configuración de sondeo';
+      setConfigError(message);
+      showError(message);
     }
 
     onDeviceUpdated(updated.data);
@@ -216,12 +226,14 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
 
   const handleSaveConfig = async () => {
     if (!hasIp) {
-      setConfigError('El dispositivo necesita una dirección IP para configurar el sondeo.');
+      const message = 'El dispositivo necesita una dirección IP para configurar el sondeo.';
+      setConfigError(message);
+      showError(message);
       return;
     }
     const errors = validatePollingConfigForm(configForm);
     setConfigErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setConfigSaving(true);
     setConfigError(null);
@@ -242,7 +254,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       setNoConfig(false);
       fetchPollingStatus();
     } else {
-      setConfigError(result.error || 'Error al guardar la configuración');
+      const message = result.error || 'Error al guardar la configuración';
+      setConfigError(message);
+      showError(message);
     }
     setConfigSaving(false);
   };
@@ -287,7 +301,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     setShowDeleteHistoryModal(false);
 
     if (!result.success || !result.data) {
-      setHistoryError(result.error || 'Error al eliminar el historial');
+      const message = result.error || 'Error al eliminar el historial';
+      setHistoryError(message);
+      showError(message);
       return;
     }
     const { deletedCount } = result.data;

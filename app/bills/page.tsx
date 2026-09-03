@@ -7,6 +7,7 @@ import { apiService } from '@/services/api.service';
 import { BillDTO, BulkGenerateResult } from '@/types/bill.types';
 import { CustomerDTO } from '@/types/customer.types';
 import { fetchAllCustomers } from '@/hooks/useCatalogs';
+import { useToast } from '@/contexts/toast.context';
 import {
   BILL_STATUS_LABELS,
   BILL_STATUS_VARIANTS,
@@ -271,12 +272,17 @@ function GenerateBillModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const { showError } = useToast();
 
   const reset = () => { setCustomerId(''); setDueDate(''); setError(null); setFieldError(null); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerId) { setFieldError('Selecciona un cliente'); return; }
+    if (!customerId) {
+      setFieldError('Selecciona un cliente');
+      showError('Selecciona un cliente');
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     const r = await apiService.generateBill({
@@ -292,7 +298,9 @@ function GenerateBillModal({
       onClose();
       router.push(`/bills/${r.data.id}`);
     } else {
-      setError(r.error || 'Error al generar la factura');
+      const message = r.error || 'Error al generar la factura';
+      setError(message);
+      showError(message);
     }
   };
 
@@ -351,6 +359,7 @@ function GenerateBulkModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BulkGenerateResult | null>(null);
+  const { showError } = useToast();
 
   const handleClose = () => { setResult(null); setError(null); onClose(); };
 
@@ -368,7 +377,9 @@ function GenerateBulkModal({
       setResult(r.data);
       onGenerated();
     } else {
-      setError(r.error || 'Error al generar las facturas');
+      const message = r.error || 'Error al generar las facturas';
+      setError(message);
+      showError(message);
     }
   };
 

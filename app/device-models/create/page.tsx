@@ -6,13 +6,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateDeviceModelDTO, VendorDTO, DeviceType } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 export default function CreateDeviceModelPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
 
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
   const [loadingVendors, setLoadingVendors] = useState(true);
@@ -47,14 +48,13 @@ export default function CreateDeviceModelPage() {
     else if (formData.model.trim().length > 150) errors.model = 'El modelo no puede superar los 150 caracteres';
     if (!formData.deviceType) errors.deviceType = 'El tipo de dispositivo es requerido';
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !showFormErrors(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    setError(null);
 
     const dto: CreateDeviceModelDTO = {
       vendorId: formData.vendorId,
@@ -71,7 +71,7 @@ export default function CreateDeviceModelPage() {
       setFormErrors((prev) => ({ ...prev, model: result.error! }));
       setIsSubmitting(false);
     } else {
-      setError(result.error || 'Error al crear el modelo');
+      showError(result.error || 'Error al crear el modelo');
       setIsSubmitting(false);
     }
   };
@@ -87,12 +87,6 @@ export default function CreateDeviceModelPage() {
         </div>
         <p className="text-gray-600 dark:text-gray-400">Registra un nuevo modelo de dispositivo</p>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       {loadingVendors ? (
         <div className="flex justify-center py-8">

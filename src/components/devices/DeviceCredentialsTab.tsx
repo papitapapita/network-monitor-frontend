@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
 import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
 import { Card, Button, Input, Badge, LoadingSpinner } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 
 interface Props {
@@ -62,6 +63,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
   const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { showError } = useToast();
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const [deleting, setDeleting] = useState(false);
@@ -142,6 +144,9 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
     const validationError = validate();
     if (validationError) {
       setSaveError(validationError);
+      // The SNMP rules live at the bottom of a long form, well past the notice
+      // at its top, so the refusal has to travel to wherever the operator is.
+      showError(validationError);
       return;
     }
 
@@ -183,7 +188,9 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
       setSaveSuccess(true);
       setShowForm(false);
     } else {
-      setSaveError(forbidden(result) ?? result.error ?? 'Error al guardar credenciales');
+      const message = forbidden(result) ?? result.error ?? 'Error al guardar credenciales';
+      setSaveError(message);
+      showError(message);
     }
     setSaving(false);
   };
@@ -197,7 +204,9 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
       setNoCreds(true);
       setConfirmDelete(false);
     } else {
-      setDeleteError(forbidden(result) ?? result.error ?? 'Error al eliminar credenciales');
+      const message = forbidden(result) ?? result.error ?? 'Error al eliminar credenciales';
+      setDeleteError(message);
+      showError(message);
     }
     setDeleting(false);
   };

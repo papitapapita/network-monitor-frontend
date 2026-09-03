@@ -9,6 +9,7 @@ import { ConfirmModal, Modal, UndoModal } from './Modal';
 import { Button } from './Button';
 import { Textarea } from './Textarea';
 import { ErrorBanner } from './ErrorBanner';
+import { useToast } from '@/contexts/toast.context';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import { BulkFanOutProgress, runBulkFanOut } from '@/services/bulk-fanout';
 
@@ -320,6 +321,17 @@ export function DataTable<T>({
   const [undoError, setUndoError] = useState<string | null>(null);
   /** Last row toggled on its own — the anchor a Shift+click extends from. */
   const anchorId = useRef<string | null>(null);
+  const { showError } = useToast();
+
+  /**
+   * A failed bulk run, reported twice on purpose: the banner above the table is
+   * where the operator looks afterwards, and the floating notice is what reaches
+   * them when the selection bar they pressed is pages below it.
+   */
+  const reportDeleteError = useCallback((message: string) => {
+    setDeleteError(message);
+    showError(message);
+  }, [showError]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -407,7 +419,7 @@ export function DataTable<T>({
   ) => {
     const result = await deleteMany(ids);
     if (!result.success || !result.data) {
-      setDeleteError(result.error ?? `Error al eliminar ${bulkDelete!.entity.plural}`);
+      reportDeleteError(result.error ?? `Error al eliminar ${bulkDelete!.entity.plural}`);
       return;
     }
     const summary = result.data;
@@ -415,7 +427,7 @@ export function DataTable<T>({
 
     const unresolved = [...summary.skipped.map((s) => s.id), ...summary.failed.map((f) => f.id)];
     if (unresolved.length > 0) {
-      setDeleteError(summaryMessage(summary, bulkDelete!.entity, 'eliminad'));
+      reportDeleteError(summaryMessage(summary, bulkDelete!.entity, 'eliminad'));
       // Leaves selected exactly what the batch did not take, so a retry aims
       // at those rows and not at the ones already gone.
       setSelectedIds(new Set(unresolved));
@@ -438,7 +450,7 @@ export function DataTable<T>({
       try {
         await runDeleteMany(bulkDelete.deleteMany, ids);
       } catch {
-        setDeleteError(`Error al eliminar ${bulkDelete.entity.plural}`);
+        reportDeleteError(`Error al eliminar ${bulkDelete.entity.plural}`);
       } finally {
         setShowConfirm(false);
         setIsDeleting(false);
@@ -482,7 +494,7 @@ export function DataTable<T>({
         // left and that waiting fixes it, rather than repeating the 429 prose.
         const throttleNote = `Quedan ${countLabel(rateLimited.length, bulkDelete.entity)} sin eliminar por el límite de solicitudes del servidor. Espera un minuto y vuelve a intentarlo — la selección se conservó.`;
         const allRateLimited = rateLimited.length === failed.length;
-        setDeleteError(
+        reportDeleteError(
           deleted === 0
             ? allRateLimited
               ? throttleNote
@@ -495,7 +507,7 @@ export function DataTable<T>({
         setSelectedIds(new Set(failed.map((f) => f.id)));
       }
     } catch {
-      setDeleteError(`Error al eliminar ${bulkDelete.entity.plural}`);
+      reportDeleteError(`Error al eliminar ${bulkDelete.entity.plural}`);
     } finally {
       setShowConfirm(false);
       setIsDeleting(false);
@@ -528,7 +540,7 @@ export function DataTable<T>({
       if (action.run) {
         const result = await action.run(runnable, input);
         if (!result.success || !result.data) {
-          setDeleteError(result.error ?? `Error al procesar ${bulkDelete.entity.plural}`);
+          reportDeleteError(result.error ?? `Error al procesar ${bulkDelete.entity.plural}`);
           return;
         }
         summary = result.data;
@@ -560,7 +572,7 @@ export function DataTable<T>({
       const message = summaryMessage(merged, bulkDelete.entity, action.doneParticiple);
       // A row the endpoint refused outright is a failure worth the red banner;
       // one it merely skipped (already resolved, not monitored) is a normal run.
-      if (merged.failed.length > 0) setDeleteError(message);
+      if (merged.failed.length > 0) reportDeleteError(message);
       else setActionNotice(message);
 
       // Leaves selected exactly what the action did not take, so a retry — or a
@@ -568,7 +580,7 @@ export function DataTable<T>({
       const unresolved = [...merged.skipped.map((s) => s.id), ...merged.failed.map((f) => f.id)];
       setSelectedIds(new Set(unresolved));
     } catch {
-      setDeleteError(`Error al procesar ${bulkDelete.entity.plural}`);
+      reportDeleteError(`Error al procesar ${bulkDelete.entity.plural}`);
     } finally {
       closeAction();
       setIsRunningAction(false);
@@ -591,7 +603,7 @@ export function DataTable<T>({
         return next;
       });
     } else {
-      setDeleteError(result.error ?? `Error al eliminar ${bulkDelete.entity.singular}`);
+      reportDeleteError(result.error ?? `Error al eliminar ${bulkDelete.entity.singular}`);
     }
     await bulkDelete.onFinished?.();
   };

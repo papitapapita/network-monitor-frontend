@@ -127,7 +127,7 @@ test.describe('technician conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Técnico' }).click();
 
-    await expect(page.getByText('El nombre es requerido')).toBeVisible();
+    await expect(page.getByText('El nombre es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/technicians\/create$/);
   });
 
@@ -159,7 +159,7 @@ test.describe('technician conventions', () => {
     await field(page, 'Nombre Completo').fill(uniqueName('tech').padEnd(151, 'x'));
     await page.getByRole('button', { name: 'Crear Técnico' }).click();
 
-    await expect(page.getByText('El nombre no puede superar los 150 caracteres')).toBeVisible();
+    await expect(page.getByText('El nombre no puede superar los 150 caracteres').first()).toBeVisible();
     await expect(page).toHaveURL(/\/technicians\/create$/);
   });
 
@@ -173,7 +173,7 @@ test.describe('technician conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Técnico' }).click();
 
-    await expect(page.getByText('El teléfono es requerido')).toBeVisible();
+    await expect(page.getByText('El teléfono es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/technicians\/create$/);
   });
 
@@ -190,7 +190,7 @@ test.describe('technician conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Técnico' }).click();
 
-    await expect(page.getByText('El email no tiene un formato válido')).toBeVisible();
+    await expect(page.getByText('El email no tiene un formato válido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/technicians\/create$/);
   });
 
@@ -288,8 +288,8 @@ test.describe('technician conventions', () => {
     // The backend's own count is what reaches the screen, and the message has to
     // point at deactivating — deleting would blank the technician on every
     // ticket they ever worked.
-    await expect(page.getByText(/No se puede eliminar el técnico: tiene 1 ticket asociado/)).toBeVisible();
-    await expect(page.getByText(/Desactívalo en su lugar/)).toBeVisible();
+    await expect(page.getByText(/No se puede eliminar el técnico: tiene 1 ticket asociado/).first()).toBeVisible();
+    await expect(page.getByText(/Desactívalo en su lugar/).first()).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/technicians/${technician.id}$`));
   });
 

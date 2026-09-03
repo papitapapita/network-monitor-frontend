@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
 import { Card, Button, Input, Textarea, LoadingSpinner } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
 function toSlug(name: string): string {
@@ -26,6 +27,7 @@ export default function VendorDetailPage() {
   const [vendor, setVendor] = useState<VendorDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -92,7 +94,7 @@ export default function VendorDetailPage() {
       errors.description = 'La descripción no puede superar los 500 caracteres';
     }
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSaving(true);
     setError(null);
@@ -112,11 +114,12 @@ export default function VendorDetailPage() {
       setSlugManuallyEdited(false);
     } else {
       const message = result.error || 'Error al actualizar el fabricante';
-      // A taken name or slug belongs on its own input, not only in the banner.
+      // A taken name or slug belongs on its own input too, not only in the
+      // floating notice — that is the field the operator has to change.
       if (result.errorField) {
         setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
       }
-      setError(message);
+      showError(message);
     }
     setIsSaving(false);
   };
@@ -137,7 +140,7 @@ export default function VendorDetailPage() {
       router.push('/vendors');
     } else {
       setShowDeleteModal(false);
-      setError(result.error || 'Error al eliminar el fabricante');
+      showError(result.error || 'Error al eliminar el fabricante');
     }
   };
 

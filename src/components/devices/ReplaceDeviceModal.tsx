@@ -11,6 +11,7 @@ import {
   RetiredDeviceStatus,
 } from '@/types/device.types';
 import { Modal, Button, Input, Textarea, Select, Combobox } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import {
   MISSING_IDENTIFIER_MESSAGE,
   RETIRED_STATUS_OPTIONS,
@@ -49,7 +50,7 @@ const emptyForm = {
 export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Props) {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
   const [isSaving, setIsSaving] = useState(false);
 
   const { data: deviceModels = [], isLoading: modelsLoading } = useQuery({
@@ -80,7 +81,6 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
   const handleClose = () => {
     setForm(emptyForm);
     setErrors({});
-    setError(null);
     onClose();
   };
 
@@ -106,10 +106,9 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
     }
 
     setErrors(found);
-    if (Object.keys(found).length > 0) return;
+    if (showFormErrors(found)) return;
 
     setIsSaving(true);
-    setError(null);
 
     const dto: ReplaceDeviceDTO = {
       deviceModelId: form.deviceModelId,
@@ -135,7 +134,7 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
 
     const message = result.error || 'Error al reemplazar el equipo';
     if (result.errorField) setErrors((prev) => ({ ...prev, [result.errorField!]: message }));
-    setError(message);
+    showError(message);
   };
 
   return (
@@ -146,12 +145,6 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
         junto con sus credenciales y el servicio contratado del cliente. El historial de
         mediciones se queda con la unidad retirada.
       </p>
-
-      {error && (
-        <div className="mt-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-          <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">

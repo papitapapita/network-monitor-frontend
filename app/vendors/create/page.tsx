@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateVendorDTO } from '@/types/device.types';
 import { Card, Button, Input, Textarea } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 function toSlug(name: string): string {
   return name
@@ -20,8 +21,8 @@ export default function CreateVendorPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -64,14 +65,13 @@ export default function CreateVendorPage() {
       errors.description = 'La descripción no puede superar los 500 caracteres';
     }
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !showFormErrors(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    setError(null);
 
     const dto: CreateVendorDTO = {
       name: formData.name.trim(),
@@ -85,11 +85,11 @@ export default function CreateVendorPage() {
       router.replace(`/vendors/${result.data.id}`);
     } else {
       const message = result.error || 'Error al crear el fabricante';
-      // A taken name or slug belongs on its own input, not only in the banner.
+      // A taken name or slug belongs on its own input, not only in the notice.
       if (result.errorField) {
         setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
       }
-      setError(message);
+      showError(message);
       setIsSubmitting(false);
     }
   };
@@ -105,12 +105,6 @@ export default function CreateVendorPage() {
         </div>
         <p className="text-gray-600 dark:text-gray-400">Registra un nuevo fabricante de dispositivos</p>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

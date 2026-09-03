@@ -16,6 +16,7 @@ import {
 } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { useToast } from '@/contexts/toast.context';
 import {
   DEVICE_STATUS_LABELS,
   RESTORE_GRACE_DAYS,
@@ -71,6 +72,7 @@ export default function DeviceTrashPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [actionError, setActionError] = useState<string | null>(null);
+  const { showError } = useToast();
   const [notice, setNotice] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [purgeTarget, setPurgeTarget] = useState<DeviceResponseDTO | null>(null);
@@ -106,7 +108,9 @@ export default function DeviceTrashPage() {
       setNotice(`«${device.name}» se restauró. ${RESTORE_SUCCESS_MESSAGE}`);
       refetch();
     } else {
-      setActionError(result.error || 'Error al restaurar el dispositivo');
+      const message = result.error || 'Error al restaurar el dispositivo';
+      setActionError(message);
+      showError(message);
     }
   };
 
@@ -121,7 +125,9 @@ export default function DeviceTrashPage() {
       setPurgeTarget(null);
       refetch();
     } else {
-      setActionError(result.error || 'Error al eliminar el dispositivo de forma permanente');
+      const message = result.error || 'Error al eliminar el dispositivo de forma permanente';
+      setActionError(message);
+      showError(message);
       setPurgeTarget(null);
     }
   };

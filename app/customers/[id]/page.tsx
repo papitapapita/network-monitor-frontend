@@ -15,6 +15,7 @@ import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
 import { Card, Button, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 const CONTRACT_STATUS_LABELS: Record<ContractedServiceStatus, string> = {
   PENDING: 'Pendiente',
@@ -48,6 +49,7 @@ export default function CustomerDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -77,7 +79,7 @@ export default function CustomerDetailPage() {
     if (!form.fullName.trim()) errors.fullName = 'El nombre es requerido';
     if (!form.phone.trim()) errors.phone = 'El teléfono es requerido';
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -88,7 +90,9 @@ export default function CustomerDetailPage() {
       setCustomer(r.data);
       setIsEditing(false);
     } else {
-      setSaveError(r.error || 'Error al actualizar el cliente');
+      const message = r.error || 'Error al actualizar el cliente';
+      setSaveError(message);
+      showError(message);
     }
     setIsSaving(false);
   };
@@ -196,7 +200,7 @@ export default function CustomerDetailPage() {
     const errors: Record<string, string> = {};
     if (!addForm.servicePlanId) errors.servicePlanId = 'Selecciona un plan';
     setAddFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsAdding(true);
     setAddError(null);
@@ -212,7 +216,9 @@ export default function CustomerDetailPage() {
       setAddForm({ servicePlanId: '', deviceId: '', startDate: '' });
       fetchContracts();
     } else {
-      setAddError(r.error || 'Error al crear el servicio');
+      const message = r.error || 'Error al crear el servicio';
+      setAddError(message);
+      showError(message);
     }
     setIsAdding(false);
   };
@@ -220,7 +226,9 @@ export default function CustomerDetailPage() {
   const handleSaveContract = async (id: string) => {
     // Activating requires a device: the backend rejects ACTIVE without one.
     if (editStatus === 'ACTIVE' && !editDeviceId) {
-      setEditError('Asigna un dispositivo CPE para poder activar el servicio.');
+      const message = 'Asigna un dispositivo CPE para poder activar el servicio.';
+      setEditError(message);
+      showError(message);
       return;
     }
     setIsSavingContract(true);
@@ -236,7 +244,9 @@ export default function CustomerDetailPage() {
       setEditingContractId(null);
       fetchContracts();
     } else {
-      setEditError(r.error || 'No se pudo actualizar el servicio');
+      const message = r.error || 'No se pudo actualizar el servicio';
+      setEditError(message);
+      showError(message);
     }
   };
 
@@ -267,7 +277,9 @@ export default function CustomerDetailPage() {
       );
       fetchContracts();
     } else {
-      setStatusActionError(r.error || 'No se pudo cambiar el estado del servicio');
+      const message = r.error || 'No se pudo cambiar el estado del servicio';
+      setStatusActionError(message);
+      showError(message);
     }
   };
 

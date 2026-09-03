@@ -17,6 +17,7 @@ import {
 } from '@/constants/bill.constants';
 import { Card, Button, LoadingSpinner, Badge, Table } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { useToast } from '@/contexts/toast.context';
 
 type PendingAction = 'pay' | 'overdue' | 'cancel' | null;
 
@@ -36,6 +37,7 @@ export default function BillDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const { showError } = useToast();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [isActing, setIsActing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -71,7 +73,9 @@ export default function BillDetailPage() {
       setBill(r.data);
       queryClient.invalidateQueries({ queryKey: ['bills'] });
     } else {
-      setActionError(r.error || 'No se pudo actualizar la factura');
+      const message = r.error || 'No se pudo actualizar la factura';
+      setActionError(message);
+      showError(message);
     }
   };
 
@@ -91,7 +95,9 @@ export default function BillDetailPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } else {
-      setActionError(r.error || 'No se pudo descargar el PDF');
+      const message = r.error || 'No se pudo descargar el PDF';
+      setActionError(message);
+      showError(message);
     }
   };
 

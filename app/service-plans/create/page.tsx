@@ -6,13 +6,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateServicePlanDTO } from '@/types/customer.types';
 import { Card, Button, Input, Textarea } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 export default function CreateServicePlanPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
   const [formData, setFormData] = useState({
     name: '',
     downloadMbps: '',
@@ -36,14 +37,13 @@ export default function CreateServicePlanPage() {
     if (!formData.uploadMbps || Number(formData.uploadMbps) < 1) errors.uploadMbps = 'Velocidad de subida inválida';
     if (formData.monthlyPrice === '' || Number(formData.monthlyPrice) < 0) errors.monthlyPrice = 'Precio inválido';
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !showFormErrors(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    setError(null);
 
     const dto: CreateServicePlanDTO = {
       name: formData.name.trim(),
@@ -59,7 +59,7 @@ export default function CreateServicePlanPage() {
       queryClient.invalidateQueries({ queryKey: ['servicePlans'] });
       router.replace(`/service-plans/${result.data.id}`);
     } else {
-      setError(result.error || 'Error al crear el plan');
+      showError(result.error || 'Error al crear el plan');
       setIsSubmitting(false);
     }
   };
@@ -73,12 +73,6 @@ export default function CreateServicePlanPage() {
           <p className="text-gray-600 dark:text-gray-400">Define un plan de internet para tus clientes</p>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

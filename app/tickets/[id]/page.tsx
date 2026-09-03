@@ -47,6 +47,7 @@ import {
   Badge,
   ConfirmModal,
 } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 /** Renders a timestamp, or an em dash when the step has not happened. */
 const stamp = (iso: string | null): string =>
@@ -67,6 +68,7 @@ export default function TicketDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -179,7 +181,7 @@ export default function TicketDetailPage() {
 
     Object.assign(errors, validateAddress(address));
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -201,6 +203,7 @@ export default function TicketDetailPage() {
       const message = r.error || 'Error al actualizar el ticket';
       if (r.errorField) setFormErrors((prev) => ({ ...prev, [r.errorField!]: message }));
       setSaveError(message);
+      showError(message);
     }
     setIsSaving(false);
   };
@@ -214,7 +217,9 @@ export default function TicketDetailPage() {
       router.push('/tickets');
     } else {
       setShowDeleteModal(false);
-      setLoadError(r.error || 'Error al eliminar el ticket');
+      const message = r.error || 'Error al eliminar el ticket';
+      setLoadError(message);
+      showError(message);
     }
   };
 

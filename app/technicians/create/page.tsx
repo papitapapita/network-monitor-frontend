@@ -6,13 +6,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateTechnicianDTO } from '@/types/technician.types';
 import { Card, Button, Input } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 export default function CreateTechnicianPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
   const [formData, setFormData] = useState({ fullName: '', phone: '', email: '' });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,14 +44,13 @@ export default function CreateTechnicianPage() {
       errors.email = 'El email no tiene un formato válido';
 
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !showFormErrors(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    setError(null);
 
     const dto: CreateTechnicianDTO = {
       fullName: formData.fullName.trim(),
@@ -65,7 +65,7 @@ export default function CreateTechnicianPage() {
     } else {
       const message = result.error || 'Error al crear el técnico';
       if (result.errorField) setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
-      setError(message);
+      showError(message);
       setIsSubmitting(false);
     }
   };
@@ -83,12 +83,6 @@ export default function CreateTechnicianPage() {
           </p>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

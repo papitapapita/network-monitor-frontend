@@ -22,6 +22,7 @@ import {
   Badge,
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 
@@ -33,7 +34,6 @@ interface Props {
 export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
   const [deviceModel, setDeviceModel] = useState<DeviceModelResponseDTO | null>(null);
   const [deviceModels, setDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
@@ -56,6 +56,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
 
   const [formData, setFormData] = useState(makeFormData(device));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
 
   // The model may only be corrected while the device has never been polled —
   // any other status and the backend rejects a deviceModelId change with 400.
@@ -192,10 +193,9 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     }
 
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSaving(true);
-    setError(null);
 
     const dto: UpdateDeviceDTO = {
       name: formData.name.trim(),
@@ -236,11 +236,11 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       setIsEditing(false);
     } else {
       const message = result.error || 'Error al actualizar el dispositivo';
-      // A rejected MAC or IP belongs on its own input, not only in the banner above.
+      // A rejected MAC or IP belongs on its own input, not only in the notice.
       if (result.errorField) {
         setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
       }
-      setError(message);
+      showError(message);
     }
     setIsSaving(false);
   };
@@ -263,12 +263,6 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
           </div>
         )}
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       {isEditing ? (
         <Card>

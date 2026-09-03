@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
 import { Card, Button, Input, Textarea, Badge, LoadingSpinner } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
 function fmtPrice(n: number) {
@@ -23,6 +24,7 @@ export default function ServicePlanDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -63,7 +65,7 @@ export default function ServicePlanDetailPage() {
     if (!form.uploadMbps || Number(form.uploadMbps) < 1) errors.uploadMbps = 'Velocidad de subida inválida';
     if (form.monthlyPrice === '' || Number(form.monthlyPrice) < 0) errors.monthlyPrice = 'Precio inválido';
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -81,7 +83,9 @@ export default function ServicePlanDetailPage() {
       setPlan(r.data);
       setIsEditing(false);
     } else {
-      setSaveError(r.error || 'Error al actualizar el plan');
+      const message = r.error || 'Error al actualizar el plan';
+      setSaveError(message);
+      showError(message);
     }
     setIsSaving(false);
   };
@@ -95,7 +99,9 @@ export default function ServicePlanDetailPage() {
       router.push('/service-plans');
     } else {
       setShowDeleteModal(false);
-      setLoadError(r.error || 'Error al eliminar el plan');
+      const message = r.error || 'Error al eliminar el plan';
+      setLoadError(message);
+      showError(message);
     }
   };
 

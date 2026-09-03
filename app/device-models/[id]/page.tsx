@@ -7,6 +7,7 @@ import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO } from '@/types/device.types';
 import { Button, Badge, LoadingSpinner } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { useToast } from '@/contexts/toast.context';
 import { DeviceModelDetailsTab } from '@/components/device-models/DeviceModelDetailsTab';
 
 export default function DeviceModelDetailPage() {
@@ -18,6 +19,7 @@ export default function DeviceModelDetailPage() {
   const [model, setModel] = useState<DeviceModelResponseDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showError } = useToast();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [purgeConfirmMessage, setPurgeConfirmMessage] = useState<string | null>(null);
@@ -65,7 +67,9 @@ export default function DeviceModelDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       router.push('/device-models');
     } else {
-      setError(result.error || 'Error al eliminar el modelo');
+      const message = result.error || 'Error al eliminar el modelo';
+      setError(message);
+      showError(message);
     }
   };
 

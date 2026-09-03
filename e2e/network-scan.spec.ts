@@ -27,7 +27,7 @@ test.describe('network scan', () => {
     await field(page, 'Segmento CIDR').fill('not-a-cidr');
     await page.getByRole('button', { name: 'Escanear' }).click();
 
-    await expect(page.getByText(/Ingresa un bloque CIDR válido/)).toBeVisible();
+    await expect(page.getByText(/Ingresa un bloque CIDR válido/).first()).toBeVisible();
   });
 
   test('rejects an out-of-range prefix', async ({ page }) => {
@@ -37,7 +37,7 @@ test.describe('network scan', () => {
     await field(page, 'Segmento CIDR').fill('192.168.1.0/33');
     await page.getByRole('button', { name: 'Escanear' }).click();
 
-    await expect(page.getByText(/Ingresa un bloque CIDR válido/)).toBeVisible();
+    await expect(page.getByText(/Ingresa un bloque CIDR válido/).first()).toBeVisible();
   });
 
   test('surfaces the backend rejection for a block wider than /22', async ({ page }) => {

@@ -12,6 +12,7 @@ import {
   buildLocationDTO,
   inferLocationFromCoords,
 } from '@/components/locations/LocationForm';
+import { useToast } from '@/contexts/toast.context';
 
 interface LocationCreateModalProps {
   isOpen: boolean;
@@ -22,9 +23,9 @@ interface LocationCreateModalProps {
 export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCreateModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
+  const { showError, showFormErrors } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -37,7 +38,6 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
   const handleClose = () => {
     setFormData(EMPTY_LOCATION_FORM);
     setFormErrors({});
-    setError(null);
     onClose();
   };
 
@@ -45,17 +45,16 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
     e.preventDefault();
     const errors = validateLocationForm(formData);
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSubmitting(true);
-    setError(null);
 
     const result = await apiService.createLocation(buildLocationDTO(formData));
     if (result.success && result.data) {
       onCreated(result.data);
       handleClose();
     } else {
-      setError(result.error || 'Error al crear la ubicación');
+      showError(result.error || 'Error al crear la ubicación');
     }
     setIsSubmitting(false);
   };
@@ -69,11 +68,6 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
       transparentBackdrop
     >
       <form onSubmit={handleSubmit}>
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
-            <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
-          </div>
-        )}
         <LocationForm
           formData={formData}
           formErrors={formErrors}

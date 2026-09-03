@@ -12,6 +12,7 @@ import {
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 import {
   WIRELESS_INTERVAL_MIN_SECONDS,
@@ -275,6 +276,7 @@ export function DeviceWirelessTab({
   const [noConfig, setNoConfig] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
 
   const [status, setStatus] = useState<WirelessStatusDTO | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -369,7 +371,9 @@ export function DeviceWirelessTab({
     setClearingAlertId(null);
 
     if (!result.success) {
-      setAlertsError(result.error || 'No se pudo limpiar la alerta');
+      const message = result.error || 'No se pudo limpiar la alerta';
+      setAlertsError(message);
+      showError(message);
       return;
     }
     // The list holds only active alerts, so a cleared one leaves it. Refetching
@@ -389,7 +393,9 @@ export function DeviceWirelessTab({
     setShowClearAllModal(false);
 
     if (!result.success || !result.data) {
-      setAlertsError(result.error || 'No se pudieron limpiar las alertas');
+      const message = result.error || 'No se pudieron limpiar las alertas';
+      setAlertsError(message);
+      showError(message);
       return;
     }
     const { cleared, skipped, failed } = result.data;
@@ -397,8 +403,12 @@ export function DeviceWirelessTab({
     if (skipped.length > 0) parts.push(`${skipped.length} sin cambios`);
     if (failed.length > 0) parts.push(`${failed.length} con error (${failed[0].error})`);
     const message = parts.join(' · ');
-    if (failed.length > 0) setAlertsError(message);
-    else setAlertsNotice(message);
+    if (failed.length > 0) {
+      setAlertsError(message);
+      showError(message);
+    } else {
+      setAlertsNotice(message);
+    }
 
     await fetchAlerts();
     fetchStatus();
@@ -446,7 +456,9 @@ export function DeviceWirelessTab({
       // otherwise make it expire immediately or hang around for minutes.
       setRebootingUntil(Date.now() + REBOOT_WINDOW_MS);
     } else {
-      setRebootError(result.error || 'No se pudo reiniciar el equipo');
+      const message = result.error || 'No se pudo reiniciar el equipo';
+      setRebootError(message);
+      showError(message);
     }
   };
 
@@ -465,6 +477,7 @@ export function DeviceWirelessTab({
       fetchAlerts();
     } else {
       setPollMsg(`Error: ${result.error}`);
+      showError(result.error || 'Error al sondear el equipo');
     }
     setPolling(false);
   };
@@ -472,7 +485,7 @@ export function DeviceWirelessTab({
   const handleSaveConfig = async () => {
     const errors = validateWirelessConfigForm(configForm);
     setConfigFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setConfigSaving(true);
     setConfigSaveError(null);
@@ -505,7 +518,9 @@ export function DeviceWirelessTab({
       setShowConfigForm(false);
       fetchConfig();
     } else {
-      setConfigSaveError(result.error || 'Error al guardar configuración');
+      const message = result.error || 'Error al guardar configuración';
+      setConfigSaveError(message);
+      showError(message);
     }
     setConfigSaving(false);
   };
@@ -517,6 +532,8 @@ export function DeviceWirelessTab({
       setStatus(null);
       setAlerts([]);
       setNoConfig(true);
+    } else {
+      showError(result.error || 'No se pudo eliminar la configuración inalámbrica');
     }
   };
 

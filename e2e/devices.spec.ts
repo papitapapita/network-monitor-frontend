@@ -183,7 +183,7 @@ test.describe('devices', () => {
     await field(page, 'Número de Serie').fill('');
     await page.getByRole('button', { name: 'Guardar Cambios' }).click();
 
-    await expect(page.getByText('Se requiere número de serie o dirección MAC')).toBeVisible();
+    await expect(page.getByText('Se requiere número de serie o dirección MAC').first()).toBeVisible();
     await expect(page.getByText(/must have at least a serial number/)).toHaveCount(0);
 
     // A MAC answers the same rule, so filling one clears the complaint.
@@ -452,7 +452,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('El nombre es requerido')).toBeVisible();
+    await expect(page.getByText('El nombre es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -464,8 +464,8 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('El fabricante es requerido')).toBeVisible();
-    await expect(page.getByText('El modelo es requerido')).toBeVisible();
+    await expect(page.getByText('El fabricante es requerido').first()).toBeVisible();
+    await expect(page.getByText('El modelo es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -478,7 +478,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('El modelo es requerido')).toBeVisible();
+    await expect(page.getByText('El modelo es requerido').first()).toBeVisible();
     await expect(page.getByText('El fabricante es requerido')).toHaveCount(0);
   });
 
@@ -489,7 +489,7 @@ test.describe('device conventions', () => {
     await field(page, 'Nombre').fill('');
     await saveEdit(page);
 
-    await expect(page.getByText('El nombre es requerido')).toBeVisible();
+    await expect(page.getByText('El nombre es requerido').first()).toBeVisible();
 
     // Nothing was sent, so the device keeps the name it had.
     await page.reload();
@@ -548,7 +548,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('El nombre no puede superar los 150 caracteres')).toBeVisible();
+    await expect(page.getByText('El nombre no puede superar los 150 caracteres').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -563,7 +563,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('El nombre es requerido')).toBeVisible();
+    await expect(page.getByText('El nombre es requerido').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -756,7 +756,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('El número de serie no puede superar los 100 caracteres')).toBeVisible();
+    await expect(page.getByText('El número de serie no puede superar los 100 caracteres').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -770,7 +770,7 @@ test.describe('device conventions', () => {
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
     // Trimmed to nothing, so the INVENTORY identifier rule is what answers.
-    await expect(page.getByText('Se requiere número de serie o dirección MAC')).toBeVisible();
+    await expect(page.getByText('Se requiere número de serie o dirección MAC').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -785,7 +785,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('La dirección MAC no es válida (ej: AA:BB:CC:DD:EE:FF)')).toBeVisible();
+    await expect(page.getByText('La dirección MAC no es válida (ej: AA:BB:CC:DD:EE:FF)').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -831,7 +831,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('La dirección IP no es válida')).toBeVisible();
+    await expect(page.getByText('La dirección IP no es válida').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -864,7 +864,7 @@ test.describe('device conventions', () => {
 
     // Nothing client-side knows about this collision, so this only passes if the
     // request reached the backend and the response came back translated — twice
-    // over: in the banner, and under the input that has to change.
+    // over: in the floating notice, and under the input that has to change.
     const taken = page.getByText(`La dirección IP "${ip}" ya está asignada a otro dispositivo`);
     await expect(taken.first()).toBeVisible();
     await expect(taken).toHaveCount(2);
@@ -931,7 +931,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('La fecha de instalación no puede ser futura')).toBeVisible();
+    await expect(page.getByText('La fecha de instalación no puede ser futura').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -980,7 +980,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('La descripción no puede superar los 500 caracteres')).toBeVisible();
+    await expect(page.getByText('La descripción no puede superar los 500 caracteres').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -994,7 +994,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('Se requiere número de serie o dirección MAC')).toBeVisible();
+    await expect(page.getByText('Se requiere número de serie o dirección MAC').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -1023,7 +1023,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('Se requiere número de serie o dirección MAC')).toBeVisible();
+    await expect(page.getByText('Se requiere número de serie o dirección MAC').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -1038,7 +1038,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('Se requiere número de serie o dirección MAC')).toBeVisible();
+    await expect(page.getByText('Se requiere número de serie o dirección MAC').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -1054,7 +1054,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('La dirección IP es requerida')).toBeVisible();
+    await expect(page.getByText('La dirección IP es requerida').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -1068,7 +1068,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('La ubicación es requerida para dispositivos activos')).toBeVisible();
+    await expect(page.getByText('La ubicación es requerida para dispositivos activos').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -1108,7 +1108,7 @@ test.describe('device conventions', () => {
     await saveEdit(page);
 
     // A technician sent to a fault needs somewhere to drive.
-    await expect(page.getByText('La ubicación es requerida para dispositivos activos')).toBeVisible();
+    await expect(page.getByText('La ubicación es requerida para dispositivos activos').first()).toBeVisible();
 
     await page.reload();
     await expect(detailValue(page, 'Ubicación').getByRole('link')).toHaveAttribute(
@@ -1127,7 +1127,7 @@ test.describe('device conventions', () => {
 
     await page.getByRole('button', { name: 'Crear Dispositivo' }).click();
 
-    await expect(page.getByText('La dirección IP es requerida')).toBeVisible();
+    await expect(page.getByText('La dirección IP es requerida').first()).toBeVisible();
     await expect(page).toHaveURL(/\/devices\/create$/);
   });
 
@@ -1568,7 +1568,7 @@ test.describe('device conventions', () => {
     await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
 
-    await expect(page.getByText('Este dispositivo ya no existe')).toBeVisible();
+    await expect(page.getByText('Este dispositivo ya no existe').first()).toBeVisible();
     await expect(page.getByText(/Device not found/)).toHaveCount(0);
   });
 
@@ -1737,7 +1737,7 @@ test.describe('devices: recycle bin', () => {
     await expect(
       page.getByText(
         'Este dispositivo tiene un servicio contratado vigente (estado «Pendiente»). Cancele el servicio antes de eliminarlo.'
-      )
+      ).first()
     ).toBeVisible();
     // The device is still here: the refusal left it alone.
     await expect(page.getByRole('heading', { name: device.name })).toBeVisible();
@@ -1758,7 +1758,7 @@ test.describe('devices: recycle bin', () => {
     await expect(
       page.getByText(
         'Este dispositivo tiene 1 ticket abierto. Resuélvalos o cancélelos antes de eliminarlo.'
-      )
+      ).first()
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: device.name })).toBeVisible();
   });
@@ -1782,7 +1782,7 @@ test.describe('devices: recycle bin', () => {
     await binRow(page, device.name).getByRole('button', { name: 'Restaurar' }).click();
 
     await expect(
-      page.getByText('Este dispositivo no está eliminado, así que no hay nada que restaurar.')
+      page.getByText('Este dispositivo no está eliminado, así que no hay nada que restaurar.').first()
     ).toBeVisible();
     await expect(page.getByText(/not deleted/)).toHaveCount(0);
   });
@@ -1809,7 +1809,7 @@ test.describe('devices: recycle bin', () => {
     await expect(
       page.getByText(
         'Este dispositivo no está en la papelera. Elimínelo primero para poder borrarlo de forma permanente.'
-      )
+      ).first()
     ).toBeVisible();
     await expect(page.getByText(/not in the recycle bin/)).toHaveCount(0);
 
@@ -1935,12 +1935,13 @@ test.describe('devices: replacement', () => {
 
     await dialog.getByRole('button', { name: 'Reemplazar equipo' }).click();
 
+    // The modal reports errors through the floating toast rather than inline.
     await expect(
-      dialog.getByText(
+      page.getByText(
         'Este dispositivo ya fue reemplazado. Para registrar otro cambio de equipo, reemplace la unidad actual.'
       )
     ).toBeVisible();
-    await expect(dialog.getByText(/already been replaced/)).toHaveCount(0);
+    await expect(page.getByText(/already been replaced/)).toHaveCount(0);
     // Nothing about the stale attempt went through: the dialog is still here.
     await expect(dialog).toBeVisible();
   });
@@ -1970,9 +1971,10 @@ test.describe('devices: replacement', () => {
 
     await dialog.getByRole('button', { name: 'Reemplazar equipo' }).click();
 
+    // The modal reports errors through the floating toast rather than inline.
     await expect(
-      dialog.getByText('Este dispositivo ya no existe. Puede haber sido eliminado por otra persona.')
+      page.getByText('Este dispositivo ya no existe. Puede haber sido eliminado por otra persona.')
     ).toBeVisible();
-    await expect(dialog.getByText(/Device not found/)).toHaveCount(0);
+    await expect(page.getByText(/Device not found/)).toHaveCount(0);
   });
 });

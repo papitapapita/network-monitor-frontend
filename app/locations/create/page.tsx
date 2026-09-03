@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { Card, Button } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 import {
   LocationForm,
   LocationFormData,
@@ -19,8 +20,8 @@ export default function CreateLocationPage() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -35,17 +36,16 @@ export default function CreateLocationPage() {
     e.preventDefault();
     const errors = validateLocationForm(formData);
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSubmitting(true);
-    setError(null);
 
     const result = await apiService.createLocation(buildLocationDTO(formData));
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
       router.replace(`/locations/${result.data.id}`);
     } else {
-      setError(result.error || 'Error al crear la ubicación');
+      showError(result.error || 'Error al crear la ubicación');
       setIsSubmitting(false);
     }
   };
@@ -61,12 +61,6 @@ export default function CreateLocationPage() {
         </div>
         <p className="text-gray-600 dark:text-gray-400">Registra una nueva ubicación de la red</p>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

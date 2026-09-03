@@ -13,6 +13,7 @@ import {
 import { PollingStatus } from '@/types/polling.types';
 import { Button, Badge, LoadingSpinner, getDeviceStatusBadgeVariant, getPollingStatusBadgeVariant } from '@/components/ui';
 import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
+import { useToast } from '@/contexts/toast.context';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
@@ -54,6 +55,7 @@ export default function DeviceDetailPage() {
   const [onlineStatus, setOnlineStatus] = useState<PollingStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showError } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('details');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -121,7 +123,9 @@ export default function DeviceDetailPage() {
       // A live contracted service or an open ticket blocks the delete. Neither
       // is fixable here, so the message stays on the page rather than in a
       // dialog the operator is about to close.
-      setError(result.error || 'Error al eliminar el dispositivo');
+      const message = result.error || 'Error al eliminar el dispositivo';
+      setError(message);
+      showError(message);
     }
   };
 
@@ -137,7 +141,9 @@ export default function DeviceDetailPage() {
       setRestoreNotice(RESTORE_SUCCESS_MESSAGE);
       await fetchDevice();
     } else {
-      setError(result.error || 'Error al restaurar el dispositivo');
+      const message = result.error || 'Error al restaurar el dispositivo';
+      setError(message);
+      showError(message);
     }
   };
 

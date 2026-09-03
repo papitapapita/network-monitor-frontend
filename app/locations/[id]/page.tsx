@@ -20,6 +20,7 @@ import {
 } from '@/components/locations/LocationForm';
 import { AssignDeviceModal } from '@/components/locations/AssignDeviceModal';
 import type { BadgeVariant } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 const DEVICE_STATUS_VARIANTS: Record<DeviceStatus, BadgeVariant> = {
   ACTIVE: 'active',
@@ -55,6 +56,7 @@ export default function LocationDetailPage() {
   const [devices, setDevices] = useState<DeviceResponseDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showError, showFormErrors } = useToast();
 
   const [showAssignModal, setShowAssignModal] = useState(false);
 
@@ -109,7 +111,7 @@ export default function LocationDetailPage() {
   const handleSave = async () => {
     const errors = validateLocationForm(formData);
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (showFormErrors(errors)) return;
 
     setIsSaving(true);
     setError(null);
@@ -121,7 +123,7 @@ export default function LocationDetailPage() {
       setFormData(locationToForm(result.data));
       setIsEditing(false);
     } else {
-      setError(result.error || 'Error al actualizar la ubicación');
+      showError(result.error || 'Error al actualizar la ubicación');
     }
     setIsSaving(false);
   };
@@ -133,7 +135,7 @@ export default function LocationDetailPage() {
     if (result.success) {
       router.push('/locations');
     } else {
-      setError(result.error || 'Error al eliminar la ubicación');
+      showError(result.error || 'Error al eliminar la ubicación');
       setShowDeleteModal(false);
     }
   };

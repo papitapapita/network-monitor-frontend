@@ -6,13 +6,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateCustomerDTO } from '@/types/customer.types';
 import { Card, Button, Input } from '@/components/ui';
+import { useToast } from '@/contexts/toast.context';
 
 export default function CreateCustomerPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const { showError, showFormErrors } = useToast();
   const [formData, setFormData] = useState({ fullName: '', phone: '', email: '', cedula: '' });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,14 +27,13 @@ export default function CreateCustomerPage() {
     if (!formData.fullName.trim()) errors.fullName = 'El nombre completo es requerido';
     if (!formData.phone.trim()) errors.phone = 'El teléfono es requerido';
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !showFormErrors(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    setError(null);
 
     const dto: CreateCustomerDTO = {
       fullName: formData.fullName.trim(),
@@ -47,7 +47,7 @@ export default function CreateCustomerPage() {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       router.replace(`/customers/${result.data.id}`);
     } else {
-      setError(result.error || 'Error al crear el cliente');
+      showError(result.error || 'Error al crear el cliente');
       setIsSubmitting(false);
     }
   };
@@ -61,12 +61,6 @@ export default function CreateCustomerPage() {
           <p className="text-gray-600 dark:text-gray-400">Registra un nuevo cliente del servicio</p>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-800 dark:text-red-400">{error}</p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>

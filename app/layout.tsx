@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { SettingsProvider } from "@/contexts/settings.context";
 import { QueryProvider } from "@/components/layout/QueryProvider";
 import { AuthProvider } from "@/contexts/auth.context";
+import { ToastProvider } from "@/contexts/toast.context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,7 +27,9 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <SettingsProvider>
-              <AppShell>{children}</AppShell>
+              <ToastProvider>
+                <AppShell>{children}</AppShell>
+              </ToastProvider>
             </SettingsProvider>
           </AuthProvider>
         </QueryProvider>
