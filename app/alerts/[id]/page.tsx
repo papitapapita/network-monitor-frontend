@@ -12,7 +12,7 @@ import {
   isDeviceUnreachable,
   isWirelessAlert,
 } from '@/types/alert.types';
-import { Badge, Button, Card, LoadingSpinner } from '@/components/ui';
+import { Badge, Button, Card, IconButton, LoadingSpinner } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -29,6 +29,18 @@ const STATUS_LABELS: Record<AlertStatus, string> = {
 
 function getSeverityVariant(severity: AlertSeverity): BadgeVariant {
   return severity === 'CRITICAL' ? 'danger' : 'warning';
+}
+
+function RefreshIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  );
 }
 
 function getStatusVariant(status: AlertStatus): BadgeVariant {
@@ -227,9 +239,13 @@ export default function AlertDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={refresh} isLoading={isRefreshing}>
-            Actualizar
-          </Button>
+          <IconButton
+            icon={isRefreshing ? null : <RefreshIcon />}
+            label="Actualizar"
+            size="sm"
+            onClick={refresh}
+            isLoading={isRefreshing}
+          />
           {/* Nothing to resolve once it is resolved, and the call is idempotent
               anyway — so the button simply goes away rather than no-opping. */}
           {canWrite && alert.status === 'OPEN' && (

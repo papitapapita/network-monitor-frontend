@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Button } from './Button';
+import { IconButton } from './IconButton';
 
 interface PageHeaderProps {
   title: string;
@@ -52,16 +52,15 @@ export function PageHeader({
       <div className="flex flex-col items-end gap-1">
         <div className="flex flex-wrap justify-end gap-2">
           {onRefresh && (
-            <Button
-              variant="outline"
+            <IconButton
+              icon={isRefreshing ? null : <RefreshIcon />}
+              label="Actualizar"
+              size="md"
               onClick={onRefresh}
               isLoading={isRefreshing}
               disabled={isRefreshing}
-              aria-label="Actualizar"
-            >
-              {!isRefreshing && <RefreshIcon />}
-              <span className="hidden sm:inline">Actualizar</span>
-            </Button>
+              tooltipSide="bottom"
+            />
           )}
           {actions}
         </div>
