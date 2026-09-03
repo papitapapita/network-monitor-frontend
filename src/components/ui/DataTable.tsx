@@ -284,6 +284,8 @@ function rangeBetween(ids: string[], anchor: string, id: string): string[] {
 }
 
 const RANGE_HINT = 'Mantén Shift para seleccionar un rango';
+/** How long a press on a mobile row must hold before it enters selection mode. */
+const LONG_PRESS_MS = 500;
 
 export function DataTable<T>({
   columns,
@@ -327,6 +329,12 @@ export function DataTable<T>({
   const [undoError, setUndoError] = useState<string | null>(null);
   /** Last row toggled on its own — the anchor a Shift+click extends from. */
   const anchorId = useRef<string | null>(null);
+  /** Mobile "Ordenar por…" popover — styled like `ColumnPicker`, not a native `<select>`. */
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+  /** Timer for a mobile row's long-press-to-select gesture, and whether it already fired. */
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
   const { showError } = useToast();
 
   /**
@@ -346,6 +354,28 @@ export function DataTable<T>({
     setBlockedTotal(0);
     anchorId.current = null;
   }, [selectionResetKey]);
+
+  useEffect(() => {
+    if (!isSortMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (!sortMenuRef.current?.contains(e.target as Node)) setIsSortMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsSortMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isSortMenuOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    };
+  }, []);
 
   const canDelete = bulkDelete?.canDelete;
   const selectableRows = useMemo(
@@ -413,6 +443,36 @@ export function DataTable<T>({
       return next;
     });
     anchorId.current = id;
+  };
+
+  const clearPressTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  /**
+   * Mobile rows hide their checkbox until the operator holds one down — this is
+   * what starts that: after `LONG_PRESS_MS` it selects the row (entering
+   * selection mode, since checkboxes show whenever anything is selected) and
+   * flags the gesture so the `click` that follows the release doesn't also
+   * fire `onRowClick`.
+   */
+  const handlePressStart = (id: string, rowSelectable: boolean) => {
+    if (!rowSelectable) return;
+    longPressTriggered.current = false;
+    clearPressTimer();
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      setSelectedIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      anchorId.current = id;
+    }, LONG_PRESS_MS);
   };
 
   /**
@@ -662,6 +722,7 @@ export function DataTable<T>({
    */
   const [primaryColumn, ...secondaryColumns] = columns;
   const sortableColumns = sort ? columns.filter((c) => c.sortable ?? !!c.sortValue) : [];
+  const activeSortColumn = sort ? columns.find((c) => c.key === sort.field) : undefined;
   /** What the pending action would run and skip, for the confirmation's wording. */
   const actionSplit = pendingAction
     ? partitionForAction(pendingAction, Array.from(selectedIds))
@@ -810,20 +871,74 @@ export function DataTable<T>({
                   )}
                   {sortableColumns.length > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <select
-                        value={sort!.field ?? ''}
-                        onChange={(e) => sort!.onSort(e.target.value)}
-                        className="text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 py-1 pl-2 pr-6 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="" disabled>
-                          Ordenar por…
-                        </option>
-                        {sortableColumns.map((col) => (
-                          <option key={col.key} value={col.key}>
-                            {typeof col.header === 'string' ? col.header : col.key}
-                          </option>
-                        ))}
-                      </select>
+                      <div ref={sortMenuRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsSortMenuOpen((open) => !open)}
+                          aria-haspopup="true"
+                          aria-expanded={isSortMenuOpen}
+                          className="flex items-center gap-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 py-1 pl-2 pr-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <span>
+                            {activeSortColumn
+                              ? typeof activeSortColumn.header === 'string'
+                                ? activeSortColumn.header
+                                : activeSortColumn.key
+                              : 'Ordenar por…'}
+                          </span>
+                          <svg
+                            className="w-3 h-3 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {isSortMenuOpen && (
+                          <div
+                            role="menu"
+                            aria-label="Ordenar por"
+                            className="absolute left-0 mt-1.5 z-30 w-44 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5"
+                          >
+                            {sortableColumns.map((col) => {
+                              const active = sort!.field === col.key;
+                              return (
+                                <button
+                                  key={col.key}
+                                  type="button"
+                                  role="menuitemradio"
+                                  aria-checked={active}
+                                  onClick={() => {
+                                    sort!.onSort(col.key);
+                                    setIsSortMenuOpen(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                                    active
+                                      ? 'text-blue-600 dark:text-blue-400 font-medium'
+                                      : 'text-gray-700 dark:text-gray-200'
+                                  }`}
+                                >
+                                  {typeof col.header === 'string' ? col.header : col.key}
+                                  {active && (
+                                    <svg
+                                      className="w-3.5 h-3.5 shrink-0"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      strokeWidth={2.5}
+                                      stroke="currentColor"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                       {sort!.field && (
                         <button
                           type="button"
@@ -855,16 +970,39 @@ export function DataTable<T>({
                     const id = getRowId(row);
                     const isSelected = selectedIds.has(id);
                     const rowSelectable = !canDelete || canDelete(row);
+                    // Mobile selection mode: checkboxes stay hidden until something is
+                    // selected (a long-press, or "Seleccionar todo" above), matching the
+                    // hold-to-select gesture of a native mobile list.
+                    const mobileSelectMode = selectionEnabled && selectedCount > 0;
                     return (
                       <li
                         key={id}
-                        onClick={onRowClick ? () => onRowClick(row) : undefined}
-                        className={`p-4 ${onRowClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700' : ''} ${
-                          isSelected ? 'bg-blue-50 dark:bg-blue-900/10' : ''
-                        }`}
+                        onClick={() => {
+                          if (longPressTriggered.current) {
+                            longPressTriggered.current = false;
+                            return;
+                          }
+                          if (mobileSelectMode && rowSelectable) {
+                            toggleOne(id);
+                            return;
+                          }
+                          onRowClick?.(row);
+                        }}
+                        onTouchStart={selectionEnabled ? () => handlePressStart(id, rowSelectable) : undefined}
+                        onTouchEnd={selectionEnabled ? clearPressTimer : undefined}
+                        onTouchMove={selectionEnabled ? clearPressTimer : undefined}
+                        onMouseDown={selectionEnabled ? () => handlePressStart(id, rowSelectable) : undefined}
+                        onMouseUp={selectionEnabled ? clearPressTimer : undefined}
+                        onMouseLeave={selectionEnabled ? clearPressTimer : undefined}
+                        onContextMenu={selectionEnabled ? (e) => e.preventDefault() : undefined}
+                        className={`p-4 select-none ${
+                          onRowClick || (mobileSelectMode && rowSelectable)
+                            ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700'
+                            : ''
+                        } ${isSelected ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                       >
                         <div className="flex items-start gap-3">
-                          {selectionEnabled && (
+                          {mobileSelectMode && (
                             <span
                               className="mt-0.5 shrink-0"
                               onClick={(e) => e.stopPropagation()}
