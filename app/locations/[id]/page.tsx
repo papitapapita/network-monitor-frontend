@@ -16,7 +16,7 @@ import {
   validateLocationForm,
   buildLocationDTO,
   locationToForm,
-  inferLocationFromCoords,
+  useLocationCoordsGeocoding,
 } from '@/components/locations/LocationForm';
 import { AssignDeviceModal } from '@/components/locations/AssignDeviceModal';
 import type { BadgeVariant } from '@/components/ui';
@@ -62,8 +62,8 @@ export default function LocationDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isGeocoding, setIsGeocoding] = useState(false);
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
+  const { isGeocoding, onLocationPick } = useLocationCoordsGeocoding(setFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -232,20 +232,7 @@ export default function LocationDetailPage() {
               formErrors={formErrors}
               onChange={handleChange}
               isGeocoding={isGeocoding}
-              onCoordsPaste={async (lat, lon) => {
-                setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }));
-                setIsGeocoding(true);
-                try {
-                  const inferred = await inferLocationFromCoords(lat, lon);
-                  setFormData((prev) => ({
-                    ...prev,
-                    ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
-                    ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
-                  }));
-                } finally {
-                  setIsGeocoding(false);
-                }
-              }}
+              onLocationPick={onLocationPick}
             />
           </Card.Body>
         </Card>

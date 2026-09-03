@@ -1,8 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Input } from '@/components/ui';
 import { TicketAddressDTO, TicketAddressInput } from '@/types/ticket.types';
+import { reverseGeocode } from '@/services/geocoding.service';
+
+const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 w-full rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+  ),
+});
 
 /** The address as the forms hold it — all strings, like every other form here. */
 export interface AddressForm {
@@ -34,6 +43,33 @@ export const addressFormFrom = (address: TicketAddressDTO | null): AddressForm =
         longitude: address.longitude?.toString() ?? '',
       }
     : emptyAddressForm();
+
+/**
+ * Backfills what the map click/drag can infer (street, municipality,
+ * neighborhood); "reference" can't be inferred from coordinates, so it's
+ * always left for the operator to fill in.
+ */
+export function useAddressGeocoding(setForm: React.Dispatch<React.SetStateAction<AddressForm>>) {
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  const onLocationPick = async (lat: string, lon: string) => {
+    setForm((prev) => ({ ...prev, latitude: lat, longitude: lon }));
+    setIsGeocoding(true);
+    try {
+      const inferred = await reverseGeocode(lat, lon);
+      setForm((prev) => ({
+        ...prev,
+        ...(inferred.road ? { street: inferred.road } : {}),
+        ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
+        ...(inferred.neighborhood ? { neighborhood: inferred.neighborhood } : {}),
+      }));
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  return { isGeocoding, onLocationPick };
+}
 
 const filled = (form: AddressForm): string[] =>
   [form.street, form.municipality, form.neighborhood].filter((v) => v.trim());
@@ -92,11 +128,30 @@ interface TicketAddressFieldsProps {
   form: AddressForm;
   errors: Record<string, string>;
   onChange: (field: keyof AddressForm, value: string) => void;
+  onLocationPick?: (lat: string, lon: string) => void;
+  isGeocoding?: boolean;
 }
 
-export function TicketAddressFields({ form, errors, onChange }: TicketAddressFieldsProps) {
+export function TicketAddressFields({ form, errors, onChange, onLocationPick, isGeocoding }: TicketAddressFieldsProps) {
   return (
     <>
+      {onLocationPick && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Ubicar en el mapa
+          </label>
+          <LocationPickerMap
+            latitude={form.latitude}
+            longitude={form.longitude}
+            onPick={(lat, lon) => onLocationPick(String(lat), String(lon))}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {isGeocoding
+              ? 'Completando datos desde el mapa...'
+              : 'Haga clic o arrastre el marcador para ubicar el punto exacto. Se completará lo que se pueda inferir; el resto queda en blanco para usted.'}
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <Input

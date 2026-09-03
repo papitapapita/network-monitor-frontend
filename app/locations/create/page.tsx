@@ -12,17 +12,17 @@ import {
   EMPTY_LOCATION_FORM,
   validateLocationForm,
   buildLocationDTO,
-  inferLocationFromCoords,
+  useLocationCoordsGeocoding,
 } from '@/components/locations/LocationForm';
 
 export default function CreateLocationPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGeocoding, setIsGeocoding] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { showError, showFormErrors } = useToast();
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
+  const { isGeocoding, onLocationPick } = useLocationCoordsGeocoding(setFormData);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -73,20 +73,7 @@ export default function CreateLocationPage() {
               formErrors={formErrors}
               onChange={handleChange}
               isGeocoding={isGeocoding}
-              onCoordsPaste={async (lat, lon) => {
-                setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }));
-                setIsGeocoding(true);
-                try {
-                  const inferred = await inferLocationFromCoords(lat, lon);
-                  setFormData((prev) => ({
-                    ...prev,
-                    ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
-                    ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
-                  }));
-                } finally {
-                  setIsGeocoding(false);
-                }
-              }}
+              onLocationPick={onLocationPick}
             />
           </Card.Body>
         </Card>

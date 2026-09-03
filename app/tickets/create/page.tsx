@@ -15,6 +15,7 @@ import {
   TicketAddressFields,
   addressPayload,
   emptyAddressForm,
+  useAddressGeocoding,
   validateAddress,
 } from '@/components/tickets/TicketAddressFields';
 import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner } from '@/components/ui';
@@ -42,6 +43,7 @@ function CreateTicketPageContent() {
     scheduledFor: '',
   });
   const [address, setAddress] = useState<AddressForm>(emptyAddressForm());
+  const { isGeocoding: isAddressGeocoding, onLocationPick } = useAddressGeocoding(setAddress);
 
   const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: fetchAllCustomers });
   const { data: devices = [] } = useQuery({ queryKey: ['devicesCatalog'], queryFn: fetchAllDevices });
@@ -298,7 +300,13 @@ function CreateTicketPageContent() {
             </h2>
           </Card.Header>
           <Card.Body>
-            <TicketAddressFields form={address} errors={formErrors} onChange={handleAddressChange} />
+            <TicketAddressFields
+              form={address}
+              errors={formErrors}
+              onChange={handleAddressChange}
+              onLocationPick={onLocationPick}
+              isGeocoding={isAddressGeocoding}
+            />
           </Card.Body>
         </Card>
 

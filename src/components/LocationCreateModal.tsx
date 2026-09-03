@@ -10,7 +10,7 @@ import {
   EMPTY_LOCATION_FORM,
   validateLocationForm,
   buildLocationDTO,
-  inferLocationFromCoords,
+  useLocationCoordsGeocoding,
 } from '@/components/locations/LocationForm';
 import { useToast } from '@/contexts/toast.context';
 
@@ -22,9 +22,9 @@ interface LocationCreateModalProps {
 
 export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCreateModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGeocoding, setIsGeocoding] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
+  const { isGeocoding, onLocationPick } = useLocationCoordsGeocoding(setFormData);
   const { showError, showFormErrors } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -73,20 +73,7 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
           formErrors={formErrors}
           onChange={handleChange}
           isGeocoding={isGeocoding}
-          onCoordsPaste={async (lat, lon) => {
-            setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }));
-            setIsGeocoding(true);
-            try {
-              const inferred = await inferLocationFromCoords(lat, lon);
-              setFormData((prev) => ({
-                ...prev,
-                ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
-                ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
-              }));
-            } finally {
-              setIsGeocoding(false);
-            }
-          }}
+          onLocationPick={onLocationPick}
         />
         <Modal.Footer>
           <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>

@@ -1,9 +1,18 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Input, Select } from '@/components/ui';
 import type { LocationType, LocationResponseDTO, CreateLocationDTO } from '@/types/location.types';
 import { LOCATION_TYPE_OPTIONS } from '@/constants/location.constants';
+import { reverseGeocode } from '@/services/geocoding.service';
+
+const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 w-full rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />
+  ),
+});
 
 export interface LocationFormData {
   name: string;
@@ -27,31 +36,34 @@ export const EMPTY_LOCATION_FORM: LocationFormData = {
   altitude: '',
 };
 
-export async function inferLocationFromCoords(
-  lat: string,
-  lon: string,
-): Promise<{ municipality?: string; altitude?: number }> {
-  const [geoResult, elevResult] = await Promise.allSettled([
-    fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=es`,
-    ).then((r) => (r.ok ? r.json() : null)),
-    fetch(
-      `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`,
-    ).then((r) => (r.ok ? r.json() : null)),
-  ]);
+/**
+ * Shared by the "click/drag on map" and "paste coordinates" inputs: both just
+ * produce a lat/lon pair, so both should backfill the same way. Fields that
+ * geocoding can't resolve are left untouched — the operator fills those in.
+ */
+export function useLocationCoordsGeocoding(
+  setFormData: React.Dispatch<React.SetStateAction<LocationFormData>>,
+) {
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
-  const result: { municipality?: string; altitude?: number } = {};
+  const onLocationPick = async (lat: string, lon: string) => {
+    setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }));
+    setIsGeocoding(true);
+    try {
+      const inferred = await reverseGeocode(lat, lon);
+      setFormData((prev) => ({
+        ...prev,
+        ...(inferred.road ? { address: inferred.road } : {}),
+        ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
+        ...(inferred.neighborhood ? { neighborhood: inferred.neighborhood } : {}),
+        ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
+      }));
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
-  if (geoResult.status === 'fulfilled' && geoResult.value?.address) {
-    const addr = geoResult.value.address;
-    result.municipality = addr.municipality || addr.county || addr.town || addr.city;
-  }
-
-  if (elevResult.status === 'fulfilled' && elevResult.value?.elevation?.[0] != null) {
-    result.altitude = Math.round(elevResult.value.elevation[0]);
-  }
-
-  return result;
+  return { isGeocoding, onLocationPick };
 }
 
 function parseCoords(raw: string): { lat: string; lon: string } | null {
@@ -144,11 +156,11 @@ interface LocationFormProps {
   formData: LocationFormData;
   formErrors: Record<string, string>;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onCoordsPaste?: (lat: string, lon: string) => void;
+  onLocationPick?: (lat: string, lon: string) => void;
   isGeocoding?: boolean;
 }
 
-export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, isGeocoding }: LocationFormProps) {
+export function LocationForm({ formData, formErrors, onChange, onLocationPick, isGeocoding }: LocationFormProps) {
   const [coordsInput, setCoordsInput] = React.useState('');
   const [coordsError, setCoordsError] = React.useState('');
 
@@ -166,7 +178,7 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
     const parsed = parseCoords(raw);
     if (parsed) {
       setCoordsError('');
-      onCoordsPaste?.(parsed.lat, parsed.lon);
+      onLocationPick?.(parsed.lat, parsed.lon);
     } else {
       setCoordsError('Formato inválido. Ej: 4.132689, -73.625153');
     }
@@ -196,6 +208,24 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
           fullWidth
         />
       </div>
+
+      {onLocationPick && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Ubicar en el mapa
+          </label>
+          <LocationPickerMap
+            latitude={formData.latitude}
+            longitude={formData.longitude}
+            onPick={(lat, lon) => onLocationPick(String(lat), String(lon))}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {isGeocoding
+              ? 'Completando datos desde el mapa...'
+              : 'Haga clic o arrastre el marcador para ubicar el punto exacto. Se completará lo que se pueda inferir; el resto queda en blanco para usted.'}
+          </p>
+        </div>
+      )}
 
       <Input
         label="Dirección"
@@ -234,7 +264,7 @@ export function LocationForm({ formData, formErrors, onChange, onCoordsPaste, is
         />
       </div>
 
-      {onCoordsPaste && (
+      {onLocationPick && (
         <Input
           label="Coordenadas (pegar desde Google Maps)"
           placeholder="Ej: 4.132689, -73.625153"

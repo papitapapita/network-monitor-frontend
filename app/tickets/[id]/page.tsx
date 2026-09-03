@@ -34,6 +34,7 @@ import {
   addressFormFrom,
   addressPayload,
   hasAddress,
+  useAddressGeocoding,
   validateAddress,
 } from '@/components/tickets/TicketAddressFields';
 import {
@@ -82,6 +83,7 @@ export default function TicketDetailPage() {
     deviceId: '',
   });
   const [address, setAddress] = useState<AddressForm>(addressFormFrom(null));
+  const { isGeocoding: isAddressGeocoding, onLocationPick } = useAddressGeocoding(setAddress);
 
   const { data: technicians = [] } = useQuery({
     queryKey: ['technicians'],
@@ -439,6 +441,8 @@ export default function TicketDetailPage() {
                   form={address}
                   errors={formErrors}
                   onChange={handleAddressChange}
+                  onLocationPick={onLocationPick}
+                  isGeocoding={isAddressGeocoding}
                 />
               </div>
             </div>
