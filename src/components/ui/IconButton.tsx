@@ -24,7 +24,7 @@ export function IconButton({
   label,
   variant = 'outline',
   size = 'sm',
-  tooltipSide = 'top',
+  tooltipSide = 'bottom',
   ...props
 }: IconButtonProps) {
   return (
