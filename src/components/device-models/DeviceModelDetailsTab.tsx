@@ -11,7 +11,7 @@ import {
   VendorDTO,
   DeviceType,
 } from '@/types/device.types';
-import { Card, Button, EditIcon, IconButton, Input, Select, Badge } from '@/components/ui';
+import { Card, Button, Input, Select, Badge } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
 
@@ -28,11 +28,12 @@ const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
 interface Props {
   model: DeviceModelResponseDTO;
   onModelUpdated: (updated: DeviceModelResponseDTO) => void;
+  isEditing: boolean;
+  onEditingChange: (isEditing: boolean) => void;
 }
 
-export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
+export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEditingChange }: Props) {
   const queryClient = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
 
@@ -111,7 +112,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       queryClient.invalidateQueries({ queryKey: ['devices'] });
       onModelUpdated(result.data);
-      setIsEditing(false);
+      onEditingChange(false);
     } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
       setFormErrors((prev) => ({ ...prev, model: result.error! }));
     } else {
@@ -157,7 +158,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
   };
 
   const cancelEdit = () => {
-    setIsEditing(false);
+    onEditingChange(false);
     setFormErrors({});
     setBlockingDevices([]);
     setFormData(makeFormData(model));
@@ -193,16 +194,12 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
         </div>
       )}
 
-      <div className="flex justify-end">
-        {!isEditing ? (
-          <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
-            <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
-          </div>
-        )}
-      </div>
+      {isEditing && (
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
+          <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
+        </div>
+      )}
 
       {isEditing ? (
         <Card>

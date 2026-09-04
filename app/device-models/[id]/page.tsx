@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO } from '@/types/device.types';
-import { Button, Badge, LoadingSpinner, BackLink } from '@/components/ui';
+import { Button, LoadingSpinner, BackLink, EditIcon, IconButton, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceModelDetailsTab } from '@/components/device-models/DeviceModelDetailsTab';
@@ -20,6 +20,7 @@ export default function DeviceModelDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { showError } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [purgeConfirmMessage, setPurgeConfirmMessage] = useState<string | null>(null);
@@ -134,20 +135,24 @@ export default function DeviceModelDetailPage() {
         <BackLink label="Modelos" onClick={() => router.back()} className="mb-2" />
         <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">
               {model.vendorName} — {model.model}
             </h1>
-            <Badge variant="info">{model.deviceType}</Badge>
           </div>
-          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-            Eliminar
-          </Button>
+          {!isEditing && (
+            <div className="flex gap-2">
+              <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
+              <IconButton icon={<TrashIcon />} label="Eliminar modelo" variant="danger" onClick={() => setShowDeleteModal(true)} />
+            </div>
+          )}
         </div>
       </div>
 
       <DeviceModelDetailsTab
         model={model}
         onModelUpdated={(updated) => setModel(updated)}
+        isEditing={isEditing}
+        onEditingChange={setIsEditing}
       />
     </div>
   );
