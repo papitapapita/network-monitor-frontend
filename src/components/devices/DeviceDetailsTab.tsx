@@ -451,7 +451,6 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
           </Card.Body>
         </Card>
       ) : (
-        <>
           <Card>
             <Card.Header>
               <div className="flex justify-between items-center gap-2">
@@ -529,13 +528,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 </div>
               </dl>
             </Card.Body>
-          </Card>
-
-          <Card>
-            <Card.Header>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Metadatos</h2>
-            </Card.Header>
-            <Card.Body>
+            <Card.Footer>
               <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Creado</dt>
@@ -546,9 +539,8 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(device.updatedAt).toLocaleString('es')}</dd>
                 </div>
               </dl>
-            </Card.Body>
+            </Card.Footer>
           </Card>
-        </>
       )}
 
       <LocationCreateModal

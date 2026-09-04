@@ -271,7 +271,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
           </Card.Body>
         </Card>
       ) : (
-        <>
           <Card>
             <Card.Header>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Modelo</h2>
@@ -308,18 +307,8 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
                 </div>
               </dl>
             </Card.Body>
-          </Card>
-
-          <Card>
-            <Card.Header>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Metadatos</h2>
-            </Card.Header>
-            <Card.Body>
+            <Card.Footer>
               <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">ID</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{model.id}</dd>
-                </div>
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">ID de Fabricante</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{model.vendorId}</dd>
@@ -333,9 +322,8 @@ export function DeviceModelDetailsTab({ model, onModelUpdated }: Props) {
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(model.updatedAt).toLocaleString('es')}</dd>
                 </div>
               </dl>
-            </Card.Body>
+            </Card.Footer>
           </Card>
-        </>
       )}
     </div>
   );
