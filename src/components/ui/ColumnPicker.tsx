@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Button } from './Button';
+import { IconButton } from './IconButton';
 
 export interface PickableColumn {
   /** Matches the `key` of the DataTable column it shows or hides. */
@@ -154,16 +154,15 @@ export function ColumnPicker({
 
   return (
     <div ref={rootRef} className="relative">
-      <Button
-        variant="outline"
+      <IconButton
+        icon={<ColumnsIcon />}
+        label="Columnas"
+        size="md"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         aria-haspopup="true"
-        aria-label="Columnas"
-      >
-        <ColumnsIcon />
-        <span className="hidden sm:inline">Columnas</span>
-      </Button>
+        tooltipSide="bottom"
+      />
 
       {isOpen && (
         <div

@@ -43,14 +43,14 @@ export function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-      <div className="min-w-0">
+    <div className="flex flex-row sm:flex-col items-start justify-between sm:justify-start gap-4 sm:gap-2 mb-6">
+      <div className="w-1/2 sm:w-full min-w-0">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
         {subtitle && <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">{subtitle}</p>}
       </div>
 
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex flex-wrap justify-end gap-2">
+      <div className="w-1/2 sm:w-full flex flex-col items-end sm:items-start gap-1">
+        <div className="flex flex-wrap justify-end sm:justify-start gap-2">
           {onRefresh && (
             <IconButton
               icon={isRefreshing ? null : <RefreshIcon />}

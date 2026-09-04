@@ -224,7 +224,7 @@ export default function AlertDetailPage() {
       />
 
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-8 sm:flex-col sm:justify-start">
         <div className="flex items-start gap-4 min-w-0">
           <Button variant="outline" size="sm" onClick={() => router.push('/alerts')}>
             ← Alertas

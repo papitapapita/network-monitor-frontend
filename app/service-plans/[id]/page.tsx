@@ -133,7 +133,7 @@ export default function ServicePlanDetailPage() {
       {loadError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><p className="text-red-800 dark:text-red-400">{loadError}</p></div>}
 
       <BackLink label="Planes de Servicio" onClick={() => router.back()} className="mb-2" />
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{plan.name}</h1>

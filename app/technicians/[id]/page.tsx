@@ -193,7 +193,7 @@ export default function TechnicianDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
       <BackLink label="Técnicos" onClick={() => router.back()} className="mb-2" />
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">
             {technician.fullName}
@@ -207,7 +207,7 @@ export default function TechnicianDetailPage() {
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2 sm:justify-start">
           <Button
             variant="outline"
             size="sm"

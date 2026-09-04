@@ -388,7 +388,7 @@ export default function CustomerDetailPage() {
       {loadError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><p className="text-red-800 dark:text-red-400">{loadError}</p></div>}
 
       <BackLink label="Clientes" onClick={() => router.back()} className="mb-2" />
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>

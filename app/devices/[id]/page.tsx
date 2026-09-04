@@ -269,14 +269,14 @@ export default function DeviceDetailPage() {
       {/* Header */}
       <div className="mb-6">
         <BackLink label="Dispositivos" onClick={() => router.back()} className="mb-2" />
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 sm:flex-col sm:items-start sm:justify-start">
           <div className="flex items-center gap-3 min-w-0">
             <ConnectivityDot device={device} onlineStatus={onlineStatus} />
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere min-w-0">
               {device.name}
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2 justify-end">
+          <div className="flex flex-wrap gap-2 justify-end sm:justify-start">
             {/* A unit can only be swapped once — after that the successor is the
                 one to replace, and its page offers the button. */}
             {canReplace && !device.replacedByDeviceId && (

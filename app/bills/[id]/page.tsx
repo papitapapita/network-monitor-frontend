@@ -136,7 +136,7 @@ export default function BillDetailPage() {
       <div className="mb-2">
         <BackLink label="Facturas" onClick={() => router.back()} />
       </div>
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-col sm:justify-start">
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{formatPeriod(bill.period)}</h1>
