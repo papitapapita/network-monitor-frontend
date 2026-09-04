@@ -9,6 +9,7 @@ import { DeviceModelResponseDTO, DeviceType } from '@/types/device.types';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -18,10 +19,12 @@ import {
   PlusIcon,
   Select,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 
 const LIMIT = 20;
+const COLUMNS_STORAGE_KEY = 'nms:device-models-columns';
 
 const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
   ANTENNA: 'Antena',
@@ -40,9 +43,13 @@ const DEVICE_TYPE_OPTIONS = [
     .sort((a, b) => a.label.localeCompare(b.label, 'es')),
 ];
 
-const columns: DataTableColumn<DeviceModelResponseDTO>[] = [
+type DeviceModelColumn = DataTableColumn<DeviceModelResponseDTO> & { label: string; locked?: boolean };
+
+const DEVICE_MODEL_COLUMN_CATALOG: DeviceModelColumn[] = [
   {
     key: 'vendor',
+    label: 'Fabricante',
+    locked: true,
     header: 'Fabricante',
     sortValue: (m) => m.vendorName,
     cellClassName: 'max-w-xs',
@@ -50,6 +57,7 @@ const columns: DataTableColumn<DeviceModelResponseDTO>[] = [
   },
   {
     key: 'model',
+    label: 'Modelo',
     header: 'Modelo',
     sortValue: (m) => m.model,
     cellClassName: 'max-w-xs',
@@ -57,12 +65,14 @@ const columns: DataTableColumn<DeviceModelResponseDTO>[] = [
   },
   {
     key: 'type',
+    label: 'Tipo',
     header: 'Tipo',
     sortValue: (m) => DEVICE_TYPE_LABELS[m.deviceType] ?? m.deviceType,
     cell: (m) => <Badge variant="info">{DEVICE_TYPE_LABELS[m.deviceType] ?? m.deviceType}</Badge>,
   },
   {
     key: 'wireless',
+    label: 'Inalámbrico',
     header: 'Inalámbrico',
     sortValue: (m) => (m.isWireless ? 'Sí' : 'No'),
     cell: (m) => (
@@ -70,6 +80,11 @@ const columns: DataTableColumn<DeviceModelResponseDTO>[] = [
     ),
   },
 ];
+
+const DEVICE_MODEL_COLUMN_OPTIONS: PickableColumn[] = DEVICE_MODEL_COLUMN_CATALOG.map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_DEVICE_MODEL_COLUMNS = DEVICE_MODEL_COLUMN_CATALOG.map((c) => c.key);
 
 function DeviceModelsPageContent() {
   const router = useRouter();
@@ -79,6 +94,14 @@ function DeviceModelsPageContent() {
   const search = get('search', '');
   const typeFilter = get('type', '');
   const sort = useUrlTableSort({ get, set });
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_DEVICE_MODEL_COLUMNS
+  );
+  const columns = useMemo(
+    () => DEVICE_MODEL_COLUMN_CATALOG.filter((c) => c.locked || visibleKeys.includes(c.key)),
+    [visibleKeys]
+  );
 
   const {
     data: allModels = [],
@@ -104,7 +127,7 @@ function DeviceModelsPageContent() {
         (m) => m.model.toLowerCase().includes(q) || m.vendorName.toLowerCase().includes(q)
       );
     }
-    return sortRows(rows, columns, sort.field, sort.direction);
+    return sortRows(rows, DEVICE_MODEL_COLUMN_CATALOG, sort.field, sort.direction);
   }, [allModels, search, typeFilter, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
@@ -123,13 +146,22 @@ function DeviceModelsPageContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          <IconButton
-            icon={<PlusIcon />}
-            label="Agregar Modelo"
-            variant="primary"
-            size="md"
-            onClick={() => router.push('/device-models/create')}
-          />
+          <>
+            <ColumnPicker
+              columns={DEVICE_MODEL_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
+            <IconButton
+              icon={<PlusIcon />}
+              label="Agregar Modelo"
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/device-models/create')}
+            />
+          </>
         }
       />
 

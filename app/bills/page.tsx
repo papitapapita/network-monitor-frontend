@@ -20,6 +20,7 @@ import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
   Button,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -31,10 +32,12 @@ import {
   PlusIcon,
   Select,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 
 const LIMIT = 20;
+const COLUMNS_STORAGE_KEY = 'nms:bills-columns';
 
 async function fetchAllBills(): Promise<BillDTO[]> {
   const all: BillDTO[] = [];
@@ -56,10 +59,14 @@ const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => {
   return { value: String(y), label: String(y) };
 });
 
-function buildBillColumns(customerName: (id: string) => string): DataTableColumn<BillDTO>[] {
+type BillColumn = DataTableColumn<BillDTO> & { label: string; locked?: boolean };
+
+function billColumnCatalog(customerName: (id: string) => string): BillColumn[] {
   return [
     {
       key: 'customer',
+      label: 'Cliente',
+      locked: true,
       header: 'Cliente',
       sortValue: (b) => customerName(b.customerId),
       cellClassName: 'max-w-xs',
@@ -69,18 +76,21 @@ function buildBillColumns(customerName: (id: string) => string): DataTableColumn
     },
     {
       key: 'period',
+      label: 'Periodo',
       header: 'Periodo',
       sortValue: (b) => b.period,
       cell: (b) => <span className="text-gray-700 dark:text-gray-300">{formatPeriod(b.period)}</span>,
     },
     {
       key: 'status',
+      label: 'Estado',
       header: 'Estado',
       sortValue: (b) => BILL_STATUS_LABELS[b.status],
       cell: (b) => <Badge variant={BILL_STATUS_VARIANTS[b.status]}>{BILL_STATUS_LABELS[b.status]}</Badge>,
     },
     {
       key: 'dueDate',
+      label: 'Vencimiento',
       header: 'Vencimiento',
       sortValue: (b) => b.dueDate,
       className: 'hidden sm:table-cell',
@@ -92,6 +102,7 @@ function buildBillColumns(customerName: (id: string) => string): DataTableColumn
     },
     {
       key: 'total',
+      label: 'Total',
       header: 'Total',
       sortValue: (b) => b.total,
       cell: (b) => (
@@ -99,6 +110,18 @@ function buildBillColumns(customerName: (id: string) => string): DataTableColumn
       ),
     },
   ];
+}
+
+const BILL_COLUMN_OPTIONS: PickableColumn[] = billColumnCatalog((id) => id).map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_BILL_COLUMNS = billColumnCatalog((id) => id).map((c) => c.key);
+
+function buildBillColumns(
+  customerName: (id: string) => string,
+  visibleKeys: string[]
+): DataTableColumn<BillDTO>[] {
+  return billColumnCatalog(customerName).filter((c) => c.locked || visibleKeys.includes(c.key));
 }
 
 function BillsPageContent() {
@@ -127,7 +150,14 @@ function BillsPageContent() {
     return (id: string) => map.get(id) ?? id;
   }, [customers]);
 
-  const columns = useMemo(() => buildBillColumns(customerName), [customerName]);
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_BILL_COLUMNS
+  );
+  const columns = useMemo(
+    () => buildBillColumns(customerName, visibleKeys),
+    [customerName, visibleKeys]
+  );
 
   const filtered = useMemo(() => {
     const rows = bills.filter((b) => {
@@ -140,8 +170,8 @@ function BillsPageContent() {
       }
       return true;
     });
-    return sortRows(rows, columns, sort.field, sort.direction);
-  }, [bills, statusFilter, yearFilter, monthFilter, search, customerName, columns, sort.field, sort.direction]);
+    return sortRows(rows, billColumnCatalog(customerName), sort.field, sort.direction);
+  }, [bills, statusFilter, yearFilter, monthFilter, search, customerName, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
   const paginated = filtered.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
@@ -193,6 +223,13 @@ function BillsPageContent() {
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
+            <ColumnPicker
+              columns={BILL_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
             <Button variant="outline" onClick={() => setShowBulk(true)}>Generación Masiva</Button>
             <IconButton icon={<PlusIcon />} label="Generar Factura" variant="primary" size="md" onClick={() => setShowSingle(true)} />
           </>

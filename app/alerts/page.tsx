@@ -11,6 +11,7 @@ import { useUrlState } from '@/hooks/useUrlState';
 import {
   Badge,
   Button,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -18,11 +19,13 @@ import {
   LoadingSpinner,
   PageHeader,
   Select,
+  useColumnVisibility,
 } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
-import type { BadgeVariant, DataTableColumn } from '@/components/ui';
+import type { BadgeVariant, DataTableColumn, PickableColumn } from '@/components/ui';
 
 const LIMIT = 50;
+const COLUMNS_STORAGE_KEY = 'nms:alerts-columns';
 
 const SEVERITY_LABELS: Record<AlertSeverity, string> = {
   WARNING: 'Advertencia',
@@ -50,6 +53,8 @@ function describe(alert: AlertDTO): string {
 type SortColumn = 'severity' | 'status' | 'source' | 'description' | 'device';
 type SortDirection = 'asc' | 'desc';
 
+type AlertColumn = DataTableColumn<AlertDTO> & { label: string; locked?: boolean };
+
 /**
  * The page sorts the rows itself — device names live outside the DTO — so the
  * columns only declare that they sort.
@@ -59,22 +64,26 @@ type SortDirection = 'asc' | 'desc';
  * glance. Everything else (type, duration, timestamps, producer-specific
  * details) lives on the alert's own detail page.
  */
-function buildAlertColumns(deviceNames: Record<string, string>): DataTableColumn<AlertDTO>[] {
+function alertColumnCatalog(deviceNames: Record<string, string>): AlertColumn[] {
   return [
     {
       key: 'severity',
+      label: 'Severidad',
+      locked: true,
       header: 'Severidad',
       sortable: true,
       cell: (a) => <Badge variant={getSeverityVariant(a.severity)}>{SEVERITY_LABELS[a.severity]}</Badge>,
     },
     {
       key: 'status',
+      label: 'Estado',
       header: 'Estado',
       sortable: true,
       cell: (a) => <Badge variant={getStatusVariant(a.status)}>{STATUS_LABELS[a.status]}</Badge>,
     },
     {
       key: 'source',
+      label: 'Origen',
       header: 'Origen',
       sortable: true,
       className: 'hidden lg:table-cell',
@@ -82,6 +91,7 @@ function buildAlertColumns(deviceNames: Record<string, string>): DataTableColumn
     },
     {
       key: 'description',
+      label: 'Descripción',
       header: 'Descripción',
       sortable: true,
       cell: (a) => (
@@ -92,6 +102,7 @@ function buildAlertColumns(deviceNames: Record<string, string>): DataTableColumn
     },
     {
       key: 'device',
+      label: 'Dispositivo',
       header: 'Dispositivo',
       sortable: true,
       cellClassName: 'max-w-xs',
@@ -106,6 +117,18 @@ function buildAlertColumns(deviceNames: Record<string, string>): DataTableColumn
       ),
     },
   ];
+}
+
+const ALERT_COLUMN_OPTIONS: PickableColumn[] = alertColumnCatalog({}).map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_ALERT_COLUMNS = alertColumnCatalog({}).map((c) => c.key);
+
+function buildAlertColumns(
+  deviceNames: Record<string, string>,
+  visibleKeys: string[]
+): DataTableColumn<AlertDTO>[] {
+  return alertColumnCatalog(deviceNames).filter((c) => c.locked || visibleKeys.includes(c.key));
 }
 
 const alertCount = (n: number) => `${n} ${n === 1 ? 'alerta' : 'alertas'}`;
@@ -272,7 +295,14 @@ function AlertsPageContent() {
     });
   }, [alerts, sortColumn, sortDirection, deviceNames]);
 
-  const columns = React.useMemo(() => buildAlertColumns(deviceNames), [deviceNames]);
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_ALERT_COLUMNS
+  );
+  const columns = React.useMemo(
+    () => buildAlertColumns(deviceNames, visibleKeys),
+    [deviceNames, visibleKeys]
+  );
 
   const hasFilters = severityFilter || statusFilter || sourceFilter || deviceIdFilter;
 
@@ -288,6 +318,15 @@ function AlertsPageContent() {
         onRefresh={fetchAlerts}
         isRefreshing={isLoading}
         lastRefreshed={lastRefreshed}
+        actions={
+          <ColumnPicker
+            columns={ALERT_COLUMN_OPTIONS}
+            visibleKeys={visibleKeys}
+            onToggle={toggle}
+            onReset={reset}
+            isDefault={isDefault}
+          />
+        }
       />
 
       <FilterBar

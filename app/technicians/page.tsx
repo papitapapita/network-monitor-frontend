@@ -15,6 +15,7 @@ import {
 } from '@/constants/technician.constants';
 import {
   Badge,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -24,14 +25,20 @@ import {
   PlusIcon,
   Select,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 
 const LIMIT = 20;
+const COLUMNS_STORAGE_KEY = 'nms:technicians-columns';
 
-const columns: DataTableColumn<TechnicianDTO>[] = [
+type TechnicianColumn = DataTableColumn<TechnicianDTO> & { label: string; locked?: boolean };
+
+const TECHNICIAN_COLUMN_CATALOG: TechnicianColumn[] = [
   {
     key: 'fullName',
+    label: 'Nombre',
+    locked: true,
     header: 'Nombre',
     sortValue: (t) => t.fullName,
     cellClassName: 'max-w-xs',
@@ -39,12 +46,14 @@ const columns: DataTableColumn<TechnicianDTO>[] = [
   },
   {
     key: 'phone',
+    label: 'Teléfono',
     header: 'Teléfono',
     sortValue: (t) => t.phone,
     cell: (t) => <span className="font-mono text-sm text-gray-700 dark:text-gray-300">{t.phone}</span>,
   },
   {
     key: 'email',
+    label: 'Email',
     header: 'Email',
     sortValue: (t) => t.email,
     className: 'hidden md:table-cell',
@@ -52,6 +61,7 @@ const columns: DataTableColumn<TechnicianDTO>[] = [
   },
   {
     key: 'isActive',
+    label: 'Estado',
     header: 'Estado',
     sortValue: (t) => technicianActiveLabel(t.isActive),
     cell: (t) => (
@@ -60,6 +70,7 @@ const columns: DataTableColumn<TechnicianDTO>[] = [
   },
   {
     key: 'createdAt',
+    label: 'Registrado',
     header: 'Registrado',
     sortValue: (t) => t.createdAt,
     className: 'hidden lg:table-cell',
@@ -70,6 +81,11 @@ const columns: DataTableColumn<TechnicianDTO>[] = [
     ),
   },
 ];
+
+const TECHNICIAN_COLUMN_OPTIONS: PickableColumn[] = TECHNICIAN_COLUMN_CATALOG.map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_TECHNICIAN_COLUMNS = TECHNICIAN_COLUMN_CATALOG.map((c) => c.key);
 
 function TechniciansPageContent() {
   const router = useRouter();
@@ -82,6 +98,14 @@ function TechniciansPageContent() {
   const search = get('search', '');
   const activeFilter = get('active', '');
   const sort = useUrlTableSort({ get, set });
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_TECHNICIAN_COLUMNS
+  );
+  const columns = useMemo(
+    () => TECHNICIAN_COLUMN_CATALOG.filter((c) => c.locked || visibleKeys.includes(c.key)),
+    [visibleKeys]
+  );
 
   // The rota is a few dozen people at most, and the assignment pickers want the
   // whole list anyway — so one cached query serves this page, the ticket form
@@ -105,7 +129,7 @@ function TechniciansPageContent() {
           (t.email ?? '').toLowerCase().includes(q)
       );
     }
-    return sortRows(rows, columns, sort.field, sort.direction);
+    return sortRows(rows, TECHNICIAN_COLUMN_CATALOG, sort.field, sort.direction);
   }, [all, search, activeFilter, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
@@ -124,15 +148,24 @@ function TechniciansPageContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          canWrite ? (
-            <IconButton
-              icon={<PlusIcon />}
-              label="Agregar Técnico"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/technicians/create')}
+          <>
+            <ColumnPicker
+              columns={TECHNICIAN_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
             />
-          ) : undefined
+            {canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Técnico"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/technicians/create')}
+              />
+            )}
+          </>
         }
       />
 

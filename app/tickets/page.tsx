@@ -7,7 +7,12 @@ import { apiService } from '@/services/api.service';
 import { useTickets } from '@/hooks/useTickets';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
 import { useAuth } from '@/contexts/auth.context';
-import { buildTicketColumns } from '@/components/tickets/ticketColumns';
+import {
+  buildTicketColumns,
+  DEFAULT_TICKET_COLUMNS,
+  TICKET_COLUMN_OPTIONS,
+  ticketColumnCatalog,
+} from '@/components/tickets/ticketColumns';
 import {
   TICKET_CATEGORY_FILTER_OPTIONS,
   TICKET_PRIORITY_FILTER_OPTIONS,
@@ -18,6 +23,7 @@ import {
 } from '@/constants/ticket.constants';
 import {
   Button,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -28,7 +34,10 @@ import {
   PlusIcon,
   Select,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
+
+const COLUMNS_STORAGE_KEY = 'nms:tickets-columns';
 
 const ticketCount = (n: number) => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
 
@@ -50,14 +59,21 @@ function TicketsPageContent() {
     return (id: string | null) => (id ? byId.get(id) ?? 'Técnico desconocido' : null);
   }, [technicians]);
 
-  const columns = useMemo(() => buildTicketColumns(technicianName), [technicianName]);
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_TICKET_COLUMNS
+  );
+  const columns = useMemo(
+    () => buildTicketColumns(technicianName, visibleKeys),
+    [technicianName, visibleKeys]
+  );
 
   // Sorting orders the page that was fetched, not the whole backlog — the list
   // endpoint offers no sort parameter. Same limitation the alerts table lives
   // with; the filters are what narrow the query itself.
   const rows = useMemo(
-    () => sortRows(t.tickets, columns, t.sortField, t.sortDirection),
-    [t.tickets, columns, t.sortField, t.sortDirection]
+    () => sortRows(t.tickets, ticketColumnCatalog(technicianName), t.sortField, t.sortDirection),
+    [t.tickets, technicianName, t.sortField, t.sortDirection]
   );
 
   const technicianOptions = useMemo(
@@ -86,6 +102,13 @@ function TicketsPageContent() {
         lastRefreshed={t.lastRefreshed}
         actions={
           <>
+            <ColumnPicker
+              columns={TICKET_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
             <Button variant="outline" onClick={() => router.push('/jornada')}>
               Jornada
             </Button>

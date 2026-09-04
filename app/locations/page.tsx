@@ -15,6 +15,7 @@ import {
 } from '@/constants/location.constants';
 import {
   Badge,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -24,19 +25,25 @@ import {
   PlusIcon,
   Select,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 
 const PAGE_LIMIT = 20;
+const COLUMNS_STORAGE_KEY = 'nms:locations-columns';
 
 const LOCATION_TYPE_FILTER_OPTIONS = [
   { value: '', label: 'Todos los Tipos' },
   ...LOCATION_TYPE_OPTIONS.slice(1),
 ];
 
-const columns: DataTableColumn<LocationResponseDTO>[] = [
+type LocationColumn = DataTableColumn<LocationResponseDTO> & { label: string; locked?: boolean };
+
+const LOCATION_COLUMN_CATALOG: LocationColumn[] = [
   {
     key: 'name',
+    label: 'Nombre',
+    locked: true,
     header: 'Nombre',
     sortValue: (l) => l.name,
     cellClassName: 'max-w-xs',
@@ -53,6 +60,7 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
   },
   {
     key: 'type',
+    label: 'Tipo',
     header: 'Tipo',
     sortValue: (l) => LOCATION_TYPE_LABELS[l.type],
     cell: (l) => (
@@ -61,6 +69,7 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
   },
   {
     key: 'municipality',
+    label: 'Municipio',
     header: 'Municipio',
     sortValue: (l) => l.municipality,
     className: 'hidden sm:table-cell',
@@ -69,6 +78,7 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
   },
   {
     key: 'neighborhood',
+    label: 'Barrio',
     header: 'Barrio',
     sortValue: (l) => l.neighborhood,
     className: 'hidden md:table-cell',
@@ -77,6 +87,7 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
   },
   {
     key: 'address',
+    label: 'Dirección',
     header: 'Dirección',
     sortValue: (l) => l.address,
     className: 'hidden lg:table-cell',
@@ -84,6 +95,11 @@ const columns: DataTableColumn<LocationResponseDTO>[] = [
     cell: (l) => <span className="block">{l.address ?? '—'}</span>,
   },
 ];
+
+const LOCATION_COLUMN_OPTIONS: PickableColumn[] = LOCATION_COLUMN_CATALOG.map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_LOCATION_COLUMNS = LOCATION_COLUMN_CATALOG.map((c) => c.key);
 
 function LocationsPageContent() {
   const router = useRouter();
@@ -93,6 +109,14 @@ function LocationsPageContent() {
   const search = get('search', '');
   const typeFilter = get('type', '');
   const sort = useUrlTableSort({ get, set });
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_LOCATION_COLUMNS
+  );
+  const columns = useMemo(
+    () => LOCATION_COLUMN_CATALOG.filter((c) => c.locked || visibleKeys.includes(c.key)),
+    [visibleKeys]
+  );
 
   const {
     data: allLocations = [],
@@ -119,7 +143,7 @@ function LocationsPageContent() {
         )
       );
     }
-    return sortRows(rows, columns, sort.field, sort.direction);
+    return sortRows(rows, LOCATION_COLUMN_CATALOG, sort.field, sort.direction);
   }, [allLocations, search, typeFilter, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_LIMIT));
@@ -138,13 +162,22 @@ function LocationsPageContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          <IconButton
-            icon={<PlusIcon />}
-            label="Agregar Ubicación"
-            variant="primary"
-            size="md"
-            onClick={() => router.push('/locations/create')}
-          />
+          <>
+            <ColumnPicker
+              columns={LOCATION_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
+            <IconButton
+              icon={<PlusIcon />}
+              label="Agregar Ubicación"
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/locations/create')}
+            />
+          </>
         }
       />
 

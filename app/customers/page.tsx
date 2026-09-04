@@ -8,6 +8,7 @@ import { CustomerDTO } from '@/types/customer.types';
 import { fetchAllCustomers } from '@/hooks/useCatalogs';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -16,14 +17,20 @@ import {
   PageHeader,
   PlusIcon,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 
 const LIMIT = 20;
+const COLUMNS_STORAGE_KEY = 'nms:customers-columns';
 
-const columns: DataTableColumn<CustomerDTO>[] = [
+type CustomerColumn = DataTableColumn<CustomerDTO> & { label: string; locked?: boolean };
+
+const CUSTOMER_COLUMN_CATALOG: CustomerColumn[] = [
   {
     key: 'fullName',
+    label: 'Nombre',
+    locked: true,
     header: 'Nombre',
     sortValue: (c) => c.fullName,
     cellClassName: 'max-w-xs',
@@ -31,12 +38,14 @@ const columns: DataTableColumn<CustomerDTO>[] = [
   },
   {
     key: 'phone',
+    label: 'Teléfono',
     header: 'Teléfono',
     sortValue: (c) => c.phone,
     cell: (c) => <span className="font-mono text-sm text-gray-700 dark:text-gray-300">{c.phone}</span>,
   },
   {
     key: 'email',
+    label: 'Email',
     header: 'Email',
     sortValue: (c) => c.email,
     className: 'hidden md:table-cell',
@@ -44,6 +53,7 @@ const columns: DataTableColumn<CustomerDTO>[] = [
   },
   {
     key: 'cedula',
+    label: 'Cédula',
     header: 'Cédula',
     sortValue: (c) => c.cedula,
     className: 'hidden sm:table-cell',
@@ -51,12 +61,25 @@ const columns: DataTableColumn<CustomerDTO>[] = [
   },
 ];
 
+const CUSTOMER_COLUMN_OPTIONS: PickableColumn[] = CUSTOMER_COLUMN_CATALOG.map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_CUSTOMER_COLUMNS = CUSTOMER_COLUMN_CATALOG.map((c) => c.key);
+
 function CustomersPageContent() {
   const router = useRouter();
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
   const search = get('search', '');
   const sort = useUrlTableSort({ get, set });
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_CUSTOMER_COLUMNS
+  );
+  const columns = useMemo(
+    () => CUSTOMER_COLUMN_CATALOG.filter((c) => c.locked || visibleKeys.includes(c.key)),
+    [visibleKeys]
+  );
 
   const {
     data: all = [],
@@ -81,7 +104,7 @@ function CustomersPageContent() {
             (c.cedula ?? '').includes(search)
         )
       : all;
-    return sortRows(rows, columns, sort.field, sort.direction);
+    return sortRows(rows, CUSTOMER_COLUMN_CATALOG, sort.field, sort.direction);
   }, [all, search, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
@@ -100,13 +123,22 @@ function CustomersPageContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          <IconButton
-            icon={<PlusIcon />}
-            label="Agregar Cliente"
-            variant="primary"
-            size="md"
-            onClick={() => router.push('/customers/create')}
-          />
+          <>
+            <ColumnPicker
+              columns={CUSTOMER_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
+            <IconButton
+              icon={<PlusIcon />}
+              label="Agregar Cliente"
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/customers/create')}
+            />
+          </>
         }
       />
 

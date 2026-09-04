@@ -1,6 +1,6 @@
 import React from 'react';
 import { Badge } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 import { TicketDTO } from '@/types/ticket.types';
 import {
   TICKET_PRIORITY_LABELS,
@@ -14,17 +14,21 @@ import {
   ticketCategoryLabel,
 } from '@/constants/ticket.constants';
 
+type TicketColumn = DataTableColumn<TicketDTO> & { label: string; locked?: boolean };
+
 /**
  * The list endpoint returns flat tickets — no technician object — so the page
  * resolves the id against the technician catalog it already holds and passes
  * the lookup in.
  */
-export function buildTicketColumns(
+export function ticketColumnCatalog(
   technicianName: (id: string | null) => string | null
-): DataTableColumn<TicketDTO>[] {
+): TicketColumn[] {
   return [
     {
       key: 'code',
+      label: 'Código',
+      locked: true,
       header: 'Código',
       sortValue: (t) => t.code,
       cell: (t) => (
@@ -33,6 +37,7 @@ export function buildTicketColumns(
     },
     {
       key: 'title',
+      label: 'Asunto',
       header: 'Asunto',
       sortValue: (t) => t.title.toLowerCase(),
       cell: (t) => (
@@ -46,6 +51,7 @@ export function buildTicketColumns(
     },
     {
       key: 'status',
+      label: 'Estado',
       header: 'Estado',
       // Ranked, so the column orders by progress through the lifecycle rather
       // than alphabetically by its Spanish label.
@@ -56,6 +62,7 @@ export function buildTicketColumns(
     },
     {
       key: 'priority',
+      label: 'Prioridad',
       header: 'Prioridad',
       sortValue: (t) => TICKET_PRIORITY_RANK[t.priority],
       cell: (t) => (
@@ -66,6 +73,7 @@ export function buildTicketColumns(
     },
     {
       key: 'category',
+      label: 'Categoría',
       header: 'Categoría',
       sortValue: (t) => ticketCategoryLabel(t.category),
       className: 'hidden lg:table-cell',
@@ -77,6 +85,7 @@ export function buildTicketColumns(
     },
     {
       key: 'technician',
+      label: 'Técnico',
       header: 'Técnico',
       sortValue: (t) => technicianName(t.technicianId),
       className: 'hidden md:table-cell',
@@ -91,6 +100,7 @@ export function buildTicketColumns(
     },
     {
       key: 'scheduledFor',
+      label: 'Programado',
       header: 'Programado',
       // The raw 'YYYY-MM-DD' sorts chronologically as a string, which is the
       // whole point of the format — no parsing needed.
@@ -104,6 +114,7 @@ export function buildTicketColumns(
     },
     {
       key: 'createdAt',
+      label: 'Creado',
       header: 'Creado',
       sortValue: (t) => t.createdAt,
       className: 'hidden xl:table-cell',
@@ -114,4 +125,18 @@ export function buildTicketColumns(
       ),
     },
   ];
+}
+
+export const TICKET_COLUMN_OPTIONS: PickableColumn[] = ticketColumnCatalog(() => null).map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+export const DEFAULT_TICKET_COLUMNS = ticketColumnCatalog(() => null).map((c) => c.key);
+
+export function buildTicketColumns(
+  technicianName: (id: string | null) => string | null,
+  visibleKeys: string[]
+): DataTableColumn<TicketDTO>[] {
+  return ticketColumnCatalog(technicianName).filter(
+    (c) => c.locked || visibleKeys.includes(c.key)
+  );
 }

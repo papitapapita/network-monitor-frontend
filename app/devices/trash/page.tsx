@@ -11,13 +11,15 @@ import {
   BackLink,
   Badge,
   Button,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   LoadingSpinner,
   PageHeader,
   getDeviceStatusBadgeVariant,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import {
@@ -27,6 +29,7 @@ import {
 } from '@/constants/device.constants';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+const COLUMNS_STORAGE_KEY = 'nms:devices-trash-columns';
 
 const GRACE_MS = RESTORE_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
@@ -46,6 +49,73 @@ function graceRemaining(deletedAt: string | null): { expired: boolean; label: st
   const hours = Math.max(1, Math.floor(msLeft / (60 * 60 * 1000)));
   return { expired: false, label: `${hours} ${hours === 1 ? 'hora' : 'horas'}` };
 }
+
+type DeviceTrashColumn = DataTableColumn<DeviceResponseDTO> & { label: string; locked?: boolean };
+
+const DEVICE_TRASH_COLUMN_CATALOG: DeviceTrashColumn[] = [
+  {
+    key: 'name',
+    label: 'Nombre',
+    locked: true,
+    header: 'Nombre',
+    cell: (device) => (
+      <>
+        <div className="font-medium text-gray-900 dark:text-gray-100">{device.name}</div>
+        {device.serialNumber && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">{device.serialNumber}</div>
+        )}
+      </>
+    ),
+  },
+  {
+    key: 'status',
+    label: 'Estado',
+    header: 'Estado',
+    cell: (device) => (
+      <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
+        {DEVICE_STATUS_LABELS[device.status] ?? device.status}
+      </Badge>
+    ),
+  },
+  // Deliberately no category or model column: the two actions are the point of
+  // this table, and every column pushed them off the right edge behind a
+  // sideways scroll. Name plus serial is what an operator recognises a box by,
+  // and the rest is one click away once it is restored.
+  {
+    key: 'deletedAt',
+    label: 'Eliminado',
+    header: 'Eliminado',
+    cell: (device) => (
+      <span className="text-gray-900 dark:text-gray-100">
+        {device.deletedAt ? new Date(device.deletedAt).toLocaleString('es') : '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'grace',
+    label: 'Restaurable por',
+    header: 'Restaurable por',
+    cell: (device) => {
+      const { expired, label } = graceRemaining(device.deletedAt);
+      return (
+        <span
+          className={
+            expired
+              ? 'text-red-600 dark:text-red-400 text-sm'
+              : 'text-gray-900 dark:text-gray-100 text-sm'
+          }
+        >
+          {label}
+        </span>
+      );
+    },
+  },
+];
+
+const DEVICE_TRASH_COLUMN_OPTIONS: PickableColumn[] = DEVICE_TRASH_COLUMN_CATALOG.map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_DEVICE_TRASH_COLUMNS = DEVICE_TRASH_COLUMN_CATALOG.map((c) => c.key);
 
 /**
  * The recycle bin: devices inside their 7-day grace period, newest deletion
@@ -121,60 +191,13 @@ function DeviceTrashPageContent() {
     }
   };
 
-  const columns: DataTableColumn<DeviceResponseDTO>[] = [
-    {
-      key: 'name',
-      header: 'Nombre',
-      cell: (device) => (
-        <>
-          <div className="font-medium text-gray-900 dark:text-gray-100">{device.name}</div>
-          {device.serialNumber && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">{device.serialNumber}</div>
-          )}
-        </>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Estado',
-      cell: (device) => (
-        <Badge variant={getDeviceStatusBadgeVariant(device.status)}>
-          {DEVICE_STATUS_LABELS[device.status] ?? device.status}
-        </Badge>
-      ),
-    },
-    // Deliberately no category or model column: the two actions are the point of
-    // this table, and every column pushed them off the right edge behind a
-    // sideways scroll. Name plus serial is what an operator recognises a box by,
-    // and the rest is one click away once it is restored.
-    {
-      key: 'deletedAt',
-      header: 'Eliminado',
-      cell: (device) => (
-        <span className="text-gray-900 dark:text-gray-100">
-          {device.deletedAt ? new Date(device.deletedAt).toLocaleString('es') : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'grace',
-      header: 'Restaurable por',
-      cell: (device) => {
-        const { expired, label } = graceRemaining(device.deletedAt);
-        return (
-          <span
-            className={
-              expired
-                ? 'text-red-600 dark:text-red-400 text-sm'
-                : 'text-gray-900 dark:text-gray-100 text-sm'
-            }
-          >
-            {label}
-          </span>
-        );
-      },
-    },
-  ];
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_DEVICE_TRASH_COLUMNS
+  );
+  const columns = DEVICE_TRASH_COLUMN_CATALOG.filter(
+    (c) => c.locked || visibleKeys.includes(c.key)
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -194,6 +217,15 @@ function DeviceTrashPageContent() {
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+        actions={
+          <ColumnPicker
+            columns={DEVICE_TRASH_COLUMN_OPTIONS}
+            visibleKeys={visibleKeys}
+            onToggle={toggle}
+            onReset={reset}
+            isDefault={isDefault}
+          />
+        }
       />
 
       <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">

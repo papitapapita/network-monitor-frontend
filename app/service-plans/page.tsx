@@ -8,6 +8,7 @@ import { ServicePlanDTO } from '@/types/customer.types';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -17,10 +18,12 @@ import {
   PlusIcon,
   Select,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 
 const LIMIT = 20;
+const COLUMNS_STORAGE_KEY = 'nms:service-plans-columns';
 
 async function fetchAllPlans(): Promise<ServicePlanDTO[]> {
   const all: ServicePlanDTO[] = [];
@@ -40,9 +43,13 @@ function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 
-const columns: DataTableColumn<ServicePlanDTO>[] = [
+type ServicePlanColumn = DataTableColumn<ServicePlanDTO> & { label: string; locked?: boolean };
+
+const SERVICE_PLAN_COLUMN_CATALOG: ServicePlanColumn[] = [
   {
     key: 'name',
+    label: 'Nombre',
+    locked: true,
     header: 'Nombre',
     sortValue: (p) => p.name,
     cellClassName: 'max-w-xs',
@@ -59,6 +66,7 @@ const columns: DataTableColumn<ServicePlanDTO>[] = [
   },
   {
     key: 'speed',
+    label: 'Velocidad',
     header: 'Velocidad',
     sortValue: (p) => p.downloadMbps,
     cell: (p) => (
@@ -69,12 +77,14 @@ const columns: DataTableColumn<ServicePlanDTO>[] = [
   },
   {
     key: 'monthlyPrice',
+    label: 'Precio/mes',
     header: 'Precio/mes',
     sortValue: (p) => p.monthlyPrice,
     cell: (p) => <span className="text-gray-900 dark:text-gray-100">{fmtPrice(p.monthlyPrice)}</span>,
   },
   {
     key: 'isActive',
+    label: 'Estado',
     header: 'Estado',
     sortValue: (p) => (p.isActive ? 'Activo' : 'Inactivo'),
     cell: (p) => (
@@ -83,6 +93,11 @@ const columns: DataTableColumn<ServicePlanDTO>[] = [
   },
 ];
 
+const SERVICE_PLAN_COLUMN_OPTIONS: PickableColumn[] = SERVICE_PLAN_COLUMN_CATALOG.map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_SERVICE_PLAN_COLUMNS = SERVICE_PLAN_COLUMN_CATALOG.map((c) => c.key);
+
 function ServicePlansContent() {
   const router = useRouter();
   const { get, getNumber, set } = useUrlState();
@@ -90,6 +105,14 @@ function ServicePlansContent() {
   const search = get('search', '');
   const statusFilter = get('status', '');
   const sort = useUrlTableSort({ get, set });
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_SERVICE_PLAN_COLUMNS
+  );
+  const columns = useMemo(
+    () => SERVICE_PLAN_COLUMN_CATALOG.filter((c) => c.locked || visibleKeys.includes(c.key)),
+    [visibleKeys]
+  );
 
   const {
     data: all = [],
@@ -113,7 +136,7 @@ function ServicePlansContent() {
     if (statusFilter) {
       rows = rows.filter((p) => (statusFilter === 'active' ? p.isActive : !p.isActive));
     }
-    return sortRows(rows, columns, sort.field, sort.direction);
+    return sortRows(rows, SERVICE_PLAN_COLUMN_CATALOG, sort.field, sort.direction);
   }, [all, search, statusFilter, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
@@ -132,13 +155,22 @@ function ServicePlansContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          <IconButton
-            icon={<PlusIcon />}
-            label="Agregar Plan"
-            variant="primary"
-            size="md"
-            onClick={() => router.push('/service-plans/create')}
-          />
+          <>
+            <ColumnPicker
+              columns={SERVICE_PLAN_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
+            <IconButton
+              icon={<PlusIcon />}
+              label="Agregar Plan"
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/service-plans/create')}
+            />
+          </>
         }
       />
 

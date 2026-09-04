@@ -7,6 +7,7 @@ import { apiService } from '@/services/api.service';
 import { VendorDTO } from '@/types/device.types';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
+  ColumnPicker,
   DataTable,
   ErrorBanner,
   FilterBar,
@@ -15,10 +16,12 @@ import {
   PageHeader,
   PlusIcon,
   sortRows,
+  useColumnVisibility,
 } from '@/components/ui';
-import type { DataTableColumn } from '@/components/ui';
+import type { DataTableColumn, PickableColumn } from '@/components/ui';
 
 const LIMIT = 20;
+const COLUMNS_STORAGE_KEY = 'nms:vendors-columns';
 
 async function fetchAllVendors(): Promise<VendorDTO[]> {
   const batches: VendorDTO[] = [];
@@ -38,9 +41,13 @@ async function fetchAllVendors(): Promise<VendorDTO[]> {
   return batches;
 }
 
-const columns: DataTableColumn<VendorDTO>[] = [
+type VendorColumn = DataTableColumn<VendorDTO> & { label: string; locked?: boolean };
+
+const VENDOR_COLUMN_CATALOG: VendorColumn[] = [
   {
     key: 'name',
+    label: 'Nombre',
+    locked: true,
     header: 'Nombre',
     sortValue: (v) => v.name,
     cellClassName: 'max-w-xs',
@@ -48,6 +55,7 @@ const columns: DataTableColumn<VendorDTO>[] = [
   },
   {
     key: 'slug',
+    label: 'Slug',
     header: 'Slug',
     sortValue: (v) => v.slug,
     cellClassName: 'max-w-xs',
@@ -55,6 +63,7 @@ const columns: DataTableColumn<VendorDTO>[] = [
   },
   {
     key: 'description',
+    label: 'Descripción',
     header: 'Descripción',
     className: 'hidden md:table-cell',
     cellClassName: 'max-w-xs',
@@ -66,6 +75,11 @@ const columns: DataTableColumn<VendorDTO>[] = [
   },
 ];
 
+const VENDOR_COLUMN_OPTIONS: PickableColumn[] = VENDOR_COLUMN_CATALOG.map(
+  ({ key, label, locked }) => ({ key, label, locked })
+);
+const DEFAULT_VENDOR_COLUMNS = VENDOR_COLUMN_CATALOG.map((c) => c.key);
+
 function VendorsPageContent() {
   const router = useRouter();
 
@@ -73,6 +87,14 @@ function VendorsPageContent() {
   const currentPage = getNumber('page', 1);
   const search = get('search', '');
   const sort = useUrlTableSort({ get, set });
+  const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
+    COLUMNS_STORAGE_KEY,
+    DEFAULT_VENDOR_COLUMNS
+  );
+  const columns = useMemo(
+    () => VENDOR_COLUMN_CATALOG.filter((c) => c.locked || visibleKeys.includes(c.key)),
+    [visibleKeys]
+  );
 
   const {
     data: allVendors = [],
@@ -94,7 +116,7 @@ function VendorsPageContent() {
             v.slug.toLowerCase().includes(search.toLowerCase())
         )
       : allVendors;
-    return sortRows(searched, columns, sort.field, sort.direction);
+    return sortRows(searched, VENDOR_COLUMN_CATALOG, sort.field, sort.direction);
   }, [allVendors, search, sort.field, sort.direction]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
@@ -113,13 +135,22 @@ function VendorsPageContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          <IconButton
-            icon={<PlusIcon />}
-            label="Agregar Fabricante"
-            variant="primary"
-            size="md"
-            onClick={() => router.push('/vendors/create')}
-          />
+          <>
+            <ColumnPicker
+              columns={VENDOR_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
+            <IconButton
+              icon={<PlusIcon />}
+              label="Agregar Fabricante"
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/vendors/create')}
+            />
+          </>
         }
       />
 
