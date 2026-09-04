@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
@@ -47,10 +46,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
   const [formData, setFormData] = useState(makeFormData(model));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { showError, showFormErrors } = useToast();
-  // Devices standing in the way of turning the model non-wireless — each still
-  // holds a wireless config the operator has to delete first. Empty means
-  // nothing is blocking.
-  const [blockingDevices, setBlockingDevices] = useState<DeviceResponseDTO[]>([]);
 
   useEffect(() => {
     apiService.listVendors({ limit: 100 }).then((r) => {
@@ -62,10 +57,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    // Re-ticking the box answers the refusal, so the list of devices it named
-    // stops applying — drop it rather than leave it standing over a form that
-    // no longer asks for anything.
-    if (name === 'isWireless') setBlockingDevices([]);
     if (formErrors[name]) {
       setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
     }
@@ -134,12 +125,9 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
     setFormErrors(errors);
     if (showFormErrors(errors)) return;
 
-    setBlockingDevices([]);
-
     // The backend refuses to drop the wireless flag while any device on the model
     // still has a wireless config, and never deletes one for us. Ask first, so the
-    // operator gets the devices by name and a link to each, rather than a bare
-    // count after a failed save.
+    // operator gets the devices by name instead of a bare count after a failed save.
     if (model.isWireless && !formData.isWireless) {
       setIsSaving(true);
       const configured = await findConfiguredDevices();
@@ -149,7 +137,13 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
         return;
       }
       if (configured.length > 0) {
-        setBlockingDevices(configured);
+        const names = configured.map((d) => d.name);
+        const shown = names.slice(0, 4);
+        const hidden = names.length - shown.length;
+        if (hidden > 0) shown.push(`y ${hidden} más`);
+        showError('No se puede quitar el modo inalámbrico', {
+          details: shown,
+        });
         return;
       }
     }
@@ -160,40 +154,11 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
   const cancelEdit = () => {
     onEditingChange(false);
     setFormErrors({});
-    setBlockingDevices([]);
     setFormData(makeFormData(model));
   };
 
   return (
     <div className="space-y-6">
-      {blockingDevices.length > 0 && (
-        <div
-          role="alert"
-          className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4"
-        >
-          <h3 className="font-medium text-amber-900 dark:text-amber-300">
-            No se puede quitar el modo inalámbrico
-          </h3>
-          <p className="mt-1 text-sm text-amber-800 dark:text-amber-400">
-            {blockingDevices.length === 1
-              ? '1 dispositivo de este modelo todavía tiene configuración inalámbrica. Elimínala desde su pestaña Inalámbrico y vuelve a intentarlo:'
-              : `${blockingDevices.length} dispositivos de este modelo todavía tienen configuración inalámbrica. Elimínalas desde su pestaña Inalámbrico y vuelve a intentarlo:`}
-          </p>
-          <ul className="mt-2 space-y-1 text-sm">
-            {blockingDevices.map((d) => (
-              <li key={d.id}>
-                <Link
-                  href={`/devices/${d.id}`}
-                  className="text-amber-900 dark:text-amber-300 underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-200"
-                >
-                  {d.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {isEditing && (
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
