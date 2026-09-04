@@ -901,7 +901,7 @@ export function DataTable<T>({
                           <div
                             role="menu"
                             aria-label="Ordenar por"
-                            className="absolute left-0 mt-1.5 z-30 w-44 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5"
+                            className="absolute right-0 mt-1.5 z-30 w-44 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5"
                           >
                             {sortableColumns.map((col) => {
                               const active = sort!.field === col.key;
