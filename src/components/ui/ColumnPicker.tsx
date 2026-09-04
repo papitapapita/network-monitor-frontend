@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { IconButton } from './IconButton';
+
+/** Matches the `w-60` on the menu below. */
+const MENU_WIDTH = 240;
 
 export interface PickableColumn {
   /** Matches the `key` of the DataTable column it shows or hides. */
@@ -134,41 +138,59 @@ export function ColumnPicker({
   isDefault = true,
 }: ColumnPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // A right-edge-anchored menu overflows the viewport (or hides under the
+  // sidebar) when the button sits near the left edge of a narrow content
+  // area, so position is computed in viewport space and clamped instead of
+  // trusting `right-0` inside a `relative` wrapper.
+  const updatePosition = useCallback(() => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const margin = 8;
+    const left = Math.min(
+      Math.max(rect.right - MENU_WIDTH, margin),
+      window.innerWidth - MENU_WIDTH - margin
+    );
+    setMenuPos({ top: rect.bottom + 8, left });
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
+    updatePosition();
     const onMouseDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setIsOpen(false);
+      const target = e.target as Node;
+      if (
+        !rootRef.current?.contains(target) &&
+        !(target as Element).closest?.('[data-column-picker-menu]')
+      ) {
+        setIsOpen(false);
+      }
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsOpen(false);
     };
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
     return () => {
       document.removeEventListener('mousedown', onMouseDown);
       document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
     };
-  }, [isOpen]);
+  }, [isOpen, updatePosition]);
 
-  return (
-    <div ref={rootRef} className="relative">
-      <IconButton
-        icon={<ColumnsIcon />}
-        label="Columnas"
-        size="md"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-expanded={isOpen}
-        aria-haspopup="true"
-        tooltipSide="bottom"
-      />
-
-      {isOpen && (
+  const menu = isOpen && menuPos
+    ? ReactDOM.createPortal(
         <div
+          data-column-picker-menu
           role="menu"
           aria-label="Columnas visibles"
-          className="absolute right-0 mt-2 z-30 w-60 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5"
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: MENU_WIDTH, zIndex: 9999 }}
+          className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5"
         >
           <p className="px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
             Mostrar columnas
@@ -213,8 +235,24 @@ export function ColumnPicker({
               </button>
             </>
           )}
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div ref={rootRef} className="relative">
+      <IconButton
+        icon={<ColumnsIcon />}
+        label="Columnas"
+        size="md"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+        tooltipSide="bottom"
+      />
+
+      {menu}
     </div>
   );
 }
