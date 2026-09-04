@@ -73,3 +73,19 @@ export function XCircleIcon() {
     </svg>
   );
 }
+
+export function ChevronDownIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg className={`${className} shrink-0`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg className={`${className} shrink-0`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}

@@ -171,10 +171,10 @@ export function Combobox({
               maxHeight: dropdownRect.maxHeight,
               zIndex: 9999,
             }}
-            className="overflow-auto rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-lg"
+            className="overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5"
           >
             {filtered.length === 0 && !onCreateNew && (
-              <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Sin resultados</li>
+              <li className="px-2 py-1.5 text-sm text-gray-500 dark:text-gray-400">Sin resultados</li>
             )}
             {filtered.map((opt, i) => (
               <li
@@ -182,30 +182,35 @@ export function Combobox({
                 role="option"
                 aria-selected={opt.value === value}
                 onMouseDown={() => handleSelect(opt)}
-                className={`px-3 py-2 text-sm cursor-pointer ${
+                className={`px-2 py-1.5 rounded text-sm cursor-pointer break-words ${
                   i === highlightedIndex
-                    ? 'bg-blue-100 dark:bg-blue-800 text-blue-900 dark:text-blue-100'
-                    : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-gray-100 dark:bg-gray-700'
+                    : ''
+                } ${
+                  opt.value === value
+                    ? 'text-blue-600 dark:text-blue-400 font-medium'
+                    : 'text-gray-700 dark:text-gray-200'
                 }`}
               >
                 {opt.label}
               </li>
             ))}
             {onCreateNew && (
-              <li
-                onMouseDown={() => {
-                  onCreateNew();
-                  setIsOpen(false);
-                  setQuery('');
-                }}
-                className={`px-3 py-2 text-sm cursor-pointer border-t border-gray-200 dark:border-gray-600 ${
-                  highlightedIndex === filtered.length
-                    ? 'bg-blue-100 dark:bg-blue-800 text-blue-900 dark:text-blue-100'
-                    : 'text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                {createLabel ?? '+ Crear nuevo'}
-              </li>
+              <>
+                {filtered.length > 0 && <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />}
+                <li
+                  onMouseDown={() => {
+                    onCreateNew();
+                    setIsOpen(false);
+                    setQuery('');
+                  }}
+                  className={`px-2 py-1.5 rounded text-sm cursor-pointer text-blue-600 dark:text-blue-400 ${
+                    highlightedIndex === filtered.length ? 'bg-gray-100 dark:bg-gray-700' : ''
+                  }`}
+                >
+                  {createLabel ?? '+ Crear nuevo'}
+                </li>
+              </>
             )}
           </ul>,
           document.body
@@ -238,16 +243,16 @@ export function Combobox({
         disabled={disabled}
         autoComplete="off"
         className={`
-          block w-full px-3 py-2 rounded-md shadow-sm
+          block w-full px-3 py-2 rounded-md shadow-sm transition-colors
           bg-white dark:bg-gray-800
           text-gray-900 dark:text-gray-100
           placeholder-gray-400 dark:placeholder-gray-500
           focus:outline-none focus:ring-2 focus:ring-offset-0
-          disabled:opacity-60 disabled:cursor-not-allowed
+          disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-gray-400 dark:disabled:hover:border-gray-600
           ${
             error
-              ? 'border border-red-400 focus:border-red-500 focus:ring-red-500'
-              : 'border border-gray-400 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400'
+              ? 'border border-red-400 hover:border-red-500 focus:border-red-500 focus:ring-red-500'
+              : 'border border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-500 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400'
           }
         `}
       />
