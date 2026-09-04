@@ -19,7 +19,7 @@ import {
   formatScheduledFor,
   todayISODate,
 } from '@/constants/ticket.constants';
-import { Card, Button, EditIcon, IconButton, BackLink, Input, LoadingSpinner, Badge, ConfirmModal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, Input, LoadingSpinner, Badge, ConfirmModal, TrashIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function TechnicianDetailPage() {
@@ -221,9 +221,7 @@ export default function TechnicianDetailPage() {
             </Button>
           )}
           {isAdmin && (
-            <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-              Eliminar
-            </Button>
+            <IconButton icon={<TrashIcon />} label="Eliminar técnico" variant="danger" onClick={() => setShowDeleteModal(true)} />
           )}
         </div>
       </div>

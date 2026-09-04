@@ -12,7 +12,7 @@ import {
   isDeviceUnreachable,
   isWirelessAlert,
 } from '@/types/alert.types';
-import { Badge, Button, Card, IconButton, LoadingSpinner } from '@/components/ui';
+import { Badge, Button, Card, IconButton, LoadingSpinner, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -254,15 +254,14 @@ export default function AlertDetailPage() {
             </Button>
           )}
           {isAdmin && (
-            <Button
+            <IconButton
+              icon={<TrashIcon />}
               variant="danger"
               size="sm"
               disabled={alert.status === 'OPEN'}
-              title={alert.status === 'OPEN' ? 'Solo se pueden eliminar alertas resueltas' : 'Eliminar alerta'}
+              label={alert.status === 'OPEN' ? 'Solo se pueden eliminar alertas resueltas' : 'Eliminar alerta'}
               onClick={() => setShowDeleteModal(true)}
-            >
-              Eliminar
-            </Button>
+            />
           )}
         </div>
       </div>

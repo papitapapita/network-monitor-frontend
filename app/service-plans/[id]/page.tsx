@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, EditIcon, IconButton, BackLink, Input, Textarea, Badge, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, Input, Textarea, Badge, LoadingSpinner, TrashIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -141,7 +141,7 @@ export default function ServicePlanDetailPage() {
           </div>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5 font-mono">{plan.downloadMbps}↓ / {plan.uploadMbps}↑ Mbps · {fmtPrice(plan.monthlyPrice)}/mes</p>
         </div>
-        <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Eliminar</Button>
+        <IconButton icon={<TrashIcon />} label="Eliminar plan" variant="danger" onClick={() => setShowDeleteModal(true)} />
       </div>
 
       <div>

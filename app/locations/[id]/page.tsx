@@ -7,7 +7,7 @@ import { LocationResponseDTO, UpdateLocationDTO } from '@/types/location.types';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { LOCATION_TYPE_LABELS, LOCATION_TYPE_BADGE_VARIANTS } from '@/constants/location.constants';
 import { DEVICE_STATUS_LABELS, deviceCategoryLabel } from '@/constants/device.constants';
-import { Button, Badge, EditIcon, IconButton, LoadingSpinner, Card, Table, TableEmptyState } from '@/components/ui';
+import { Button, Badge, EditIcon, IconButton, LoadingSpinner, Card, Table, TableEmptyState, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import {
   LocationForm,
@@ -199,9 +199,7 @@ export default function LocationDetailPage() {
             </Badge>
           </div>
         </div>
-        <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-          Eliminar
-        </Button>
+        <IconButton icon={<TrashIcon />} label="Eliminar ubicación" variant="danger" onClick={() => setShowDeleteModal(true)} />
       </div>
 
       {error && (

@@ -12,7 +12,7 @@ import {
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
-import { Card, Button, EditIcon, IconButton, BackLink, Input, Select, LoadingSpinner, Badge, Modal } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -393,7 +393,7 @@ export default function CustomerDetailPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>
         </div>
-        <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>Eliminar</Button>
+        <IconButton icon={<TrashIcon />} label="Eliminar cliente" variant="danger" onClick={() => setShowDeleteModal(true)} />
       </div>
 
       {/* Customer info */}

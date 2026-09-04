@@ -50,6 +50,7 @@ import {
   LoadingSpinner,
   Badge,
   ConfirmModal,
+  TrashIcon,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
@@ -297,9 +298,7 @@ export default function TicketDetailPage() {
           </div>
         </div>
         {isAdmin && (
-          <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-            Eliminar
-          </Button>
+          <IconButton icon={<TrashIcon />} label="Eliminar ticket" variant="danger" onClick={() => setShowDeleteModal(true)} />
         )}
       </div>
 
