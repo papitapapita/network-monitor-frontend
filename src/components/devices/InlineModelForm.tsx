@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO, DeviceType, VendorDTO } from '@/types/device.types';
-import { Button, Input, Select } from '@/components/ui';
+import { Button, Input, Select, Checkbox } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 const DEVICE_TYPE_OPTIONS = [
@@ -104,17 +104,13 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
       </div>
 
       <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           id="inline-model-isWireless"
           name="isWireless"
           checked={form.isWireless}
           onChange={handleChange}
-          className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+          label="Modelo inalámbrico"
         />
-        <label htmlFor="inline-model-isWireless" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Modelo inalámbrico
-        </label>
         <span className="text-xs text-gray-500 dark:text-gray-400">(requerido para categorías CPE Inalámbrico y AP)</span>
       </div>
 

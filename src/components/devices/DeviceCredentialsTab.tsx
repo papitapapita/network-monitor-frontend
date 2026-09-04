@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
 import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
-import { Card, Button, Input, Badge, LoadingSpinner, IconButton } from '@/components/ui';
+import { Card, Button, Input, Checkbox, Badge, LoadingSpinner, IconButton } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 
@@ -374,20 +374,17 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
 
               {/* SNMP section — optional */}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="snmpEnabled"
                     checked={form.snmpEnabled}
                     onChange={(e) => field('snmpEnabled', e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                    label="Configurar SNMP"
                   />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Configurar SNMP
-                  </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     (opcional — aún no lo consume ningún colector)
                   </span>
-                </label>
+                </div>
 
                 {form.snmpEnabled && (
                   <div className="mt-4">

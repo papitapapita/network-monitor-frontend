@@ -11,7 +11,7 @@ import {
   VendorDTO,
   DeviceType,
 } from '@/types/device.types';
-import { Card, Button, Input, Select, Badge } from '@/components/ui';
+import { Card, Button, Input, Select, Checkbox, Badge } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
 
@@ -251,17 +251,13 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
                 fullWidth
               />
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="isWireless"
                   name="isWireless"
                   checked={formData.isWireless}
                   onChange={handleChange}
-                  className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+                  label="Modelo inalámbrico"
                 />
-                <label htmlFor="isWireless" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Modelo inalámbrico
-                </label>
                 <span className="text-xs text-gray-500 dark:text-gray-400">(requerido para categorías CPE Inalámbrico y AP)</span>
               </div>
             </div>

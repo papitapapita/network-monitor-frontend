@@ -20,6 +20,7 @@ import {
   Textarea,
   Select,
   Combobox,
+  Checkbox,
   Table,
   TableEmptyState,
   LoadingSpinner,
@@ -352,17 +353,13 @@ function AddDeviceModal({
                 />
                 <div className="sm:col-span-2 space-y-3">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id="monitoringEnabled"
                       name="monitoringEnabled"
                       checked={form.monitoringEnabled}
                       onChange={handleChange}
-                      className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500"
+                      label="Habilitar Monitoreo"
                     />
-                    <label htmlFor="monitoringEnabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Habilitar Monitoreo
-                    </label>
                   </div>
 
                   {form.monitoringEnabled && (

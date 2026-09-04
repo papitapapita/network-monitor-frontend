@@ -20,6 +20,7 @@ import {
   Textarea,
   Select,
   Combobox,
+  Checkbox,
   Badge,
   IconButton,
   getDeviceStatusBadgeVariant
@@ -412,18 +413,14 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 const autoOff = !canEnableMonitoring(st, formData.ipAddress);
                 return (
                   <div className="flex items-center gap-2 pt-6 flex-wrap">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id="edit-monitoring"
                       name="monitoringEnabled"
                       checked={autoOff ? false : formData.monitoringEnabled}
                       onChange={autoOff ? undefined : handleChange}
                       disabled={autoOff}
-                      className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500 disabled:opacity-50"
+                      label="Habilitar monitoreo"
                     />
-                    <label htmlFor="edit-monitoring" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Habilitar monitoreo
-                    </label>
                     {suggestOn && !noIp && (
                       <span className="text-xs text-blue-600 dark:text-blue-400">(recomendado en comisionamiento, opcional)</span>
                     )}

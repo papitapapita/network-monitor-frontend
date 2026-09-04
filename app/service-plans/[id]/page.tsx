@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, EditIcon, IconButton, BackLink, Input, Textarea, Badge, LoadingSpinner, TrashIcon } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, BackLink, Input, Textarea, Checkbox, Badge, LoadingSpinner, TrashIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -170,8 +170,7 @@ export default function ServicePlanDetailPage() {
                 <Input label="Subida (Mbps)" name="uploadMbps" type="number" min={1} value={form.uploadMbps} onChange={handleChange} error={formErrors.uploadMbps} required fullWidth />
                 <Input label="Precio mensual (COP)" name="monthlyPrice" type="number" min={0} value={form.monthlyPrice} onChange={handleChange} error={formErrors.monthlyPrice} required fullWidth />
                 <div className="flex items-center gap-2 pt-6">
-                  <input type="checkbox" id="isActive" name="isActive" checked={form.isActive} onChange={handleChange} className="w-4 h-4 text-blue-600 border-gray-400 rounded focus:ring-blue-500" />
-                  <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">Plan activo</label>
+                  <Checkbox id="isActive" name="isActive" checked={form.isActive} onChange={handleChange} label="Plan activo" />
                 </div>
                 <div className="md:col-span-2">
                   <Textarea

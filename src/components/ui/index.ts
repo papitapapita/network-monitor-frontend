@@ -50,6 +50,8 @@ export { Combobox } from './Combobox';
 
 export { SelectCheckbox } from './SelectCheckbox';
 
+export { Checkbox } from './Checkbox';
+
 export { Tooltip } from './Tooltip';
 
 export { IconButton } from './IconButton';
