@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, Input, Textarea, Checkbox, BackLink } from '@/components/ui';
+import { Card, Button, Input, Textarea, Switch, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function CreateServicePlanPage() {
@@ -84,7 +84,7 @@ export default function CreateServicePlanPage() {
               <Input label="Subida (Mbps)" name="uploadMbps" type="number" min={1} value={formData.uploadMbps} onChange={handleChange} error={formErrors.uploadMbps} placeholder="10" required fullWidth />
               <Input label="Precio mensual (COP)" name="monthlyPrice" type="number" min={0} value={formData.monthlyPrice} onChange={handleChange} error={formErrors.monthlyPrice} placeholder="59990" required fullWidth />
               <div className="flex items-center gap-2 pt-6">
-                <Checkbox id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} label="Plan activo (disponible para contratar)" />
+                <Switch id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} label="Plan activo (disponible para contratar)" />
               </div>
               <div className="md:col-span-2">
                 <Textarea
