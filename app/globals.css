@@ -111,3 +111,26 @@ body {
     animation: none;
   }
 }
+
+/*
+ * Native date/time inputs: without `color-scheme`, the browser always draws
+ * the calendar icon and picker pop-up in its light-mode colors, so the icon
+ * goes black-on-dark-gray and the calendar itself flashes white in dark mode.
+ * Declaring color-scheme lets the browser draw its own controls (icon, the
+ * calendar pop-up, spinner buttons) to match the app's theme instead.
+ */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'],
+input[type='month'],
+input[type='week'] {
+  color-scheme: light;
+}
+
+.dark input[type='date'],
+.dark input[type='time'],
+.dark input[type='datetime-local'],
+.dark input[type='month'],
+.dark input[type='week'] {
+  color-scheme: dark;
+}
