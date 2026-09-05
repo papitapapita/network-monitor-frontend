@@ -280,7 +280,8 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   options={(() => {
                     const opts = deviceModels.map((m) => ({
                       value: m.id,
-                      label: `${m.vendorName} — ${m.model} (${m.deviceType})`,
+                      label: `${m.model} (${m.deviceType})`,
+                      sublabel: m.vendorName,
                     }));
                     // Keep the current model selectable even if it fell outside the first 100.
                     return opts.some((o) => o.value === device.deviceModelId) || !deviceModel
@@ -288,7 +289,8 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                       : [
                           {
                             value: deviceModel.id,
-                            label: `${deviceModel.vendorName} — ${deviceModel.model} (${deviceModel.deviceType})`,
+                            label: `${deviceModel.model} (${deviceModel.deviceType})`,
+                            sublabel: deviceModel.vendorName,
                           },
                           ...opts,
                         ];
@@ -300,7 +302,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                       setFormErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
                     }
                   }}
-                  placeholder="Escribir para buscar modelo..."
+                  placeholder="Escribir modelo o fabricante..."
                   error={formErrors.deviceModelId}
                   fullWidth
                 />
