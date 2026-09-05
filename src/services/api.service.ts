@@ -108,6 +108,15 @@ import {
   BulkGenerateResult,
 } from '../types/bill.types';
 import {
+  QuotationDTO,
+  QuotationListResponse,
+  ListQuotationsQuery,
+  CreateQuotationDTO,
+  UpdateQuotationDetailsDTO,
+  ReplaceQuotationLineItemsDTO,
+  RejectQuotationDTO,
+} from '../types/quotation.types';
+import {
   TicketDTO,
   TicketDetailDTO,
   TicketListResponse,
@@ -1173,6 +1182,86 @@ class ApiService {
       const headers: Record<string, string> = {};
       if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
       const response = await fetch(`${this.baseUrl}/bills/${id}/pdf`, { headers });
+      if (!response.ok) {
+        let error = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const data = await response.json();
+          error = data.error || data.message || error;
+        } catch {
+          /* non-JSON error body */
+        }
+        return { success: false, error };
+      }
+      const blob = await response.blob();
+      return { success: true, data: blob };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
+  }
+
+  // ==================== Quotations ====================
+
+  async createQuotation(data: CreateQuotationDTO): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>('/quotations', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async listQuotations(query?: ListQuotationsQuery): Promise<ApiResponse<QuotationListResponse>> {
+    const qs = this.buildQuery({
+      customerId: query?.customerId,
+      status: query?.status,
+      limit: query?.limit,
+      offset: query?.offset,
+    });
+    return this.request<QuotationListResponse>(`/quotations${qs}`);
+  }
+
+  async getQuotation(id: string): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>(`/quotations/${id}`);
+  }
+
+  async updateQuotationLineItems(
+    id: string,
+    data: ReplaceQuotationLineItemsDTO
+  ): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>(`/quotations/${id}/line-items`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateQuotationDetails(
+    id: string,
+    data: UpdateQuotationDetailsDTO
+  ): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>(`/quotations/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async sendQuotation(id: string): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>(`/quotations/${id}/send`, { method: 'POST' });
+  }
+
+  async acceptQuotation(id: string): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>(`/quotations/${id}/accept`, { method: 'POST' });
+  }
+
+  async rejectQuotation(id: string, data: RejectQuotationDTO): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>(`/quotations/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async expireQuotation(id: string): Promise<ApiResponse<QuotationDTO>> {
+    return this.request<QuotationDTO>(`/quotations/${id}/expire`, { method: 'POST' });
+  }
+
+  // The PDF endpoint returns a binary document, not the JSON envelope, so it
+  // bypasses request() and carries the Bearer token on a raw fetch → blob.
+  async downloadQuotationPdf(id: string): Promise<ApiResponse<Blob>> {
+    try {
+      const headers: Record<string, string> = {};
+      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+      const response = await fetch(`${this.baseUrl}/quotations/${id}/pdf`, { headers });
       if (!response.ok) {
         let error = `HTTP ${response.status}: ${response.statusText}`;
         try {

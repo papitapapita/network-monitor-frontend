@@ -1258,6 +1258,40 @@ class MockApiService {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
 
+  // ── Quotations ─────────────────────────────────────────────
+  // Same as billing — no mocked catalog of hand-priced quotes.
+
+  async createQuotation() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async listQuotations() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getQuotation() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async updateQuotationLineItems() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async updateQuotationDetails() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async sendQuotation() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async acceptQuotation() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async rejectQuotation() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async expireQuotation() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async downloadQuotationPdf() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+
   // ── Tickets & technicians ──────────────────────────────────
   // A ticket is a state machine with terminal states, and half-simulating it
   // here would teach the UI rules the backend does not actually have. Mock mode

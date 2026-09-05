@@ -120,6 +120,13 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    href: '/quotations',
+    label: 'Cotizaciones',
+    icon: icon(
+      'M9 7h6m-6 4h6m-6 4h4M7 3h10a2 2 0 012 2v14l-4-2-3 2-3-2-4 2V5a2 2 0 012-2z'
+    ),
+  },
+  {
     href: '/network-scan',
     label: 'Escaneo',
     icon: icon('M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z'),
