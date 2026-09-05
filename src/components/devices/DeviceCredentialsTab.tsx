@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
 import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
-import { Card, Button, Input, Checkbox, Badge, LoadingSpinner, IconButton } from '@/components/ui';
+import { Card, Button, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 
@@ -484,14 +484,12 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleSave} isLoading={saving}>
-                  {noCreds ? 'Guardar' : 'Actualizar'}
-                </Button>
-                <Button variant="outline" onClick={() => setShowForm(false)} disabled={saving}>
-                  Cancelar
-                </Button>
-              </div>
+              <EditFormActions
+                onCancel={() => setShowForm(false)}
+                onSave={handleSave}
+                isSaving={saving}
+                saveLabel={noCreds ? 'Guardar' : 'Actualizar'}
+              />
             </div>
           )}
 

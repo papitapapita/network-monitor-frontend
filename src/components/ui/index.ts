@@ -56,6 +56,8 @@ export { Tooltip } from './Tooltip';
 
 export { IconButton } from './IconButton';
 
+export { EditFormActions } from './EditFormActions';
+
 export { BackLink } from './BackLink';
 
 export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon } from './icons';

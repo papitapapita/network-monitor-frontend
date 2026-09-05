@@ -19,7 +19,7 @@ import {
   formatScheduledFor,
   todayISODate,
 } from '@/constants/ticket.constants';
-import { Card, Button, EditIcon, IconButton, BackLink, Input, LoadingSpinner, Badge, ConfirmModal, TrashIcon } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, Input, LoadingSpinner, Badge, ConfirmModal, TrashIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function TechnicianDetailPage() {
@@ -243,29 +243,9 @@ export default function TechnicianDetailPage() {
         <Card.Header>
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Datos</h2>
-            {canWrite &&
-              (!isEditing ? (
-                <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
-              ) : (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setForm(makeForm(technician));
-                      setFormErrors({});
-                      setSaveError(null);
-                    }}
-                    disabled={isSaving}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={handleSave} isLoading={isSaving}>
-                    Guardar
-                  </Button>
-                </div>
-              ))}
+            {canWrite && !isEditing && (
+              <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
+            )}
           </div>
         </Card.Header>
         <Card.Body>
@@ -336,6 +316,22 @@ export default function TechnicianDetailPage() {
             </dl>
           )}
         </Card.Body>
+        {canWrite && isEditing && (
+          <Card.Footer>
+            <EditFormActions
+              onCancel={() => {
+                setIsEditing(false);
+                setForm(makeForm(technician));
+                setFormErrors({});
+                setSaveError(null);
+              }}
+              onSave={handleSave}
+              isSaving={isSaving}
+              saveLabel="Guardar"
+              size="sm"
+            />
+          </Card.Footer>
+        )}
       </Card>
 
       <Card>

@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
-import { Card, Button, EditIcon, IconButton, BackLink, Input, Textarea, Checkbox, Badge, LoadingSpinner, TrashIcon } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, Input, Textarea, Checkbox, Badge, LoadingSpinner, TrashIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -145,16 +145,11 @@ export default function ServicePlanDetailPage() {
       </div>
 
       <div>
-        <div className="flex justify-end mb-2">
-          {!isEditing ? (
+        {!isEditing && (
+          <div className="flex justify-end mb-2">
             <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
-          ) : (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setForm(makeForm(plan)); setFormErrors({}); }} disabled={isSaving}>Cancelar</Button>
-              <Button size="sm" onClick={handleSave} isLoading={isSaving}>Guardar</Button>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {saveError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-3 text-sm text-red-800 dark:text-red-400">{saveError}</div>}
 
@@ -209,6 +204,17 @@ export default function ServicePlanDetailPage() {
               </dl>
             )}
           </Card.Body>
+          {isEditing && (
+            <Card.Footer>
+              <EditFormActions
+                onCancel={() => { setIsEditing(false); setForm(makeForm(plan)); setFormErrors({}); }}
+                onSave={handleSave}
+                isSaving={isSaving}
+                saveLabel="Guardar"
+                size="sm"
+              />
+            </Card.Footer>
+          )}
         </Card>
       </div>
     </div>

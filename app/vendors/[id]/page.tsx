@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
-import { Card, Button, EditIcon, IconButton, BackLink, TrashIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, TrashIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 
@@ -195,15 +195,10 @@ export default function VendorDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{vendor.name}</h1>
             <p className="font-mono text-sm text-gray-500 dark:text-gray-400 wrap-anywhere">{vendor.slug}</p>
           </div>
-          {!isEditing ? (
+          {!isEditing && (
             <div className="flex gap-2">
               <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
               <IconButton icon={<TrashIcon />} label="Eliminar fabricante" variant="danger" onClick={() => setShowDeleteModal(true)} />
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
-              <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
             </div>
           )}
         </div>
@@ -255,6 +250,9 @@ export default function VendorDetailPage() {
                 />
               </div>
             </Card.Body>
+            <Card.Footer>
+              <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} />
+            </Card.Footer>
           </Card>
         ) : (
             <Card>

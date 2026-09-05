@@ -7,7 +7,7 @@ import { LocationResponseDTO, UpdateLocationDTO } from '@/types/location.types';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { LOCATION_TYPE_LABELS, LOCATION_TYPE_BADGE_VARIANTS } from '@/constants/location.constants';
 import { DEVICE_STATUS_LABELS, deviceCategoryLabel } from '@/constants/device.constants';
-import { Button, Badge, EditIcon, IconButton, LoadingSpinner, Card, Table, TableEmptyState, TrashIcon } from '@/components/ui';
+import { Button, Badge, EditIcon, IconButton, EditFormActions, LoadingSpinner, Card, Table, TableEmptyState, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import {
   LocationForm,
@@ -208,16 +208,11 @@ export default function LocationDetailPage() {
         </div>
       )}
 
-      <div className="flex justify-end mb-3">
-        {!isEditing ? (
+      {!isEditing && (
+        <div className="flex justify-end mb-3">
           <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
-            <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {isEditing ? (
         <Card className="mb-6">
@@ -233,6 +228,9 @@ export default function LocationDetailPage() {
               onLocationPick={onLocationPick}
             />
           </Card.Body>
+          <Card.Footer>
+            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} />
+          </Card.Footer>
         </Card>
       ) : (
         <>

@@ -42,6 +42,7 @@ import {
   Button,
   EditIcon,
   IconButton,
+  EditFormActions,
   BackLink,
   Input,
   Select,
@@ -337,31 +338,9 @@ export default function TicketDetailPage() {
         <Card.Header>
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Detalles</h2>
-            {canWrite &&
-              canEdit(ticket.status) &&
-              (!isEditing ? (
-                <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
-              ) : (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setForm(makeForm(ticket));
-                      setAddress(addressFormFrom(ticket.address));
-                      setFormErrors({});
-                      setSaveError(null);
-                    }}
-                    disabled={isSaving}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={handleSave} isLoading={isSaving}>
-                    Guardar
-                  </Button>
-                </div>
-              ))}
+            {canWrite && canEdit(ticket.status) && !isEditing && (
+              <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
+            )}
           </div>
         </Card.Header>
         <Card.Body>
@@ -476,6 +455,23 @@ export default function TicketDetailPage() {
             </>
           )}
         </Card.Body>
+        {canWrite && canEdit(ticket.status) && isEditing && (
+          <Card.Footer>
+            <EditFormActions
+              onCancel={() => {
+                setIsEditing(false);
+                setForm(makeForm(ticket));
+                setAddress(addressFormFrom(ticket.address));
+                setFormErrors({});
+                setSaveError(null);
+              }}
+              onSave={handleSave}
+              isSaving={isSaving}
+              saveLabel="Guardar"
+              size="sm"
+            />
+          </Card.Footer>
+        )}
       </Card>
 
       {ticket.resolutionNotes && (

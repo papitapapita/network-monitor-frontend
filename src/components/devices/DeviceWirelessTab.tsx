@@ -11,7 +11,7 @@ import {
   CreateWirelessConfigDTO,
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus } from '@/types/device.types';
-import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton } from '@/components/ui';
+import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 import {
@@ -836,14 +836,12 @@ export function DeviceWirelessTab({
                   />
                 )}
               </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSaveConfig} isLoading={configSaving}>
-                  {noConfig ? 'Crear Configuración' : 'Guardar Cambios'}
-                </Button>
-                <Button variant="outline" onClick={() => setShowConfigForm(false)}>
-                  Cancelar
-                </Button>
-              </div>
+              <EditFormActions
+                onCancel={() => setShowConfigForm(false)}
+                onSave={handleSaveConfig}
+                isSaving={configSaving}
+                saveLabel={noConfig ? 'Crear Configuración' : 'Guardar Cambios'}
+              />
             </div>
           )}
         </Card.Body>

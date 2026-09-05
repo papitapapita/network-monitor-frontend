@@ -10,7 +10,7 @@ import {
   VendorDTO,
   DeviceType,
 } from '@/types/device.types';
-import { Card, Button, Input, Select, Checkbox, Badge } from '@/components/ui';
+import { Card, Input, Select, Checkbox, Badge, EditFormActions } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
 
@@ -159,13 +159,6 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
 
   return (
     <div className="space-y-6">
-      {isEditing && (
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
-          <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
-        </div>
-      )}
-
       {isEditing ? (
         <Card>
           <Card.Header>
@@ -227,6 +220,9 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
               </div>
             </div>
           </Card.Body>
+          <Card.Footer>
+            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} />
+          </Card.Footer>
         </Card>
       ) : (
           <Card>

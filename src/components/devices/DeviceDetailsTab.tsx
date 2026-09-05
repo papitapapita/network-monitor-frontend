@@ -14,7 +14,6 @@ import {
 import { LocationResponseDTO } from '@/types/location.types';
 import {
   Card,
-  Button,
   EditIcon,
   Input,
   Textarea,
@@ -23,6 +22,7 @@ import {
   Checkbox,
   Badge,
   IconButton,
+  EditFormActions,
   getDeviceStatusBadgeVariant
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -259,13 +259,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       {isEditing ? (
         <Card>
           <Card.Header>
-            <div className="flex flex-wrap justify-between items-center gap-2">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Dispositivo</h2>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>Cancelar</Button>
-                <Button onClick={handleSave} isLoading={isSaving}>Guardar Cambios</Button>
-              </div>
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Dispositivo</h2>
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,6 +440,9 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
               </div>
             </div>
           </Card.Body>
+          <Card.Footer>
+            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} />
+          </Card.Footer>
         </Card>
       ) : (
           <Card>
