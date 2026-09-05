@@ -52,6 +52,32 @@ export async function selectCombobox(
 }
 
 /**
+ * Picks an option from a `Select` the caller has already located.
+ *
+ * `Select` is a custom-rendered listbox (a <button> plus a portalled <ul>),
+ * not a native <select> — Playwright's own `selectOption()` only works on a
+ * real <select> element, so this drives it by hand: click the trigger open,
+ * then click the option by its visible label wherever the portal landed it.
+ */
+export async function pickFromSelect(page: Page, trigger: Locator, optionLabel: string): Promise<void> {
+  await trigger.click();
+
+  const option = page.locator('[data-select-dropdown]').getByRole('option', { name: optionLabel, exact: true });
+  await expect(option).toBeVisible();
+  await option.click();
+}
+
+/** Picks an option from the `Select` carrying a given visible label. */
+export async function selectDropdown(
+  page: Page,
+  label: string,
+  optionLabel: string,
+  scope: Page | Locator = page
+): Promise<void> {
+  await pickFromSelect(page, field(scope, label), optionLabel);
+}
+
+/**
  * Confirms a ConfirmModal. Scoped to the dialog because the trigger button
  * usually carries the same label as the confirm button ("Eliminar").
  */
