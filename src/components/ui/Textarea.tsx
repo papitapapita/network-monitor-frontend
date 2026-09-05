@@ -44,16 +44,16 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={textareaId}
           maxLength={maxLength}
           className={`
-            block w-full px-3 py-2 rounded-md shadow-sm resize-none
+            block w-full px-3 py-2 rounded-md shadow-sm resize-none transition-colors
             bg-white dark:bg-gray-800
             text-gray-900 dark:text-gray-100
             placeholder-gray-400 dark:placeholder-gray-500
             focus:outline-none focus:ring-2 focus:ring-offset-0
-            disabled:opacity-60 disabled:cursor-not-allowed
+            disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-800
             ${
               error
-                ? 'border border-red-400 focus:border-red-500 focus:ring-red-500'
-                : 'border border-gray-400 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400'
+                ? 'border border-red-400 hover:border-red-500 hover:bg-red-50/40 dark:hover:bg-red-900/10 focus:border-red-500 focus:ring-red-500 focus:bg-red-50/40 dark:focus:bg-red-900/10'
+                : 'border border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/40 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 focus:bg-blue-50/40 dark:focus:bg-blue-900/10'
             }
             ${className}
           `}
