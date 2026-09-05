@@ -2,12 +2,13 @@
 
 import React from 'react';
 import { useSettings } from '@/contexts/settings.context';
+import { NotificationMutesCard } from '@/components/settings/NotificationMutesCard';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useSettings();
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Configuración</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Preferencias de la aplicación</p>
@@ -67,6 +68,10 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      <div className="mt-6">
+        <NotificationMutesCard />
+      </div>
     </div>
   );
 }

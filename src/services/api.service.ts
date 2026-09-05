@@ -42,6 +42,7 @@ import {
   BulkUpsertDeviceNotificationPoliciesDTO,
   BulkUpsertDeviceNotificationPoliciesResponseDTO,
 } from '../types/notification-policy.types';
+import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import {
   AlertDTO,
   AlertListResponse,
@@ -793,6 +794,23 @@ class ApiService {
     data: BulkUpsertDeviceNotificationPoliciesDTO
   ): Promise<ApiResponse<BulkUpsertDeviceNotificationPoliciesResponseDTO>> {
     return this.request<BulkUpsertDeviceNotificationPoliciesResponseDTO>('/notification-policies/bulk', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // ============================================================
+  // Notification Mutes
+  // ============================================================
+
+  /** Global, standing list of muted alert-type keys. Never touches the alert record — only the outbound push. */
+  async getNotificationMutes(): Promise<ApiResponse<NotificationMutesDTO>> {
+    return this.request<NotificationMutesDTO>('/notification-mutes');
+  }
+
+  /** Full replace — there is no add/remove-one route. Sending `{ metrics: [] }` clears every mute. */
+  async updateNotificationMutes(data: NotificationMutesDTO): Promise<ApiResponse<NotificationMutesDTO>> {
+    return this.request<NotificationMutesDTO>('/notification-mutes', {
       method: 'PUT',
       body: JSON.stringify(data)
     });

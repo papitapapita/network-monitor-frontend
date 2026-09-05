@@ -53,6 +53,7 @@ import {
   BulkUpsertDeviceNotificationPoliciesDTO,
   BulkUpsertDeviceNotificationPoliciesResponseDTO,
 } from '../types/notification-policy.types';
+import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import {
   AlertDTO,
   AlertListResponse,
@@ -121,6 +122,7 @@ const pollingHistory: Record<string, ReturnType<typeof MOCK_POLLING_HISTORY[stri
 for (const [k, v] of Object.entries(MOCK_POLLING_HISTORY)) pollingHistory[k] = [...v];
 /** No row means "never configured" — always-notify defaults, same as the real API. */
 const notificationPolicies: Record<string, DeviceNotificationPolicyDTO> = {};
+let mutedMetrics: string[] = [];
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -932,6 +934,19 @@ class MockApiService {
       }
     }
     return ok({ updated, failed });
+  }
+
+  // ============================================================
+  // Notification Mutes
+  // ============================================================
+
+  async getNotificationMutes(): Promise<ApiResponse<NotificationMutesDTO>> {
+    return ok({ metrics: [...mutedMetrics] });
+  }
+
+  async updateNotificationMutes(data: NotificationMutesDTO): Promise<ApiResponse<NotificationMutesDTO>> {
+    mutedMetrics = Array.from(new Set(data.metrics));
+    return ok({ metrics: [...mutedMetrics] });
   }
 
   // ============================================================
