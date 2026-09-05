@@ -19,17 +19,20 @@ const DEVICE_TYPE_OPTIONS = [
 ];
 
 interface InlineModelFormProps {
-  vendorId: string;
-  vendor: VendorDTO | undefined;
+  vendors: VendorDTO[];
+  /** Skips the vendor picker and uses this vendor, for flows where it's already chosen upstream (e.g. network scan). */
+  lockedVendorId?: string;
+  /** Prefills the model name from whatever the user already typed into the model combobox. */
+  initialModelName?: string;
   /** Pre-check the wireless toggle when creating a model for a wireless category. */
   defaultIsWireless?: boolean;
   onCreated: (model: DeviceModelResponseDTO) => void;
   onCancel: () => void;
 }
 
-export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, onCreated, onCancel }: InlineModelFormProps) {
+export function InlineModelForm({ vendors, lockedVendorId, initialModelName = '', defaultIsWireless = false, onCreated, onCancel }: InlineModelFormProps) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ model: '', deviceType: '' as DeviceType | '', isWireless: defaultIsWireless });
+  const [form, setForm] = useState({ vendorId: lockedVendorId ?? '', model: initialModelName, deviceType: '' as DeviceType | '', isWireless: defaultIsWireless });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const { showError, showFormErrors } = useToast();
@@ -43,6 +46,7 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
 
   const handleSubmit = async () => {
     const errs: Record<string, string> = {};
+    if (!form.vendorId) errs.vendorId = 'El fabricante es requerido';
     if (!form.model.trim()) errs.model = 'El nombre del modelo es requerido';
     else if (form.model.trim().length > 150) errs.model = 'El modelo no puede superar los 150 caracteres';
     if (!form.deviceType) errs.deviceType = 'El tipo de dispositivo es requerido';
@@ -52,16 +56,17 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
     setIsLoading(true);
 
     const result = await apiService.createDeviceModel({
-      vendorId,
+      vendorId: form.vendorId,
       model: form.model.trim(),
       deviceType: form.deviceType as DeviceType,
       isWireless: form.isWireless,
     });
 
     if (result.success && result.data) {
+      const vendor = vendors.find((v) => v.id === form.vendorId);
       const newModel: DeviceModelResponseDTO = {
         ...result.data,
-        vendorId,
+        vendorId: form.vendorId,
         vendorName: vendor?.name ?? '',
         vendorSlug: vendor?.slug ?? '',
       };
@@ -79,9 +84,21 @@ export function InlineModelForm({ vendorId, vendor, defaultIsWireless = false, o
 
   return (
     <div className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
-      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo para este fabricante</p>
+      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className={`grid grid-cols-1 gap-3 ${lockedVendorId ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+        {!lockedVendorId && (
+          <Select
+            label="Fabricante"
+            name="vendorId"
+            value={form.vendorId}
+            onChange={handleChange}
+            options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+            placeholder="Seleccionar fabricante"
+            error={errors.vendorId}
+            fullWidth
+          />
+        )}
         <Input
           label="Nombre del modelo"
           name="model"

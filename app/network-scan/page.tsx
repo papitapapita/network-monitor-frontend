@@ -305,8 +305,8 @@ function AddDeviceModal({
 
                   {showInlineModelForm && (
                     <InlineModelForm
-                      vendorId={selectedVendorId}
-                      vendor={vendors.find((v) => v.id === selectedVendorId)}
+                      vendors={vendors}
+                      lockedVendorId={selectedVendorId}
                       onCreated={(newModel) => {
                         setLocalModels((prev) => [...prev, newModel]);
                         onModelCreated(newModel);

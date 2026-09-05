@@ -33,9 +33,9 @@ export default function CreateDevicePage() {
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const [showInlineModelForm, setShowInlineModelForm] = useState(false);
+  const [inlineModelName, setInlineModelName] = useState('');
 
   const [formData, setFormData] = useState({
-    selectedVendorId: '',
     deviceModelId: '',
     name: '',
     ownerType: '' as DeviceOwnerType | '',
@@ -69,14 +69,10 @@ export default function CreateDevicePage() {
 
   const requiresWireless = isWirelessCategory(formData.category);
 
-  const vendorModels = formData.selectedVendorId
-    ? allDeviceModels.filter((m) => m.vendorId === formData.selectedVendorId)
-    : [];
-
   // For wireless categories (WIRELESS_CPE, AP) only wireless-capable models are valid.
   const filteredModels = requiresWireless
-    ? vendorModels.filter((m) => m.isWireless)
-    : vendorModels;
+    ? allDeviceModels.filter((m) => m.isWireless)
+    : allDeviceModels;
 
   const selectedModel = allDeviceModels.find((m) => m.id === formData.deviceModelId);
   const wirelessMismatch = requiresWireless && !!selectedModel && !selectedModel.isWireless;
@@ -118,7 +114,6 @@ export default function CreateDevicePage() {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'El nombre es requerido';
     else if (formData.name.trim().length > 150) errors.name = 'El nombre no puede superar los 150 caracteres';
-    if (!formData.selectedVendorId) errors.selectedVendorId = 'El fabricante es requerido';
     if (!formData.deviceModelId) errors.deviceModelId = 'El modelo es requerido';
     else if (wirelessMismatch) {
       errors.deviceModelId = 'Esta categoría requiere un modelo inalámbrico';
@@ -242,29 +237,11 @@ export default function CreateDevicePage() {
                   fullWidth
                 />
 
-                {/* Vendor — full width */}
-                <Combobox
-                  label="Fabricante"
-                  options={vendors.map((v) => ({ value: v.id, label: v.name }))}
-                  value={formData.selectedVendorId}
-                  onChange={(vendorId) => {
-                    setFormData((prev) => ({ ...prev, selectedVendorId: vendorId, deviceModelId: '' }));
-                    setShowInlineModelForm(false);
-                    if (formErrors.selectedVendorId) {
-                      setFormErrors((prev) => { const n = { ...prev }; delete n.selectedVendorId; return n; });
-                    }
-                  }}
-                  placeholder="Escribir fabricante..."
-                  error={formErrors.selectedVendorId}
-                  required
-                  fullWidth
-                />
-
-                {/* Model — full width */}
+                {/* Model — full width. Picking a model implies its vendor, so there's no separate vendor field. */}
                 <div className="w-full">
                   <Combobox
                     label="Modelo"
-                    options={filteredModels.map((m) => ({ value: m.id, label: `${m.model} (${m.deviceType})` }))}
+                    options={filteredModels.map((m) => ({ value: m.id, label: `${m.model} (${m.deviceType})`, sublabel: m.vendorName }))}
                     value={formData.deviceModelId}
                     onChange={(modelId) => {
                       setShowInlineModelForm(false);
@@ -273,12 +250,12 @@ export default function CreateDevicePage() {
                         setFormErrors((prev) => { const n = { ...prev }; delete n.deviceModelId; return n; });
                       }
                     }}
-                    placeholder={formData.selectedVendorId ? 'Escribir modelo...' : 'Primero selecciona un fabricante'}
+                    placeholder="Escribir modelo o fabricante..."
                     error={formErrors.deviceModelId}
                     required
-                    disabled={!formData.selectedVendorId}
                     createLabel="+ Crear nuevo modelo"
-                    onCreateNew={() => {
+                    onCreateNew={(query) => {
+                      setInlineModelName(query);
                       setShowInlineModelForm(true);
                       setFormData((prev) => ({ ...prev, deviceModelId: '' }));
                     }}
@@ -295,8 +272,8 @@ export default function CreateDevicePage() {
 
                   {showInlineModelForm && (
                     <InlineModelForm
-                      vendorId={formData.selectedVendorId}
-                      vendor={vendors.find((v) => v.id === formData.selectedVendorId)}
+                      vendors={vendors}
+                      initialModelName={inlineModelName}
                       defaultIsWireless={requiresWireless}
                       onCreated={(newModel) => {
                         setAllDeviceModels((prev) => [...prev, newModel]);

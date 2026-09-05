@@ -5,6 +5,8 @@ import ReactDOM from 'react-dom';
 interface ComboboxOption {
   value: string;
   label: string;
+  /** Shown beneath the label in a lighter color, e.g. a vendor name under a model. */
+  sublabel?: string;
 }
 
 interface ComboboxProps {
@@ -18,7 +20,7 @@ interface ComboboxProps {
   fullWidth?: boolean;
   disabled?: boolean;
   createLabel?: string;
-  onCreateNew?: () => void;
+  onCreateNew?: (query: string) => void;
 }
 
 export function Combobox({
@@ -43,7 +45,13 @@ export function Combobox({
 
   const selectedOption = options.find((o) => o.value === value);
   const filtered = query
-    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    ? options.filter((o) => {
+        // Every whitespace-separated token has to appear somewhere in label+sublabel,
+        // so "mik rb4" matches "RB450G" under "MikroTik" regardless of word order.
+        const haystack = `${o.label} ${o.sublabel ?? ''}`.toLowerCase();
+        const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+        return tokens.every((t) => haystack.includes(t));
+      })
     : options;
 
   const totalItems = filtered.length + (onCreateNew ? 1 : 0);
@@ -139,7 +147,7 @@ export function Combobox({
       if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
         handleSelect(filtered[highlightedIndex]);
       } else if (highlightedIndex === filtered.length && onCreateNew) {
-        onCreateNew();
+        onCreateNew(query);
         setIsOpen(false);
         setQuery('');
       }
@@ -193,6 +201,11 @@ export function Combobox({
                 }`}
               >
                 {opt.label}
+                {opt.sublabel && (
+                  <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                    {opt.sublabel}
+                  </span>
+                )}
               </li>
             ))}
             {onCreateNew && (
@@ -200,7 +213,7 @@ export function Combobox({
                 {filtered.length > 0 && <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />}
                 <li
                   onMouseDown={() => {
-                    onCreateNew();
+                    onCreateNew(query);
                     setIsOpen(false);
                     setQuery('');
                   }}
@@ -257,6 +270,9 @@ export function Combobox({
         `}
       />
       {dropdown}
+      {!isOpen && selectedOption?.sublabel && (
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 wrap-anywhere">{selectedOption.sublabel}</p>
+      )}
       {error && (
         <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
           {error}
