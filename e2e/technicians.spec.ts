@@ -86,7 +86,7 @@ test.describe('technicians', () => {
     });
 
     await page.goto(`/technicians/${technician.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar técnico', exact: true }).click();
     await confirmDialog(page, 'Eliminar técnico');
 
     await page.waitForURL('**/technicians');
@@ -282,7 +282,7 @@ test.describe('technician conventions', () => {
     });
 
     await page.goto(`/technicians/${technician.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar técnico', exact: true }).click();
     await confirmDialog(page, 'Eliminar técnico');
 
     // The backend's own count is what reaches the screen, and the message has to

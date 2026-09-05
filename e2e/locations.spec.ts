@@ -154,7 +154,7 @@ test.describe('locations', () => {
     });
 
     await page.goto(`/locations/${loc.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar ubicación', exact: true }).click();
     await confirmDialog(page, 'Eliminar ubicación');
 
     await page.waitForURL('**/locations');

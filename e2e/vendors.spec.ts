@@ -82,7 +82,7 @@ test.describe('vendors', () => {
     });
 
     await page.goto(`/vendors/${vendor.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar fabricante', exact: true }).click();
     await confirmDialog(page, 'Eliminar fabricante');
 
     // Deleting redirects back to the list.
@@ -281,7 +281,7 @@ test.describe('vendor conventions', () => {
     });
 
     await page.goto(`/vendors/${vendor.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar fabricante', exact: true }).click();
     await confirmDialog(page, 'Eliminar fabricante');
 
     // The backend's own count is what's on screen, so the vendor stays put.
@@ -356,7 +356,7 @@ test.describe('vendor conventions', () => {
     });
 
     await page.goto(`/vendors/${vendor.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar fabricante', exact: true }).click();
 
     // Another tab already deleted it; this tab's confirm click is the caller
     // error DEV-008 refuses to treat as a silent no-op.

@@ -197,7 +197,7 @@ test.describe('devices', () => {
     const { device } = await arrangeDevice(api);
 
     await page.goto(`/devices/${device.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
 
     // Deleting no longer redirects straight away — it leaves an undo modal in
@@ -1469,11 +1469,9 @@ test.describe('device conventions', () => {
     await wirelessTab.click();
     const configHeading = page.getByRole('heading', { name: 'Configuración Inalámbrica' });
     await expect(configHeading).toBeVisible();
-    // Scoped to the config card's own header — the page's delete-device button
-    // is also called "Eliminar".
     await configHeading
       .locator('xpath=following-sibling::div')
-      .getByRole('button', { name: 'Eliminar', exact: true })
+      .getByRole('button', { name: 'Eliminar configuración', exact: true })
       .click();
     await expect(page.getByText('Este dispositivo no tiene configuración de monitoreo inalámbrico.')).toBeVisible();
 
@@ -1559,13 +1557,13 @@ test.describe('device conventions', () => {
     const { device } = await arrangeDevice(api);
 
     await page.goto(`/devices/${device.id}`);
-    await expect(page.getByRole('button', { name: 'Eliminar', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Eliminar dispositivo', exact: true })).toBeVisible();
 
     // A stale tab's delete button still fires the request even though another
     // operator has since purged the device out from under it.
     await api.remove('devices', device.id);
 
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
     await confirmDialog(page, 'Eliminar dispositivo');
 
     await expect(page.getByText('Este dispositivo ya no existe').first()).toBeVisible();
@@ -1592,7 +1590,7 @@ test.describe('device conventions', () => {
 /** Deletes a device the way an operator does: from its own detail page. */
 async function deleteThroughUi(page: Page, deviceId: string): Promise<void> {
   await page.goto(`/devices/${deviceId}`);
-  await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+  await page.getByRole('button', { name: 'Eliminar dispositivo', exact: true }).click();
   await confirmDialog(page, 'Eliminar dispositivo');
 }
 

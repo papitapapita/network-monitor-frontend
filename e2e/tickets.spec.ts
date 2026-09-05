@@ -137,7 +137,7 @@ test.describe('tickets', () => {
     const ticket = await arrangeTicket(api);
 
     await page.goto(`/tickets/${ticket.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar ticket', exact: true }).click();
     await confirmDialog(page, 'Eliminar ticket');
 
     await page.waitForURL('**/tickets');
