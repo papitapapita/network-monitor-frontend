@@ -1,7 +1,7 @@
 import { Locator, Page } from '@playwright/test';
 import { test, expect, uniqueName } from './fixtures/test';
 import { ApiClient } from './fixtures/api';
-import { confirmDialog, field, idFromUrl, searchFor } from './fixtures/helpers';
+import { confirmDialog, field, idFromUrl, searchFor, selectDropdown } from './fixtures/helpers';
 
 /** Every model needs a vendor, so each test arranges its own. */
 async function makeVendor(api: ApiClient) {
@@ -31,10 +31,9 @@ test.describe('device models', () => {
 
     await page.goto('/device-models/create');
 
-    // Fabricante is a native <select> here (the device form uses a Combobox).
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(model);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
     await field(page, 'Modelo inalámbrico').check();
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
@@ -42,7 +41,9 @@ test.describe('device models', () => {
     await page.waitForURL(/\/device-models\/[0-9a-f-]{36}$/);
     api.track('device-models', idFromUrl(page.url()));
 
-    await expect(page.getByRole('heading', { name: `${vendor.name} — ${model}` })).toBeVisible();
+    // The vendor renders as the subtitle under the model's own heading.
+    await expect(page.getByRole('heading', { name: model })).toBeVisible();
+    await expect(page.getByText(vendor.name).first()).toBeVisible();
     await expect(page.getByText('ROUTER').first()).toBeVisible();
   });
 
@@ -57,7 +58,8 @@ test.describe('device models', () => {
 
     await page.goto(`/device-models/${created.id}`);
 
-    await expect(page.getByRole('heading', { name: `${vendor.name} — ${created.model}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: created.model })).toBeVisible();
+    await expect(page.getByText(vendor.name).first()).toBeVisible();
     await expect(page.getByText('SWITCH').first()).toBeVisible();
   });
 
@@ -94,13 +96,13 @@ test.describe('device models', () => {
     await page.getByRole('button', { name: 'Editar' }).click();
 
     await field(page, 'Modelo').fill(newModel);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Switch' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Switch');
     await page.getByRole('button', { name: 'Guardar Cambios' }).click();
 
-    await expect(page.getByRole('heading', { name: `${vendor.name} — ${newModel}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: newModel })).toBeVisible();
 
     await page.reload();
-    await expect(page.getByRole('heading', { name: `${vendor.name} — ${newModel}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: newModel })).toBeVisible();
     await expect(page.getByText('SWITCH').first()).toBeVisible();
   });
 
@@ -114,7 +116,7 @@ test.describe('device models', () => {
     });
 
     await page.goto(`/device-models/${created.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar modelo', exact: true }).click();
     await confirmDialog(page, 'Eliminar modelo');
 
     await page.waitForURL('**/device-models');
@@ -144,16 +146,12 @@ test.describe('device model conventions', () => {
   test('DEV-020: rejects a model with no vendor', async ({ page }) => {
     await page.goto('/device-models/create');
 
-    // Filling these first also waits out hydration, so the evaluate() below
-    // doesn't race the initial render.
     await field(page, 'Modelo').fill(uniqueName('model'));
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
-    // The <select> carries a native `required`, which blocks the submit before
-    // our onSubmit — and therefore validate() — ever runs. Strip it so this
-    // exercises the JS required-check itself.
-    await page.evaluate(() => document.querySelector('select[name="vendorId"]')?.removeAttribute('required'));
-
+    // Fabricante is a custom Select (a <button>, not a native <select>), so
+    // there's no browser-level `required` to short-circuit the click — this
+    // reaches validate() directly.
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
     await expect(page.getByText('El fabricante es requerido').first()).toBeVisible();
@@ -164,8 +162,8 @@ test.describe('device model conventions', () => {
     const vendor = await makeVendor(api);
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Fabricante', vendor.name);
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     // Same native `required` short-circuit as above.
     await page.evaluate(() => document.querySelector('input[name="model"]')?.removeAttribute('required'));
@@ -180,11 +178,11 @@ test.describe('device model conventions', () => {
     const vendor = await makeVendor(api);
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(uniqueName('model'));
 
-    await page.evaluate(() => document.querySelector('select[name="deviceType"]')?.removeAttribute('required'));
-
+    // Tipo de Dispositivo is the same custom Select, so nothing native blocks
+    // the click before validate() runs.
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
     await expect(page.getByText('El tipo de dispositivo es requerido').first()).toBeVisible();
@@ -195,9 +193,9 @@ test.describe('device model conventions', () => {
     const vendor = await makeVendor(api);
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(uniqueName('model'));
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     // The picker only offers vendors that existed when the form loaded, so a
     // dangling vendorId is unreachable by clicking alone. Deleting the vendor
@@ -223,9 +221,9 @@ test.describe('device model conventions', () => {
     });
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(existing.model);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Switch' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Switch');
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
@@ -247,10 +245,10 @@ test.describe('device model conventions', () => {
     });
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     // The form trims before sending, so uniqueness is judged on the trimmed name.
     await field(page, 'Modelo').fill(`   ${existing.model}   `);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
@@ -272,16 +270,16 @@ test.describe('device model conventions', () => {
 
     // Uniqueness is scoped to the vendor, so the same name under B is fine.
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendorB.name });
+    await selectDropdown(page, 'Fabricante', vendorB.name);
     await field(page, 'Modelo').fill(existing.model);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
     await page.waitForURL(/\/device-models\/[0-9a-f-]{36}$/);
     api.track('device-models', idFromUrl(page.url()));
 
-    await expect(page.getByRole('heading', { name: `${vendorB.name} — ${existing.model}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: existing.model })).toBeVisible();
   });
 
   test('DEV-023: accepts a model name at the 150-character limit', async ({ page, api }) => {
@@ -290,9 +288,9 @@ test.describe('device model conventions', () => {
     expect(model).toHaveLength(150);
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(model);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
@@ -307,7 +305,7 @@ test.describe('device model conventions', () => {
     const vendor = await makeVendor(api);
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
 
     // The <input> carries maxlength=150, which would silently truncate anything
     // past the limit before validate() ever saw it. Strip it so the JS length
@@ -315,7 +313,7 @@ test.describe('device model conventions', () => {
     await page.evaluate(() => document.querySelector('input[name="model"]')?.removeAttribute('maxlength'));
 
     await field(page, 'Modelo').fill(uniqueName('model').padEnd(151, 'x'));
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
@@ -327,11 +325,11 @@ test.describe('device model conventions', () => {
     const vendor = await makeVendor(api);
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     // Spaces satisfy the native `required`, so this reaches validate() as-is —
     // and it is the trim that rejects it.
     await field(page, 'Modelo').fill('   ');
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
@@ -342,7 +340,13 @@ test.describe('device model conventions', () => {
   test('DEV-024: offers exactly the seven device types', async ({ page }) => {
     await page.goto('/device-models/create');
 
-    const options = field(page, 'Tipo de Dispositivo').locator('option');
+    // Tipo de Dispositivo is a custom Select: opening it portals a <ul> of
+    // <li role="option"> elements to <body>, rather than <option>s inside a
+    // native <select> — so the label list is read from there. The underlying
+    // enum value ('ROUTER', etc.) isn't rendered anywhere in the DOM; the
+    // round-trip test right below covers that it reaches the backend intact.
+    await field(page, 'Tipo de Dispositivo').click();
+    const options = page.locator('[data-select-dropdown]').getByRole('option');
     await expect(options).toHaveText([
       'Seleccionar tipo',
       'Antena',
@@ -353,19 +357,6 @@ test.describe('device model conventions', () => {
       'Servidor',
       'Switch',
     ]);
-
-    // The labels are Spanish; what gets submitted must be the domain's set.
-    const values = await options.evaluateAll((els) => els.map((el) => (el as HTMLOptionElement).value));
-    expect(values).toEqual([
-      '',
-      'ANTENNA',
-      'OTHER',
-      'RADIO',
-      'ROUTER',
-      'ROUTERBOARD',
-      'SERVER',
-      'SWITCH',
-    ]);
   });
 
   test('DEV-024: round-trips the chosen device type through the backend', async ({ page, api }) => {
@@ -373,9 +364,9 @@ test.describe('device model conventions', () => {
     const model = uniqueName('model');
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(model);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'RouterBoard' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'RouterBoard');
 
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
@@ -392,9 +383,9 @@ test.describe('device model conventions', () => {
     const vendor = await makeVendor(api);
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(uniqueName('model'));
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
 
     // Left untouched — wireless is the exception, so the form starts it off.
     await expect(field(page, 'Modelo inalámbrico')).not.toBeChecked();
@@ -439,7 +430,7 @@ test.describe('device model conventions', () => {
     });
 
     await page.goto(`/device-models/${model.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar modelo', exact: true }).click();
     await confirmDialog(page, 'Eliminar modelo');
 
     // The backend's own count is what's on screen, so the model stays put.
@@ -447,7 +438,7 @@ test.describe('device model conventions', () => {
       page.getByText('No se puede eliminar el modelo: tiene 1 dispositivo asociado. Reasigna o elimina ese dispositivo primero.').first()
     ).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/device-models/${model.id}$`));
-    await expect(page.getByRole('heading', { name: `${vendor.name} — ${model.model}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: model.model })).toBeVisible();
   });
 
   /**
@@ -479,7 +470,7 @@ test.describe('device model conventions', () => {
     await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
 
     await page.goto(`/device-models/${model.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar modelo', exact: true }).click();
     await confirmDialog(page, 'Eliminar modelo');
 
     // Named as a tombstone in the bin, not the raw FK error the DB would throw,
@@ -491,7 +482,7 @@ test.describe('device model conventions', () => {
     // Declining leaves both the model and its tombstoned device untouched.
     await page.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click();
     await expect(page).toHaveURL(new RegExp(`/device-models/${model.id}$`));
-    await expect(page.getByRole('heading', { name: `${vendor.name} — ${model.model}` })).toBeVisible();
+    await expect(page.getByRole('heading', { name: model.model })).toBeVisible();
   });
 
   test('DEV-030: confirming purges the recycle-bin device along with the model', async ({ page, api }) => {
@@ -516,7 +507,7 @@ test.describe('device model conventions', () => {
     await expect(page.getByText(`«${device.name}» se eliminó`)).toBeVisible();
 
     await page.goto(`/device-models/${model.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar modelo', exact: true }).click();
     await confirmDialog(page, 'Eliminar modelo');
     await expect(page.getByText(/Este modelo tiene 1 dispositivo en la papelera/)).toBeVisible();
 
@@ -565,7 +556,7 @@ test.describe('device model conventions', () => {
     await expect(page.getByText(`«${binnedDevice.name}» se eliminó`)).toBeVisible();
 
     await page.goto(`/device-models/${model.id}`);
-    await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await page.getByRole('button', { name: 'Eliminar modelo', exact: true }).click();
     await confirmDialog(page, 'Eliminar modelo');
 
     // The live device wins: DEV-026's message, not DEV-030's — no confirmation
@@ -694,9 +685,9 @@ test.describe('device model conventions', () => {
     const model = uniqueName('model');
 
     await page.goto('/device-models/create');
-    await field(page, 'Fabricante').selectOption({ label: vendor.name });
+    await selectDropdown(page, 'Fabricante', vendor.name);
     await field(page, 'Modelo').fill(model);
-    await field(page, 'Tipo de Dispositivo').selectOption({ label: 'Router' });
+    await selectDropdown(page, 'Tipo de Dispositivo', 'Router');
     await page.getByRole('button', { name: 'Crear Modelo' }).click();
 
     await page.waitForURL(/\/device-models\/[0-9a-f-]{36}$/);
@@ -721,7 +712,7 @@ test.describe('device model conventions', () => {
     await expect(detailValue(page, 'Slug del Fabricante')).toHaveText(vendorA.slug);
 
     await page.getByRole('button', { name: 'Editar' }).click();
-    await field(page, 'Fabricante').selectOption({ label: vendorB.name });
+    await selectDropdown(page, 'Fabricante', vendorB.name);
     await page.getByRole('button', { name: 'Guardar Cambios' }).click();
 
     await page.reload();
@@ -782,12 +773,12 @@ test.describe('device model wireless flag', () => {
   }
 
   /**
-   * The refusal notice. Scoped by its heading rather than by `role="alert"`
-   * alone — Next.js's dev-mode route announcer is also an alert, so a bare
-   * role query never reaches zero.
+   * The refusal notice. Toasts carry no ARIA role of their own (`Toast.tsx`
+   * marks only the viewport `aria-live="assertive"`), so this matches the
+   * toast card by its own test id instead of `role="alert"`.
    */
   function refusalNotice(page: Page): Locator {
-    return page.getByRole('alert').filter({ hasText: 'No se puede quitar el modo inalámbrico' });
+    return page.getByTestId('toast').filter({ hasText: 'No se puede quitar el modo inalámbrico' });
   }
 
   /** Ticks or unticks "Modelo inalámbrico" on the model's edit form and saves. */
@@ -807,12 +798,13 @@ test.describe('device model wireless flag', () => {
 
     await setWirelessFlag(page, model.id, false);
 
-    // The refusal names the device, not just a count — and the name comes from
-    // a real read of the model's devices, not from anything canned.
+    // The refusal names the device, not just a title — and the name comes from
+    // a real read of the model's devices, not from anything canned. (The
+    // toast's details are plain text, not links — there's nothing to navigate
+    // to from here.)
     const notice = refusalNotice(page);
     await expect(notice).toBeVisible();
-    await expect(notice.getByText(/^1 dispositivo de este modelo todavía tiene configuración inalámbrica/)).toBeVisible();
-    await expect(notice.getByRole('link', { name: device.name })).toHaveAttribute('href', `/devices/${device.id}`);
+    await expect(notice.getByText(device.name)).toBeVisible();
 
     // Nothing was sent, so a reload shows the model exactly as it was.
     await page.reload();
@@ -826,14 +818,16 @@ test.describe('device model wireless flag', () => {
   test('DEV-027: deleting the config clears the way, and the tab goes with the flag', async ({ page, api }) => {
     const { model, device } = await arrangeWirelessDevice(api, '192.168.79.42');
 
-    // Blocked first, so the walk that follows is the one the notice asks for.
+    // Blocked first, so the walk that follows is the one the notice names.
     await setWirelessFlag(page, model.id, false);
     const notice = refusalNotice(page);
     await expect(notice).toBeVisible();
+    await expect(notice.getByText(device.name)).toBeVisible();
 
-    // Follow the link out of the notice and delete the config the way an
-    // operator would, from the device's own wireless tab.
-    await notice.getByRole('link', { name: device.name }).click();
+    // The notice's device names are plain text, not links, so this goes to
+    // the device directly and deletes the config the way an operator would,
+    // from its own wireless tab.
+    await page.goto(`/devices/${device.id}`);
     await page.getByRole('button', { name: 'Inalámbrico' }).click();
     const configHeading = page.getByRole('heading', { name: 'Configuración Inalámbrica' });
     await expect(configHeading).toBeVisible();
