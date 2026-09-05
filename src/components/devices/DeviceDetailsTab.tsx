@@ -19,7 +19,7 @@ import {
   Textarea,
   Select,
   Combobox,
-  Checkbox,
+  Switch,
   Badge,
   IconButton,
   EditFormActions,
@@ -407,7 +407,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 const autoOff = !canEnableMonitoring(st, formData.ipAddress);
                 return (
                   <div className="flex items-center gap-2 pt-6 flex-wrap">
-                    <Checkbox
+                    <Switch
                       id="edit-monitoring"
                       name="monitoringEnabled"
                       checked={autoOff ? false : formData.monitoringEnabled}

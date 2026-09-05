@@ -10,7 +10,7 @@ import {
   VendorDTO,
   DeviceType,
 } from '@/types/device.types';
-import { Card, Input, Select, Checkbox, Badge, EditFormActions } from '@/components/ui';
+import { Card, Input, Select, Switch, Badge, EditFormActions } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
 
@@ -209,7 +209,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
                 fullWidth
               />
               <div className="flex items-center gap-2">
-                <Checkbox
+                <Switch
                   id="isWireless"
                   name="isWireless"
                   checked={formData.isWireless}

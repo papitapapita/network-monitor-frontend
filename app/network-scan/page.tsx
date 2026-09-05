@@ -20,7 +20,7 @@ import {
   Textarea,
   Select,
   Combobox,
-  Checkbox,
+  Switch,
   Table,
   TableEmptyState,
   LoadingSpinner,
@@ -353,7 +353,7 @@ function AddDeviceModal({
                 />
                 <div className="sm:col-span-2 space-y-3">
                   <div className="flex items-center gap-2">
-                    <Checkbox
+                    <Switch
                       id="monitoringEnabled"
                       name="monitoringEnabled"
                       checked={form.monitoringEnabled}

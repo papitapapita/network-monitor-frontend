@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateDeviceModelDTO, VendorDTO, DeviceType } from '@/types/device.types';
-import { Card, Button, Input, Select, Checkbox, LoadingSpinner, BackLink } from '@/components/ui';
+import { Card, Button, Input, Select, Switch, LoadingSpinner, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 export default function CreateDeviceModelPage() {
@@ -140,7 +140,7 @@ export default function CreateDeviceModelPage() {
                   fullWidth
                 />
                 <div className="flex items-center gap-2">
-                  <Checkbox
+                  <Switch
                     id="isWireless"
                     name="isWireless"
                     checked={formData.isWireless}

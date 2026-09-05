@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO, DeviceType, VendorDTO } from '@/types/device.types';
-import { Button, Input, Select, Checkbox } from '@/components/ui';
+import { Button, Input, Select, Switch } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 const DEVICE_TYPE_OPTIONS = [
@@ -121,7 +121,7 @@ export function InlineModelForm({ vendors, lockedVendorId, initialModelName = ''
       </div>
 
       <div className="flex items-center gap-2">
-        <Checkbox
+        <Switch
           id="inline-model-isWireless"
           name="isWireless"
           checked={form.isWireless}

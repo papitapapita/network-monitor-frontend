@@ -12,7 +12,7 @@ import {
   VendorDTO,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
-import { Card, Button, Input, Textarea, Select, Combobox, Checkbox, LoadingSpinner, BackLink } from '@/components/ui';
+import { Card, Button, Input, Textarea, Select, Combobox, Switch, LoadingSpinner, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
@@ -345,7 +345,7 @@ export default function CreateDevicePage() {
                     return (
                       <>
                         <div className="flex items-center gap-2">
-                          <Checkbox
+                          <Switch
                             id="monitoringEnabled"
                             name="monitoringEnabled"
                             checked={effectiveMonitoring}
