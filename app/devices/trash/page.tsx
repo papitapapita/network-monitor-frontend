@@ -58,11 +58,16 @@ const DEVICE_TRASH_COLUMN_CATALOG: DeviceTrashColumn[] = [
     label: 'Nombre',
     locked: true,
     header: 'Nombre',
+    cellClassName: 'max-w-xs',
     cell: (device) => (
       <>
-        <div className="font-medium text-gray-900 dark:text-gray-100">{device.name}</div>
+        <div className="font-medium text-gray-900 dark:text-gray-100 wrap-anywhere">
+          {device.name}
+        </div>
         {device.serialNumber && (
-          <div className="text-xs text-gray-500 dark:text-gray-400">{device.serialNumber}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 wrap-anywhere">
+            {device.serialNumber}
+          </div>
         )}
       </>
     ),
@@ -131,8 +136,7 @@ function DeviceTrashPageContent() {
   const currentPage = getNumber('page', 1);
   const limit = getNumber('limit', 20);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { showError } = useToast();
-  const [notice, setNotice] = useState<string | null>(null);
+  const { showError, showSuccess } = useToast();
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [purgeTarget, setPurgeTarget] = useState<DeviceResponseDTO | null>(null);
   const [isPurging, setIsPurging] = useState(false);
@@ -164,7 +168,7 @@ function DeviceTrashPageContent() {
     const result = await apiService.restoreDevice(device.id);
     setRestoringId(null);
     if (result.success) {
-      setNotice(`«${device.name}» se restauró. ${RESTORE_SUCCESS_MESSAGE}`);
+      showSuccess(`«${device.name}» se restauró. ${RESTORE_SUCCESS_MESSAGE}`);
       refetch();
     } else {
       const message = result.error || 'Error al restaurar el dispositivo';
@@ -180,7 +184,7 @@ function DeviceTrashPageContent() {
     const result = await apiService.purgeDevice(purgeTarget.id);
     setIsPurging(false);
     if (result.success) {
-      setNotice(`«${purgeTarget.name}» se eliminó de forma permanente.`);
+      showSuccess(`«${purgeTarget.name}» se eliminó de forma permanente.`);
       setPurgeTarget(null);
       refetch();
     } else {
@@ -245,24 +249,6 @@ function DeviceTrashPageContent() {
         variant="danger"
         isLoading={isPurging}
       />
-
-      {notice && (
-        <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-green-800 dark:text-green-400">{notice}</p>
-            <button
-              type="button"
-              onClick={() => setNotice(null)}
-              className="text-green-500 hover:text-green-700 dark:hover:text-green-300 shrink-0"
-            >
-              <span className="sr-only">Descartar</span>
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
 
       {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />}
 
