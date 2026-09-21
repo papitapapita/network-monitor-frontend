@@ -138,7 +138,7 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Reemplazar equipo" size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Reemplazar equipo" size="lg" onSubmit={isSaving ? undefined : handleSubmit}>
       <p className="text-sm text-gray-600 dark:text-gray-400">
         Registra que «{device.name}» fue sustituido por una unidad física distinta. El equipo
         nuevo hereda la ubicación, la categoría, el propietario y la dirección IP del anterior,

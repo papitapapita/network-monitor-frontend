@@ -12,7 +12,7 @@ import {
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
-import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnter, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -520,7 +520,7 @@ export default function CustomerDetailPage() {
               {contracts.map((cs) => (
                 <div key={cs.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                   {editingContractId === cs.id ? (
-                    <div className="space-y-3">
+                    <div className="space-y-3" onKeyDown={submitOnEnter(() => handleSaveContract(cs.id), isSavingContract)}>
                       {cs.status === 'PENDING' && (
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Estado actual: <strong>Pendiente</strong>. Elige el nuevo estado; para activarlo debe tener un dispositivo asignado.

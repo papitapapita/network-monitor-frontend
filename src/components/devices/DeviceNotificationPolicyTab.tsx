@@ -10,6 +10,7 @@ import {
   Badge,
   LoadingSpinner,
   ConfirmModal,
+  submitOnEnter,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import {
@@ -150,7 +151,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
           ) : loadError ? (
             <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
           ) : (
-            <>
+            <div onKeyDown={submitOnEnter(handleSave, saving)}>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Silencia las notificaciones de caída, recuperación y alertas inalámbricas de este
                 dispositivo durante el horario indicado — las alertas se siguen registrando
@@ -215,7 +216,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
                   Última actualización: {new Date(policy.updatedAt).toLocaleString('es')}
                 </p>
               )}
-            </>
+            </div>
           )}
         </Card.Body>
       </Card>

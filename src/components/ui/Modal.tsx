@@ -8,6 +8,7 @@
 
 import React, { useEffect } from 'react';
 import { Button } from './Button';
+import { submitOnEnter } from './enterToSubmit';
 
 interface ModalProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showCloseButton?: boolean;
   transparentBackdrop?: boolean;
+  /** Runs on Enter in a text field of the body — for a form-like modal that isn't a `<form>`. */
+  onSubmit?: () => void;
 }
 
 interface ModalFooterProps {
@@ -39,6 +42,7 @@ export function Modal({
   size = 'md',
   showCloseButton = true,
   transparentBackdrop = false,
+  onSubmit,
 }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -128,7 +132,12 @@ export function Modal({
           </div>
 
           {/* Body */}
-          <div className="bg-white dark:bg-gray-800 px-6 py-4">{children}</div>
+          <div
+            className="bg-white dark:bg-gray-800 px-6 py-4"
+            onKeyDown={onSubmit ? submitOnEnter(onSubmit) : undefined}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>

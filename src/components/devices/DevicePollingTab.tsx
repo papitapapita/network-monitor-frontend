@@ -16,7 +16,8 @@ import {
   Badge,
   ConfirmModal,
   IconButton,
-  getPollingStatusBadgeVariant
+  getPollingStatusBadgeVariant,
+  submitOnEnter,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
@@ -461,7 +462,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                   )}
                 </>
               ) : (
-                <>
+                <div onKeyDown={submitOnEnter(handleSaveConfig, configSaving || !hasIp)}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
                       label="Intervalo (segundos)"
@@ -495,7 +496,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                       Guardar Configuración
                     </Button>
                   </div>
-                </>
+                </div>
               )}
             </>
           ) : statusLoading ? (

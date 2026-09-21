@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceModelResponseDTO, DeviceType, VendorDTO } from '@/types/device.types';
-import { Button, Input, Select, Switch } from '@/components/ui';
+import { Button, Input, Select, Switch, submitOnEnter } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 
 const DEVICE_TYPE_OPTIONS = [
@@ -83,7 +83,11 @@ export function InlineModelForm({ vendors, lockedVendorId, initialModelName = ''
   };
 
   return (
-    <div className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+    <div
+      className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3"
+      // Rendered inside the device form, so a bare Enter would submit that one — save this model instead.
+      onKeyDown={submitOnEnter(handleSubmit, isLoading)}
+    >
       <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo</p>
 
       <div className={`grid grid-cols-1 gap-3 ${lockedVendorId ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>

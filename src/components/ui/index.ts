@@ -59,6 +59,7 @@ export { Tooltip } from './Tooltip';
 export { IconButton } from './IconButton';
 
 export { EditFormActions } from './EditFormActions';
+export { submitOnEnter } from './enterToSubmit';
 
 export { BackLink } from './BackLink';
 
