@@ -152,6 +152,7 @@ export function Combobox({
         setQuery('');
       }
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       setIsOpen(false);
       setQuery('');
       setHighlightedIndex(-1);

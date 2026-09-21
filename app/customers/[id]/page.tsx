@@ -12,7 +12,7 @@ import {
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
-import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnter, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnterCancelOnEscape, isCancelEscape, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -477,7 +477,7 @@ export default function CustomerDetailPage() {
             </div>
           )}
           {showAddForm && (
-            <form onSubmit={handleAddContract} className="mb-6 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+            <form onSubmit={handleAddContract} onKeyDown={(e) => { if (isCancelEscape(e)) { setShowAddForm(false); setAddError(null); setAddFormErrors({}); } }} className="mb-6 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
               <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo Servicio Contratado</p>
               {addError && <p className="text-sm text-red-600 dark:text-red-400">{addError}</p>}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -520,7 +520,7 @@ export default function CustomerDetailPage() {
               {contracts.map((cs) => (
                 <div key={cs.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                   {editingContractId === cs.id ? (
-                    <div className="space-y-3" onKeyDown={submitOnEnter(() => handleSaveContract(cs.id), isSavingContract)}>
+                    <div className="space-y-3" onKeyDown={submitOnEnterCancelOnEscape(() => handleSaveContract(cs.id), () => { setEditingContractId(null); setEditError(null); }, isSavingContract)}>
                       {cs.status === 'PENDING' && (
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Estado actual: <strong>Pendiente</strong>. Elige el nuevo estado; para activarlo debe tener un dispositivo asignado.

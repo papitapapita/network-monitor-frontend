@@ -30,3 +30,23 @@ export function submitOnEnter(submit: () => void, disabled = false) {
     submit();
   };
 }
+
+/** Whether a keydown is an Escape nobody else (an open Select or Combobox) already used to close something. */
+export function isCancelEscape(e: KeyboardEvent | React.KeyboardEvent): boolean {
+  const native = 'nativeEvent' in e ? e.nativeEvent : e;
+  return e.key === 'Escape' && !e.defaultPrevented && !native.isComposing;
+}
+
+/** `submitOnEnter` plus Escape running `cancel`, for a group of fields that has a cancel button. */
+export function submitOnEnterCancelOnEscape(submit: () => void, cancel: () => void, disabled = false) {
+  const onEnter = submitOnEnter(submit, disabled);
+  return (e: React.KeyboardEvent) => {
+    if (isCancelEscape(e)) {
+      if (disabled) return;
+      e.preventDefault();
+      cancel();
+      return;
+    }
+    onEnter(e);
+  };
+}
