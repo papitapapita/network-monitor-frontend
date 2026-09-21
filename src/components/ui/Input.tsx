@@ -1,5 +1,5 @@
-import React from 'react';
-import { XIcon } from './icons';
+import React, { useState } from 'react';
+import { XIcon, EyeIcon, EyeOffIcon } from './icons';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -32,6 +32,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       typeof props.maxLength === 'number' &&
       typeof props.value === 'string' &&
       props.value.length >= props.maxLength;
+    const [revealed, setRevealed] = useState(false);
+    const isPassword = props.type === 'password';
     const hasClear = !!onClear && typeof props.value === 'string' && props.value.length > 0;
 
     return (
@@ -58,7 +60,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             className={`
               block w-full py-2 rounded-md shadow-sm transition-colors
-              ${icon ? 'pl-9' : 'px-3'} ${icon && !hasClear ? 'pr-3' : ''} ${hasClear ? 'pr-9' : ''}
+              ${icon ? 'pl-9' : 'px-3'} ${icon && !hasClear ? 'pr-3' : ''} ${hasClear || isPassword ? 'pr-9' : ''}
               bg-white dark:bg-gray-800
               text-gray-900 dark:text-gray-100
               placeholder-gray-400 dark:placeholder-gray-500
@@ -72,7 +74,21 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               ${className}
             `}
             {...props}
+            type={isPassword && revealed ? 'text' : props.type}
           />
+
+          {isPassword && (
+            <button
+              type="button"
+              onClick={() => setRevealed((v) => !v)}
+              aria-label={revealed ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              aria-pressed={revealed}
+              disabled={props.disabled}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:cursor-not-allowed"
+            >
+              {revealed ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          )}
 
           {hasClear && (
             <button

@@ -63,4 +63,4 @@ export { submitOnEnter } from './enterToSubmit';
 
 export { BackLink } from './BackLink';
 
-export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon } from './icons';
+export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon, EyeIcon, EyeOffIcon } from './icons';
