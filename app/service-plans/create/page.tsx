@@ -7,9 +7,11 @@ import { apiService } from '@/services/api.service';
 import { CreateServicePlanDTO } from '@/types/customer.types';
 import { Card, Button, Input, Textarea, Switch, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function CreateServicePlanPage() {
   const router = useRouter();
+  const goBack = useGoBack('/service-plans');
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -67,7 +69,7 @@ export default function CreateServicePlanPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
-        <BackLink label="Planes de Servicio" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Planes de Servicio" onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Plan de Servicio</h1>
         <p className="text-gray-600 dark:text-gray-400">Define un plan de internet para tus clientes</p>
       </div>
@@ -107,7 +109,7 @@ export default function CreateServicePlanPage() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Cancelar</Button>
+          <Button type="button" variant="outline" onClick={() => goBack()} disabled={isSubmitting}>Cancelar</Button>
           <Button type="submit" isLoading={isSubmitting}>Crear Plan</Button>
         </div>
       </form>

@@ -18,6 +18,7 @@ import {
 import { Card, Button, LoadingSpinner, Badge, Table, BackLink } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 type PendingAction = 'pay' | 'overdue' | 'cancel' | null;
 
@@ -29,6 +30,7 @@ const ACTION_COPY: Record<Exclude<PendingAction, null>, { title: string; message
 
 export default function BillDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/bills');
   const queryClient = useQueryClient();
   const { id: billId } = useParams() as { id: string };
 
@@ -107,7 +109,7 @@ export default function BillDetailPage() {
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
         <p className="text-red-800 dark:text-red-400">{loadError}</p>
         <div className="mt-4 flex gap-3">
-          <Button variant="outline" onClick={() => router.back()}>Volver</Button>
+          <Button variant="outline" onClick={() => goBack()}>Volver</Button>
           <Button onClick={fetchBill}>Reintentar</Button>
         </div>
       </div>
@@ -134,7 +136,7 @@ export default function BillDetailPage() {
       )}
 
       <div className="mb-2">
-        <BackLink label="Facturas" onClick={() => router.back()} />
+        <BackLink label="Facturas" onClick={() => goBack()} />
       </div>
       <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-col sm:justify-start">
         <div className="min-w-0">

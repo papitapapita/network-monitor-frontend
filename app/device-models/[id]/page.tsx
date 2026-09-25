@@ -9,9 +9,11 @@ import { Button, LoadingSpinner, BackLink, EditIcon, IconButton, TrashIcon } fro
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceModelDetailsTab } from '@/components/device-models/DeviceModelDetailsTab';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function DeviceModelDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/device-models');
   const queryClient = useQueryClient();
   const params = useParams();
   const modelId = params.id as string;
@@ -55,7 +57,7 @@ export default function DeviceModelDetailPage() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-800 dark:text-red-400">{error}</p>
           <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => router.back()}>Volver</Button>
+            <Button variant="outline" onClick={() => goBack()}>Volver</Button>
             <Button onClick={fetchModel}>Reintentar</Button>
           </div>
         </div>
@@ -132,7 +134,7 @@ export default function DeviceModelDetailPage() {
       )}
 
       <div className="mb-6">
-        <BackLink label="Modelos" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Modelos" onClick={() => goBack()} className="mb-2" />
         <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{model.model}</h1>

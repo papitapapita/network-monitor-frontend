@@ -16,6 +16,7 @@ import { Badge, Button, Card, IconButton, LoadingSpinner, TrashIcon } from '@/co
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const SEVERITY_LABELS: Record<AlertSeverity, string> = {
   WARNING: 'Advertencia',
@@ -91,6 +92,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 
 export default function AlertDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/alerts');
   const params = useParams();
   const alertId = params.id as string;
   const { user } = useAuth();
@@ -188,7 +190,7 @@ export default function AlertDetailPage() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-800 dark:text-red-400 mb-4">{error}</p>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => router.push('/alerts')}>Volver a Alertas</Button>
+            <Button variant="outline" onClick={() => goBack()}>Volver a Alertas</Button>
             <Button onClick={fetchData}>Reintentar</Button>
           </div>
         </div>
@@ -226,7 +228,7 @@ export default function AlertDetailPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8 sm:flex-col sm:justify-start">
         <div className="flex items-start gap-4 min-w-0">
-          <Button variant="outline" size="sm" onClick={() => router.push('/alerts')}>
+          <Button variant="outline" size="sm" onClick={() => goBack()}>
             ← Alertas
           </Button>
           <div className="min-w-0">

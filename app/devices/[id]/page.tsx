@@ -27,6 +27,7 @@ import {
   RESTORE_SUCCESS_MESSAGE,
   isWirelessCategory,
 } from '@/constants/device.constants';
+import { useGoBack } from '@/hooks/useGoBack';
 
 type Tab = 'details' | 'polling' | 'wireless' | 'notifications' | 'credentials' | 'history';
 
@@ -87,6 +88,7 @@ function ConnectivityDot({ device, onlineStatus }: { device: DeviceResponseDTO; 
 
 export default function DeviceDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/devices');
   const params = useParams();
   const deviceId = params.id as string;
 
@@ -228,7 +230,7 @@ export default function DeviceDetailPage() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-800 dark:text-red-400">{error}</p>
           <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => router.back()}>Volver</Button>
+            <Button variant="outline" onClick={() => goBack()}>Volver</Button>
             <Button onClick={fetchDevice}>Reintentar</Button>
           </div>
         </div>
@@ -268,7 +270,7 @@ export default function DeviceDetailPage() {
 
       {/* Header */}
       <div className="mb-6">
-        <BackLink label="Dispositivos" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Dispositivos" onClick={() => goBack()} className="mb-2" />
         <div className="flex flex-wrap items-center justify-between gap-4 sm:flex-col sm:items-start sm:justify-start">
           <div className="flex items-center gap-3 min-w-0">
             <ConnectivityDot device={device} onlineStatus={onlineStatus} />

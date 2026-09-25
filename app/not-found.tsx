@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { StatusPage } from '@/components/layout/StatusPage';
+import { useGoBack } from '@/hooks/useGoBack';
 
 function DisconnectedNodesIcon() {
   return (
@@ -15,7 +15,7 @@ function DisconnectedNodesIcon() {
 }
 
 export default function NotFound() {
-  const router = useRouter();
+  const goBack = useGoBack('/');
 
   return (
     <StatusPage
@@ -24,7 +24,7 @@ export default function NotFound() {
       title="Página no encontrada"
       description="La página que buscas no existe o fue movida. Verifica la dirección o vuelve al panel principal."
       primaryAction={{ label: 'Volver al inicio', href: '/' }}
-      secondaryAction={{ label: 'Volver atrás', onClick: () => router.back() }}
+      secondaryAction={{ label: 'Volver atrás', onClick: () => goBack() }}
     />
   );
 }

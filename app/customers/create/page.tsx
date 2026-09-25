@@ -7,9 +7,11 @@ import { apiService } from '@/services/api.service';
 import { CreateCustomerDTO } from '@/types/customer.types';
 import { Card, Button, Input, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function CreateCustomerPage() {
   const router = useRouter();
+  const goBack = useGoBack('/customers');
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -55,7 +57,7 @@ export default function CreateCustomerPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
-        <BackLink label="Clientes" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Clientes" onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Cliente</h1>
         <p className="text-gray-600 dark:text-gray-400">Registra un nuevo cliente del servicio</p>
       </div>
@@ -78,7 +80,7 @@ export default function CreateCustomerPage() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Cancelar</Button>
+          <Button type="button" variant="outline" onClick={() => goBack()} disabled={isSubmitting}>Cancelar</Button>
           <Button type="submit" isLoading={isSubmitting}>Crear Cliente</Button>
         </div>
       </form>

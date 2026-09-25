@@ -8,6 +8,7 @@ import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
 import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, TrashIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { useGoBack } from '@/hooks/useGoBack';
 
 function toSlug(name: string): string {
   return name
@@ -20,6 +21,7 @@ function toSlug(name: string): string {
 
 export default function VendorDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/vendors');
   const queryClient = useQueryClient();
   const params = useParams();
   const vendorId = params.id as string;
@@ -158,7 +160,7 @@ export default function VendorDetailPage() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-800 dark:text-red-400">{error}</p>
           <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => router.back()}>Volver</Button>
+            <Button variant="outline" onClick={() => goBack()}>Volver</Button>
             <Button onClick={fetchVendor}>Reintentar</Button>
           </div>
         </div>
@@ -189,7 +191,7 @@ export default function VendorDetailPage() {
       )}
 
       <div className="mb-6">
-        <BackLink label="Fabricantes" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Fabricantes" onClick={() => goBack()} className="mb-2" />
         <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{vendor.name}</h1>

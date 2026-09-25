@@ -16,6 +16,7 @@ import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnterCance
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const CONTRACT_STATUS_LABELS: Record<ContractedServiceStatus, string> = {
   PENDING: 'Pendiente',
@@ -39,6 +40,7 @@ const CONTRACT_TARGET_STATUS_OPTIONS = [
 
 export default function CustomerDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/customers');
   const queryClient = useQueryClient();
   const { id: customerId } = useParams() as { id: string };
 
@@ -305,7 +307,7 @@ export default function CustomerDetailPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
         <p className="text-red-800 dark:text-red-400">{loadError}</p>
-        <div className="mt-4 flex gap-3"><Button variant="outline" onClick={() => router.back()}>Volver</Button><Button onClick={fetchCustomer}>Reintentar</Button></div>
+        <div className="mt-4 flex gap-3"><Button variant="outline" onClick={() => goBack()}>Volver</Button><Button onClick={fetchCustomer}>Reintentar</Button></div>
       </div>
     </div>
   );
@@ -387,7 +389,7 @@ export default function CustomerDetailPage() {
 
       {loadError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><p className="text-red-800 dark:text-red-400">{loadError}</p></div>}
 
-      <BackLink label="Clientes" onClick={() => router.back()} className="mb-2" />
+      <BackLink label="Clientes" onClick={() => goBack()} className="mb-2" />
       <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>

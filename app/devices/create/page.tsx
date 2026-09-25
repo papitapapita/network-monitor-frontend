@@ -18,10 +18,12 @@ import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
+import { useGoBack } from '@/hooks/useGoBack';
 
 
 export default function CreateDevicePage() {
   const router = useRouter();
+  const goBack = useGoBack('/devices');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { showError, showFormErrors } = useToast();
@@ -205,7 +207,7 @@ export default function CreateDevicePage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="mb-6">
-        <BackLink label="Dispositivos" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Dispositivos" onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Dispositivo</h1>
         <p className="text-gray-600 dark:text-gray-400">Registra un nuevo dispositivo en la red</p>
       </div>
@@ -497,7 +499,7 @@ export default function CreateDevicePage() {
           </Card>
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+            <Button type="button" variant="outline" onClick={() => goBack()} disabled={isSubmitting}>
               Cancelar
             </Button>
             <Button type="submit" isLoading={isSubmitting}>

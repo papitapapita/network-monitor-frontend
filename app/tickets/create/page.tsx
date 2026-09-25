@@ -21,9 +21,11 @@ import {
 } from '@/components/tickets/TicketAddressFields';
 import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 function CreateTicketPageContent() {
   const router = useRouter();
+  const goBack = useGoBack('/tickets');
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
 
@@ -174,7 +176,7 @@ function CreateTicketPageContent() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
-        <BackLink label="Tickets" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Tickets" onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Nuevo Ticket</h1>
         <p className="text-gray-600 dark:text-gray-400">Registra una orden de trabajo en campo</p>
       </div>
@@ -341,7 +343,7 @@ function CreateTicketPageContent() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={() => goBack()} disabled={isSubmitting}>
             Cancelar
           </Button>
           <Button type="submit" isLoading={isSubmitting}>

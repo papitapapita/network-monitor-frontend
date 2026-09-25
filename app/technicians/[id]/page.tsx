@@ -21,9 +21,11 @@ import {
 } from '@/constants/ticket.constants';
 import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, Input, LoadingSpinner, Badge, ConfirmModal, TrashIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function TechnicianDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/technicians');
   const queryClient = useQueryClient();
   const { id: technicianId } = useParams() as { id: string };
 
@@ -179,7 +181,7 @@ export default function TechnicianDetailPage() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-800 dark:text-red-400">{loadError}</p>
           <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => router.back()}>
+            <Button variant="outline" onClick={() => goBack()}>
               Volver
             </Button>
             <Button onClick={fetchTechnician}>Reintentar</Button>
@@ -192,7 +194,7 @@ export default function TechnicianDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-      <BackLink label="Técnicos" onClick={() => router.back()} className="mb-2" />
+      <BackLink label="Técnicos" onClick={() => goBack()} className="mb-2" />
       <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">

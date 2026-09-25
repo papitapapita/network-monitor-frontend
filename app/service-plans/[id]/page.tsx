@@ -8,6 +8,7 @@ import { ServicePlanDTO, UpdateServicePlanDTO } from '@/types/customer.types';
 import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, Input, Textarea, Checkbox, Badge, LoadingSpinner, TrashIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { useGoBack } from '@/hooks/useGoBack';
 
 function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
@@ -15,6 +16,7 @@ function fmtPrice(n: number) {
 
 export default function ServicePlanDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/service-plans');
   const queryClient = useQueryClient();
   const { id } = useParams() as { id: string };
 
@@ -110,7 +112,7 @@ export default function ServicePlanDetailPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
         <p className="text-red-800 dark:text-red-400">{loadError}</p>
-        <div className="mt-4 flex gap-3"><Button variant="outline" onClick={() => router.back()}>Volver</Button><Button onClick={fetchPlan}>Reintentar</Button></div>
+        <div className="mt-4 flex gap-3"><Button variant="outline" onClick={() => goBack()}>Volver</Button><Button onClick={fetchPlan}>Reintentar</Button></div>
       </div>
     </div>
   );
@@ -132,7 +134,7 @@ export default function ServicePlanDetailPage() {
 
       {loadError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><p className="text-red-800 dark:text-red-400">{loadError}</p></div>}
 
-      <BackLink label="Planes de Servicio" onClick={() => router.back()} className="mb-2" />
+      <BackLink label="Planes de Servicio" onClick={() => goBack()} className="mb-2" />
       <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

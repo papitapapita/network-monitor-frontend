@@ -7,6 +7,7 @@ import { apiService } from '@/services/api.service';
 import { CreateVendorDTO } from '@/types/device.types';
 import { Card, Button, Input, Textarea, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 function toSlug(name: string): string {
   return name
@@ -19,6 +20,7 @@ function toSlug(name: string): string {
 
 export default function CreateVendorPage() {
   const router = useRouter();
+  const goBack = useGoBack('/vendors');
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -97,7 +99,7 @@ export default function CreateVendorPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
-        <BackLink label="Fabricantes" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Fabricantes" onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Fabricante</h1>
         <p className="text-gray-600 dark:text-gray-400">Registra un nuevo fabricante de dispositivos</p>
       </div>
@@ -153,7 +155,7 @@ export default function CreateVendorPage() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={() => goBack()} disabled={isSubmitting}>
             Cancelar
           </Button>
           <Button type="submit" isLoading={isSubmitting}>

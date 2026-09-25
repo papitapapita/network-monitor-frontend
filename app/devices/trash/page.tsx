@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
@@ -27,6 +26,7 @@ import {
   RESTORE_GRACE_DAYS,
   RESTORE_SUCCESS_MESSAGE,
 } from '@/constants/device.constants';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 const COLUMNS_STORAGE_KEY = 'nms:devices-trash-columns';
@@ -128,7 +128,7 @@ const DEFAULT_DEVICE_TRASH_COLUMNS = DEVICE_TRASH_COLUMN_CATALOG.map((c) => c.ke
  * a delete and finishing one early are both the delete authority.
  */
 function DeviceTrashPageContent() {
-  const router = useRouter();
+  const goBack = useGoBack('/devices');
   const { user } = useAuth();
   const canManage = user?.role === 'ADMIN';
 
@@ -208,7 +208,7 @@ function DeviceTrashPageContent() {
       {/* The bin is a detour off the device list, so the way back out sits where
           a back control is looked for: top left, ahead of the title. */}
       <div className="mb-4">
-        <BackLink label="Dispositivos" onClick={() => router.push('/devices')} />
+        <BackLink label="Dispositivos" onClick={() => goBack()} />
       </div>
 
       <PageHeader

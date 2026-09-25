@@ -14,9 +14,11 @@ import {
   buildLocationDTO,
   useLocationCoordsGeocoding,
 } from '@/components/locations/LocationForm';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function CreateLocationPage() {
   const router = useRouter();
+  const goBack = useGoBack('/locations');
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -53,7 +55,7 @@ export default function CreateLocationPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
-        <BackLink label="Ubicaciones" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Ubicaciones" onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Ubicación</h1>
         <p className="text-gray-600 dark:text-gray-400">Registra una nueva ubicación de la red</p>
       </div>
@@ -75,7 +77,7 @@ export default function CreateLocationPage() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={() => goBack()} disabled={isSubmitting}>
             Cancelar
           </Button>
           <Button type="submit" isLoading={isSubmitting}>

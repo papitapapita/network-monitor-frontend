@@ -35,6 +35,7 @@ import {
 } from '@/components/ui';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 type PendingAction = 'send' | 'accept' | 'expire' | null;
 
@@ -55,6 +56,7 @@ interface LineItemRow {
 
 export default function QuotationDetailPage() {
   const router = useRouter();
+  const goBack = useGoBack('/quotations');
   const queryClient = useQueryClient();
   const { id: quotationId } = useParams() as { id: string };
   const { showError } = useToast();
@@ -288,7 +290,7 @@ export default function QuotationDetailPage() {
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
         <p className="text-red-800 dark:text-red-400">{loadError}</p>
         <div className="mt-4 flex gap-3">
-          <Button variant="outline" onClick={() => router.back()}>Volver</Button>
+          <Button variant="outline" onClick={() => goBack()}>Volver</Button>
           <Button onClick={fetchQuotation}>Reintentar</Button>
         </div>
       </div>
@@ -338,7 +340,7 @@ export default function QuotationDetailPage() {
       </Modal>
 
       <div className="mb-2">
-        <BackLink label="Cotizaciones" onClick={() => router.back()} />
+        <BackLink label="Cotizaciones" onClick={() => goBack()} />
       </div>
       <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-col sm:justify-start">
         <div className="min-w-0">

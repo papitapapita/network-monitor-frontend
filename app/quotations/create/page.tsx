@@ -19,6 +19,7 @@ import {
   BackLink,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useGoBack } from '@/hooks/useGoBack';
 
 let nextRowId = 1;
 
@@ -36,6 +37,7 @@ function emptyRow(): LineItemRow {
 
 export default function CreateQuotationPage() {
   const router = useRouter();
+  const goBack = useGoBack('/quotations');
   const queryClient = useQueryClient();
   const { showError, showFormErrors } = useToast();
 
@@ -166,7 +168,7 @@ export default function CreateQuotationPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="mb-6">
-        <BackLink label="Cotizaciones" onClick={() => router.back()} className="mb-2" />
+        <BackLink label="Cotizaciones" onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Nueva Cotización</h1>
         <p className="text-gray-600 dark:text-gray-400">Prepara una propuesta comercial para un cliente o prospecto</p>
       </div>
@@ -346,7 +348,7 @@ export default function CreateQuotationPage() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={() => goBack()} disabled={isSubmitting}>
             Cancelar
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
