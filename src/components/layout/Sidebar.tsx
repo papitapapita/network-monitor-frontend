@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { NavItem } from '../ui/NavItem';
 import { useAuth } from '@/contexts/auth.context';
+import { useSavedListHref } from '@/hooks/listState';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrador',
@@ -166,6 +167,15 @@ const SETTINGS_ICON = icon([
 ]);
 
 /**
+ * A nav link that returns to a list with the filters it was last left with.
+ * Detail routes and pages that keep no list state have nothing saved, so their
+ * href is unchanged.
+ */
+function SavedStateNavItem(props: React.ComponentProps<typeof NavItem>) {
+  return <NavItem {...props} href={useSavedListHref(props.href)} />;
+}
+
+/**
  * A collapsible group. The parent only toggles — it is not a page. In rail
  * mode only its icon shows (lit when a child is the current page); hovering
  * the rail expands the whole sidebar, which is where the children appear.
@@ -229,7 +239,7 @@ function NavGroupItem({
       {open && (
         <div className={`mt-0.5 space-y-0.5 pl-4 ${isRail ? 'md:hidden' : ''}`}>
           {group.children.map((item) => (
-            <NavItem
+            <SavedStateNavItem
               key={item.href}
               href={item.href}
               active={isActive(item.href)}
@@ -332,7 +342,7 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
               isRail={isRail}
             />
           ) : (
-            <NavItem
+            <SavedStateNavItem
               key={item.href}
               href={item.href}
               active={isActive(item.href)}

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AuthUser } from '@/types/auth.types';
 import { apiService } from '@/services/api.service';
+import { clearSavedListQueries } from '@/hooks/listState';
 
 const TOKEN_KEY = 'nms_token';
 const USER_KEY = 'nms_user';
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     apiService.setToken(null);
+    clearSavedListQueries();
     setUser(null);
   }, []);
 

@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { SortDirection, TableSort } from '@/components/ui';
+import { saveListQuery } from '@/hooks/listState';
 
 export type UrlStateValue = string | number | null;
 
@@ -15,11 +16,18 @@ export type UrlStateValue = string | number | null;
  * `set` uses `router.replace` so a filter or page change never grows the
  * history stack: only the `/devices` -> `/devices/:id` hop does that, which
  * is exactly the one entry back navigation should undo.
+ *
+ * Every state is also remembered for the tab's session (see `listState`), so
+ * leaving through the sidebar and returning restores it there too.
  */
 export function useUrlState() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    saveListQuery(pathname, searchParams);
+  }, [pathname, searchParams]);
 
   const get = useCallback(
     (key: string, defaultValue = ''): string => searchParams.get(key) ?? defaultValue,
