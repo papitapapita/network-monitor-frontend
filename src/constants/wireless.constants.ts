@@ -149,3 +149,26 @@ export function streamStatusLabel(state: SseState): string {
       return 'Sin conexión';
   }
 }
+
+/**
+ * The negotiated Ethernet speeds a LAN baseline may be set to (WLS-165) — any
+ * other value is a 400. Auto-captured baselines mirror the radio and are not
+ * checked, so a stored value outside this list can still turn up.
+ */
+export const LAN_SPEED_OPTIONS_MBPS = [10, 100, 1000, 2500, 10000] as const;
+
+/** Whether a form value is empty or one of the accepted speeds. */
+export const isValidLanSpeed = (value: string): boolean =>
+  !value || LAN_SPEED_OPTIONS_MBPS.some((v) => String(v) === value);
+
+/** Options for the LAN-speed select, keeping a stored off-list value visible. */
+export function lanSpeedOptions(current: string): { value: string; label: string }[] {
+  const options = [
+    { value: '', label: 'Sin fijar — se toma del primer sondeo' },
+    ...LAN_SPEED_OPTIONS_MBPS.map((v) => ({ value: String(v), label: v >= 1000 ? `${v / 1000} Gbps` : `${v} Mbps` })),
+  ];
+  if (current && !LAN_SPEED_OPTIONS_MBPS.some((v) => String(v) === current)) {
+    options.push({ value: current, label: `${current} Mbps (capturado del equipo)` });
+  }
+  return options;
+}

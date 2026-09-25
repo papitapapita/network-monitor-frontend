@@ -20,6 +20,7 @@ import {
   UpdateDeviceModelDTO,
   ReplaceDeviceDTO,
   ReplaceDeviceResultDTO,
+  SwapHardwareResultDTO,
 } from '../types/device.types';
 import {
   LocationResponseDTO,
@@ -476,6 +477,25 @@ class MockApiService {
       credentialsTransferred: false,
       contractedServiceTransferred: !!service,
     });
+  }
+
+  async swapDeviceHardware(
+    id: string,
+    otherDeviceId: string
+  ): Promise<ApiResponse<SwapHardwareResultDTO>> {
+    if (id === otherDeviceId) return err('Cannot swap a device with itself');
+    const a = devices.find((d) => d.id === id && !d.deletedAt);
+    const b = devices.find((d) => d.id === otherDeviceId && !d.deletedAt);
+    if (!a) return err(`Device not found: ${id}`);
+    if (!b) return err(`Device not found: ${otherDeviceId}`);
+    if (a.replacedByDeviceId || b.replacedByDeviceId) {
+      return err('Cannot swap the hardware of a device that has already been replaced');
+    }
+    const now = new Date().toISOString();
+    const hwA = { deviceModelId: a.deviceModelId, serialNumber: a.serialNumber, macAddress: a.macAddress };
+    Object.assign(a, { deviceModelId: b.deviceModelId, serialNumber: b.serialNumber, macAddress: b.macAddress, updatedAt: now });
+    Object.assign(b, { ...hwA, updatedAt: now });
+    return ok({ device: { ...a }, otherDevice: { ...b } });
   }
 
   // ── Locations ──────────────────────────────────────────────

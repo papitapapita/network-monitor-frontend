@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
 import {
   DeviceModelResponseDTO,
   DeviceResponseDTO,
   ReplaceDeviceResultDTO,
+  SwapHardwareResultDTO,
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
 import { Button, LoadingSpinner, Tooltip, IconButton, BackLink, TrashIcon } from '@/components/ui';
@@ -21,6 +22,7 @@ import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab'
 import { DeviceHistoryTab } from '@/components/devices/DeviceHistoryTab';
 import { DeviceNotificationPolicyTab } from '@/components/devices/DeviceNotificationPolicyTab';
 import { ReplaceDeviceModal } from '@/components/devices/ReplaceDeviceModal';
+import { SwapHardwareModal } from '@/components/devices/SwapHardwareModal';
 import {
   DEVICE_STATUS_LABELS as STATUS_LABELS,
   RESTORE_GRACE_DAYS,
@@ -47,6 +49,16 @@ function SwapIcon() {
     </svg>
   );
 }
+
+function SwapVerticalIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+    </svg>
+  );
+}
+
+const isTab = (value: string | null): value is Tab => !!value && value in TAB_LABELS;
 
 /**
  * The device's live connectivity in one glance, replacing three status badges
@@ -91,6 +103,9 @@ export default function DeviceDetailPage() {
   const goBack = useGoBack('/devices');
   const params = useParams();
   const deviceId = params.id as string;
+  // `?tab=wireless` lets another page (the hardware swap banner) link straight
+  // to a tab.
+  const searchParams = useSearchParams();
 
   // Deleting takes ADMIN, and so does undoing it — restoring is the inverse of
   // deleting, so the same authority governs both. Replacing hardware is an
@@ -105,11 +120,16 @@ export default function DeviceDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { showError } = useToast();
-  const [activeTab, setActiveTab] = useState<Tab>('details');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tab = searchParams.get('tab');
+    return isTab(tab) ? tab : 'details';
+  });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [replaceResult, setReplaceResult] = useState<ReplaceDeviceResultDTO | null>(null);
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapResult, setSwapResult] = useState<SwapHardwareResultDTO | null>(null);
 
   /**
    * Set once the delete lands. The device is gone from every read path, so the
@@ -268,6 +288,19 @@ export default function DeviceDetailPage() {
         }}
       />
 
+      <SwapHardwareModal
+        isOpen={showSwapModal}
+        onClose={() => setShowSwapModal(false)}
+        device={device}
+        onSwapped={(result) => {
+          setShowSwapModal(false);
+          setSwapResult(result);
+          // Same record, different box: the model decides the wireless tab.
+          setDevice(result.device);
+          loadModel(result.device.deviceModelId);
+        }}
+      />
+
       {/* Header */}
       <div className="mb-6">
         <BackLink label="Dispositivos" onClick={() => goBack()} className="mb-2" />
@@ -283,6 +316,15 @@ export default function DeviceDetailPage() {
                 one to replace, and its page offers the button. */}
             {canReplace && !device.replacedByDeviceId && (
               <IconButton icon={<SwapIcon />} label="Reemplazar equipo" onClick={() => setShowReplaceModal(true)} />
+            )}
+            {/* The backend refuses a swap on a retired unit that was already
+                replaced — the same condition that hides «Reemplazar». */}
+            {canReplace && !device.replacedByDeviceId && (
+              <IconButton
+                icon={<SwapVerticalIcon />}
+                label="Intercambiar hardware con otro equipo"
+                onClick={() => setShowSwapModal(true)}
+              />
             )}
             {canDelete && (
               <IconButton icon={<TrashIcon />} label="Eliminar dispositivo" variant="danger" onClick={() => setShowDeleteModal(true)} />
@@ -326,6 +368,60 @@ export default function DeviceDetailPage() {
             <button
               type="button"
               onClick={() => setReplaceResult(null)}
+              className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 shrink-0"
+            >
+              <span className="sr-only">Descartar</span>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* The capacity figures were set for the antenna that used to be there,
+          and the swap does not touch them — so ask for a review on both sides. */}
+      {swapResult && (
+        <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Hardware intercambiado</p>
+              <p className="mt-1 text-sm text-blue-800 dark:text-blue-400">
+                Este registro ahora describe el equipo que estaba en «{swapResult.otherDevice.name}», y
+                ese registro describe el que estaba aquí. Cada sitio conserva su IP, ubicación e historial.
+              </p>
+              {(isWirelessCategory(swapResult.device.category) ||
+                isWirelessCategory(swapResult.otherDevice.category)) && (
+                <>
+                  <p className="mt-2 text-sm font-medium text-yellow-800 dark:text-yellow-400">
+                    Revisa la capacidad de enlace y el límite de clientes de ambos equipos: se fijaron
+                    para la antena anterior y el intercambio no los cambia.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    {showWireless && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('wireless')}
+                        className="font-medium text-blue-700 dark:text-blue-300 underline"
+                      >
+                        Revisar este equipo
+                      </button>
+                    )}
+                    {isWirelessCategory(swapResult.otherDevice.category) && (
+                      <Link
+                        href={`/devices/${swapResult.otherDevice.id}?tab=wireless`}
+                        className="font-medium text-blue-700 dark:text-blue-300 underline"
+                      >
+                        Revisar «{swapResult.otherDevice.name}»
+                      </Link>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSwapResult(null)}
               className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 shrink-0"
             >
               <span className="sr-only">Descartar</span>

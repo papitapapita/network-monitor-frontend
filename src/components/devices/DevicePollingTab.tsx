@@ -488,6 +488,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                         setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
                       }}
                       error={configErrors.failuresBeforeDown}
+                      helperText="Aplica a los sondeos programados. «Sondear ahora» hace como máximo 3 intentos."
                       fullWidth
                     />
                   </div>
@@ -591,6 +592,14 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                   </dd>
                 </div>
               </dl>
+
+              {/* A manual poll makes at most 3 ping attempts, so even an
+                  unreachable device answers in about 20 s. */}
+              {isPolling && (
+                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                  Sondeando… puede tardar hasta unos 20 segundos si el dispositivo no responde.
+                </p>
+              )}
 
               {pollResult && (
                 <div className={`mt-4 p-3 rounded-md text-sm ${

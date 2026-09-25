@@ -16,6 +16,7 @@ import {
   SetDeviceCredentialsDTO,
   ReplaceDeviceDTO,
   ReplaceDeviceResultDTO,
+  SwapHardwareResultDTO,
 } from '../types/device.types';
 import {
   LocationResponseDTO,
@@ -79,6 +80,7 @@ import {
   translateDeviceNotFoundError,
   translateDeviceBinError,
   translateDeviceReplaceError,
+  translateDeviceSwapError,
   liveDeviceModelMessage,
   binnedDeviceModelMessage,
 } from '../constants/device.constants';
@@ -439,6 +441,26 @@ class ApiService {
       if (translated) {
         return { success: false, status: result.status, error: translated.message, errorField: translated.field ?? undefined };
       }
+    }
+    return result;
+  }
+
+  /**
+   * Two existing units traded places: model, serial and MAC are exchanged
+   * between the records, atomically. Everything else stays put — including the
+   * wireless capacity figures, which the caller should prompt to review.
+   */
+  async swapDeviceHardware(
+    id: string,
+    otherDeviceId: string
+  ): Promise<ApiResponse<SwapHardwareResultDTO>> {
+    const result = await this.request<SwapHardwareResultDTO>(`/devices/${id}/swap-hardware`, {
+      method: 'POST',
+      body: JSON.stringify({ otherDeviceId }),
+    });
+    if (!result.success && result.error) {
+      const translated = translateDeviceSwapError(result.error);
+      if (translated) return { success: false, status: result.status, error: translated };
     }
     return result;
   }

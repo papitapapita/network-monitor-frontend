@@ -460,7 +460,7 @@ deviceModelId?:    string          // UUID
 monitoringEnabled?: 'true' | 'false'
 deleted?:          'true' | 'false' | 'any'   // default: 'false' — see below
 search?:           string          // free-text
-sortBy?:           'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt'  // default: createdAt
+sortBy?:           'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt' | 'ipAddress'  // default: createdAt
 sortOrder?:        'ASC' | 'DESC'  // default: DESC
 
 // Response
@@ -479,6 +479,11 @@ sortOrder?:        'ASC' | 'DESC'  // default: DESC
 > `total` is the number of devices matching the filters, not the number returned
 > in `devices`. Filtered and unfiltered listings both paginate in the database,
 > so page size bounds the work the query does.
+
+> `sortBy=ipAddress` orders by address value (IPv4 and IPv6), not by the
+> stored string — `"9.0.0.1"` sorts before `"10.0.0.1"`. Devices with no
+> `ipAddress` sort last on `ASC`, first on `DESC` (Postgres's default null
+> ordering).
 
 **`deleted` — the recycle bin.** Soft-deleted devices are hidden from every
 listing unless you ask for them:
@@ -635,6 +640,8 @@ can end up attributed to the wrong hardware.
 > which creates the new unit, links the two, and carries the IP, credentials and
 > contracted service across. **(Changed 2026-08-12 — this used to say the path
 > did not exist. Stop telling operators to retire and re-create by hand.)**
+> Two working units that physically traded places are a third case — use
+> [`POST /api/devices/:id/swap-hardware`](#post-apidevicesidswap-hardware--swap-hardware-between-two-devices).
 
 **`category` — frozen while a wireless config exists**
 
@@ -864,6 +871,69 @@ Requires the **`activate`** permission (ADMIN and OPERATOR).
 
 ---
 
+### `POST /api/devices/:id/swap-hardware` — Swap hardware between two devices
+
+**Status:** 200 | 400 | 401 | 403 | 404
+
+Use this when **two units that already exist in the system physically traded
+places** — for example a large antenna moved to a quieter site and a smaller one
+moved in. Each site keeps its record, IP, SSID, customers and history; only the
+box identity moves. It is not `/replace` (that creates a new record and retires
+the old one) and not `PATCH { deviceModelId }` (INVENTORY-only correction).
+
+Requires the **`activate`** permission (ADMIN and OPERATOR).
+
+```ts
+// Request body
+{
+  otherDeviceId: string // required, UUID — the other record; :id is one of the two
+}
+```
+
+```ts
+// Response
+{
+  success: true,
+  data: {
+    device: DeviceDTO       // :id, now carrying the other unit's hardware
+    otherDevice: DeviceDTO  // otherDeviceId, now carrying :id's former hardware
+  }
+}
+```
+
+**What moves:** `deviceModelId`, `serialNumber`, `macAddress` — exchanged between
+the two records.
+
+**What stays with each record:** `ipAddress`, `locationId`, `status`,
+`monitoringEnabled`, name, credentials, contracted service, wireless config and
+every reading, alert and snapshot. Which side is `:id` and which is
+`otherDeviceId` makes no difference.
+
+Both records change together or neither does — including the MAC exchange, which
+would otherwise trip the "MAC already assigned to another device" check.
+
+**Business rules:**
+
+- `otherDeviceId` equal to `:id` → `400` `"Cannot swap a device with itself"`
+- Either device deleted → `404` `"Device not found: <id>"` (deleted devices are invisible to reads)
+- Either device retired **and** already replaced → `400` `"Cannot swap the hardware of a device that has already been replaced"`
+- Both carry identical model, serial and MAC → `400` `"Cannot swap devices that carry identical hardware details — there is nothing to exchange"`
+- A retired or replacement device that would end up with neither a serial number nor a MAC → `400` (`"A device with status <status> must have at least a serial number or MAC address"` / `"The replacement device must have at least a serial number or MAC address"`)
+- A device with a wireless config would receive a model with no radio → `400` `"Cannot swap hardware: \"<name>\" has a wireless configuration and would receive a model with no radio"`
+- Either id unknown → `404` `"Device not found: <id>"`; malformed UUID → `400`
+
+> **Frontend:** a "swap hardware" action on the device detail page that asks for
+> the second device. Show both records' new model/serial/MAC in the confirmation.
+> After a swap, prompt the operator to review each device's wireless capacity
+> figures (`linkCapacityKbps`, `clientsProvisionedLimit`) — they were probably set
+> for the antenna that used to be there and are **not** changed by this call.
+>
+> History follows the **site**, not the box: readings taken before the swap now
+> sit on a record that describes the other hardware. That is deliberate — see
+> DEV-161.
+
+---
+
 ## Device Credentials `/api/devices/:id/credentials`
 
 > **Response envelope:** Credentials endpoints return raw data directly — **no `{ success, data }` wrapper**.  
@@ -989,8 +1059,9 @@ The SNMP fields are optional and **nothing polls them today** — all polling is
 ```
 
 > Returns 409 if a vendor with the same slug **or the same name** already
-> exists. Name comparison is exact — `Ubiquiti` and `ubiquiti` are two names,
-> but their slugs would collide, so the pair is still rejected.
+> exists. Name comparison is case-insensitive — `Ubiquiti` and `ubiquiti`
+> collide as the same name (their slugs would also collide, since slugs are
+> lowercase by construction).
 
 ---
 
@@ -1046,7 +1117,9 @@ offset?: number  // ≥0, default 0
 ```
 
 > Returns 409 if the new slug or the new name is already taken by another
-> vendor. Submitting the vendor's own slug or name is not a conflict.
+> vendor. Name comparison is case-insensitive, same as create. Submitting the
+> vendor's own slug or name is not a conflict — including "renaming" to a
+> different case of its own current name (e.g. `Mimosa` → `mimosa`).
 
 ---
 
@@ -1083,6 +1156,9 @@ offset?: number  // ≥0, default 0
 ```
 
 > Returns 409 if a model with the same name already exists for that vendor.
+> Name comparison is case-insensitive and scoped to the vendor — `hAP ac3` and
+> `HAP AC3` collide for the same vendor, but two different vendors may each
+> have a model called "AC Lite" regardless of casing.
 > `isWireless` marks the hardware as radio-capable; devices built on a model
 > with `isWireless: false` are refused a wireless config. Getting it wrong here
 > is cheap to fix later — but only until a device on the model is configured,
@@ -1141,6 +1217,14 @@ offset?: number  // ≥0, default 0
 // Response
 { success: true, data: DeviceModelDTO }
 ```
+
+> Returns 409 if the resulting (vendor, model name) pair is already taken by
+> a different device model — this applies whether `model` changes, `vendorId`
+> changes, or both, so moving a model to a vendor that already has one with
+> the same name is also rejected. Name comparison is case-insensitive and
+> scoped to the vendor. Submitting the model's own name (or the vendor it's
+> already on) is not a conflict — including "renaming" to a different case of
+> its own current name.
 
 **`isWireless: true → false` — refused while wireless configs exist**
 
@@ -1252,6 +1336,12 @@ monitoring before polling it"`. A manual poll would write a real reading over
 > **Frontend:** disable the "poll now" button when `pollingEnabled` is `false`
 > (from `GET /api/devices/:id/polling/status`) rather than letting the call fail;
 > on a `409`, offer "enable monitoring" instead of a retry.
+
+> **Since 2026-09-25: a manual poll makes at most 3 ping attempts**, whatever
+> the device's `failuresBeforeDown` (a lower threshold is kept as is). It
+> answers in under about 20 seconds even for an unreachable device, and an
+> unreachable device is marked down after those 3 attempts. Scheduled polls
+> still use the full threshold.
 
 ---
 
@@ -1421,6 +1511,12 @@ optional **override of the down-alert delay**
 > condition is still true). A recovery or cleared-condition notification
 > suppressed during quiet hours is simply not sent — there is no
 > "catch up in the morning" for good news.
+>
+> **Device-down alerts open the instant a device goes unreachable**, not once
+> the delay elapses — only the _notification_ waits for the effective delay.
+> A blip that self-resolves inside that window still shows up (and later
+> resolves) on `GET /api/alerts`; it just never pages anyone, and its
+> recovery is silent too.
 
 ### `GET /api/devices/:id/notification-policy` — Get Effective Policy
 
@@ -1498,6 +1594,56 @@ optional **override of the down-alert delay**
 ```
 
 > Applies the same settings to every device in `deviceIds`, independently — a bad id (malformed or unknown) lands in `failed` without aborting the rest. Always `200` when the request itself is well-formed; check `failed` for partial failures.
+
+---
+
+## Notification Mutes `/api/notification-mutes`
+
+> **Response envelope:** raw data, no `{ success, data }` wrapper.
+> Error: `{ error: string }`.
+
+A **global**, standing list of alert-type keys whose outbound notification is
+suppressed everywhere — e.g. muting `cpu_load_percent` or `distance_m` stops
+those wireless pushes for every device, forever, until unmuted. This is not
+per-device (see Notification Policy above for that axis) and it never
+touches the alert record: a muted condition still opens/lists normally on
+`GET /api/alerts`, only the Telegram push is suppressed. Muting is by bare
+metric name — `cpu_load_percent`, not `wireless:cpu_load_percent:WARNING` —
+so one entry silences both its WARNING and CRITICAL severities.
+
+### `GET /api/notification-mutes` — List Muted Alert Types
+
+**Status:** 200
+**Roles:** any authenticated role
+
+```ts
+// Response
+{
+  metrics: string[]; // e.g. ["cpu_load_percent", "distance_m"]
+}
+```
+
+---
+
+### `PUT /api/notification-mutes` — Replace the Muted Alert Type List
+
+**Status:** 200 | 400
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body — full replace, not incremental
+{
+  metrics: string[]; // lowercase letters, digits, underscores only; duplicates collapse
+}
+
+// Response: the resulting list, same shape as GET
+```
+
+> Wholesale replace, like the notification-policy bulk endpoint — there is no
+> add/remove-one route. Sending `{ metrics: [] }` clears every mute. A
+> malformed entry (uppercase, spaces, empty) is rejected with `400` before
+> anything is written; an unknown-but-well-formed metric is accepted and
+> simply never matches a real alert.
 
 ---
 
@@ -1822,6 +1968,8 @@ interface WirelessClientDTO {
   enabled?: boolean                        // default true
   linkCapacityKbps?: number | null         // STATION only — provisioned uplink capacity in kbps
   clientsProvisionedLimit?: number | null  // ACCESS_POINT only — max expected clients
+  provisionedLanSpeedMbps?: number | null  // one of 10/100/1000/2500/10000 — see note below; usually left unset
+  parentApDeviceId?: string | null         // STATION only — the ACCESS_POINT device this CPE is declared to sit on
 }
 
 // Response
@@ -1834,6 +1982,8 @@ interface WirelessClientDTO {
   deviceType: 'STATION' | 'ACCESS_POINT'
   linkCapacityKbps: number | null
   clientsProvisionedLimit: number | null
+  provisionedLanSpeedMbps: number | null
+  parentApDeviceId: string | null
   lastPolledAt: string | null   // ISO 8601 — null until first poll
 }
 ```
@@ -1855,9 +2005,15 @@ there rather than assuming it.
 
 - `linkCapacityKbps` may only be set (non-null) when the derived type is `STATION` — returns 400 for an `ACCESS_POINT` category device.
 - `clientsProvisionedLimit` may only be set (non-null) when the derived type is `ACCESS_POINT` — returns 400 for a `WIRELESS_CPE` category device.
+- `parentApDeviceId` may only be set (non-null) when the derived type is `STATION`, and cannot equal the config's own device — returns 400 otherwise. It does not have to point at a device that already has its own wireless config.
 - `intervalSecs` must be **at least 60**. Polling AirOS faster than that overloads the embedded web server on the radio, so the floor is a hardware constraint, not a preference.
+- `provisionedLanSpeedMbps`, when set, must be one of `10`, `100`, `1000`, `2500`, `10000` — returns 400 for any other value (WLS-165). The auto-captured baseline (WLS-099) is not subject to this check; it always mirrors whatever the radio reports.
 
 > **`linkCapacityKbps` is in kbps, not bps** — a 50 Mbps link is `50000`. It feeds the link-saturation alert, which warns at 80 % of this value, so an entry off by 1000× either never fires or fires permanently.
+
+> **`provisionedLanSpeedMbps` is usually not something you set (WLS-089/WLS-099).** It's the negotiated Ethernet speed (`10`, `100`, `1000`, `2500` or `10000` — WLS-165) this device's LAN port is expected to run at, and it auto-fills itself: the first poll that reports a speed for a device with no baseline yet stores that reading here, and every degradation warning after that compares against it instead of one fixed number shared by every device. Set it explicitly only to correct a baseline captured while the port was already degraded (e.g. right after this feature went live), or to pre-seed it before the first poll.
+
+> **`parentApDeviceId` is declared, not observed (WLS-162).** It's the operator's record of which AP this CPE is *meant* to sit on — separate from whatever the radio's own last poll reported it's actually talking to. Set it to drive `GET /api/devices/:id/wireless/clients/expected` on the AP side; leave it unset and that AP's expected roster simply won't include this device.
 
 > **Frontend:** set the device's `category` first (`PATCH /api/devices/:id`) — it decides which of the two fields this endpoint will accept, and creating this config **locks it**: the category cannot be changed again until the config is deleted. Sending `deviceType` in the body is now ignored by the schema.  
 > Returns 404 if the device does not exist.  
@@ -1889,6 +2045,8 @@ there rather than assuming it.
   enabled?: boolean
   linkCapacityKbps?: number | null        // kbps; STATION only — returns 400 if config is ACCESS_POINT
   clientsProvisionedLimit?: number | null // ACCESS_POINT only — returns 400 if config is STATION
+  provisionedLanSpeedMbps?: number | null // one of 10/100/1000/2500/10000 — see the note under POST; null clears the auto-captured baseline
+  parentApDeviceId?: string | null        // STATION only — returns 400 if config is ACCESS_POINT; null clears the declared link
 }
 
 // Response — same shape as POST 201 above
@@ -1971,6 +2129,72 @@ limit?: number // 1–1000
 
 > Returns the connected client list from the most recent snapshot (AP devices only).  
 > Returns 404 if no snapshot exists for this device.
+
+---
+
+### `GET /api/devices/:id/wireless/clients/expected` — Expected vs. Connected Clients
+
+**Status:** 200 | 400 | 404
+
+```ts
+// Response
+{
+  apDeviceId: string
+  collectedAt: string | null   // ISO 8601 from the latest snapshot; null if the AP has never been polled
+  expected: Array<{
+    deviceId: string
+    deviceName: string
+    macAddress: string | null  // from device-inventory, not from any poll
+    connected: boolean
+    client: WirelessClientDTO | null   // live stats when connected, else null
+  }>
+  missingCount: number
+  unexpectedConnected: WirelessClientDTO[]   // live clients matching no declared CPE
+}
+```
+
+> AP devices only — 404 (`NOT_AP:`-prefixed) if the target's own wireless
+> config is `STATION`. Unlike `GET .../clients`, this does **not** require an
+> existing snapshot: an AP that has never been polled returns `collectedAt: null`
+> with every declared CPE reported as not connected, rather than 404.  
+> `expected` lists every `STATION` config whose `parentApDeviceId` points at
+> this device (see `parentApDeviceId` on the config endpoints above) — it is
+> empty if no CPE has declared this AP as its parent, regardless of who is
+> actually connected. Matching is by MAC address; a declared CPE with no MAC
+> on file in device-inventory always shows `connected: false`.  
+> **Frontend:** this is the view for "who's supposed to be here and isn't" —
+> pair `missingCount` with `unexpectedConnected.length` for an at-a-glance
+> health indicator on the AP's detail page.
+
+---
+
+### `GET /api/devices/:id/wireless/identity/suggestions` — Identity Suggestions
+
+**Status:** 200 | 400 | 404
+
+```ts
+// Response
+{
+  deviceId: string
+  polled: boolean              // false if the device has never been polled
+  collectedAt: string | null   // ISO 8601 from the latest snapshot
+  suggestions: Array<{
+    field: 'name' | 'macAddress'
+    currentValue: string | null   // from device-inventory
+    suggestedValue: string        // from the latest AirOS poll
+  }>
+}
+```
+
+> Read-only diff between what AirOS last reported about its own hostname/MAC
+> and what's on file in device-inventory (WLS-164) — never auto-written. Name
+> matching is trim + case-insensitive; MAC matching is separator/case-normalized
+> the same way `.../clients/expected` matches. A device that has never been
+> polled returns `polled: false` and an empty `suggestions` array rather than
+> 404. Serial number is never compared — AirOS does not expose one.  
+> **Frontend:** render each suggestion as an accept/dismiss row; accepting one
+> means calling `PATCH /api/devices/:id` with the suggested value — this
+> endpoint never writes to device-inventory itself.
 
 ---
 
@@ -2328,7 +2552,7 @@ interface ServicePlanDTO {
 
 ### `POST /api/service-plans` — Create
 
-**Status:** 201 | 400
+**Status:** 201 | 400 | 409
 
 ```ts
 // Request body
@@ -2344,6 +2568,9 @@ interface ServicePlanDTO {
 // Response
 { success: true, data: ServicePlanDTO }
 ```
+
+> Returns 409 if a plan with the same name already exists. Name comparison is
+> case-insensitive — `Plan 10 Mbps` and `plan 10 mbps` collide.
 
 ---
 
@@ -2384,7 +2611,7 @@ offset?: number  // ≥0, default 0
 
 ### `PUT /api/service-plans/:id` — Update
 
-**Status:** 200 | 400 | 404
+**Status:** 200 | 400 | 404 | 409
 
 ```ts
 // Request body (at least one field required)
@@ -2400,6 +2627,10 @@ offset?: number  // ≥0, default 0
 // Response
 { success: true, data: ServicePlanDTO }
 ```
+
+> Returns 409 if the new name is already taken by another plan, compared
+> case-insensitively. Submitting the plan's own name is not a conflict —
+> including "renaming" to a different case of its own current name.
 
 ---
 
@@ -2805,6 +3036,256 @@ The PDF includes the bill header (period, status, issue/due/paid dates), the cus
 
 > Allowed from `PENDING` or `OVERDUE`. Returns 409 for a `PAID` bill ("Cannot cancel a paid bill") or an already-cancelled one.  
 > Cancelling frees the customer + period for regeneration via `POST /generate`.
+
+---
+
+## Quotations `/api/quotations`
+
+A sales proposal ("cotización"): catalog hardware from `device-inventory` picked by a technician, priced by hand for this quote alone, sent to a customer or free-text prospect, and exportable as a PDF. Unlike bills, a quotation's customer info (name, phone, email, address) is a **snapshot captured at creation** and never re-read live — `Customer` has no address field at all, so it's the only option, and a quote must keep saying what it said when it was built.
+
+**Lifecycle:** `DRAFT → SENT → ACCEPTED | REJECTED | EXPIRED`. `ACCEPTED`, `REJECTED` and `EXPIRED` are terminal. Line items and details (`validUntil`, `notes`, customer snapshot) can only be edited while `DRAFT`.
+
+```ts
+interface QuotationLineItemDTO {
+  deviceModelId: string | null; // UUID — null if the catalog entry was later deleted
+  deviceModelName: string; // snapshot at add-time
+  vendorName: string; // snapshot at add-time
+  deviceType: string; // snapshot at add-time
+  imageUrl: string | null; // snapshot at add-time
+  description: string; // editable; defaults to "<vendor> <model>"
+  unitPrice: number; // entered by hand — there is no catalog price
+  quantity: number; // positive integer
+  lineTotal: number; // unitPrice * quantity
+}
+
+interface QuotationDTO {
+  id: string; // UUID
+  code: number | null; // DB-assigned sequence number; null only before the first save
+  status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+  customerId: string | null; // UUID — optional link, for traceability only
+  customerName: string;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  customerAddress: string | null;
+  lineItems: QuotationLineItemDTO[];
+  subtotal: number; // sum of lineItems lineTotal
+  total: number; // currently equals subtotal — no tax logic yet
+  validUntil: string; // ISO 8601
+  notes: string | null;
+  sentAt: string | null;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  expiredAt: string | null;
+  createdBy: string | null; // UUID — from the authenticated user, never the request body
+  createdAt: string; // ISO 8601
+  updatedAt: string;
+}
+```
+
+### `POST /api/quotations` — Create
+
+**Status:** 201 | 400 | 404 | 500
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  customerId?: string        // UUID — optional link to an existing Customer
+  customerName?: string      // required if customerId is omitted
+  customerPhone?: string
+  customerEmail?: string
+  customerAddress?: string   // free text — Customer has no address field to read this from
+  validUntil: string         // required, ISO 8601 datetime
+  notes?: string
+  lineItems: Array<{
+    deviceModelId: string    // required, UUID — must exist in device-inventory
+    description?: string     // defaults to "<vendor> <model>"
+    unitPrice: number        // required, >= 0
+    quantity: number         // required, positive integer
+  }>                          // at least one required
+}
+
+// Response
+{ success: true, data: QuotationDTO }
+```
+
+**Business rules:**
+
+- Either `customerId` or `customerName` is required (400 otherwise).
+- When `customerId` is given, the customer's name/phone/email are snapshotted from the `Customer` record at this moment; `customerAddress` (if any) always comes from the request body.
+- Each `deviceModelId` must reference an existing device model (404 otherwise) — its name, vendor, type and image are snapshotted onto the line item.
+- Returns 404 if `customerId` does not reference an existing customer.
+
+---
+
+### `GET /api/quotations` — List
+
+**Status:** 200 | 400
+
+```ts
+// Query params (all optional)
+customerId?: string       // UUID
+status?:     'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+limit?:      number       // 1–100, default 20
+offset?:     number       // ≥0, default 0
+
+// Response
+{
+  success: true,
+  data: {
+    quotations: QuotationDTO[]
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
+}
+```
+
+> Results are ordered by `createdAt` descending (newest first).
+
+---
+
+### `GET /api/quotations/:id` — Get by ID
+
+**Status:** 200 | 400 | 404
+
+```ts
+// Response
+{ success: true, data: QuotationDTO }
+```
+
+---
+
+### `GET /api/quotations/:id/pdf` — Download as PDF
+
+**Status:** 200 | 400 | 404
+
+Returns the quotation as a **PDF document** — not the JSON envelope.
+
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="cotizacion-<code>.pdf"
+```
+
+The PDF includes a branded header with the quote number and validity date, the customer block, an itemized table (thumbnail, description, quantity, unit price, line total), a subtotal/total block, and a terms/call-to-action footer. A missing or broken line item image never fails the PDF — it falls back to a placeholder.
+
+> Error responses (400/404) still use the standard JSON envelope `{ success: false, error }`.
+> Frontend tip: fetch with the Bearer token and download via a blob URL — a plain `<a href>` won't carry the Authorization header.
+
+---
+
+### `PATCH /api/quotations/:id/line-items` — Replace Line Items
+
+**Status:** 200 | 400 | 404 | 409
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{
+  lineItems: Array<{
+    deviceModelId: string
+    description?: string
+    unitPrice: number
+    quantity: number
+  }>   // at least one required — replaces the entire set
+}
+
+// Response
+{ success: true, data: QuotationDTO }
+```
+
+> Allowed only while `DRAFT` — returns 409 for a `SENT` or terminal quotation ("Cannot modify line items of a sent quotation"). There is no incremental add/remove; this replaces the full line-item set.
+
+---
+
+### `PATCH /api/quotations/:id` — Update Details
+
+**Status:** 200 | 400 | 404 | 409
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body (all optional — only supplied fields change)
+{
+  validUntil?: string
+  notes?: string
+  customerName?: string
+  customerPhone?: string
+  customerEmail?: string
+  customerAddress?: string
+}
+
+// Response
+{ success: true, data: QuotationDTO }
+```
+
+> Allowed only while `DRAFT` — returns 409 otherwise ("Cannot update details of a sent quotation").
+
+---
+
+### `POST /api/quotations/:id/send` — Send
+
+**Status:** 200 | 400 | 404 | 409
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response — QuotationDTO with status 'SENT' and sentAt set
+{ success: true, data: QuotationDTO }
+```
+
+> Allowed only from `DRAFT`. Returns 409 otherwise.
+
+---
+
+### `POST /api/quotations/:id/accept` — Accept
+
+**Status:** 200 | 400 | 404 | 409
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response — QuotationDTO with status 'ACCEPTED' and acceptedAt set
+{ success: true, data: QuotationDTO }
+```
+
+> Allowed only from `SENT`. Returns 409 otherwise (a quote that was never sent cannot be accepted).
+
+---
+
+### `POST /api/quotations/:id/reject` — Reject
+
+**Status:** 200 | 400 | 404 | 409
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// Request body
+{ reason: string }   // required, non-empty, ≤255 characters
+
+// Response — QuotationDTO with status 'REJECTED', rejectedAt and rejectionReason set
+{ success: true, data: QuotationDTO }
+```
+
+> Allowed only from `SENT`. Returns 400 if `reason` is missing or blank, 409 if the quotation isn't `SENT`.
+
+---
+
+### `POST /api/quotations/:id/expire` — Mark Expired
+
+**Status:** 200 | 400 | 404 | 409
+**Roles:** ADMIN, OPERATOR
+
+```ts
+// No request body
+
+// Response — QuotationDTO with status 'EXPIRED' and expiredAt set
+{ success: true, data: QuotationDTO }
+```
+
+> Allowed only from `SENT`, and only once the quotation is **past its `validUntil` date** — returns 409 otherwise. There is no automatic expiry job; the frontend (or an operator) triggers this explicitly, matching how bills are marked overdue.
 
 ---
 

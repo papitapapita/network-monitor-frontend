@@ -166,6 +166,19 @@ export interface ReplaceDeviceResultDTO {
   contractedServiceTransferred: boolean;
 }
 
+/**
+ * `POST /devices/:id/swap-hardware`: two existing units that physically traded
+ * places. Model, serial and MAC are exchanged; everything else — IP, location,
+ * status, credentials, service, wireless config, history — stays with each
+ * record, because history follows the site, not the box (DEV-161).
+ */
+export interface SwapHardwareResultDTO {
+  /** `:id`, now carrying the other unit's hardware. */
+  device: DeviceResponseDTO;
+  /** `otherDeviceId`, now carrying `:id`'s former hardware. */
+  otherDevice: DeviceResponseDTO;
+}
+
 // ============================================================
 // Vendor
 // ============================================================

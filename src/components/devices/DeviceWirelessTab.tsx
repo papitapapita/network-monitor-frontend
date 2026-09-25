@@ -29,6 +29,8 @@ import {
   wirelessEnableBlockedReason,
   WIRELESS_DISABLED_BY_STATUS_NOTE,
   WIRELESS_INDEPENDENT_OF_ICMP_NOTE,
+  lanSpeedOptions,
+  isValidLanSpeed,
 } from '@/constants/wireless.constants';
 import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
 
@@ -660,7 +662,13 @@ export function DeviceWirelessTab({
       enabled: canEnablePolling && configForm.enabled === 'true',
       linkCapacityKbps: configForm.linkCapacityKbps ? parseInt(configForm.linkCapacityKbps) : null,
       clientsProvisionedLimit: configForm.clientsProvisionedLimit ? parseInt(configForm.clientsProvisionedLimit) : null,
-      provisionedLanSpeedMbps: configForm.provisionedLanSpeedMbps ? parseInt(configForm.provisionedLanSpeedMbps) : null,
+      // An auto-captured baseline may be off the WLS-165 list; sent back
+      // unchanged it would be refused, so leave it out and let it stand.
+      provisionedLanSpeedMbps:
+        config && String(config.provisionedLanSpeedMbps ?? '') === configForm.provisionedLanSpeedMbps &&
+        !isValidLanSpeed(configForm.provisionedLanSpeedMbps)
+          ? undefined
+          : configForm.provisionedLanSpeedMbps ? parseInt(configForm.provisionedLanSpeedMbps) : null,
       // STATION only — the backend 400s if this is set on an ACCESS_POINT.
       parentApDeviceId: formIsAP ? null : (configForm.parentApDeviceId || null),
     };
@@ -990,11 +998,13 @@ export function DeviceWirelessTab({
                   </div>
                 )}
                 <div>
-                  <Input
-                    label="Velocidad LAN provisionada (Mbps)"
-                    type="number"
+                  {/* Only the standard Ethernet speeds are accepted (WLS-165), so this
+                      is a pick-list rather than a number field. */}
+                  <Select
+                    label="Velocidad LAN provisionada"
                     value={configForm.provisionedLanSpeedMbps}
                     onChange={(e) => setConfigForm((p) => ({ ...p, provisionedLanSpeedMbps: e.target.value }))}
+                    options={lanSpeedOptions(configForm.provisionedLanSpeedMbps)}
                     fullWidth
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

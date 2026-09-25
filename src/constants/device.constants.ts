@@ -315,6 +315,33 @@ export function translateDeviceReplaceError(error: string): DeviceConflict | nul
 }
 
 /**
+ * The hardware swap's refusals. None belongs to a field — the form's only input
+ * is which device to swap with — so each comes back as a plain message.
+ */
+export function translateDeviceSwapError(error: string): string | null {
+  if (/^Device not found: /.test(error)) return 'Uno de los dos dispositivos ya no existe. Puede haber sido eliminado por otra persona.';
+  if (error === 'Cannot swap a device with itself') {
+    return 'No se puede intercambiar un dispositivo consigo mismo.';
+  }
+  if (error === 'Cannot swap the hardware of a device that has already been replaced') {
+    return 'Uno de los dispositivos está retirado y ya fue reemplazado; su hardware no se puede intercambiar.';
+  }
+  if (error.startsWith('Cannot swap devices that carry identical hardware details')) {
+    return 'Los dos dispositivos tienen el mismo modelo, serial y MAC: no hay nada que intercambiar.';
+  }
+  const noRadio = error.match(/^Cannot swap hardware: "(.+)" has a wireless configuration and would receive a model with no radio$/);
+  if (noRadio) {
+    return `«${noRadio[1]}» tiene configuración inalámbrica y recibiría un modelo sin radio. Elimine primero esa configuración o elija otro equipo.`;
+  }
+  const invariant = translateDeviceInvariant(error);
+  if (invariant) return invariant.message;
+  if (error === 'The replacement device must have at least a serial number or MAC address') {
+    return 'El dispositivo de reemplazo quedaría sin número de serie ni MAC; no se puede intercambiar.';
+  }
+  return null;
+}
+
+/**
  * DEV-026: a device model can't be deleted while devices still point at it.
  * Shared by the real translator and the mock so both say the same thing.
  */
