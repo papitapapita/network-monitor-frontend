@@ -270,7 +270,17 @@ class ApiService {
         return { success: false, status: 401, error: 'Sesión expirada. Por favor inicia sesión nuevamente.' };
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        // A proxy or gateway failure answers in plain text, not JSON.
+        return {
+          success: false,
+          status: response.status,
+          error: `El servidor no respondió correctamente (HTTP ${response.status}). Inténtalo de nuevo.`
+        };
+      }
 
       if (!response.ok) {
         // Zod validation failures come back as { error: 'Validation failed', details: [{field, message}] } —
