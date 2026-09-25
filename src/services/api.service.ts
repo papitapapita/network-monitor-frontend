@@ -65,6 +65,8 @@ import {
   WirelessAlertHistoryQuery,
   CreateWirelessConfigDTO,
   UpdateWirelessConfigDTO,
+  WirelessExpectedClientsResponse,
+  WirelessIdentitySuggestionsResponse,
   WirelessThroughputDTO,
   WirelessThroughputSnapshot,
 } from '../types/wireless.types';
@@ -932,6 +934,25 @@ class ApiService {
 
   async getWirelessClients(deviceId: string): Promise<ApiResponse<WirelessClientsResponse>> {
     return this.request<WirelessClientsResponse>(`/devices/${deviceId}/wireless/clients`);
+  }
+
+  /**
+   * The AP-side view of "who's supposed to be here and isn't" — every STATION
+   * config whose `parentApDeviceId` declares this AP, each paired with its
+   * live client entry when connected. 404 if this device's own config is a
+   * STATION rather than an ACCESS_POINT.
+   */
+  async getExpectedClients(deviceId: string): Promise<ApiResponse<WirelessExpectedClientsResponse>> {
+    return this.request<WirelessExpectedClientsResponse>(`/devices/${deviceId}/wireless/clients/expected`);
+  }
+
+  /**
+   * Read-only diff between what AirOS last reported about its own
+   * hostname/MAC and what's on file in device-inventory. Never auto-written —
+   * accepting a suggestion means calling `updateDevice` with the value.
+   */
+  async getIdentitySuggestions(deviceId: string): Promise<ApiResponse<WirelessIdentitySuggestionsResponse>> {
+    return this.request<WirelessIdentitySuggestionsResponse>(`/devices/${deviceId}/wireless/identity/suggestions`);
   }
 
   async getWirelessAlerts(deviceId: string): Promise<ApiResponse<WirelessAlertDTO[]>> {

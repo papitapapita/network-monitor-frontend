@@ -130,6 +130,10 @@ export interface WirelessConfigDTO {
   deviceType: WirelessDeviceType;
   linkCapacityKbps: number | null;
   clientsProvisionedLimit: number | null;
+  /** Either device type. Usually left unset — see the note on Create/Update. */
+  provisionedLanSpeedMbps: number | null;
+  /** STATION only — the ACCESS_POINT device this CPE is declared to sit on. */
+  parentApDeviceId: string | null;
   lastPolledAt: string | null;
 }
 
@@ -142,6 +146,19 @@ export interface CreateWirelessConfigDTO {
   enabled?: boolean;
   linkCapacityKbps?: number | null;
   clientsProvisionedLimit?: number | null;
+  /**
+   * The negotiated Ethernet speed this device's LAN port is expected to run
+   * at. Normally left unset — it auto-fills itself from the first poll that
+   * reports a speed and no baseline exists yet. Set it explicitly only to
+   * correct a baseline captured while the port was already degraded.
+   */
+  provisionedLanSpeedMbps?: number | null;
+  /**
+   * STATION only — declares which AP device this CPE is meant to sit on,
+   * separate from whatever the radio's last poll actually reported. Drives
+   * `GET /wireless/clients/expected` on the AP side.
+   */
+  parentApDeviceId?: string | null;
 }
 
 export interface UpdateWirelessConfigDTO {
@@ -150,6 +167,51 @@ export interface UpdateWirelessConfigDTO {
   enabled?: boolean;
   linkCapacityKbps?: number | null;
   clientsProvisionedLimit?: number | null;
+  provisionedLanSpeedMbps?: number | null;
+  parentApDeviceId?: string | null;
+}
+
+export interface WirelessExpectedClientEntry {
+  deviceId: string;
+  deviceName: string;
+  /** From device-inventory, not from any poll. */
+  macAddress: string | null;
+  connected: boolean;
+  /** Live stats when connected, else null. */
+  client: WirelessClientDTO | null;
+}
+
+/** The AP-side view of "who's supposed to be here and isn't". */
+export interface WirelessExpectedClientsResponse {
+  apDeviceId: string;
+  /** From the latest snapshot; null if the AP has never been polled. */
+  collectedAt: string | null;
+  expected: WirelessExpectedClientEntry[];
+  missingCount: number;
+  /** Live clients matching no declared CPE. */
+  unexpectedConnected: WirelessClientDTO[];
+}
+
+export interface WirelessIdentitySuggestion {
+  field: 'name' | 'macAddress';
+  /** From device-inventory. */
+  currentValue: string | null;
+  /** From the latest AirOS poll. */
+  suggestedValue: string;
+}
+
+/**
+ * Read-only diff between what AirOS last reported about its own
+ * hostname/MAC and what's on file in device-inventory. Never auto-written —
+ * accepting a suggestion means calling `updateDevice` with the suggested
+ * value. Serial number is never compared; AirOS does not expose one.
+ */
+export interface WirelessIdentitySuggestionsResponse {
+  deviceId: string;
+  /** False if the device has never been polled. */
+  polled: boolean;
+  collectedAt: string | null;
+  suggestions: WirelessIdentitySuggestion[];
 }
 
 export interface WirelessClientsResponse {

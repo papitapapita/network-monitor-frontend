@@ -1053,6 +1053,12 @@ class MockApiService {
   async getWirelessClients() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
+  async getExpectedClients() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getIdentitySuggestions() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
   async getWirelessAlerts() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import {
   WirelessConfigDTO,
@@ -9,8 +10,10 @@ import {
   WirelessClientDTO,
   WirelessDeviceType,
   CreateWirelessConfigDTO,
+  WirelessExpectedClientsResponse,
+  WirelessIdentitySuggestion,
 } from '@/types/wireless.types';
-import { DeviceCategory, DeviceStatus } from '@/types/device.types';
+import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
 import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
@@ -89,6 +92,14 @@ function PowerIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 function ClearIcon() {
   return (
     <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -109,6 +120,8 @@ interface Props {
   deviceStatus: DeviceStatus;
   deviceDeletedAt: string | null;
   deviceReplacedAt: string | null;
+  /** Called after an identity suggestion is accepted and the device record changes underneath the caller. */
+  onDeviceUpdated: (device: DeviceResponseDTO) => void;
 }
 
 function fmt(val: number | null | undefined, unit: string, decimals = 1): string {
@@ -338,6 +351,7 @@ export function DeviceWirelessTab({
   deviceStatus,
   deviceDeletedAt,
   deviceReplacedAt,
+  onDeviceUpdated,
 }: Props) {
   const { user } = useAuth();
   const [config, setConfig] = useState<WirelessConfigDTO | null>(null);
@@ -374,12 +388,33 @@ export function DeviceWirelessTab({
     enabled: 'true',
     linkCapacityKbps: '',
     clientsProvisionedLimit: '',
+    provisionedLanSpeedMbps: '',
+    parentApDeviceId: '',
   });
   const [configSaving, setConfigSaving] = useState(false);
   const [configFormErrors, setConfigFormErrors] = useState<Record<string, string>>({});
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
   const [configSaveSuccess, setConfigSaveSuccess] = useState(false);
   const [showConfigForm, setShowConfigForm] = useState(false);
+
+  // Candidate parents for a STATION's `parentApDeviceId` — loaded lazily, only
+  // once the edit form for a STATION is actually opened.
+  const [apDevices, setApDevices] = useState<{ id: string; name: string }[]>([]);
+  const [apDevicesLoading, setApDevicesLoading] = useState(false);
+  // The declared parent AP's name, resolved for display in the read-only view
+  // (the config only carries the id).
+  const [parentApName, setParentApName] = useState<string | null>(null);
+
+  const [expectedClients, setExpectedClients] = useState<WirelessExpectedClientsResponse | null>(null);
+  const [expectedClientsLoading, setExpectedClientsLoading] = useState(false);
+  const [expectedClientsError, setExpectedClientsError] = useState<string | null>(null);
+
+  const [identitySuggestions, setIdentitySuggestions] = useState<WirelessIdentitySuggestion[]>([]);
+  const [identitySuggestionsLoading, setIdentitySuggestionsLoading] = useState(false);
+  // Suggestions carry no id of their own — key on field + value so a dismissal
+  // survives a refetch that returns the same still-unresolved suggestion.
+  const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<string>>(new Set());
+  const [acceptingSuggestionKey, setAcceptingSuggestionKey] = useState<string | null>(null);
 
   const fetchConfig = useCallback(async () => {
     setConfigLoading(true);
@@ -394,6 +429,8 @@ export function DeviceWirelessTab({
         enabled: String(c.enabled),
         linkCapacityKbps: c.linkCapacityKbps != null ? String(c.linkCapacityKbps) : '',
         clientsProvisionedLimit: c.clientsProvisionedLimit !== null ? String(c.clientsProvisionedLimit) : '',
+        provisionedLanSpeedMbps: c.provisionedLanSpeedMbps !== null ? String(c.provisionedLanSpeedMbps) : '',
+        parentApDeviceId: c.parentApDeviceId ?? '',
       });
     } else {
       if (result.error?.toLowerCase().includes('not found') || result.error?.toLowerCase().includes('404')) {
@@ -424,6 +461,27 @@ export function DeviceWirelessTab({
       setAlerts(result.data);
     }
     setAlertsLoading(false);
+  }, [deviceId]);
+
+  const fetchExpectedClients = useCallback(async () => {
+    setExpectedClientsLoading(true);
+    setExpectedClientsError(null);
+    const result = await apiService.getExpectedClients(deviceId);
+    if (result.success && result.data) {
+      setExpectedClients(result.data);
+    } else {
+      setExpectedClientsError(result.error || 'Error al cargar las estaciones esperadas');
+    }
+    setExpectedClientsLoading(false);
+  }, [deviceId]);
+
+  const fetchIdentitySuggestions = useCallback(async () => {
+    setIdentitySuggestionsLoading(true);
+    const result = await apiService.getIdentitySuggestions(deviceId);
+    if (result.success && result.data) {
+      setIdentitySuggestions(result.data.suggestions);
+    }
+    setIdentitySuggestionsLoading(false);
   }, [deviceId]);
 
   /**
@@ -493,8 +551,41 @@ export function DeviceWirelessTab({
     if (config) {
       fetchStatus();
       fetchAlerts();
+      fetchIdentitySuggestions();
+      if (config.deviceType === 'ACCESS_POINT' || category === 'ACCESS_POINT') {
+        fetchExpectedClients();
+      }
     }
-  }, [config, fetchStatus, fetchAlerts]);
+  }, [config, category, fetchStatus, fetchAlerts, fetchIdentitySuggestions, fetchExpectedClients]);
+
+  // The config only carries the declared parent's id — resolve its name once
+  // for the read-only view instead of asking the operator to recognise a UUID.
+  useEffect(() => {
+    if (!config?.parentApDeviceId) {
+      setParentApName(null);
+      return;
+    }
+    let cancelled = false;
+    apiService.getDevice(config.parentApDeviceId).then((r) => {
+      if (!cancelled) setParentApName(r.success && r.data ? r.data.name : null);
+    });
+    return () => { cancelled = true; };
+  }, [config?.parentApDeviceId]);
+
+  // Candidate APs for the "parent AP" picker — loaded only once the STATION
+  // config form is actually open, not on every tab visit.
+  useEffect(() => {
+    if (!showConfigForm) return;
+    const isStationForm = noConfig ? inferDeviceType(category) === 'STATION' : config?.deviceType === 'STATION';
+    if (!isStationForm || apDevices.length > 0) return;
+    setApDevicesLoading(true);
+    apiService.listDevices({ category: 'ACCESS_POINT', deleted: 'false', limit: 200 }).then((r) => {
+      if (r.success && r.data) {
+        setApDevices(r.data.devices.map((d) => ({ id: d.id, name: d.name })));
+      }
+      setApDevicesLoading(false);
+    });
+  }, [showConfigForm, noConfig, category, config?.deviceType, apDevices.length]);
 
   useEffect(() => {
     apiService.getDeviceCredentials(deviceId).then((r) => {
@@ -559,6 +650,7 @@ export function DeviceWirelessTab({
     setConfigSaveError(null);
     setConfigSaveSuccess(false);
 
+    const formIsAP = noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP;
     const payload = {
       ipAddress: deviceIpAddress,
       intervalSecs: configForm.intervalSecs ? parseInt(configForm.intervalSecs) : undefined,
@@ -568,6 +660,9 @@ export function DeviceWirelessTab({
       enabled: canEnablePolling && configForm.enabled === 'true',
       linkCapacityKbps: configForm.linkCapacityKbps ? parseInt(configForm.linkCapacityKbps) : null,
       clientsProvisionedLimit: configForm.clientsProvisionedLimit ? parseInt(configForm.clientsProvisionedLimit) : null,
+      provisionedLanSpeedMbps: configForm.provisionedLanSpeedMbps ? parseInt(configForm.provisionedLanSpeedMbps) : null,
+      // STATION only — the backend 400s if this is set on an ACCESS_POINT.
+      parentApDeviceId: formIsAP ? null : (configForm.parentApDeviceId || null),
     };
 
     let result;
@@ -600,10 +695,38 @@ export function DeviceWirelessTab({
       setStatus(null);
       setAlerts([]);
       setNoConfig(true);
+      setExpectedClients(null);
+      setIdentitySuggestions([]);
+      setParentApName(null);
     } else {
       showError(result.error || 'No se pudo eliminar la configuración inalámbrica');
     }
   };
+
+  const suggestionKey = (s: WirelessIdentitySuggestion) => `${s.field}:${s.suggestedValue}`;
+
+  /** Never auto-written — accepting is the operator's own `PATCH`, made explicit through this button. */
+  const handleAcceptSuggestion = async (s: WirelessIdentitySuggestion) => {
+    const key = suggestionKey(s);
+    setAcceptingSuggestionKey(key);
+    const result = await apiService.updateDevice(
+      deviceId,
+      s.field === 'name' ? { name: s.suggestedValue } : { macAddress: s.suggestedValue }
+    );
+    setAcceptingSuggestionKey(null);
+    if (result.success && result.data) {
+      onDeviceUpdated(result.data);
+      fetchIdentitySuggestions();
+    } else {
+      showError(result.error || 'No se pudo aplicar la sugerencia');
+    }
+  };
+
+  const handleDismissSuggestion = (s: WirelessIdentitySuggestion) => {
+    setDismissedSuggestionKeys((prev) => new Set(prev).add(suggestionKey(s)));
+  };
+
+  const visibleSuggestions = identitySuggestions.filter((s) => !dismissedSuggestionKeys.has(suggestionKey(s)));
 
   const metrics = status?.metrics;
   const isAP = config?.deviceType === 'ACCESS_POINT' || category === 'ACCESS_POINT';
@@ -764,6 +887,20 @@ export function DeviceWirelessTab({
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.clientsProvisionedLimit}</dd>
                 </div>
               )}
+              {config.provisionedLanSpeedMbps !== null && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Velocidad LAN provisionada</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.provisionedLanSpeedMbps} Mbps</dd>
+                </div>
+              )}
+              {!isAP && config.parentApDeviceId && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">AP declarado</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {parentApName ?? config.parentApDeviceId}
+                  </dd>
+                </div>
+              )}
             </dl>
             </>
           ) : null}
@@ -835,6 +972,35 @@ export function DeviceWirelessTab({
                     fullWidth
                   />
                 )}
+                {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
+                  <div>
+                    <Select
+                      label="AP declarado"
+                      value={configForm.parentApDeviceId}
+                      onChange={(e) => setConfigForm((p) => ({ ...p, parentApDeviceId: e.target.value }))}
+                      options={apDevices.map((d) => ({ value: d.id, label: d.name }))}
+                      placeholder={apDevicesLoading ? 'Cargando...' : 'Sin declarar'}
+                      disabled={apDevicesLoading}
+                      fullWidth
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      El AP donde esta estación debería estar conectada. Alimenta la vista de
+                      &quot;Estaciones Esperadas&quot; en ese AP.
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <Input
+                    label="Velocidad LAN provisionada (Mbps)"
+                    type="number"
+                    value={configForm.provisionedLanSpeedMbps}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, provisionedLanSpeedMbps: e.target.value }))}
+                    fullWidth
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Normalmente no hace falta fijarla — se completa sola con el primer sondeo.
+                  </p>
+                </div>
               </div>
               <EditFormActions
                 onCancel={() => setShowConfigForm(false)}
@@ -849,6 +1015,69 @@ export function DeviceWirelessTab({
 
       {config && (
         <>
+          {/* Identity suggestions — a read-only diff between what AirOS last
+              reported about its own hostname/MAC and what's on file here.
+              Never auto-written; each row is its own accept/dismiss. */}
+          {!identitySuggestionsLoading && visibleSuggestions.length > 0 && (
+            <Card>
+              <Card.Header>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Sugerencias de Identidad
+                  <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                    ({visibleSuggestions.length})
+                  </span>
+                </h2>
+              </Card.Header>
+              <Card.Body>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  El último sondeo AirOS reportó estos valores distintos a los registrados en el inventario.
+                </p>
+                <div className="space-y-2">
+                  {visibleSuggestions.map((s) => {
+                    const key = suggestionKey(s);
+                    return (
+                      <div
+                        key={key}
+                        className="flex flex-wrap items-center justify-between gap-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3"
+                      >
+                        <div className="min-w-0 text-sm">
+                          <span className="font-medium text-gray-700 dark:text-gray-300">
+                            {s.field === 'name' ? 'Nombre' : 'Dirección MAC'}:
+                          </span>{' '}
+                          <span className="text-gray-500 dark:text-gray-400 line-through wrap-anywhere">
+                            {s.currentValue ?? '—'}
+                          </span>{' '}
+                          <span className="text-gray-400 dark:text-gray-500">→</span>{' '}
+                          <span className="text-gray-900 dark:text-gray-100 font-medium wrap-anywhere">
+                            {s.suggestedValue}
+                          </span>
+                        </div>
+                        {canWrite && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <IconButton
+                              icon={<CheckIcon />}
+                              label="Aplicar"
+                              variant="primary"
+                              onClick={() => handleAcceptSuggestion(s)}
+                              isLoading={acceptingSuggestionKey === key}
+                              disabled={acceptingSuggestionKey !== null}
+                            />
+                            <IconButton
+                              icon={<CloseIcon />}
+                              label="Descartar"
+                              onClick={() => handleDismissSuggestion(s)}
+                              disabled={acceptingSuggestionKey !== null}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card.Body>
+            </Card>
+          )}
+
           {/* Live throughput — pushed by the poller over SSE, so it moves on
               its own while the snapshot below stays where "Actualizar" left it. */}
           <WirelessThroughputCard deviceId={deviceId} intervalSecs={config.intervalSecs} />
@@ -1127,18 +1356,27 @@ export function DeviceWirelessTab({
             </Card.Body>
           </Card>
 
-          {/* Connected stations (AP only) */}
+          {/* Connected stations (AP only) — the raw live list, which already
+              covers both declared and undeclared clients: it's whatever the
+              AP's last poll actually saw. */}
           {isAP && status && (
             <Card>
               <Card.Header>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Estaciones Conectadas
-                  {status.clients.length > 0 && (
-                    <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-                      ({status.clients.length})
-                    </span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Estaciones Conectadas
+                    {status.clients.length > 0 && (
+                      <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                        ({status.clients.length})
+                      </span>
+                    )}
+                  </h2>
+                  {expectedClients && expectedClients.missingCount > 0 && (
+                    <Badge variant="danger">
+                      {expectedClients.missingCount} desconectada{expectedClients.missingCount === 1 ? '' : 's'}
+                    </Badge>
                   )}
-                </h2>
+                </div>
               </Card.Header>
               <Card.Body>
                 {status.clients.length === 0 ? (
@@ -1167,6 +1405,61 @@ export function DeviceWirelessTab({
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                       Clic en una fila para ver detalles del CPE remoto.
                     </p>
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* Disconnected stations (AP only) — declared via parentApDeviceId
+              on the STATION side, but missing from the live list above. Only
+              shown once at least one station declares this AP as its parent. */}
+          {isAP && expectedClients && expectedClients.expected.length > 0 && (
+            <Card>
+              <Card.Header>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Estaciones Desconectadas
+                    {expectedClients.missingCount > 0 && (
+                      <span className="ml-2 text-sm font-normal text-red-600 dark:text-red-400">
+                        ({expectedClients.missingCount})
+                      </span>
+                    )}
+                  </h2>
+                  <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchExpectedClients} disabled={expectedClientsLoading} />
+                </div>
+              </Card.Header>
+              <Card.Body>
+                {expectedClientsError ? (
+                  <p className="text-red-600 dark:text-red-400 text-sm">{expectedClientsError}</p>
+                ) : expectedClients.missingCount === 0 ? (
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Todas las estaciones que declaran este AP están conectadas.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[400px]">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400">
+                          <th className="pb-2 pr-3 font-medium">Estación</th>
+                          <th className="pb-2 font-medium">MAC</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {expectedClients.expected.filter((e) => !e.connected).map((e) => (
+                          <tr key={e.deviceId} className="border-b border-gray-100 dark:border-gray-700">
+                            <td className="py-2 pr-3">
+                              <Link href={`/devices/${e.deviceId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                                {e.deviceName}
+                              </Link>
+                            </td>
+                            <td className="py-2 font-mono text-xs text-gray-600 dark:text-gray-400">
+                              {e.macAddress ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </Card.Body>

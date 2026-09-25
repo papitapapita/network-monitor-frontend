@@ -403,6 +403,7 @@ export default function DeviceDetailPage() {
           deviceStatus={device.status}
           deviceDeletedAt={device.deletedAt}
           deviceReplacedAt={device.replacedAt}
+          onDeviceUpdated={setDevice}
         />
       )}
 
