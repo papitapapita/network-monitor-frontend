@@ -9,7 +9,7 @@ import {
   TICKET_STATUS_LABELS,
   TICKET_STATUS_RANK,
   TICKET_STATUS_VARIANTS,
-  formatScheduledFor,
+  formatSchedule,
   isAlertOrigin,
   ticketCategoryLabel,
 } from '@/constants/ticket.constants';
@@ -103,12 +103,13 @@ export function ticketColumnCatalog(
       label: 'Programado',
       header: 'Programado',
       // The raw 'YYYY-MM-DD' sorts chronologically as a string, which is the
-      // whole point of the format — no parsing needed.
-      sortValue: (t) => t.scheduledFor,
+      // whole point of the format — no parsing needed. 'HH:mm' appended sorts
+      // the same way within a day.
+      sortValue: (t) => (t.scheduledFor ? `${t.scheduledFor} ${t.startTime ?? ''}` : null),
       className: 'hidden sm:table-cell',
       cell: (t) => (
         <span className="text-gray-600 dark:text-gray-400 text-sm">
-          {formatScheduledFor(t.scheduledFor)}
+          {formatSchedule(t.scheduledFor, t.startTime, t.endTime)}
         </span>
       ),
     },

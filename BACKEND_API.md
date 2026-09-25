@@ -2822,7 +2822,14 @@ OPEN ──assign──▶ ASSIGNED ──start──▶ IN_PROGRESS ──resol
 
 `RESOLVED` and `CANCELLED` are terminal — **no field can change afterwards**, and every write endpoint returns `409` on a terminal ticket. Use `POST /:id/cancel` to close a ticket that should not be worked; `DELETE` is for tickets raised in error.
 
-**Scheduling is by calendar day, not by instant.** `scheduledFor` is always `'YYYY-MM-DD'` in both directions — sending an ISO datetime returns `400`. There are no time slots and no overlap detection.
+**Scheduling is a calendar day plus an optional time block.** `scheduledFor` is always `'YYYY-MM-DD'` in both directions — sending an ISO datetime returns `400`. A ticket may also carry a block on that day as `startTime` / `endTime`, each a wall-clock `'HH:mm'` (24-hour, zero-padded) in local business time — never a datetime, never UTC. Without a block the ticket is "any time that day", like an all-day calendar event.
+
+- `startTime` and `endTime` travel **together** — sending one without the other is `400`.
+- `endTime` must be later than `startTime`; blocks cannot cross midnight (`400`).
+- A block needs a day: `startTime`/`endTime` with no `scheduledFor` is `400`.
+- **Overlapping blocks for the same technician are allowed.** The backend does not detect double-booking — highlight it in the calendar if it matters.
+
+To place a block on a calendar, combine the fields client-side: `` `${scheduledFor}T${startTime}` `` in the business timezone (`America/Bogota`).
 
 ```ts
 interface TicketAddressDTO {
@@ -2874,6 +2881,8 @@ interface TicketDTO {
   technicianId: string | null;
   address: TicketAddressDTO | null;
   scheduledFor: string | null; // 'YYYY-MM-DD' — calendar day, never a datetime
+  startTime: string | null; // 'HH:mm' on scheduledFor; null = any time that day
+  endTime: string | null; // 'HH:mm'; null exactly when startTime is null
   origin: TicketOrigin;
   originAlertId: string | null; // the alert that raised this ticket; null when MANUAL
   resolutionNotes: string | null;
@@ -2925,7 +2934,7 @@ interface TicketDetailDTO extends TicketDTO {
 }
 ```
 
-**Ordering is the instruction, not a preference:** `URGENT → HIGH → NORMAL → LOW`, then oldest first within a priority. Render the list in the order given.
+**Ordering is the instruction, not a preference:** tickets with a time block come first, in `startTime` order — they are appointments with a customer. Tickets without a block follow, `URGENT → HIGH → NORMAL → LOW`, then oldest first within a priority. Render the list in the order given.
 
 **What is excluded:**
 
@@ -2965,6 +2974,8 @@ An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404
     longitude?: number | null      // -180..180
   } | null
   scheduledFor?: string | null     // 'YYYY-MM-DD'
+  startTime?: string | null        // 'HH:mm' — needs scheduledFor and endTime
+  endTime?: string | null          // 'HH:mm' — later than startTime
 }
 
 // Response
@@ -3016,6 +3027,8 @@ An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404
   }
 }
 ```
+
+Results are ordered by `scheduledFor` (unscheduled last), then `startTime` (tickets without a block after the blocked ones on the same day), then priority. A `scheduledFrom`/`scheduledTo` window is exactly what a calendar week or month view needs.
 
 > **Two filter pairs contradict, and one side wins silently — do not send both:**  
 > `unassignedOnly=true` overrides `technicianId` ("nobody" wins), and `openOnly=true` overrides `status`.  
@@ -3089,6 +3102,8 @@ An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404
 {
   technicianId: string     // required, UUID
   scheduledFor?: string | null   // 'YYYY-MM-DD' — set the visit day in the same call
+  startTime?: string | null      // 'HH:mm' — only together with scheduledFor and endTime
+  endTime?: string | null        // 'HH:mm'
 }
 
 // Response — TicketDTO with status 'ASSIGNED' and assignedAt set
@@ -3100,6 +3115,7 @@ An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404
 - Allowed from `OPEN` or `ASSIGNED`. **Reassignment is allowed until work starts** and re-stamps `assignedAt`.
 - 409 from `IN_PROGRESS` — someone is on site; swapping the technician mid-visit would lose who did what. Resolve or cancel first.
 - 409 if the technician is inactive; 404 if they do not exist.
+- With `scheduledFor`, the schedule is **replaced**: the new day plus the given block, or no block if the times are omitted. Without `scheduledFor`, the existing day and block are kept untouched.
 
 ---
 
@@ -3112,11 +3128,15 @@ An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404
 // Request body
 {
   scheduledFor: string | null   // required key; 'YYYY-MM-DD', or null to clear
+  startTime?: string | null     // 'HH:mm' — omit both for "any time that day"
+  endTime?: string | null       // 'HH:mm'
 }
 
 // Response
 { success: true, data: TicketDTO }
 ```
+
+> **The whole schedule is replaced on every call.** Moving a blocked ticket to another day without resending the times drops the block; `scheduledFor: null` clears the day and the block together. This is the endpoint to call on a calendar drag or resize.
 
 > **A past date is accepted on purpose** — work done off the books gets entered afterwards. 409 on a terminal ticket.
 

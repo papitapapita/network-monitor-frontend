@@ -243,6 +243,54 @@ export const formatCalendarDayLong = (day: string): string => {
   });
 };
 
+/**
+ * "25/9/2026 · 10:00–11:00", or just the day when the ticket has no time block.
+ * The times are wall-clock strings and are shown as given, never converted.
+ */
+export const formatSchedule = (
+  day: string | null | undefined,
+  startTime?: string | null,
+  endTime?: string | null
+): string => {
+  const date = formatScheduledFor(day);
+  return day && startTime && endTime ? `${date} · ${startTime}–${endTime}` : date;
+};
+
+// ============================================================
+// Time blocks
+// ============================================================
+//
+// `startTime`/`endTime` are 'HH:mm' in business time (America/Bogota), kept as
+// strings end to end. Arithmetic happens in minutes since midnight, which is
+// timezone-free — never through Date.
+
+/** 'HH:mm' → minutes since midnight. */
+export const timeToMinutes = (time: string): number => {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/** Minutes since midnight → zero-padded 'HH:mm'. */
+export const minutesToTime = (minutes: number): string =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+/**
+ * Why a start/end pair would be refused, or null when it is sendable. Both
+ * empty is fine — "any time that day". Mirrors TKT-078/079/080.
+ */
+export const timeBlockError = (
+  day: string,
+  startTime: string,
+  endTime: string
+): string | null => {
+  if (!startTime && !endTime) return null;
+  if (!startTime || !endTime) return 'Indica la hora de inicio y la de fin, o ninguna';
+  if (!day) return 'Una franja horaria necesita una fecha';
+  if (timeToMinutes(endTime) <= timeToMinutes(startTime))
+    return 'La hora de fin debe ser posterior a la de inicio';
+  return null;
+};
+
 /** The backend 400s on a reversed range, so the form catches it first. */
 export const isReversedDateRange = (from: string, to: string): boolean =>
   !!from && !!to && from > to;

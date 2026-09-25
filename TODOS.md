@@ -30,6 +30,11 @@ is for items the frontend can land on its own.
   - Customers: a "Tickets" card on `app/customers/[id]/page.tsx` alongside the contracted-services card, plus **Crear ticket** → `/tickets/create?customerId=<id>`
   - Both are read-only lists — the state machine stays on `/tickets/<id>`, where `TicketActions` lives
 
+- [ ] **Calendar's "Sin programar" panel reads every open ticket** — needs a backend filter for tickets with no day
+  - `app/calendario/page.tsx` (the `unscheduledKey` query) pages through `listTickets({ openOnly: true })` 100 at a time and keeps the ones with `scheduledFor === null`. The list endpoint has no "unscheduled" filter, and it orders unscheduled tickets *last* (`BACKEND_API.md`, `GET /api/tickets`), so every page has to be read to find them. It refetches every 60 s while the panel is open
+  - Fine at today's volume; it grows with the scheduled backlog, not with the panel's contents. Ask the backend for an `unscheduledOnly=true` query param (mirroring `unassignedOnly`), then replace the loop with one `limit: 100` request and drop the client-side filter
+  - Until then, hiding the panel (the `»` button) stops the fetch — the query is behind `enabled: panelOpen`
+
 - [ ] **Role gating has no e2e coverage** — every write in the app is gated on `user.role`, and nothing tests it
   - Not specific to tickets, but tickets made it visible: `canWrite` hides the whole action bar for a VIEWER, and that is now the main thing the page does
   - The harness logs in once as `E2E_EMAIL` (an ADMIN) in `e2e/auth.setup.ts` and every project reuses that `storageState`, so there is no way to exercise a VIEWER or OPERATOR path

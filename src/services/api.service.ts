@@ -124,6 +124,7 @@ import {
   CreateTicketDTO,
   UpdateTicketDTO,
   AssignTicketDTO,
+  TimeBlock,
   TechnicianDaySheetDTO,
 } from '../types/ticket.types';
 import {
@@ -1348,11 +1349,24 @@ class ApiService {
     return this.translateTicketError(result);
   }
 
-  /** `null` clears the visit day. A date in the past is accepted on purpose (TKT-075). */
-  async scheduleTicket(id: string, scheduledFor: string | null): Promise<ApiResponse<TicketDTO>> {
+  /**
+   * `null` clears the visit day. A date in the past is accepted on purpose (TKT-075).
+   *
+   * Replaces the whole schedule (TKT-081): moving a ticket to another day
+   * without passing `block` drops its time block, and clearing the day clears
+   * the block with it.
+   */
+  async scheduleTicket(
+    id: string,
+    scheduledFor: string | null,
+    block?: TimeBlock | null
+  ): Promise<ApiResponse<TicketDTO>> {
     const result = await this.request<TicketDTO>(`/tickets/${id}/schedule`, {
       method: 'POST',
-      body: JSON.stringify({ scheduledFor }),
+      body: JSON.stringify({
+        scheduledFor,
+        ...(scheduledFor && block ? { startTime: block.startTime, endTime: block.endTime } : {}),
+      }),
     });
     return this.translateTicketError(result);
   }

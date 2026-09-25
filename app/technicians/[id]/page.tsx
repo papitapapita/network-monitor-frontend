@@ -16,7 +16,7 @@ import {
   TICKET_PRIORITY_VARIANTS,
   TICKET_STATUS_LABELS,
   TICKET_STATUS_VARIANTS,
-  formatScheduledFor,
+  formatSchedule,
   todayISODate,
 } from '@/constants/ticket.constants';
 import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, Input, LoadingSpinner, Badge, ConfirmModal, TrashIcon } from '@/components/ui';
@@ -385,7 +385,7 @@ export default function TechnicianDetailPage() {
                   </div>
                   <p className="text-sm text-gray-900 dark:text-gray-100">{t.title}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Programado: {formatScheduledFor(t.scheduledFor)}
+                    Programado: {formatSchedule(t.scheduledFor, t.startTime, t.endTime)}
                   </p>
                 </button>
               ))}

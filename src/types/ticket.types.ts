@@ -80,6 +80,13 @@ export interface TicketDTO {
   address: TicketAddressDTO | null;
   /** 'YYYY-MM-DD' — a calendar day. Sending an ISO datetime is rejected. */
   scheduledFor: string | null;
+  /**
+   * 'HH:mm' wall-clock time on `scheduledFor`, in business time (America/Bogota)
+   * — never a datetime. Null means "any time that day", like an all-day event.
+   */
+  startTime: string | null;
+  /** 'HH:mm', later than `startTime`. Null exactly when `startTime` is null. */
+  endTime: string | null;
   origin: TicketOrigin;
   originAlertId: string | null;
   resolutionNotes: string | null;
@@ -127,6 +134,9 @@ export interface CreateTicketDTO {
   technicianId?: string | null;
   address?: TicketAddressInput | null;
   scheduledFor?: string | null;
+  /** 'HH:mm' — travels with `endTime` and needs `scheduledFor` (TKT-079/080). */
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
 /**
@@ -145,8 +155,19 @@ export interface UpdateTicketDTO {
 
 export interface AssignTicketDTO {
   technicianId: string;
-  /** Optional: set the visit day in the same call. */
+  /**
+   * Optional: set the visit day in the same call. Sending it *replaces* the
+   * schedule — the block below, or none (TKT-081). Omit it to keep both.
+   */
   scheduledFor?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+}
+
+/** A time block on a scheduled day: two 'HH:mm' values, end after start, same day (TKT-078). */
+export interface TimeBlock {
+  startTime: string;
+  endTime: string;
 }
 
 export interface ListTicketsQuery {
@@ -175,8 +196,9 @@ export interface TicketListResponse {
 }
 
 /**
- * A technician's tasks for one calendar day, already ordered
- * (URGENT → HIGH → NORMAL → LOW, then oldest first). Never paginated:
+ * A technician's tasks for one calendar day, already ordered: time-blocked
+ * tickets first by `startTime`, then URGENT → HIGH → NORMAL → LOW, oldest
+ * first (TKT-076). Never paginated:
  * `total` is always `tickets.length`.
  */
 export interface TechnicianDaySheetDTO {

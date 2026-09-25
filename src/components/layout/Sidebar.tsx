@@ -23,7 +23,24 @@ const icon = (d: string | string[]) => (
 const DEVICE_ICON =
   'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z';
 
-const NAV_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
+interface NavLink {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+/** A parent entry that only opens and closes; its children are the links. */
+interface NavGroup {
+  group: string;
+  label: string;
+  icon: React.ReactNode;
+  children: NavLink[];
+}
+
+const CALENDAR_ICON_PATH =
+  'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
+
+const NAV_ITEMS: (NavLink | NavGroup)[] = [
   {
     href: '/',
     label: 'Panel',
@@ -61,21 +78,31 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ReactNode }[] = [
       'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'
     ),
   },
-  // Work orders sit next to the alerts they are opened from, and the day sheet
-  // next to the tickets it draws on.
+  // Work orders sit next to the alerts they are opened from; the day sheet and
+  // the calendar are two views of the same tickets, so they share a group.
   {
-    href: '/tickets',
-    label: 'Tickets',
-    icon: icon(
-      'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z'
-    ),
-  },
-  {
-    href: '/jornada',
-    label: 'Jornada',
-    icon: icon(
-      'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
-    ),
+    group: 'agenda',
+    label: 'Agenda',
+    icon: icon(CALENDAR_ICON_PATH),
+    children: [
+      {
+        href: '/tickets',
+        label: 'Tickets',
+        icon: icon(
+          'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z'
+        ),
+      },
+      {
+        href: '/jornada',
+        label: 'Jornada',
+        icon: icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'),
+      },
+      {
+        href: '/calendario',
+        label: 'Calendario',
+        icon: icon([CALENDAR_ICON_PATH, 'M8 15h2m4 0h2']),
+      },
+    ],
   },
   {
     href: '/device-models',
@@ -137,6 +164,86 @@ const SETTINGS_ICON = icon([
   'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
   'M15 12a3 3 0 11-6 0 3 3 0 016 0z',
 ]);
+
+/**
+ * A collapsible group. The parent only toggles — it is not a page. In rail
+ * mode only its icon shows (lit when a child is the current page); hovering
+ * the rail expands the whole sidebar, which is where the children appear.
+ */
+function NavGroupItem({
+  group,
+  isActive,
+  onNavigate,
+  isRail,
+}: {
+  group: NavGroup;
+  isActive: (path: string) => boolean;
+  onNavigate?: () => void;
+  isRail: boolean;
+}) {
+  const containsActive = group.children.some((c) => isActive(c.href));
+  const [open, setOpen] = useState(containsActive);
+
+  // Arriving at one of its pages from elsewhere (a link, the back button)
+  // opens the group so the current page is visible in the menu.
+  const [wasActive, setWasActive] = useState(containsActive);
+  if (containsActive !== wasActive) {
+    setWasActive(containsActive);
+    if (containsActive) setOpen(true);
+  }
+
+  const highlighted = containsActive && (isRail || !open);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        title={isRail ? group.label : undefined}
+        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          isRail ? 'md:justify-center md:px-0' : ''
+        } ${
+          highlighted
+            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+        }`}
+      >
+        <span
+          className={`shrink-0 ${highlighted ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
+        >
+          {group.icon}
+        </span>
+        <span className={isRail ? 'md:sr-only' : 'whitespace-nowrap'}>{group.label}</span>
+        <svg
+          className={`ml-auto w-4 h-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90' : ''} ${
+            isRail ? 'md:hidden' : ''
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      {open && (
+        <div className={`mt-0.5 space-y-0.5 pl-4 ${isRail ? 'md:hidden' : ''}`}>
+          {group.children.map((item) => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              active={isActive(item.href)}
+              onClick={onNavigate}
+              collapsed={isRail}
+              icon={item.icon}
+              label={item.label}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -215,17 +322,27 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
 
       {/* Main nav — scrolls if items overflow */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-0.5">
-        {NAV_ITEMS.map((item) => (
-          <NavItem
-            key={item.href}
-            href={item.href}
-            active={isActive(item.href)}
-            onClick={onClose}
-            collapsed={isRail}
-            icon={item.icon}
-            label={item.label}
-          />
-        ))}
+        {NAV_ITEMS.map((item) =>
+          'group' in item ? (
+            <NavGroupItem
+              key={item.group}
+              group={item}
+              isActive={isActive}
+              onNavigate={onClose}
+              isRail={isRail}
+            />
+          ) : (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              active={isActive(item.href)}
+              onClick={onClose}
+              collapsed={isRail}
+              icon={item.icon}
+              label={item.label}
+            />
+          )
+        )}
       </nav>
 
       {/* Bottom: settings + user */}

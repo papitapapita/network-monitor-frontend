@@ -65,6 +65,11 @@ function DayTicketCard({
 
           <div className="flex-1 min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
+              {ticket.startTime && (
+                <span className="font-mono text-sm font-semibold text-blue-700 dark:text-blue-400">
+                  {ticket.startTime}–{ticket.endTime}
+                </span>
+              )}
               <span className="font-mono font-medium text-gray-900 dark:text-gray-100">
                 #{ticket.code}
               </span>
@@ -312,8 +317,9 @@ function JornadaPageContent() {
             </Card>
           ) : (
             /*
-             * The backend hands these back in dispatch order — URGENT → HIGH →
-             * NORMAL → LOW, oldest first within a priority. That ordering is the
+             * The backend hands these back in dispatch order — booked time blocks
+             * first, by start time; then URGENT → HIGH → NORMAL → LOW, oldest
+             * first within a priority (TKT-076). That ordering is the
              * instruction, not a default: render as given. Do not sort, do not
              * paginate, and do not offer a sort control. (This is also why the
              * sheet is a stack of cards and not a DataTable, which would ship

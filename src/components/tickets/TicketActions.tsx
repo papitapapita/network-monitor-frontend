@@ -12,6 +12,7 @@ import {
   canStart,
   isTerminal,
   terminalNotice,
+  timeBlockError,
 } from '@/constants/ticket.constants';
 import { Button, Input, Modal, Textarea, Combobox } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -56,6 +57,8 @@ export function TicketActions({
 
   const [technicianId, setTechnicianId] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const { showError } = useToast();
@@ -74,7 +77,11 @@ export function TicketActions({
       setTechnicianId(ticket.technicianId ?? '');
       setScheduledFor(ticket.scheduledFor ?? '');
     }
-    if (action === 'schedule') setScheduledFor(ticket.scheduledFor ?? '');
+    if (action === 'schedule') {
+      setScheduledFor(ticket.scheduledFor ?? '');
+      setStartTime(ticket.startTime ?? '');
+      setEndTime(ticket.endTime ?? '');
+    }
     if (action === 'resolve') setResolutionNotes('');
     if (action === 'cancel') setCancelReason('');
     setPending(action);
@@ -116,10 +123,13 @@ export function TicketActions({
       rejectField('Elige un técnico');
       return;
     }
+    // Sending a day replaces the whole schedule (TKT-081), so an unchanged day
+    // is left out — resending it would silently drop the ticket's time block.
+    const dayChanged = !!scheduledFor && scheduledFor !== ticket.scheduledFor;
     return run(() =>
       apiService.assignTicket(ticket.id, {
         technicianId,
-        ...(scheduledFor ? { scheduledFor } : {}),
+        ...(dayChanged ? { scheduledFor } : {}),
       })
     );
   };
@@ -129,9 +139,17 @@ export function TicketActions({
       rejectField('Elige una fecha, o usa «Quitar fecha»');
       return;
     }
-    // The value of an <input type="date"> is already 'YYYY-MM-DD'. Passing it
-    // through a Date would turn a calendar day into an instant and shift it.
-    return run(() => apiService.scheduleTicket(ticket.id, scheduledFor));
+    const blockError = timeBlockError(scheduledFor, startTime, endTime);
+    if (blockError) {
+      rejectField(blockError);
+      return;
+    }
+    // The value of an <input type="date"> is already 'YYYY-MM-DD', and of an
+    // <input type="time"> 'HH:mm'. Passing either through a Date would turn
+    // wall-clock values into an instant and shift them.
+    return run(() =>
+      apiService.scheduleTicket(ticket.id, scheduledFor, startTime ? { startTime, endTime } : null)
+    );
   };
 
   const submitResolve = () => {
@@ -233,6 +251,7 @@ export function TicketActions({
           />
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Asignar mueve el ticket a «Asignado». Se puede reasignar hasta que el trabajo empiece.
+            {ticket.startTime && ' Cambiar la fecha aquí quita la franja horaria; usa «Reprogramar» para conservarla.'}
           </p>
         </div>
         <Modal.Footer>
@@ -261,9 +280,25 @@ export function TicketActions({
             error={fieldError ?? undefined}
             fullWidth
           />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Desde (opcional)"
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              fullWidth
+            />
+            <Input
+              label="Hasta (opcional)"
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              fullWidth
+            />
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Se acepta una fecha pasada: sirve para registrar trabajo hecho fuera del sistema. No hay
-            franjas horarias, solo el día.
+            Sin horas, la visita queda para cualquier momento del día. Se acepta una fecha pasada:
+            sirve para registrar trabajo hecho fuera del sistema.
           </p>
         </div>
         <Modal.Footer>

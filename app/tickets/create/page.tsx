@@ -9,6 +9,7 @@ import { fetchAllCustomers, fetchAllDevices, fetchAllTechnicians } from '@/hooks
 import {
   TICKET_CATEGORY_OPTIONS,
   TICKET_PRIORITY_CREATE_OPTIONS,
+  timeBlockError,
 } from '@/constants/ticket.constants';
 import {
   AddressForm,
@@ -30,17 +31,19 @@ function CreateTicketPageContent() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { showError, showFormErrors } = useToast();
 
-  // Prefilled from the query string so the customer, device and alert pages can
-  // deep-link into a half-written ticket.
+  // Prefilled from the query string so the customer, device and alert pages —
+  // and the calendar's quick-create — can deep-link into a half-written ticket.
   const [formData, setFormData] = useState({
     title: searchParams.get('title') ?? '',
-    description: '',
-    category: '',
-    priority: '',
+    description: searchParams.get('description') ?? '',
+    category: searchParams.get('category') ?? '',
+    priority: searchParams.get('priority') ?? '',
     customerId: searchParams.get('customerId') ?? '',
     deviceId: searchParams.get('deviceId') ?? '',
-    technicianId: '',
-    scheduledFor: '',
+    technicianId: searchParams.get('technicianId') ?? '',
+    scheduledFor: searchParams.get('scheduledFor') ?? '',
+    startTime: searchParams.get('startTime') ?? '',
+    endTime: searchParams.get('endTime') ?? '',
   });
   const [address, setAddress] = useState<AddressForm>(emptyAddressForm());
   const { isGeocoding: isAddressGeocoding, onLocationPick } = useAddressGeocoding(setAddress);
@@ -123,6 +126,9 @@ function CreateTicketPageContent() {
       errors.deviceId = message;
     }
 
+    const blockError = timeBlockError(formData.scheduledFor, formData.startTime, formData.endTime);
+    if (blockError) errors.startTime = blockError;
+
     Object.assign(errors, validateAddress(address));
 
     setFormErrors(errors);
@@ -144,6 +150,11 @@ function CreateTicketPageContent() {
       ...(formData.technicianId ? { technicianId: formData.technicianId } : {}),
       // Straight from <input type="date">, which already yields 'YYYY-MM-DD'.
       ...(formData.scheduledFor ? { scheduledFor: formData.scheduledFor } : {}),
+      // 'HH:mm' straight from <input type="time">; validate() made sure the
+      // pair is whole and has a day.
+      ...(formData.scheduledFor && formData.startTime
+        ? { startTime: formData.startTime, endTime: formData.endTime }
+        : {}),
     };
     const addressDto = addressPayload(address);
     if (addressDto) dto.address = addressDto;
@@ -280,10 +291,33 @@ function CreateTicketPageContent() {
                 error={formErrors.scheduledFor}
                 fullWidth
               />
+              <Input
+                label="Desde"
+                name="startTime"
+                type="time"
+                value={formData.startTime}
+                onChange={(e) => {
+                  handleChange(e);
+                  clearError('startTime');
+                }}
+                error={formErrors.startTime}
+                fullWidth
+              />
+              <Input
+                label="Hasta"
+                name="endTime"
+                type="time"
+                value={formData.endTime}
+                onChange={(e) => {
+                  handleChange(e);
+                  clearError('startTime');
+                }}
+                fullWidth
+              />
             </div>
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
               Asignar un técnico ahora deja el ticket en «Asignado». Solo se ofrecen los técnicos
-              activos.
+              activos. Sin horas, la visita queda para cualquier momento del día.
             </p>
           </Card.Body>
         </Card>
