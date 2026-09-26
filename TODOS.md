@@ -97,6 +97,11 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
   - `GET /api/tickets` has no `search` parameter, and the list is server-paginated because tickets accumulate on their own. So the box narrows the current page and says so in its helper text
   - Blocked on a backend `search` over `code` and `title`. Until then, the rich filters are what actually reach the database
 
+- [ ] **Title-only tasks without a copied description** — the calendar's quick create should need nothing but a title
+  - `POST /api/tickets` still requires `description` (1–5000) and `category`. Today the frontend sends the title again as the description, and `OTHER` as the category, when the operator leaves them empty (quick create, full form and edit)
+  - Blocked on the backend making `description` optional (nullable). When it lands: stop copying, and drop the `description !== title` checks on `/jornada` and `/tickets/<id>` that hide the duplicate
+  - `category` can stay required — defaulting it to `OTHER` on the client is harmless
+
 ---
 
 ## Done

@@ -38,6 +38,13 @@ import {
   validateAddress,
 } from '@/components/tickets/TicketAddressFields';
 import {
+  ContactForm,
+  TicketContactFields,
+  contactFormFrom,
+  contactPayload,
+  validateContact,
+} from '@/components/tickets/TicketContactFields';
+import {
   Card,
   Button,
   EditIcon,
@@ -90,6 +97,7 @@ export default function TicketDetailPage() {
     deviceId: '',
   });
   const [address, setAddress] = useState<AddressForm>(addressFormFrom(null));
+  const [contact, setContact] = useState<ContactForm>(contactFormFrom(null));
   const { isGeocoding: isAddressGeocoding, onLocationPick } = useAddressGeocoding(setAddress);
 
   const { data: technicians = [] } = useQuery({
@@ -124,6 +132,7 @@ export default function TicketDetailPage() {
       setTicket(r.data);
       setForm(makeForm(r.data));
       setAddress(addressFormFrom(r.data.address));
+      setContact(contactFormFrom(r.data.contact));
     } else {
       setLoadError(r.error || 'Error al cargar el ticket');
     }
@@ -163,10 +172,6 @@ export default function TicketDetailPage() {
   const setField = (name: string, value: string) => {
     setForm((p) => ({ ...p, [name]: value }));
     if (formErrors[name]) clearError(name);
-    if (name === 'customerId' || name === 'deviceId') {
-      clearError('customerId');
-      clearError('deviceId');
-    }
   };
 
   const handleAddressChange = (field: keyof AddressForm, value: string) => {
@@ -174,21 +179,20 @@ export default function TicketDetailPage() {
     if (formErrors[field]) clearError(field);
   };
 
+  const handleContactChange = (field: keyof ContactForm, value: string) => {
+    setContact((p) => ({ ...p, [field]: value }));
+    clearError('contactName');
+    clearError('contactPhone');
+  };
+
   const handleSave = async () => {
     const errors: Record<string, string> = {};
     if (!form.title.trim()) errors.title = 'El asunto es requerido';
     else if (form.title.trim().length > 150)
       errors.title = 'El asunto no puede superar los 150 caracteres';
-    if (!form.description.trim()) errors.description = 'La descripción es requerida';
-
-    // The rule holds on the end state: a ticket can never end up naming neither.
-    if (!form.customerId && !form.deviceId) {
-      const message = 'Indica al menos un cliente o un dispositivo';
-      errors.customerId = message;
-      errors.deviceId = message;
-    }
 
     Object.assign(errors, validateAddress(address));
+    Object.assign(errors, validateContact(contact));
     setFormErrors(errors);
     if (showFormErrors(errors)) return;
 
@@ -196,12 +200,14 @@ export default function TicketDetailPage() {
     setSaveError(null);
     const dto: UpdateTicketDTO = {
       title: form.title.trim(),
-      description: form.description.trim(),
+      // Same as on create: an emptied description falls back to the title.
+      description: form.description.trim() || form.title.trim(),
       category: form.category as TicketCategory,
       priority: form.priority as TicketPriority,
       customerId: form.customerId || null,
       deviceId: form.deviceId || null,
       address: hasAddress(address) ? addressPayload(address) : null,
+      contact: contactPayload(contact),
     };
 
     const r = await apiService.updateTicket(ticketId, dto);
@@ -370,7 +376,7 @@ export default function TicketDetailPage() {
                 error={formErrors.description}
                 rows={5}
                 maxLength={5000}
-                required
+                helperText="Si la dejas vacía se usa el asunto."
                 fullWidth
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -410,6 +416,7 @@ export default function TicketDetailPage() {
                   fullWidth
                 />
               </div>
+              <TicketContactFields form={contact} errors={formErrors} onChange={handleContactChange} />
               <div>
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                   Dirección de la visita
@@ -425,9 +432,11 @@ export default function TicketDetailPage() {
             </div>
           ) : (
             <>
-              <p className="whitespace-pre-wrap text-gray-900 dark:text-gray-100 mb-6">
-                {ticket.description}
-              </p>
+              {ticket.description !== ticket.title && (
+                <p className="whitespace-pre-wrap text-gray-900 dark:text-gray-100 mb-6">
+                  {ticket.description}
+                </p>
+              )}
               <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 {[
                   { label: 'Código', value: `#${ticket.code}`, mono: true },
@@ -464,6 +473,7 @@ export default function TicketDetailPage() {
                 setIsEditing(false);
                 setForm(makeForm(ticket));
                 setAddress(addressFormFrom(ticket.address));
+                setContact(contactFormFrom(ticket.contact));
                 setFormErrors({});
                 setSaveError(null);
               }}
@@ -547,6 +557,22 @@ export default function TicketDetailPage() {
               </p>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400">Sin cliente asociado.</p>
+            )}
+            {ticket.contact && (
+              // A prospect's contact is kept even after a customer is linked,
+              // as the record of who was actually visited.
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-1 text-sm">
+                <p className="font-medium text-gray-500 dark:text-gray-400">Contacto en sitio</p>
+                <p className="text-gray-900 dark:text-gray-100">{ticket.contact.name}</p>
+                {ticket.contact.phone && (
+                  <a
+                    href={`tel:${ticket.contact.phone}`}
+                    className="block font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {ticket.contact.phone}
+                  </a>
+                )}
+              </div>
             )}
           </Card.Body>
         </Card>

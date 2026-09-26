@@ -1507,8 +1507,8 @@ class ApiService {
       case 'A reason is required to cancel a ticket':
         return say('El motivo de cancelación es obligatorio.', 'reason');
 
-      case 'A ticket must reference a customer or a device':
-        return say('Indica al menos un cliente o un dispositivo.', 'customerId');
+      case 'Contact name cannot be empty':
+        return say('El contacto necesita un nombre.', 'contactName');
       case 'An address requires a street, municipality, and neighborhood':
         return say('Una dirección necesita calle, municipio y barrio.', 'street');
       case 'Date must be a calendar date in YYYY-MM-DD format':
@@ -1526,6 +1526,9 @@ class ApiService {
     }
     if (/^Device not found: /.test(message)) {
       return say('No se encontró el dispositivo indicado.', 'deviceId');
+    }
+    if (/^Invalid contact phone/.test(message)) {
+      return say('El teléfono del contacto no es válido (7 a 15 dígitos).', 'contactPhone');
     }
 
     return result;

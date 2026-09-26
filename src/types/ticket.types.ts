@@ -16,6 +16,7 @@ export type TicketCategory =
   | 'HARDWARE_FAILURE'
   | 'MAINTENANCE'
   | 'RELOCATION'
+  | 'SITE_SURVEY'
   | 'OTHER';
 
 // MANUAL is filed by an operator; the other two are opened by the backend when
@@ -41,6 +42,15 @@ export interface TicketAddressDTO {
   reference: string | null; // e.g. "casa azul, portón negro"
   latitude: number | null;
   longitude: number | null;
+}
+
+/**
+ * Free-text person to ask for on site — typically a prospect with no customer
+ * record yet. A snapshot like the address: linking a customer later keeps it.
+ */
+export interface TicketContactDTO {
+  name: string;
+  phone: string | null; // digits only, leading '+' kept
 }
 
 export interface TicketCustomerContactDTO {
@@ -78,6 +88,7 @@ export interface TicketDTO {
   deviceId: string | null;
   technicianId: string | null;
   address: TicketAddressDTO | null;
+  contact: TicketContactDTO | null;
   /** 'YYYY-MM-DD' — a calendar day. Sending an ISO datetime is rejected. */
   scheduledFor: string | null;
   /**
@@ -123,6 +134,16 @@ export interface TicketAddressInput {
   longitude?: number | null;
 }
 
+/** A phone without a name is refused (400). */
+export interface TicketContactInput {
+  name: string;
+  phone?: string | null;
+}
+
+/**
+ * Customer, device and contact are all optional, in any combination — an
+ * internal errand has none of them.
+ */
 export interface CreateTicketDTO {
   title: string;
   description: string;
@@ -133,6 +154,7 @@ export interface CreateTicketDTO {
   /** Assigns on creation — the ticket comes back ASSIGNED. */
   technicianId?: string | null;
   address?: TicketAddressInput | null;
+  contact?: TicketContactInput | null;
   scheduledFor?: string | null;
   /** 'HH:mm' — travels with `endTime` and needs `scheduledFor` (TKT-079/080). */
   startTime?: string | null;
@@ -151,6 +173,7 @@ export interface UpdateTicketDTO {
   customerId?: string | null;
   deviceId?: string | null;
   address?: TicketAddressInput | null;
+  contact?: TicketContactInput | null;
 }
 
 export interface AssignTicketDTO {

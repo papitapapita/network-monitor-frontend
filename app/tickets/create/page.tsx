@@ -19,6 +19,12 @@ import {
   useAddressGeocoding,
   validateAddress,
 } from '@/components/tickets/TicketAddressFields';
+import {
+  ContactForm,
+  TicketContactFields,
+  contactPayload,
+  validateContact,
+} from '@/components/tickets/TicketContactFields';
 import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -38,7 +44,8 @@ function CreateTicketPageContent() {
   const [formData, setFormData] = useState({
     title: searchParams.get('title') ?? '',
     description: searchParams.get('description') ?? '',
-    category: searchParams.get('category') ?? '',
+    // Most tasks fit «Otro»; the operator changes it when it matters.
+    category: searchParams.get('category') ?? 'OTHER',
     priority: searchParams.get('priority') ?? '',
     customerId: searchParams.get('customerId') ?? '',
     deviceId: searchParams.get('deviceId') ?? '',
@@ -48,6 +55,10 @@ function CreateTicketPageContent() {
     endTime: searchParams.get('endTime') ?? '',
   });
   const [address, setAddress] = useState<AddressForm>(emptyAddressForm());
+  const [contact, setContact] = useState<ContactForm>({
+    contactName: searchParams.get('contactName') ?? '',
+    contactPhone: searchParams.get('contactPhone') ?? '',
+  });
   const { isGeocoding: isAddressGeocoding, onLocationPick } = useAddressGeocoding(setAddress);
 
   const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: fetchAllCustomers });
@@ -95,17 +106,17 @@ function CreateTicketPageContent() {
   const setField = (name: string, value: string) => {
     setFormData((p) => ({ ...p, [name]: value }));
     if (formErrors[name]) clearError(name);
-    // Naming either collaborator satisfies the "customer or device" rule, so
-    // clear the complaint from both fields at once.
-    if (name === 'customerId' || name === 'deviceId') {
-      clearError('customerId');
-      clearError('deviceId');
-    }
   };
 
   const handleAddressChange = (field: keyof AddressForm, value: string) => {
     setAddress((p) => ({ ...p, [field]: value }));
     if (formErrors[field]) clearError(field);
+  };
+
+  const handleContactChange = (field: keyof ContactForm, value: string) => {
+    setContact((p) => ({ ...p, [field]: value }));
+    clearError('contactName');
+    clearError('contactPhone');
   };
 
   const validate = () => {
@@ -114,24 +125,16 @@ function CreateTicketPageContent() {
     else if (formData.title.trim().length > 150)
       errors.title = 'El asunto no puede superar los 150 caracteres';
 
-    if (!formData.description.trim()) errors.description = 'La descripción es requerida';
-    else if (formData.description.trim().length > 5000)
+    if (formData.description.trim().length > 5000)
       errors.description = 'La descripción no puede superar los 5000 caracteres';
 
     if (!formData.category) errors.category = 'La categoría es requerida';
-
-    // A ticket has to name something to work on. An internal tower job has no
-    // customer; a phoned-in complaint may not name a device yet — but not both.
-    if (!formData.customerId && !formData.deviceId) {
-      const message = 'Indica al menos un cliente o un dispositivo';
-      errors.customerId = message;
-      errors.deviceId = message;
-    }
 
     const blockError = timeBlockError(formData.scheduledFor, formData.startTime, formData.endTime);
     if (blockError) errors.startTime = blockError;
 
     Object.assign(errors, validateAddress(address));
+    Object.assign(errors, validateContact(contact));
 
     setFormErrors(errors);
     return !showFormErrors(errors);
@@ -144,7 +147,9 @@ function CreateTicketPageContent() {
 
     const dto: CreateTicketDTO = {
       title: formData.title.trim(),
-      description: formData.description.trim(),
+      // The backend requires a description; a task that only has a title
+      // repeats it rather than making the operator type it twice.
+      description: formData.description.trim() || formData.title.trim(),
       category: formData.category as TicketCategory,
       ...(formData.priority ? { priority: formData.priority as TicketPriority } : {}),
       ...(formData.customerId ? { customerId: formData.customerId } : {}),
@@ -160,6 +165,8 @@ function CreateTicketPageContent() {
     };
     const addressDto = addressPayload(address);
     if (addressDto) dto.address = addressDto;
+    const contactDto = contactPayload(contact);
+    if (contactDto) dto.contact = contactDto;
 
     const result = await apiService.createTicket(dto);
     if (result.success && result.data) {
@@ -210,7 +217,7 @@ function CreateTicketPageContent() {
                   error={formErrors.description}
                   rows={5}
                   maxLength={5000}
-                  required
+                  helperText="Si la dejas vacía se usa el asunto."
                   fullWidth
                 />
               </div>
@@ -238,7 +245,10 @@ function CreateTicketPageContent() {
 
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">A quién afecta</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              A quién afecta{' '}
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(opcional)</span>
+            </h2>
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -261,9 +271,13 @@ function CreateTicketPageContent() {
                 fullWidth
               />
             </div>
+            <div className="mt-4">
+              <TicketContactFields form={contact} errors={formErrors} onChange={handleContactChange} />
+            </div>
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              Indica al menos uno. Un trabajo interno en torre no tiene cliente, y una queja
-              telefónica todavía no nombra un equipo.
+              Todo es opcional: una diligencia interna no nombra a nadie. Para un prospecto que aún
+              no es cliente, usa el contacto en sitio; cuando se afilie, vincula el cliente y el
+              contacto se conserva como registro de a quién se visitó.
             </p>
           </Card.Body>
         </Card>

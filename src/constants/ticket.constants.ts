@@ -120,6 +120,7 @@ const TICKET_CATEGORY_CORE: { value: TicketCategory; label: string }[] = [
   { value: 'HARDWARE_FAILURE', label: 'Falla de hardware' },
   { value: 'MAINTENANCE', label: 'Mantenimiento' },
   { value: 'RELOCATION', label: 'Reubicación' },
+  { value: 'SITE_SURVEY', label: 'Visita de factibilidad' },
   { value: 'OTHER', label: 'Otro' },
 ];
 

@@ -88,9 +88,12 @@ function DayTicketCard({
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 wrap-anywhere">
                 {ticket.title}
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 whitespace-pre-wrap">
-                {ticket.description}
-              </p>
+              {/* A quick-created task repeats its title as the description. */}
+              {ticket.description !== ticket.title && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 whitespace-pre-wrap">
+                  {ticket.description}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -107,8 +110,25 @@ function DayTicketCard({
                       {ticket.customer.phone}
                     </a>
                   </>
-                ) : (
+                ) : !ticket.contact ? (
                   <p className="text-gray-400 dark:text-gray-500">—</p>
+                ) : null}
+                {/* A prospect has no customer record — the contact is who to ask for. */}
+                {ticket.contact && (
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Contacto: {ticket.contact.name}
+                    {ticket.contact.phone && (
+                      <>
+                        {' · '}
+                        <a
+                          href={`tel:${ticket.contact.phone}`}
+                          className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {ticket.contact.phone}
+                        </a>
+                      </>
+                    )}
+                  </p>
                 )}
               </div>
 

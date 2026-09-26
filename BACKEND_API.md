@@ -160,6 +160,7 @@ type TicketCategory =
   | 'HARDWARE_FAILURE'
   | 'MAINTENANCE'
   | 'RELOCATION'
+  | 'SITE_SURVEY' // visit a prospect to check signal / line of sight before installing
   | 'OTHER';
 type TicketOrigin = 'MANUAL' | 'DEVICE_ALERT' | 'WIRELESS_ALERT';
 ```
@@ -3341,6 +3342,12 @@ interface TicketDeviceSummaryDTO {
   locationName: string | null;
 }
 
+// Free-text person to ask for on site — typically a prospect with no customer record
+interface TicketContactDTO {
+  name: string;
+  phone: string | null; // digits only, leading '+' kept
+}
+
 interface TechnicianSummaryDTO {
   id: string; // UUID
   fullName: string;
@@ -3361,6 +3368,7 @@ interface TicketDTO {
   deviceId: string | null;
   technicianId: string | null;
   address: TicketAddressDTO | null;
+  contact: TicketContactDTO | null;
   scheduledFor: string | null; // 'YYYY-MM-DD' — calendar day, never a datetime
   startTime: string | null; // 'HH:mm' on scheduledFor; null = any time that day
   endTime: string | null; // 'HH:mm'; null exactly when startTime is null
@@ -3454,6 +3462,10 @@ An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404
     latitude?: number | null       // -90..90, paired with longitude
     longitude?: number | null      // -180..180
   } | null
+  contact?: {                      // on-site contact, e.g. a prospect not yet a customer
+    name: string                   // required, 1–150 chars
+    phone?: string | null          // 7–15 digits; spaces, dashes, dots and parentheses are stripped
+  } | null
   scheduledFor?: string | null     // 'YYYY-MM-DD'
   startTime?: string | null        // 'HH:mm' — needs scheduledFor and endTime
   endTime?: string | null          // 'HH:mm' — later than startTime
@@ -3465,7 +3477,8 @@ An empty day returns `200` with `tickets: []` and `total: 0` — not `404`. `404
 
 **Business rules:**
 
-- **At least one of `customerId` / `deviceId` is required** — 400 otherwise. Either alone is fine: an internal tower job has no customer, and a phoned-in complaint may not name a device yet.
+- **`customerId`, `deviceId` and `contact` are all optional, in any combination — including none.** A ticket is any task on a technician's calendar: an internal errand needs none of them, a repair usually has a customer or a device, and a site survey for a prospect has only a `contact`.
+- **Prospects go in `contact`, not in customers.** It is a snapshot kept on the ticket. When the prospect signs up, link the new customer with `PUT /:id` — the contact stays as a record of who was visited. A contact phone with no name is refused (400).
 - The address is a **snapshot**, stored on the ticket and never re-resolved. A partial address is refused (400) — a street with no municipality is not navigable. There is no customer address anywhere else in the system, so this is the only place a visit location lives.
 - Passing `technicianId` assigns immediately: the ticket comes back `ASSIGNED` with `assignedAt` set. Assigning an **inactive** technician returns 409.
 - `createdBy` is taken from the JWT and **ignored if sent in the body**.
@@ -3546,6 +3559,7 @@ Results are ordered by `scheduledFor` (unscheduled last), then `startTime` (tick
   customerId?: string | null
   deviceId?: string | null
   address?: { … } | null   // same shape as create; null clears it
+  contact?: { … } | null   // same shape as create; null clears it
 }
 
 // Response
@@ -3555,7 +3569,6 @@ Results are ordered by `scheduledFor` (unscheduled last), then `startTime` (tick
 **Business rules:**
 
 - 409 on a `RESOLVED` or `CANCELLED` ticket — terminal tickets are history.
-- Cannot drop **both** `customerId` and `deviceId` (400).
 - Does not change status, technician or schedule — use the action endpoints below.
 
 ---

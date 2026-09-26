@@ -15,6 +15,11 @@ import {
 } from '@/constants/ticket.constants';
 import { Button, Combobox, Input, Modal, Select, Textarea } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import {
+  TicketContactFields,
+  contactPayload,
+  validateContact,
+} from '@/components/tickets/TicketContactFields';
 
 /** What the operator clicked or dragged out on the calendar. */
 export interface CalendarSlot {
@@ -36,7 +41,8 @@ interface QuickCreateModalProps {
 const emptyForm = (slot: CalendarSlot | null, technicianId: string) => ({
   title: '',
   description: '',
-  category: '',
+  // Required by the backend, so a title-only task goes in as «Otro».
+  category: 'OTHER',
   priority: 'NORMAL',
   customerId: '',
   deviceId: '',
@@ -44,12 +50,14 @@ const emptyForm = (slot: CalendarSlot | null, technicianId: string) => ({
   scheduledFor: slot?.day ?? '',
   startTime: slot?.startTime ?? '',
   endTime: slot?.endTime ?? '',
+  contactName: '',
+  contactPhone: '',
 });
 
 /**
- * The calendar's Google-style quick create: only what the backend requires,
- * plus who and when. Everything else — the visit address above all — is behind
- * «Más opciones», which carries what was typed so far to the full form.
+ * The calendar's Google-style quick create: a title is enough. Who and when
+ * are in view; the rest waits behind «Más detalles», and the visit address
+ * behind «Más opciones», which carries what was typed to the full form.
  */
 export function QuickCreateModal({
   slot,
@@ -62,6 +70,7 @@ export function QuickCreateModal({
   const [form, setForm] = useState(() => emptyForm(slot, defaultTechnicianId));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const { showError, showFormErrors, showSuccess } = useToast();
 
   // Every newly selected slot starts a fresh ticket.
@@ -69,21 +78,22 @@ export function QuickCreateModal({
     if (slot) {
       setForm(emptyForm(slot, defaultTechnicianId));
       setErrors({});
+      setShowDetails(false);
     }
     // The technician default is read at the moment the slot opens, not tracked.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot]);
 
-  // Loaded only once someone actually opens the form.
+  // Loaded only once someone actually asks for the details.
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
     queryFn: fetchAllCustomers,
-    enabled: isOpen,
+    enabled: isOpen && showDetails,
   });
   const { data: devices = [] } = useQuery({
     queryKey: ['devicesCatalog'],
     queryFn: fetchAllDevices,
-    enabled: isOpen,
+    enabled: isOpen && showDetails,
   });
 
   const customerOptions = useMemo(
@@ -105,9 +115,9 @@ export function QuickCreateModal({
     setErrors((p) => {
       const n = { ...p };
       delete n[name];
-      if (name === 'customerId' || name === 'deviceId') {
-        delete n.customerId;
-        delete n.deviceId;
+      if (name === 'contactName' || name === 'contactPhone') {
+        delete n.contactName;
+        delete n.contactPhone;
       }
       if (name === 'startTime' || name === 'endTime' || name === 'scheduledFor') delete n.startTime;
       return n;
@@ -117,15 +127,12 @@ export function QuickCreateModal({
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.title.trim()) e.title = 'El asunto es requerido';
-    if (!form.description.trim()) e.description = 'La descripción es requerida';
-    if (!form.category) e.category = 'La categoría es requerida';
-    if (!form.customerId && !form.deviceId) {
-      e.customerId = 'Indica al menos un cliente o un dispositivo';
-      e.deviceId = e.customerId;
-    }
     if (!form.scheduledFor) e.scheduledFor = 'La fecha es requerida';
     const blockError = timeBlockError(form.scheduledFor, form.startTime, form.endTime);
     if (blockError) e.startTime = blockError;
+    Object.assign(e, validateContact(form));
+    // A problem in a collapsed field would otherwise be invisible.
+    if (e.contactName || e.contactPhone) setShowDetails(true);
     setErrors(e);
     return !showFormErrors(e);
   };
@@ -133,10 +140,12 @@ export function QuickCreateModal({
   const submit = async () => {
     if (isSubmitting || !validate()) return;
     setIsSubmitting(true);
+    const contact = contactPayload(form);
     const dto: CreateTicketDTO = {
       title: form.title.trim(),
-      description: form.description.trim(),
-      category: form.category as TicketCategory,
+      // The backend requires a description; a title-only task repeats it.
+      description: form.description.trim() || form.title.trim(),
+      category: (form.category || 'OTHER') as TicketCategory,
       priority: form.priority as TicketPriority,
       ...(form.customerId ? { customerId: form.customerId } : {}),
       ...(form.deviceId ? { deviceId: form.deviceId } : {}),
@@ -144,6 +153,7 @@ export function QuickCreateModal({
       ...(form.technicianId ? { technicianId: form.technicianId } : {}),
       scheduledFor: form.scheduledFor,
       ...(form.startTime ? { startTime: form.startTime, endTime: form.endTime } : {}),
+      ...(contact ? { contact } : {}),
     };
     const result = await apiService.createTicket(dto);
     setIsSubmitting(false);
@@ -152,7 +162,10 @@ export function QuickCreateModal({
       onCreated(form.technicianId);
     } else {
       const message = result.error || 'Error al crear el ticket';
-      if (result.errorField) setErrors((p) => ({ ...p, [result.errorField!]: message }));
+      if (result.errorField) {
+        setErrors((p) => ({ ...p, [result.errorField!]: message }));
+        setShowDetails(true);
+      }
       showError(message);
     }
   };
@@ -219,46 +232,6 @@ export function QuickCreateModal({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Select
-            label="Categoría"
-            value={form.category}
-            onChange={(e) => setField('category', e.target.value)}
-            error={errors.category}
-            options={TICKET_CATEGORY_OPTIONS}
-            required
-            fullWidth
-          />
-          <Select
-            label="Prioridad"
-            value={form.priority}
-            onChange={(e) => setField('priority', e.target.value)}
-            options={TICKET_PRIORITY_OPTIONS}
-            fullWidth
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Combobox
-            label="Cliente"
-            options={customerOptions}
-            value={form.customerId}
-            onChange={(v) => setField('customerId', v)}
-            error={errors.customerId}
-            placeholder="Buscar cliente..."
-            fullWidth
-          />
-          <Combobox
-            label="Dispositivo"
-            options={deviceOptions}
-            value={form.deviceId}
-            onChange={(v) => setField('deviceId', v)}
-            error={errors.deviceId}
-            placeholder="Buscar dispositivo..."
-            fullWidth
-          />
-        </div>
-
         <Combobox
           label="Técnico"
           options={technicianOptions}
@@ -268,17 +241,79 @@ export function QuickCreateModal({
           fullWidth
         />
 
-        <Textarea
-          label="Descripción"
-          name="description"
-          value={form.description}
-          onChange={(e) => setField('description', e.target.value)}
-          error={errors.description}
-          rows={3}
-          maxLength={5000}
-          required
-          fullWidth
-        />
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          aria-expanded={showDetails}
+          className="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+        >
+          <svg
+            className={`w-4 h-4 transition-transform ${showDetails ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Más detalles
+        </button>
+
+        {showDetails && (
+          <div className="space-y-4">
+            <Textarea
+              label="Descripción"
+              name="description"
+              value={form.description}
+              onChange={(e) => setField('description', e.target.value)}
+              error={errors.description}
+              rows={3}
+              maxLength={5000}
+              helperText="Si la dejas vacía se usa el asunto."
+              fullWidth
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Categoría"
+                value={form.category}
+                onChange={(e) => setField('category', e.target.value)}
+                error={errors.category}
+                options={TICKET_CATEGORY_OPTIONS.filter((o) => o.value)}
+                fullWidth
+              />
+              <Select
+                label="Prioridad"
+                value={form.priority}
+                onChange={(e) => setField('priority', e.target.value)}
+                options={TICKET_PRIORITY_OPTIONS}
+                fullWidth
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Combobox
+                label="Cliente"
+                options={customerOptions}
+                value={form.customerId}
+                onChange={(v) => setField('customerId', v)}
+                error={errors.customerId}
+                placeholder="Buscar cliente..."
+                fullWidth
+              />
+              <Combobox
+                label="Dispositivo"
+                options={deviceOptions}
+                value={form.deviceId}
+                onChange={(v) => setField('deviceId', v)}
+                error={errors.deviceId}
+                placeholder="Buscar dispositivo..."
+                fullWidth
+              />
+            </div>
+
+            <TicketContactFields form={form} errors={errors} onChange={setField} />
+          </div>
+        )}
       </div>
       <Modal.Footer className="justify-between">
         <Link
