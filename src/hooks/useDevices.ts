@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData, QueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   DeviceResponseDTO,
@@ -10,6 +10,7 @@ import {
 import { PollingStatus } from '@/types/polling.types';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useUrlState } from '@/hooks/useUrlState';
+import { fetchPollingStatuses, invalidatePollingStatuses } from '@/hooks/pollingStatusQuery';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -21,25 +22,17 @@ function toSortBy(field: string): ListDevicesQuery['sortBy'] {
 }
 
 async function buildPollingStatusMap(
+  queryClient: QueryClient,
   devices: DeviceResponseDTO[]
-): Promise<Record<string, PollingStatus>> {
-  const monitored = devices.filter((d) => d.monitoringEnabled);
-  if (monitored.length === 0) return {};
-
-  const results = await Promise.all(
-    monitored.map((d) => apiService.getPollingStatus(d.id))
-  );
-
+): Promise<{ map: Record<string, PollingStatus>; failed: number }> {
+  const { byId, unpolled, failed } = await fetchPollingStatuses(queryClient, devices);
   const map: Record<string, PollingStatus> = {};
-  monitored.forEach((d, i) => {
-    if (results[i].success && results[i].data) {
-      map[d.id] = results[i].data!.currentStatus;
-    }
-  });
-  return map;
+  for (const [id, status] of Object.entries(byId)) map[id] = status.currentStatus;
+  for (const id of unpolled) map[id] = 'UNKNOWN';
+  return { map, failed };
 }
 
-async function fetchDevicesData(params: {
+async function fetchDevicesData(queryClient: QueryClient, params: {
   currentPage: number;
   limit: number;
   statusFilter: string;
@@ -68,7 +61,14 @@ async function fetchDevicesData(params: {
     }
 
     const allDevices = allResult.data.devices;
-    const statusMap = await buildPollingStatusMap(allDevices);
+    const { map: statusMap, failed } = await buildPollingStatusMap(queryClient, allDevices);
+    // A device whose reading could not be fetched would silently fall out of
+    // the filter below, so a rate-limited run would read as "no devices match".
+    if (failed > 0) {
+      throw new Error(
+        `No se pudo consultar la conectividad de ${failed} dispositivo${failed === 1 ? '' : 's'} (posible límite de solicitudes). Intente de nuevo en un minuto.`
+      );
+    }
 
     let filtered = allDevices.filter((d) => statusMap[d.id] === connectivityFilter);
     if (statusFilter) filtered = filtered.filter((d) => d.status === (statusFilter as DeviceStatus));
@@ -115,7 +115,7 @@ async function fetchDevicesData(params: {
   const pageDevices = result.data.devices;
   return {
     devices: pageDevices,
-    pollingStatuses: await buildPollingStatusMap(pageDevices),
+    pollingStatuses: (await buildPollingStatusMap(queryClient, pageDevices)).map,
     total: result.data.total,
     totalPages: Math.max(1, Math.ceil(result.data.total / limit)),
   };
@@ -130,6 +130,7 @@ async function fetchDevicesData(params: {
  */
 export function useDevices() {
   const { get, getNumber, set } = useUrlState();
+  const queryClient = useQueryClient();
 
   const currentPage = getNumber('page', 1);
   const limit = getNumber('limit', 20);
@@ -156,7 +157,7 @@ export function useDevices() {
 
   const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = useQuery({
     queryKey,
-    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch, sortField, sortDirection }),
+    queryFn: () => fetchDevicesData(queryClient, { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch, sortField, sortDirection }),
     placeholderData: keepPreviousData,
   });
 
@@ -222,7 +223,11 @@ export function useDevices() {
     setCurrentPage,
     handleSort,
     clearFilters,
-    fetchDevices: refetch,
+    // An explicit refresh should show current readings, not the cached ones.
+    fetchDevices: async () => {
+      await invalidatePollingStatuses(queryClient);
+      return refetch();
+    },
     limit,
     setLimit,
     PAGE_SIZE_OPTIONS,
