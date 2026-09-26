@@ -1,125 +1,139 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { DeviceStatus } from '@/types/device.types';
-import { AlertDTO } from '@/types/alert.types';
+import { fetchPollingStatuses, invalidatePollingStatuses } from '@/hooks/pollingStatusQuery';
+import { useFleetThroughput } from '@/hooks/useWirelessThroughput';
 
-const ALL_STATUSES: DeviceStatus[] = [
-  'ACTIVE',
-  'COMMISSIONING',
-  'INVENTORY',
-  'DAMAGED',
-  'DECOMMISSIONED',
-];
+/** Every panel refreshes on this cadence; the throughput stream is live on its own. */
+const REFRESH_MS = 60_000;
 
-interface RecentDevice {
-  id: string;
-  name: string;
-  status: DeviceStatus;
-  ipAddress: string | null;
+/** Session-long samples of fleet traffic — about 20 min at one sample per 10 s. */
+const THROUGHPUT_HISTORY_POINTS = 120;
+const THROUGHPUT_SAMPLE_MS = 10_000;
+
+export interface ThroughputPoint {
+  t: number;
+  bps: number;
 }
 
-interface ConnectivityStats {
-  total: number;
-  online: number;
-  offline: number;
-  unknown: number;
+function unwrap<T>(result: { success: boolean; data?: T; error?: string }, fallback: string): T {
+  if (!result.success || !result.data) throw new Error(result.error || fallback);
+  return result.data;
 }
 
-export interface DashboardStats {
-  total: number;
-  byStatus: { status: DeviceStatus; count: number }[];
-  recent: RecentDevice[];
-  connectivity: ConnectivityStats;
+/**
+ * The dashboard's reads. Each is its own query so a slow or failing one only
+ * blanks its own panels — the old page waited on all of them and showed an
+ * error for everything when any one failed.
+ */
+export function useDashboardData() {
+  const queryClient = useQueryClient();
+
+  const devicesQuery = useQuery({
+    queryKey: ['dashboard', 'devices'],
+    queryFn: async () => unwrap(await apiService.listDevices({ limit: 300 }), 'Error al cargar dispositivos'),
+    refetchInterval: REFRESH_MS,
+  });
+
+  const devices = useMemo(() => devicesQuery.data?.devices ?? [], [devicesQuery.data]);
+  const monitoredIds = devices.filter((d) => d.monitoringEnabled).map((d) => d.id).join(',');
+
+  const statusQuery = useQuery({
+    queryKey: ['dashboard', 'pollingStatuses', monitoredIds],
+    queryFn: () => fetchPollingStatuses(queryClient, devices),
+    enabled: devicesQuery.isSuccess,
+    refetchInterval: REFRESH_MS,
+  });
+
+  const alertsQuery = useQuery({
+    queryKey: ['dashboard', 'alerts'],
+    // Newest first; 300 covers the 14-day window on any normal fortnight.
+    queryFn: async () => unwrap(await apiService.listAlerts({ limit: 300 }), 'Error al cargar alertas'),
+    refetchInterval: REFRESH_MS,
+  });
+
+  const ticketsQuery = useQuery({
+    queryKey: ['dashboard', 'tickets'],
+    queryFn: async () =>
+      unwrap(await apiService.listTickets({ openOnly: true, limit: 100 }), 'Error al cargar tickets'),
+    refetchInterval: REFRESH_MS,
+  });
+
+  const locationsQuery = useQuery({
+    queryKey: ['dashboard', 'locations'],
+    queryFn: async () => unwrap(await apiService.listLocations({ limit: 100 }), 'Error al cargar ubicaciones'),
+    staleTime: 5 * 60_000,
+  });
+
+  const locationNames = useMemo(
+    () => Object.fromEntries((locationsQuery.data?.locations ?? []).map((l) => [l.id, l.name])),
+    [locationsQuery.data]
+  );
+
+  const fleet = useFleetThroughput();
+  const throughputHistory = useThroughputHistory(fleet.entries);
+
+  const refresh = async () => {
+    await invalidatePollingStatuses(queryClient);
+    await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  };
+
+  const updatedAt = Math.max(
+    devicesQuery.dataUpdatedAt,
+    alertsQuery.dataUpdatedAt,
+    ticketsQuery.dataUpdatedAt,
+    statusQuery.dataUpdatedAt
+  );
+
+  return {
+    devicesQuery,
+    devices,
+    statusQuery,
+    statuses: statusQuery.data?.byId ?? {},
+    alertsQuery,
+    alerts: alertsQuery.data?.alerts ?? [],
+    ticketsQuery,
+    tickets: ticketsQuery.data?.tickets ?? [],
+    locationNames,
+    fleet,
+    throughputHistory,
+    refresh,
+    isRefreshing:
+      devicesQuery.isFetching || statusQuery.isFetching || alertsQuery.isFetching || ticketsQuery.isFetching,
+    lastRefreshed: updatedAt > 0 ? new Date(updatedAt) : null,
+  };
 }
 
-interface UseDashboardDataResult {
-  stats: DashboardStats | null;
-  alerts: AlertDTO[];
-  deviceNames: Record<string, string>;
-  isLoading: boolean;
-  error: string | null;
-}
-
-export function useDashboardData(): UseDashboardDataResult {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [alerts, setAlerts] = useState<AlertDTO[]>([]);
-  const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+/**
+ * Fleet traffic over the time the dashboard has been open. The stream only
+ * pushes current readings, so the history is built here — sampled on a fixed
+ * tick so a burst of frames from many radios does not crowd the line.
+ *
+ * Station traffic also crosses its AP, so when any AP reports, only APs are
+ * summed; otherwise the stations are all there is.
+ */
+function useThroughputHistory(entries: ReturnType<typeof useFleetThroughput>['entries']) {
+  const [history, setHistory] = useState<ThroughputPoint[]>([]);
+  const entriesRef = useRef(entries);
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   useEffect(() => {
-    async function load() {
-      setIsLoading(true);
-      setError(null);
-
-      const [recentResult, ...statusResults] = await Promise.all([
-        apiService.listDevices({ limit: 6 }),
-        ...ALL_STATUSES.map((s) => apiService.listDevices({ limit: 1, status: s })),
-      ]);
-
-      if (!recentResult.success || !recentResult.data) {
-        setError(recentResult.error || 'Error al cargar el panel');
-        setIsLoading(false);
-        return;
-      }
-
-      const monResult = await apiService.listDevices({ monitoringEnabled: true, limit: 200 });
-      const connectivity: ConnectivityStats = { total: 0, online: 0, offline: 0, unknown: 0 };
-
-      if (monResult.success && monResult.data) {
-        const monDevices = monResult.data.devices;
-        connectivity.total = monDevices.length;
-
-        const pollingResults = await Promise.all(
-          monDevices.map((d) => apiService.getPollingStatus(d.id))
-        );
-
-        pollingResults.forEach((r) => {
-          if (r.success && r.data) {
-            if (r.data.currentStatus === 'ONLINE') connectivity.online++;
-            else if (r.data.currentStatus === 'OFFLINE') connectivity.offline++;
-            else connectivity.unknown++;
-          } else {
-            connectivity.unknown++;
-          }
-        });
-      }
-
-      setStats({
-        total: recentResult.data.total,
-        byStatus: ALL_STATUSES.map((status, i) => ({
-          status,
-          count: statusResults[i].success ? (statusResults[i].data?.total ?? 0) : 0,
-        })),
-        recent: recentResult.data.devices.map((d) => ({
-          id: d.id,
-          name: d.name,
-          status: d.status,
-          ipAddress: d.ipAddress,
-        })),
-        connectivity,
-      });
-
-      const alertsResult = await apiService.listAlerts({ limit: 5 });
-      if (alertsResult.success && alertsResult.data) {
-        const openAlerts = alertsResult.data.alerts.filter((a) => a.status === 'OPEN').slice(0, 5);
-        setAlerts(openAlerts);
-
-        const uniqueIds = [...new Set(openAlerts.map((a) => a.deviceId))];
-        const nameEntries = await Promise.all(
-          uniqueIds.map(async (id) => {
-            const res = await apiService.getDevice(id);
-            return [id, res.success && res.data ? res.data.name : id] as [string, string];
-          })
-        );
-        setDeviceNames(Object.fromEntries(nameEntries));
-      }
-
-      setIsLoading(false);
-    }
-
-    load();
+    const sample = () => {
+      const readings = [...entriesRef.current.values()].map((e) => e.reading).filter((r) => !r.stale);
+      if (readings.length === 0) return;
+      const aps = readings.filter((r) => r.deviceType === 'ACCESS_POINT');
+      const bps = (aps.length > 0 ? aps : readings).reduce((sum, r) => sum + (r.throughputTotalBps ?? 0), 0);
+      setHistory((prev) => [...prev, { t: Date.now(), bps }].slice(-THROUGHPUT_HISTORY_POINTS));
+    };
+    const first = setTimeout(sample, 1_500);
+    const timer = setInterval(sample, THROUGHPUT_SAMPLE_MS);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
   }, []);
 
-  return { stats, alerts, deviceNames, isLoading, error };
+  return history;
 }

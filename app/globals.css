@@ -134,3 +134,29 @@ input[type='week'] {
 .dark input[type='week'] {
   color-scheme: dark;
 }
+
+/*
+ * Chart tokens (dashboard). Status colors are fixed across themes and always
+ * ship beside a label; the series and chrome steps are re-picked for dark.
+ */
+:root {
+  --viz-good: #0ca30c;
+  --viz-warning: #fab219;
+  --viz-critical: #d03b3b;
+  --viz-unknown: #898781;
+  --viz-idle: #d1d5db; /* gray-300 — "not measured" */
+  --viz-series: #2a78d6;
+  --viz-series-2: #1baf7a;
+  --viz-grid: #eef0f2;
+  --viz-axis: #d1d5db;
+  --viz-surface: #ffffff;
+}
+
+.dark {
+  --viz-idle: #4b5563; /* gray-600 */
+  --viz-series: #3987e5;
+  --viz-series-2: #199e70;
+  --viz-grid: #2d3748;
+  --viz-axis: #4b5563;
+  --viz-surface: #1f2937; /* gray-800, the card */
+}
