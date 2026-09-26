@@ -1318,6 +1318,28 @@ class MockApiService {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
 
+  // ── Collection accounts ────────────────────────────────────
+  // Same as quotations — no mocked catalog of one-off charges.
+
+  async createCollectionAccount() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async listCollectionAccounts() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getCollectionAccount() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async payCollectionAccount() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async cancelCollectionAccount() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async downloadCollectionAccountPdf() {
+    return { success: false as const, error: 'No disponible en modo mock' };
+  }
+
   // ── Tickets & technicians ──────────────────────────────────
   // A ticket is a state machine with terminal states, and half-simulating it
   // here would teach the UI rules the backend does not actually have. Mock mode

@@ -121,6 +121,12 @@ import {
   RejectQuotationDTO,
 } from '../types/quotation.types';
 import {
+  CollectionAccountDTO,
+  CollectionAccountListResponse,
+  ListCollectionAccountsQuery,
+  CreateCollectionAccountDTO,
+} from '../types/collection-account.types';
+import {
   TicketDTO,
   TicketDetailDTO,
   TicketListResponse,
@@ -1316,6 +1322,59 @@ class ApiService {
       const headers: Record<string, string> = {};
       if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
       const response = await fetch(`${this.baseUrl}/quotations/${id}/pdf`, { headers });
+      if (!response.ok) {
+        let error = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const data = await response.json();
+          error = data.error || data.message || error;
+        } catch {
+          /* non-JSON error body */
+        }
+        return { success: false, error };
+      }
+      const blob = await response.blob();
+      return { success: true, data: blob };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
+  }
+
+  // ==================== Collection accounts ====================
+
+  async createCollectionAccount(data: CreateCollectionAccountDTO): Promise<ApiResponse<CollectionAccountDTO>> {
+    return this.request<CollectionAccountDTO>('/collection-accounts', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async listCollectionAccounts(
+    query?: ListCollectionAccountsQuery
+  ): Promise<ApiResponse<CollectionAccountListResponse>> {
+    const qs = this.buildQuery({
+      customerId: query?.customerId,
+      status: query?.status,
+      limit: query?.limit,
+      offset: query?.offset,
+    });
+    return this.request<CollectionAccountListResponse>(`/collection-accounts${qs}`);
+  }
+
+  async getCollectionAccount(id: string): Promise<ApiResponse<CollectionAccountDTO>> {
+    return this.request<CollectionAccountDTO>(`/collection-accounts/${id}`);
+  }
+
+  async payCollectionAccount(id: string): Promise<ApiResponse<CollectionAccountDTO>> {
+    return this.request<CollectionAccountDTO>(`/collection-accounts/${id}/pay`, { method: 'POST' });
+  }
+
+  async cancelCollectionAccount(id: string): Promise<ApiResponse<CollectionAccountDTO>> {
+    return this.request<CollectionAccountDTO>(`/collection-accounts/${id}/cancel`, { method: 'POST' });
+  }
+
+  // Binary PDF like the quotation's — raw fetch → blob with the Bearer token.
+  async downloadCollectionAccountPdf(id: string): Promise<ApiResponse<Blob>> {
+    try {
+      const headers: Record<string, string> = {};
+      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+      const response = await fetch(`${this.baseUrl}/collection-accounts/${id}/pdf`, { headers });
       if (!response.ok) {
         let error = `HTTP ${response.status}: ${response.statusText}`;
         try {

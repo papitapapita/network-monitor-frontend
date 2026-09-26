@@ -155,6 +155,13 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
     ),
   },
   {
+    href: '/collection-accounts',
+    label: 'Cuentas de Cobro',
+    icon: icon(
+      'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'
+    ),
+  },
+  {
     href: '/network-scan',
     label: 'Escaneo',
     icon: icon('M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z'),
