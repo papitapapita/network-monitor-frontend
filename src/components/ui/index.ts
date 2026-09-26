@@ -63,6 +63,7 @@ export { SectionTitle } from './SectionTitle';
 export { IconButton } from './IconButton';
 
 export { EditFormActions } from './EditFormActions';
+export { EditToggleButton } from './EditToggleButton';
 export { submitOnEnter, submitOnEnterCancelOnEscape, isCancelEscape } from './enterToSubmit';
 
 export { BackLink } from './BackLink';

@@ -5,12 +5,13 @@ import { apiService } from '@/services/api.service';
 import { DeviceNotificationPolicyDTO } from '@/types/notification-policy.types';
 import {
   Card,
-  Button,
   Input,
   Badge,
   LoadingSpinner,
   ConfirmModal,
-  submitOnEnter,
+  IconButton,
+  EditToggleButton,
+  EditFormActions,
   SectionTitle,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -22,6 +23,14 @@ import {
 
 interface Props {
   deviceId: string;
+}
+
+function ResetIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 010 10H9m-6-10l4-4m-4 4l4 4" />
+    </svg>
+  );
 }
 
 interface FormState {
@@ -51,6 +60,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -97,11 +107,18 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
     if (result.success && result.data) {
       setPolicy(result.data);
       setForm(toForm(result.data));
+      setIsEditing(false);
       showSuccess('Política de notificaciones guardada.');
     } else {
       const message = result.error || 'Error al guardar la política de notificaciones';
       showError(message);
     }
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setErrors({});
+    if (policy) setForm(toForm(policy));
   };
 
   const handleReset = async () => {
@@ -139,9 +156,23 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
             <SectionTitle info="Silencia las notificaciones de caída, recuperación y alertas inalámbricas de este dispositivo durante el horario indicado: las alertas se siguen registrando normalmente, solo se posponen los avisos. Deja ambos campos vacíos para que notifique siempre. Un horario que cruza medianoche (p. ej. 22:00–07:00) es válido.">
               Política de Notificaciones
             </SectionTitle>
-            <Badge variant={alwaysNotifies ? 'success' : 'info'}>
-              {alwaysNotifies ? 'Siempre notifica' : 'Horario de silencio activo'}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={alwaysNotifies ? 'success' : 'info'}>
+                {alwaysNotifies ? 'Siempre notifica' : 'Horario de silencio activo'}
+              </Badge>
+              {!loading && !loadError && (
+                <>
+                  <EditToggleButton isEditing={isEditing} onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
+                  {hasCustomPolicy && !isEditing && (
+                    <IconButton
+                      icon={<ResetIcon />}
+                      label="Restablecer a valores por defecto"
+                      onClick={() => setShowResetModal(true)}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </Card.Header>
         <Card.Body>
@@ -151,8 +182,8 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
             </div>
           ) : loadError ? (
             <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
-          ) : (
-            <div onKeyDown={submitOnEnter(handleSave, saving)}>
+          ) : isEditing ? (
+            <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                   label="Inicio del silencio"
@@ -193,26 +224,39 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
                   fullWidth
                 />
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                <Button onClick={handleSave} isLoading={saving}>
-                  Guardar Política
-                </Button>
-                {hasCustomPolicy && (
-                  <Button variant="outline" onClick={() => setShowResetModal(true)} disabled={saving}>
-                    Restablecer a Valores por Defecto
-                  </Button>
-                )}
+            </>
+          ) : (
+            <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Inicio del silencio</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{policy?.quietHoursStart ?? '—'}</dd>
               </div>
-
-              {policy?.updatedAt && (
-                <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  Última actualización: {new Date(policy.updatedAt).toLocaleString('es')}
-                </p>
-              )}
-            </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Fin del silencio</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{policy?.quietHoursEnd ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Retraso de alerta de caída</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                  {policy?.alertDelayMinutes != null
+                    ? `${policy.alertDelayMinutes} min`
+                    : `${DEFAULT_ALERT_DELAY_MINUTES} min (por defecto)`}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Última actualización</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                  {policy?.updatedAt ? new Date(policy.updatedAt).toLocaleString('es') : '—'}
+                </dd>
+              </div>
+            </dl>
           )}
         </Card.Body>
+        {isEditing && (
+          <Card.Footer>
+            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={saving} hideCancel />
+          </Card.Footer>
+        )}
       </Card>
     </div>
   );

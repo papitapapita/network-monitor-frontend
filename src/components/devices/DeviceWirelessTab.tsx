@@ -14,7 +14,7 @@ import {
   WirelessIdentitySuggestion,
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
-import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, SectionTitle } from '@/components/ui';
+import { Card, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 import {
@@ -35,18 +35,6 @@ import {
   COLLECTION_METHOD_LABELS,
 } from '@/constants/wireless.constants';
 import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
-
-function EditIcon() {
-  return (
-    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-      />
-    </svg>
-  );
-}
 
 function CloseIcon() {
   return (
@@ -834,14 +822,18 @@ export function DeviceWirelessTab({
             >
               Configuración Inalámbrica
             </SectionTitle>
-            {!noConfig && config && (
+            {!configLoading && !configError && (noConfig || config) && (
               <div className="flex gap-2">
-                <IconButton
-                  icon={showConfigForm ? <CloseIcon /> : <EditIcon />}
-                  label={showConfigForm ? 'Cancelar' : 'Editar'}
-                  onClick={() => { setShowConfigForm((v) => !v); setConfigSaveSuccess(false); setConfigSaveError(null); }}
+                <EditToggleButton
+                  isEditing={showConfigForm}
+                  onEdit={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
+                  onCancel={() => setShowConfigForm(false)}
+                  editLabel={noConfig ? 'Crear configuración' : 'Editar'}
+                  disabled={noConfig && !showConfigForm && hasCollectorCreds !== true}
                 />
-                <IconButton icon={<TrashIcon />} label="Eliminar configuración" variant="danger" onClick={handleDeleteConfig} />
+                {!noConfig && !showConfigForm && (
+                  <IconButton icon={<TrashIcon />} label="Eliminar configuración" variant="danger" onClick={handleDeleteConfig} />
+                )}
               </div>
             )}
           </div>
@@ -867,15 +859,6 @@ export function DeviceWirelessTab({
               </p>
               {credentialsBlockedReason && (
                 <p className="mb-4 text-xs text-amber-700 dark:text-amber-400">{credentialsBlockedReason}</p>
-              )}
-              {!showConfigForm && (
-                <Button
-                  size="sm"
-                  onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
-                  disabled={hasCollectorCreds !== true}
-                >
-                  Crear Configuración
-                </Button>
               )}
             </div>
           ) : config && !showConfigForm ? (
@@ -945,7 +928,7 @@ export function DeviceWirelessTab({
           ) : null}
 
           {showConfigForm && (
-            <div className="mt-4 space-y-4">
+            <div className="space-y-4">
               {configSaveError && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 text-sm text-red-800 dark:text-red-400">
                   {configSaveError}
@@ -1037,15 +1020,20 @@ export function DeviceWirelessTab({
                   fullWidth
                 />
               </div>
-              <EditFormActions
-                onCancel={() => setShowConfigForm(false)}
-                onSave={handleSaveConfig}
-                isSaving={configSaving}
-                saveLabel={noConfig ? 'Crear Configuración' : 'Guardar Cambios'}
-              />
             </div>
           )}
         </Card.Body>
+        {showConfigForm && (
+          <Card.Footer>
+            <EditFormActions
+              onCancel={() => setShowConfigForm(false)}
+              onSave={handleSaveConfig}
+              isSaving={configSaving}
+              hideCancel
+              saveLabel={noConfig ? 'Crear configuración' : 'Guardar Cambios'}
+            />
+          </Card.Footer>
+        )}
       </Card>
 
       {config && (

@@ -320,9 +320,9 @@ test.describe('device credentials', () => {
     await expect(page.getByText('e2e-doomed')).toBeVisible();
 
     await page.getByTestId('credentials-delete').click();
-    // This confirmation is inline, not a modal dialog.
-    await expect(page.getByText(/¿Eliminar las credenciales/)).toBeVisible();
-    await page.getByTestId('credentials-delete-confirm').click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText(/¿Eliminar las credenciales/)).toBeVisible();
+    await dialog.getByRole('button', { name: 'Eliminar', exact: true }).click();
 
     await expect(page.getByText('e2e-doomed')).toHaveCount(0);
     await expect(page.getByTestId('credentials-edit')).toHaveText('Configurar');

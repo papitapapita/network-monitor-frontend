@@ -14,15 +14,14 @@ import {
 import { LocationResponseDTO } from '@/types/location.types';
 import {
   Card,
-  EditIcon,
   Input,
   Textarea,
   Select,
   Combobox,
   Switch,
   Badge,
-  IconButton,
   EditFormActions,
+  EditToggleButton,
   getDeviceStatusBadgeVariant,
   FieldLabel,
 } from '@/components/ui';
@@ -260,7 +259,10 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       {isEditing ? (
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Dispositivo</h2>
+            <div className="flex justify-between items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Dispositivo</h2>
+              <EditToggleButton isEditing onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
+            </div>
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -435,7 +437,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
             </div>
           </Card.Body>
           <Card.Footer>
-            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} />
+            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} hideCancel />
           </Card.Footer>
         </Card>
       ) : (
@@ -443,7 +445,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
             <Card.Header>
               <div className="flex justify-between items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Dispositivo</h2>
-                <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
+                <EditToggleButton isEditing={false} onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
               </div>
             </Card.Header>
             <Card.Body>

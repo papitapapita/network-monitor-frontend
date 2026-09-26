@@ -17,7 +17,8 @@ import {
   ConfirmModal,
   IconButton,
   getPollingStatusBadgeVariant,
-  submitOnEnter,
+  EditFormActions,
+  EditToggleButton,
   SectionTitle,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -54,27 +55,6 @@ function PollIcon() {
   return (
     <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
 }
@@ -433,11 +413,11 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                   />
                 </>
               )}
-              <IconButton
-                icon={showConfig ? <CloseIcon /> : <SettingsIcon />}
-                label={showConfig ? 'Cerrar configuración' : 'Configuración de sondeo'}
-                onClick={() => setShowConfig((v) => !v)}
-                aria-pressed={showConfig}
+              <EditToggleButton
+                isEditing={showConfig}
+                onEdit={() => setShowConfig(true)}
+                onCancel={() => setShowConfig(false)}
+                editLabel="Editar configuración"
               />
             </div>
           </div>
@@ -480,41 +460,34 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                   )}
                 </>
               ) : (
-                <div onKeyDown={submitOnEnter(handleSaveConfig, configSaving || !hasIp)}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Intervalo (segundos)"
-                      type="number"
-                      min={POLLING_INTERVAL_MIN_SECONDS}
-                      max={INTERVAL_MAX_SECONDS}
-                      value={configForm.intervalSeconds}
-                      onChange={(e) => {
-                        setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
-                        setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
-                      }}
-                      error={configErrors.intervalSeconds}
-                      fullWidth
-                    />
-                    <Input
-                      label="Fallos Antes de Caída"
-                      type="number"
-                      min={FAILURES_BEFORE_DOWN_MIN}
-                      max={FAILURES_BEFORE_DOWN_MAX}
-                      value={configForm.failuresBeforeDown}
-                      onChange={(e) => {
-                        setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }));
-                        setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
-                      }}
-                      error={configErrors.failuresBeforeDown}
-                      info="Aplica a los sondeos programados. «Sondear ahora» hace como máximo 3 intentos."
-                      fullWidth
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <Button onClick={handleSaveConfig} isLoading={configSaving} disabled={!hasIp}>
-                      Guardar Configuración
-                    </Button>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Intervalo (segundos)"
+                    type="number"
+                    min={POLLING_INTERVAL_MIN_SECONDS}
+                    max={INTERVAL_MAX_SECONDS}
+                    value={configForm.intervalSeconds}
+                    onChange={(e) => {
+                      setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
+                      setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
+                    }}
+                    error={configErrors.intervalSeconds}
+                    fullWidth
+                  />
+                  <Input
+                    label="Fallos Antes de Caída"
+                    type="number"
+                    min={FAILURES_BEFORE_DOWN_MIN}
+                    max={FAILURES_BEFORE_DOWN_MAX}
+                    value={configForm.failuresBeforeDown}
+                    onChange={(e) => {
+                      setConfigForm((p) => ({ ...p, failuresBeforeDown: e.target.value }));
+                      setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
+                    }}
+                    error={configErrors.failuresBeforeDown}
+                    info="Aplica a los sondeos programados. «Sondear ahora» hace como máximo 3 intentos."
+                    fullWidth
+                  />
                 </div>
               )}
             </>
@@ -626,6 +599,17 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
             <p className="text-gray-500 dark:text-gray-400 text-sm">Sin estado de sondeo disponible.</p>
           )}
         </Card.Body>
+        {showConfig && !monitoringOff && (
+          <Card.Footer>
+            <EditFormActions
+              onCancel={() => setShowConfig(false)}
+              onSave={handleSaveConfig}
+              isSaving={configSaving}
+              saveDisabled={!hasIp}
+              hideCancel
+            />
+          </Card.Footer>
+        )}
       </Card>
 
       {/* History */}

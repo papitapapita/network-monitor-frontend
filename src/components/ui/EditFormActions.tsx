@@ -11,6 +11,8 @@ interface EditFormActionsProps {
   onSave: () => void;
   isSaving?: boolean;
   saveDisabled?: boolean;
+  /** For forms whose header already carries a close button; Escape still cancels. */
+  hideCancel?: boolean;
   cancelLabel?: string;
   saveLabel?: string;
   size?: ButtonSize;
@@ -27,6 +29,7 @@ export function EditFormActions({
   onSave,
   isSaving = false,
   saveDisabled = false,
+  hideCancel = false,
   cancelLabel = 'Cancelar',
   saveLabel = 'Guardar Cambios',
   size = 'md',
@@ -58,7 +61,9 @@ export function EditFormActions({
 
   return (
     <div ref={ref} className="flex justify-end gap-2">
-      <IconButton icon={<XIcon />} label={cancelLabel} variant="danger" size={size} onClick={onCancel} disabled={isSaving} />
+      {!hideCancel && (
+        <IconButton icon={<XIcon />} label={cancelLabel} variant="danger" size={size} onClick={onCancel} disabled={isSaving} />
+      )}
       <IconButton icon={<CheckIcon />} label={saveLabel} variant="primary" size={size} onClick={onSave} isLoading={isSaving} disabled={saveDisabled} />
     </div>
   );
