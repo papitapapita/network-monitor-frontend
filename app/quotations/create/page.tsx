@@ -17,6 +17,7 @@ import {
   PlusIcon,
   TrashIcon,
   BackLink,
+  SectionTitle,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -176,7 +177,9 @@ export default function CreateQuotationPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cliente</h2>
+            <SectionTitle info="Sin cliente existente, indica al menos el nombre del prospecto. La dirección siempre se toma de lo escrito aquí, aun con un cliente vinculado: el cliente no guarda dirección.">
+              Cliente
+            </SectionTitle>
           </Card.Header>
           <Card.Body className="space-y-4">
             <Combobox
@@ -188,10 +191,6 @@ export default function CreateQuotationPage() {
               fullWidth
             />
             {formErrors.customer && <p className="text-sm text-red-600 dark:text-red-400">{formErrors.customer}</p>}
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Sin cliente existente, indica al menos el nombre del prospecto. La dirección siempre se
-              toma de lo escrito aquí, aun con un cliente vinculado — el cliente no guarda dirección.
-            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Nombre"

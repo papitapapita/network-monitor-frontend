@@ -268,7 +268,7 @@ export function QuickCreateModal({
               error={errors.description}
               rows={3}
               maxLength={5000}
-              helperText="Si la dejas vacía se usa el asunto."
+              info="Si la dejas vacía se usa el asunto."
               fullWidth
             />
 

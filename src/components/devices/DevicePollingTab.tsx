@@ -18,6 +18,7 @@ import {
   IconButton,
   getPollingStatusBadgeVariant,
   submitOnEnter,
+  SectionTitle,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
@@ -397,9 +398,20 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       <Card>
         <Card.Header>
           <div className="flex flex-wrap justify-between items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {/* Pausing ICMP stops nothing else: the radio keeps being read on
+                its own schedule, so an operator who thinks they have stopped
+                all polling has not. */}
+            <SectionTitle
+              info={
+                showConfig
+                  ? 'Con el monitoreo habilitado, el dispositivo se sondea periódicamente con el intervalo indicado aquí.'
+                  : isWirelessCategory(device.category)
+                    ? `${WIRELESS_INDEPENDENT_OF_ICMP_NOTE} Para detenerlo, deshabilítalo en la pestaña «Inalámbrico».`
+                    : undefined
+              }
+            >
               {showConfig ? 'Configuración de Sondeo' : 'Estado del Sondeo'}
-            </h2>
+            </SectionTitle>
             <div className="flex gap-2">
               {!monitoringOff && !showConfig && (
                 <>
@@ -445,8 +457,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 <>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     El monitoreo está deshabilitado, así que no hay configuración de sondeo que
-                    ajustar. Al habilitarlo se sondea el dispositivo periódicamente y podrá
-                    afinar el intervalo aquí mismo.
+                    ajustar.
                   </p>
                   <div className="mt-4">
                     <Button
@@ -488,7 +499,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                         setConfigErrors((p) => { const n = { ...p }; delete n.failuresBeforeDown; return n; });
                       }}
                       error={configErrors.failuresBeforeDown}
-                      helperText="Aplica a los sondeos programados. «Sondear ahora» hace como máximo 3 intentos."
+                      info="Aplica a los sondeos programados. «Sondear ahora» hace como máximo 3 intentos."
                       fullWidth
                     />
                   </div>
@@ -512,14 +523,6 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 Este dispositivo no tiene el monitoreo habilitado, por lo que no se está sondeando.
                 Habilítelo en «Configuración de Sondeo» para conocer su conectividad.
               </p>
-              {/* Pausing here stops ICMP and nothing else: the radio keeps being
-                  read on its own schedule, so an operator who thinks they have
-                  stopped all polling has not. */}
-              {isWirelessCategory(device.category) && (
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  {WIRELESS_INDEPENDENT_OF_ICMP_NOTE} Para detenerlo, deshabilítalo en la pestaña «Inalámbrico».
-                </p>
-              )}
               {/* No schedule and no interval to show — only what the last poll, if
                   any, left behind. */}
               <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-4">

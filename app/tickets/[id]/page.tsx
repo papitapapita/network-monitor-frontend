@@ -31,6 +31,7 @@ import { TicketActions } from '@/components/tickets/TicketActions';
 import {
   AddressForm,
   TicketAddressFields,
+  TICKET_ADDRESS_SNAPSHOT_NOTE,
   addressFormFrom,
   addressPayload,
   hasAddress,
@@ -59,6 +60,7 @@ import {
   Badge,
   ConfirmModal,
   TrashIcon,
+  SectionTitle,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -376,7 +378,7 @@ export default function TicketDetailPage() {
                 error={formErrors.description}
                 rows={5}
                 maxLength={5000}
-                helperText="Si la dejas vacía se usa el asunto."
+                info="Si la dejas vacía se usa el asunto."
                 fullWidth
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -418,9 +420,11 @@ export default function TicketDetailPage() {
               </div>
               <TicketContactFields form={contact} errors={formErrors} onChange={handleContactChange} />
               <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Dirección de la visita
-                </h3>
+                <div className="mb-3">
+                  <SectionTitle as="h3" className="text-sm font-medium text-gray-700 dark:text-gray-300" info={TICKET_ADDRESS_SNAPSHOT_NOTE}>
+                    Dirección de la visita
+                  </SectionTitle>
+                </div>
                 <TicketAddressFields
                   form={address}
                   errors={formErrors}

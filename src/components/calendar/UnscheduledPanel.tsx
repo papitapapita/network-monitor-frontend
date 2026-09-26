@@ -6,7 +6,7 @@ import {
   TICKET_PRIORITY_LABELS,
   TICKET_PRIORITY_VARIANTS,
 } from '@/constants/ticket.constants';
-import { Badge, LoadingSpinner } from '@/components/ui';
+import { Badge, LoadingSpinner, SectionTitle } from '@/components/ui';
 import type { TechnicianColor } from './calendarUtils';
 
 interface UnscheduledPanelProps {
@@ -39,12 +39,16 @@ export function UnscheduledPanel({
   return (
     <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-4 max-h-[calc(100vh-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Sin programar</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {canWrite ? 'Arrastra un ticket al calendario' : 'Tickets abiertos sin fecha'}
-          </p>
-        </div>
+        <SectionTitle
+          className="text-sm font-semibold text-gray-900 dark:text-gray-100"
+          info={
+            canWrite
+              ? 'Tickets abiertos sin fecha. Arrastra uno al calendario para programarlo.'
+              : 'Tickets abiertos sin fecha.'
+          }
+        >
+          Sin programar
+        </SectionTitle>
         <button
           type="button"
           onClick={onHide}

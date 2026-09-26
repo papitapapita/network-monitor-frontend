@@ -349,7 +349,17 @@ function GenerateBillModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Generar Factura">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Generar Factura"
+      info={
+        <>
+          Se incluye una línea por cada servicio contratado <strong>activo</strong> del cliente. Por
+          defecto vence 15 días después de la emisión.
+        </>
+      }
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-800 dark:text-red-400">
@@ -376,9 +386,6 @@ function GenerateBillModal({
           onChange={(e) => setDueDate(e.target.value)}
           fullWidth
         />
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Se incluye una línea por cada servicio contratado <strong>activo</strong> del cliente. Por defecto vence 15 días después de la emisión.
-        </p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
           <Button type="submit" isLoading={isSubmitting}>Generar</Button>
@@ -428,7 +435,19 @@ function GenerateBulkModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Generación Masiva" size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Generación Masiva"
+      info={
+        <>
+          Genera una factura para <strong>cada cliente</strong> con al menos un servicio contratado
+          activo. Los clientes que ya tienen factura del periodo se omiten. Esta operación está
+          limitada a 5 ejecuciones por hora.
+        </>
+      }
+      size="lg"
+    >
       {result ? (
         <div className="space-y-4">
           <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -481,9 +500,6 @@ function GenerateBulkModal({
               {error}
             </div>
           )}
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Genera una factura para <strong>cada cliente</strong> con al menos un servicio contratado activo. Los clientes que ya tienen factura del periodo se omiten.
-          </p>
           <div className="grid grid-cols-2 gap-3">
             <Select label="Año" value={year} onChange={(e) => setYear(e.target.value)} options={YEAR_OPTIONS} fullWidth />
             <Select label="Mes" value={month} onChange={(e) => setMonth(e.target.value)} options={MONTH_OPTIONS} fullWidth />
@@ -495,9 +511,6 @@ function GenerateBulkModal({
             onChange={(e) => setDueDate(e.target.value)}
             fullWidth
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Esta operación está limitada a 5 ejecuciones por hora.
-          </p>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>Cancelar</Button>
             <Button type="submit" isLoading={isSubmitting}>Generar Facturas</Button>

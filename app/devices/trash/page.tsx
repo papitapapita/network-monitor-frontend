@@ -213,6 +213,7 @@ function DeviceTrashPageContent() {
 
       <PageHeader
         title="Papelera de dispositivos"
+        info={`Un dispositivo eliminado se conserva ${RESTORE_GRACE_DAYS} días con todo su historial de mediciones, alertas y credenciales. Pasado ese plazo se borra de forma permanente, y su historial se va con él. Su dirección IP y su MAC, en cambio, se liberaron al eliminarlo.`}
         subtitle={
           total > 0
             ? `${total} ${total === 1 ? 'dispositivo eliminado' : 'dispositivos eliminados'}`
@@ -231,12 +232,6 @@ function DeviceTrashPageContent() {
           />
         }
       />
-
-      <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-        Un dispositivo eliminado se conserva {RESTORE_GRACE_DAYS} días con todo su historial de
-        mediciones, alertas y credenciales. Pasado ese plazo se borra de forma permanente, y su
-        historial se va con él. Su dirección IP y su MAC, en cambio, se liberaron al eliminarlo.
-      </p>
 
       <ConfirmModal
         isOpen={!!purgeTarget}

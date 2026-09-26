@@ -32,6 +32,7 @@ import {
   EditIcon,
   PlusIcon,
   TrashIcon,
+  SectionTitle,
 } from '@/components/ui';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
@@ -465,18 +466,14 @@ export default function QuotationDetailPage() {
 
       {customer && (
         <Card>
-          <Card.Header>
+          <Card.Header className="border-b-0 pb-0 mb-0">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cliente Vinculado</h2>
+              <SectionTitle info="Los datos mostrados arriba son una copia tomada al crear la cotización: no se actualizan si el registro del cliente cambia después.">
+                Cliente Vinculado
+              </SectionTitle>
               <Button size="sm" variant="outline" onClick={() => router.push(`/customers/${customer.id}`)}>Ver Cliente</Button>
             </div>
           </Card.Header>
-          <Card.Body>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Los datos mostrados arriba son una copia tomada al crear la cotización — no se
-              actualizan si el registro del cliente cambia después.
-            </p>
-          </Card.Body>
         </Card>
       )}
 
@@ -484,12 +481,12 @@ export default function QuotationDetailPage() {
       <Card>
         <Card.Header>
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <SectionTitle info="Vendedor, modelo e imagen quedan fijados al agregar cada artículo: cambios posteriores en el catálogo no afectan lo ya cotizado.">
               Artículos
               <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
                 ({quotation.lineItems.length})
               </span>
-            </h2>
+            </SectionTitle>
             {editable && !isEditingItems && (
               <IconButton icon={<EditIcon />} label="Editar artículos" size="sm" onClick={startEditItems} />
             )}
@@ -575,10 +572,6 @@ export default function QuotationDetailPage() {
             </div>
           ) : (
             <>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                Vendedor, modelo e imagen quedan fijados al agregar cada artículo — cambios
-                posteriores en el catálogo no afectan lo ya cotizado.
-              </p>
               <Table>
                 <Table.Header>
                   <Table.Head>Descripción</Table.Head>

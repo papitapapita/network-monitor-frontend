@@ -14,7 +14,7 @@ import {
   WirelessIdentitySuggestion,
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
-import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions } from '@/components/ui';
+import { Card, Button, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 import {
@@ -823,7 +823,17 @@ export function DeviceWirelessTab({
       <Card>
         <Card.Header>
           <div className="flex flex-wrap justify-between items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuración Inalámbrica</h2>
+            <SectionTitle
+              info={
+                <>
+                  El tipo se deduce de la categoría del dispositivo: un punto de acceso se registra como
+                  Access Point y cualquier otro como Estación (CPE); para cambiarlo, ajusta la categoría en la
+                  pestaña Detalles. {WIRELESS_INDEPENDENT_OF_ICMP_NOTE}
+                </>
+              }
+            >
+              Configuración Inalámbrica
+            </SectionTitle>
             {!noConfig && config && (
               <div className="flex gap-2">
                 <IconButton
@@ -852,8 +862,8 @@ export function DeviceWirelessTab({
                 Se registrará como{' '}
                 <span className="font-medium">
                   {inferDeviceType(category) === 'ACCESS_POINT' ? 'Access Point' : 'Estación (CPE)'}
-                </span>{' '}
-                según la categoría del dispositivo. Para cambiarlo, ajusta la categoría en la pestaña Detalles.
+                </span>
+                .
               </p>
               {credentialsBlockedReason && (
                 <p className="mb-4 text-xs text-amber-700 dark:text-amber-400">{credentialsBlockedReason}</p>
@@ -873,11 +883,6 @@ export function DeviceWirelessTab({
             {disabledByStatus && (
               <p className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
                 {WIRELESS_DISABLED_BY_STATUS_NOTE}
-              </p>
-            )}
-            {config.enabled && (
-              <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-                {WIRELESS_INDEPENDENT_OF_ICMP_NOTE}
               </p>
             )}
             <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -989,22 +994,16 @@ export function DeviceWirelessTab({
                   )}
                 </div>
                 {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  <div>
-                    <Input
-                      label="Capacidad manual (kbps)"
-                      type="number"
-                      value={configForm.linkCapacityKbps}
-                      onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityKbps: e.target.value }))}
-                      fullWidth
-                    />
-                    {/* WLS-166: a live contract's plan overrides this value, so
-                        it only matters for links nobody pays for. */}
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Normalmente se deja vacía: si la estación tiene un servicio contratado activo o
-                      pendiente, se usa la velocidad de su plan. Solo aplica a enlaces sin contrato, como
-                      backhauls. En kbps: 50 Mbps = 50000.
-                    </p>
-                  </div>
+                  // WLS-166: a live contract's plan overrides this value, so it
+                  // only matters for links nobody pays for.
+                  <Input
+                    label="Capacidad manual (kbps)"
+                    type="number"
+                    value={configForm.linkCapacityKbps}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityKbps: e.target.value }))}
+                    info="Normalmente se deja vacía: si la estación tiene un servicio contratado activo o pendiente, se usa la velocidad de su plan. Solo aplica a enlaces sin contrato, como backhauls. En kbps: 50 Mbps = 50000."
+                    fullWidth
+                  />
                 )}
                 {(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
                   <Input
@@ -1016,36 +1015,27 @@ export function DeviceWirelessTab({
                   />
                 )}
                 {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  <div>
-                    <Select
-                      label="AP declarado"
-                      value={configForm.parentApDeviceId}
-                      onChange={(e) => setConfigForm((p) => ({ ...p, parentApDeviceId: e.target.value }))}
-                      options={apDevices.map((d) => ({ value: d.id, label: d.name }))}
-                      placeholder={apDevicesLoading ? 'Cargando...' : 'Sin declarar'}
-                      disabled={apDevicesLoading}
-                      fullWidth
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      El AP donde esta estación debería estar conectada. Alimenta la vista de
-                      &quot;Estaciones Esperadas&quot; en ese AP.
-                    </p>
-                  </div>
-                )}
-                <div>
-                  {/* Only the standard Ethernet speeds are accepted (WLS-165), so this
-                      is a pick-list rather than a number field. */}
                   <Select
-                    label="Velocidad LAN provisionada"
-                    value={configForm.provisionedLanSpeedMbps}
-                    onChange={(e) => setConfigForm((p) => ({ ...p, provisionedLanSpeedMbps: e.target.value }))}
-                    options={lanSpeedOptions(configForm.provisionedLanSpeedMbps)}
+                    label="AP declarado"
+                    value={configForm.parentApDeviceId}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, parentApDeviceId: e.target.value }))}
+                    options={apDevices.map((d) => ({ value: d.id, label: d.name }))}
+                    placeholder={apDevicesLoading ? 'Cargando...' : 'Sin declarar'}
+                    disabled={apDevicesLoading}
+                    info="El AP donde esta estación debería estar conectada. Alimenta la vista de «Estaciones Esperadas» en ese AP."
                     fullWidth
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Normalmente no hace falta fijarla — se completa sola con el primer sondeo.
-                  </p>
-                </div>
+                )}
+                {/* Only the standard Ethernet speeds are accepted (WLS-165), so this
+                    is a pick-list rather than a number field. */}
+                <Select
+                  label="Velocidad LAN provisionada"
+                  value={configForm.provisionedLanSpeedMbps}
+                  onChange={(e) => setConfigForm((p) => ({ ...p, provisionedLanSpeedMbps: e.target.value }))}
+                  options={lanSpeedOptions(configForm.provisionedLanSpeedMbps)}
+                  info="Normalmente no hace falta fijarla: se completa sola con el primer sondeo. Fíjala solo para corregir una línea base capturada mientras el puerto ya estaba degradado."
+                  fullWidth
+                />
               </div>
               <EditFormActions
                 onCancel={() => setShowConfigForm(false)}
@@ -1066,17 +1056,14 @@ export function DeviceWirelessTab({
           {!identitySuggestionsLoading && visibleSuggestions.length > 0 && (
             <Card>
               <Card.Header>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados en el inventario. Nada se cambia solo: acepta o descarta cada sugerencia.">
                   Sugerencias de Identidad
                   <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
                     ({visibleSuggestions.length})
                   </span>
-                </h2>
+                </SectionTitle>
               </Card.Header>
               <Card.Body>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  El último sondeo reportó estos valores distintos a los registrados en el inventario.
-                </p>
                 <div className="space-y-2">
                   {visibleSuggestions.map((s) => {
                     const key = suggestionKey(s);
@@ -1408,14 +1395,14 @@ export function DeviceWirelessTab({
             <Card>
               <Card.Header>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <SectionTitle info={status.clients.length > 0 ? 'Haz clic en una fila para ver los detalles del CPE remoto.' : undefined}>
                     Estaciones Conectadas
                     {status.clients.length > 0 && (
                       <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
                         ({status.clients.length})
                       </span>
                     )}
-                  </h2>
+                  </SectionTitle>
                   {expectedClients && expectedClients.missingCount > 0 && (
                     <Badge variant="danger">
                       {expectedClients.missingCount} desconectada{expectedClients.missingCount === 1 ? '' : 's'}
@@ -1447,9 +1434,6 @@ export function DeviceWirelessTab({
                         ))}
                       </tbody>
                     </table>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                      Clic en una fila para ver detalles del CPE remoto.
-                    </p>
                   </div>
                 )}
               </Card.Body>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card, Badge, LoadingSpinner } from '@/components/ui';
+import { Card, Badge, LoadingSpinner, SectionTitle } from '@/components/ui';
 import { StreamIndicator, StreamErrorNotice } from './StreamStatus';
 import { useWirelessThroughput, useNow, liveAgeSeconds } from '@/hooks/useWirelessThroughput';
 import {
@@ -37,14 +37,11 @@ export function WirelessThroughputCard({ deviceId, intervalSecs }: Props) {
     <Card>
       <Card.Header>
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tráfico en vivo</h2>
-            {intervalSecs != null && (
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                Nueva lectura cada {intervalSecs}s, cuando el sondeo la guarda
-              </p>
-            )}
-          </div>
+          <SectionTitle
+            info={intervalSecs != null ? `Nueva lectura cada ${intervalSecs}s, cuando el sondeo la guarda.` : undefined}
+          >
+            Tráfico en vivo
+          </SectionTitle>
           <StreamIndicator state={state} />
         </div>
       </Card.Header>

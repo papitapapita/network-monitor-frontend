@@ -158,15 +158,25 @@ export function SwapHardwareModal({ isOpen, onClose, device, onSwapped }: Props)
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Intercambiar hardware" size="lg">
-      <div className="space-y-4">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Intercambiar hardware"
+      info={
+        <>
           Para dos equipos ya registrados que cambiaron de lugar físicamente. Cada sitio conserva su
           registro, IP, clientes, credenciales, configuración inalámbrica e historial; solo se
           intercambian modelo, número de serie y MAC. Si llega una unidad nueva, usa «Reemplazar
           equipo».
-        </p>
-
+          <br />
+          <br />
+          El historial queda con el sitio: las lecturas anteriores seguirán en el mismo registro,
+          aunque describan el otro equipo.
+        </>
+      }
+      size="lg"
+    >
+      <div className="space-y-4">
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <Combobox
@@ -204,10 +214,6 @@ export function SwapHardwareModal({ isOpen, onClose, device, onSwapped }: Props)
                 {w}
               </p>
             ))}
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              El historial queda con el sitio: las lecturas anteriores seguirán en el mismo registro,
-              aunque describan el otro equipo.
-            </p>
           </>
         )}
       </div>

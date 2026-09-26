@@ -15,7 +15,7 @@ import {
   canCancel,
   canMarkOverdue,
 } from '@/constants/bill.constants';
-import { Card, Button, LoadingSpinner, Badge, Table, BackLink } from '@/components/ui';
+import { Card, Button, LoadingSpinner, Badge, Table, BackLink, SectionTitle } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -216,15 +216,12 @@ export default function BillDetailPage() {
       {/* Line items */}
       <Card>
         <Card.Header>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <SectionTitle info="Los precios quedaron fijados al generar la factura; cambios posteriores en los planes no la afectan.">
             Conceptos
             <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({bill.lineItems.length})</span>
-          </h2>
+          </SectionTitle>
         </Card.Header>
         <Card.Body>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Los precios quedaron fijados al generar la factura; cambios posteriores en los planes no la afectan.
-          </p>
           <Table>
             <Table.Header>
               <Table.Head>Plan</Table.Head>

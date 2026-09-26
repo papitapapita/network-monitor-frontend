@@ -227,10 +227,11 @@ function CalendarPageContent() {
     <div className="px-4 py-8 max-w-[1600px] mx-auto">
       <PageHeader
         title="Calendario"
-        subtitle={
+        subtitle="Las visitas programadas de la semana"
+        info={
           canWrite
-            ? 'Haz clic en una franja para crear una tarea, o arrastra para elegir el rango'
-            : 'Las visitas programadas de la semana'
+            ? 'Haz clic en una franja para crear una tarea, o arrastra para elegir el rango. Arrastra una tarea para moverla y su borde inferior para cambiar su duración.'
+            : undefined
         }
         onRefresh={() => refetch()}
         isRefreshing={isFetching}

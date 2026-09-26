@@ -129,7 +129,7 @@ export default function CreateVendorPage() {
                 onChange={handleChange}
                 placeholder="mikrotik"
                 error={formErrors.slug}
-                helperText="Identificador único en minúsculas con guiones"
+                info="Identificador único en minúsculas con guiones."
                 maxLength={100}
                 required
                 fullWidth

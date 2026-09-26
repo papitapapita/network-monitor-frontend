@@ -138,15 +138,22 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Reemplazar equipo" size="lg" onSubmit={isSaving ? undefined : handleSubmit}>
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        Registra que «{device.name}» fue sustituido por una unidad física distinta. El equipo
-        nuevo hereda la ubicación, la categoría, el propietario y la dirección IP del anterior,
-        junto con sus credenciales y el servicio contratado del cliente. El historial de
-        mediciones se queda con la unidad retirada.
-      </p>
-
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Reemplazar equipo"
+      info={
+        <>
+          Registra que «{device.name}» fue sustituido por una unidad física distinta. El equipo
+          nuevo hereda la ubicación, la categoría, el propietario y la dirección IP del anterior,
+          junto con sus credenciales y el servicio contratado del cliente. El historial de
+          mediciones se queda con la unidad retirada.
+        </>
+      }
+      size="lg"
+      onSubmit={isSaving ? undefined : handleSubmit}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <Combobox
             label="Modelo del equipo nuevo"
@@ -180,20 +187,15 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
           )}
         </div>
 
-        <div>
-          <Select
-            label="Estado de la unidad retirada"
-            name="retiredStatus"
-            value={form.retiredStatus}
-            onChange={handleChange}
-            options={RETIRED_STATUS_OPTIONS}
-            fullWidth
-          />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Un reemplazo no siempre es una falla: si la unidad sigue sirviendo, vuelve a
-            inventario.
-          </p>
-        </div>
+        <Select
+          label="Estado de la unidad retirada"
+          name="retiredStatus"
+          value={form.retiredStatus}
+          onChange={handleChange}
+          options={RETIRED_STATUS_OPTIONS}
+          info="Un reemplazo no siempre es una falla: si la unidad sigue sirviendo, vuelve a inventario."
+          fullWidth
+        />
 
         <Input
           label="Nombre del equipo nuevo"
@@ -203,7 +205,7 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
           error={errors.name}
           placeholder={device.name}
           maxLength={150}
-          helperText="Si lo dejas vacío, conserva el nombre actual"
+          info="Si lo dejas vacío, conserva el nombre actual."
           fullWidth
         />
 
@@ -234,7 +236,7 @@ export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Prop
           onChange={handleChange}
           error={errors.installedDate}
           max={new Date().toISOString().slice(0, 10)}
-          helperText="Si la dejas vacía, se registra hoy"
+          info="Si la dejas vacía, se registra hoy."
           fullWidth
         />
 

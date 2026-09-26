@@ -224,6 +224,7 @@ export function TicketActions({
         isOpen={pending === 'assign'}
         onClose={closeAction}
         title={ticket.technicianId ? 'Reasignar ticket' : 'Asignar ticket'}
+        info="Asignar mueve el ticket a «Asignado». Se puede reasignar hasta que el trabajo empiece."
       >
         <div className="space-y-4">
           {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
@@ -249,10 +250,11 @@ export function TicketActions({
             onChange={(e) => setScheduledFor(e.target.value)}
             fullWidth
           />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Asignar mueve el ticket a «Asignado». Se puede reasignar hasta que el trabajo empiece.
-            {ticket.startTime && ' Cambiar la fecha aquí quita la franja horaria; usa «Reprogramar» para conservarla.'}
-          </p>
+          {ticket.startTime && (
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
+              Cambiar la fecha aquí quita la franja horaria; usa «Reprogramar» para conservarla.
+            </p>
+          )}
         </div>
         <Modal.Footer>
           <Button variant="outline" onClick={closeAction} disabled={isActing}>
@@ -269,6 +271,7 @@ export function TicketActions({
         isOpen={pending === 'schedule'}
         onClose={closeAction}
         title={ticket.scheduledFor ? 'Reprogramar visita' : 'Programar visita'}
+        info="Sin horas, la visita queda para cualquier momento del día. Se acepta una fecha pasada: sirve para registrar trabajo hecho fuera del sistema."
       >
         <div className="space-y-4">
           {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
@@ -296,10 +299,6 @@ export function TicketActions({
               fullWidth
             />
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Sin horas, la visita queda para cualquier momento del día. Se acepta una fecha pasada:
-            sirve para registrar trabajo hecho fuera del sistema.
-          </p>
         </div>
         <Modal.Footer>
           {ticket.scheduledFor && (
@@ -352,12 +351,9 @@ export function TicketActions({
             rows={5}
             maxLength={5000}
             required
+            info="Son el único registro de lo que se hizo. Al resolver, el ticket sale de la jornada del técnico de inmediato."
             fullWidth
           />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Son el único registro de lo que se hizo. Al resolver, el ticket sale de la jornada del
-            técnico de inmediato.
-          </p>
         </div>
         <Modal.Footer>
           <Button variant="outline" onClick={closeAction} disabled={isActing}>
@@ -381,12 +377,9 @@ export function TicketActions({
             error={fieldError ?? undefined}
             maxLength={255}
             required
+            info="Cancelar conserva el ticket y el motivo. Sin un motivo, un ticket cancelado no se distingue de uno abandonado por error y la misma falla se reporta otra vez."
             fullWidth
           />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Cancelar conserva el ticket y el motivo. Sin un motivo, un ticket cancelado no se
-            distingue de uno abandonado por error y la misma falla se reporta otra vez.
-          </p>
         </div>
         <Modal.Footer>
           <Button variant="outline" onClick={closeAction} disabled={isActing}>

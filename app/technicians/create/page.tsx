@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { CreateTechnicianDTO } from '@/types/technician.types';
-import { Card, Button, Input, BackLink } from '@/components/ui';
+import { Card, Button, Input, BackLink, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
 
@@ -85,9 +85,9 @@ export default function CreateTechnicianPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <SectionTitle info="Un técnico no necesita cuenta de acceso: se le despacha trabajo sin que inicie sesión. Los nuevos técnicos quedan activos y disponibles para asignar de inmediato.">
               Datos del Técnico
-            </h2>
+            </SectionTitle>
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -110,7 +110,7 @@ export default function CreateTechnicianPage() {
                 onChange={handleChange}
                 error={formErrors.phone}
                 placeholder="+57 300 111 2233"
-                helperText="Identifica al técnico y no puede repetirse. Se guarda normalizado."
+                info="Identifica al técnico y no puede repetirse. Se guarda normalizado."
                 required
                 fullWidth
               />
@@ -125,10 +125,6 @@ export default function CreateTechnicianPage() {
                 fullWidth
               />
             </div>
-            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              Un técnico no necesita cuenta de acceso: se le despacha trabajo sin que inicie sesión.
-              Los nuevos técnicos quedan activos y disponibles para asignar de inmediato.
-            </p>
           </Card.Body>
         </Card>
 

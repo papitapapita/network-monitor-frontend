@@ -11,6 +11,7 @@ import {
   LoadingSpinner,
   ConfirmModal,
   submitOnEnter,
+  SectionTitle,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import {
@@ -135,9 +136,9 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
       <Card>
         <Card.Header>
           <div className="flex flex-wrap justify-between items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <SectionTitle info="Silencia las notificaciones de caída, recuperación y alertas inalámbricas de este dispositivo durante el horario indicado: las alertas se siguen registrando normalmente, solo se posponen los avisos. Deja ambos campos vacíos para que notifique siempre. Un horario que cruza medianoche (p. ej. 22:00–07:00) es válido.">
               Política de Notificaciones
-            </h2>
+            </SectionTitle>
             <Badge variant={alwaysNotifies ? 'success' : 'info'}>
               {alwaysNotifies ? 'Siempre notifica' : 'Horario de silencio activo'}
             </Badge>
@@ -152,14 +153,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
             <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
           ) : (
             <div onKeyDown={submitOnEnter(handleSave, saving)}>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Silencia las notificaciones de caída, recuperación y alertas inalámbricas de este
-                dispositivo durante el horario indicado — las alertas se siguen registrando
-                normalmente, solo se posponen los avisos. Deja ambos campos vacíos para que
-                notifique siempre. Un horario que cruza medianoche (p. ej. 22:00–07:00) es válido.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                   label="Inicio del silencio"
                   type="time"
@@ -195,7 +189,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
                     setErrors((p) => { const n = { ...p }; delete n.alertDelayMinutes; return n; });
                   }}
                   error={errors.alertDelayMinutes}
-                  helperText={`Vacío usa el valor por defecto del sistema (${DEFAULT_ALERT_DELAY_MINUTES} min).`}
+                  info={`Vacío usa el valor por defecto del sistema (${DEFAULT_ALERT_DELAY_MINUTES} min).`}
                   fullWidth
                 />
               </div>

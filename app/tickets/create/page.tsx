@@ -14,6 +14,7 @@ import {
 import {
   AddressForm,
   TicketAddressFields,
+  TICKET_ADDRESS_SNAPSHOT_NOTE,
   addressPayload,
   emptyAddressForm,
   useAddressGeocoding,
@@ -25,7 +26,7 @@ import {
   contactPayload,
   validateContact,
 } from '@/components/tickets/TicketContactFields';
-import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner, BackLink } from '@/components/ui';
+import { Card, Button, Input, Select, Textarea, Combobox, LoadingSpinner, BackLink, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
 
@@ -217,7 +218,7 @@ function CreateTicketPageContent() {
                   error={formErrors.description}
                   rows={5}
                   maxLength={5000}
-                  helperText="Si la dejas vacía se usa el asunto."
+                  info="Si la dejas vacía se usa el asunto."
                   fullWidth
                 />
               </div>
@@ -245,10 +246,10 @@ function CreateTicketPageContent() {
 
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <SectionTitle info="Todo es opcional: una diligencia interna no nombra a nadie. Para un prospecto que aún no es cliente, usa el contacto en sitio; cuando se afilie, vincula el cliente y el contacto se conserva como registro de a quién se visitó.">
               A quién afecta{' '}
               <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(opcional)</span>
-            </h2>
+            </SectionTitle>
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -274,19 +275,14 @@ function CreateTicketPageContent() {
             <div className="mt-4">
               <TicketContactFields form={contact} errors={formErrors} onChange={handleContactChange} />
             </div>
-            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              Todo es opcional: una diligencia interna no nombra a nadie. Para un prospecto que aún
-              no es cliente, usa el contacto en sitio; cuando se afilie, vincula el cliente y el
-              contacto se conserva como registro de a quién se visitó.
-            </p>
           </Card.Body>
         </Card>
 
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <SectionTitle info="Asignar un técnico ahora deja el ticket en «Asignado». Solo se ofrecen los técnicos activos. Sin horas, la visita queda para cualquier momento del día.">
               La visita <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(opcional)</span>
-            </h2>
+            </SectionTitle>
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -331,19 +327,15 @@ function CreateTicketPageContent() {
                 fullWidth
               />
             </div>
-            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              Asignar un técnico ahora deja el ticket en «Asignado». Solo se ofrecen los técnicos
-              activos. Sin horas, la visita queda para cualquier momento del día.
-            </p>
           </Card.Body>
         </Card>
 
         <Card>
           <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <SectionTitle info={TICKET_ADDRESS_SNAPSHOT_NOTE}>
               Dirección de la visita{' '}
               <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(opcional)</span>
-            </h2>
+            </SectionTitle>
           </Card.Header>
           <Card.Body>
             <TicketAddressFields

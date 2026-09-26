@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
 import { useToast } from '@/contexts/toast.context';
-import { Button, Input, Switch, LoadingSpinner, Badge } from '@/components/ui';
+import { Button, Input, Switch, LoadingSpinner, Badge, SectionTitle } from '@/components/ui';
 import {
   KNOWN_MUTABLE_METRICS,
   validateMetricKey,
@@ -91,9 +91,12 @@ export function NotificationMutesCard() {
   return (
     <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap justify-between items-center gap-2">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+        <SectionTitle
+          className="text-base font-semibold text-gray-900 dark:text-gray-100"
+          info="Silencia el aviso de Telegram para un tipo de condición, en todos los dispositivos y para siempre: la alerta se sigue registrando y listando normalmente, solo deja de notificarse. Silenciar una métrica apaga sus avisos de advertencia y crítico a la vez."
+        >
           Notificaciones silenciadas
-        </h2>
+        </SectionTitle>
         {muted.length > 0 && <Badge variant="info">{muted.length} silenciada{muted.length === 1 ? '' : 's'}</Badge>}
       </div>
       <div className="px-6 py-6">
@@ -105,11 +108,6 @@ export function NotificationMutesCard() {
           <p className="text-sm text-center text-red-600 dark:text-red-400 py-4">{loadError}</p>
         ) : (
           <div className="mx-auto max-w-xl">
-            <p className="text-sm text-center text-gray-500 dark:text-gray-400 mb-6">
-              Silencia el aviso de Telegram para un tipo de condición, en todos los dispositivos y
-              para siempre — la alerta se sigue registrando y listando normalmente, solo deja de
-              notificarse. Silenciar una métrica apaga sus avisos de advertencia y crítico a la vez.
-            </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 rounded-lg border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 sm:divide-y-0 overflow-hidden">
               {KNOWN_MUTABLE_METRICS.map(({ key, label }) => (

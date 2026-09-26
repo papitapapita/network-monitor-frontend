@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Input, Select } from '@/components/ui';
+import { FieldLabel, Input, Select } from '@/components/ui';
 import type { LocationType, LocationResponseDTO, CreateLocationDTO } from '@/types/location.types';
 import { LOCATION_TYPE_OPTIONS } from '@/constants/location.constants';
 import { reverseGeocode } from '@/services/geocoding.service';
@@ -211,19 +211,17 @@ export function LocationForm({ formData, formErrors, onChange, onLocationPick, i
 
       {onLocationPick && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <FieldLabel info="Haga clic o arrastre el marcador para ubicar el punto exacto. Se completará lo que se pueda inferir; el resto queda en blanco para usted.">
             Ubicar en el mapa
-          </label>
+          </FieldLabel>
           <LocationPickerMap
             latitude={formData.latitude}
             longitude={formData.longitude}
             onPick={(lat, lon) => onLocationPick(String(lat), String(lon))}
           />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {isGeocoding
-              ? 'Completando datos desde el mapa...'
-              : 'Haga clic o arrastre el marcador para ubicar el punto exacto. Se completará lo que se pueda inferir; el resto queda en blanco para usted.'}
-          </p>
+          {isGeocoding && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Completando datos desde el mapa...</p>
+          )}
         </div>
       )}
 
@@ -234,7 +232,7 @@ export function LocationForm({ formData, formErrors, onChange, onLocationPick, i
         onChange={onChange}
         error={formErrors.address}
         maxLength={255}
-        helperText={
+        info={
           formData.type === 'CUSTOMER_PREMISES'
             ? 'Una instalación de cliente requiere dirección o coordenadas. Dirección, municipio y barrio van juntos.'
             : 'Dirección, municipio y barrio van juntos: si completa uno, debe completar los tres.'

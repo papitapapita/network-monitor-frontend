@@ -247,7 +247,7 @@ function JornadaPageContent() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <PageHeader
         title="Jornada"
-        subtitle="Las tareas de un técnico para un día, en el orden en que debe trabajarlas"
+        info="Las tareas de un técnico para un día, en el orden en que debe trabajarlas."
         onRefresh={technicianId ? () => refetch() : undefined}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}

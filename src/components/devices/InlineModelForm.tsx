@@ -131,8 +131,8 @@ export function InlineModelForm({ vendors, lockedVendorId, initialModelName = ''
           checked={form.isWireless}
           onChange={handleChange}
           label="Modelo inalámbrico"
+          info="Requerido para las categorías CPE Inalámbrico y AP."
         />
-        <span className="text-xs text-gray-500 dark:text-gray-400">(requerido para categorías CPE Inalámbrico y AP)</span>
       </div>
 
       <div className="flex items-center gap-2">

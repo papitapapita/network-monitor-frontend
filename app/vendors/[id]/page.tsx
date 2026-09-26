@@ -230,7 +230,7 @@ export default function VendorDetailPage() {
                   value={formData.slug}
                   onChange={handleChange}
                   error={formErrors.slug}
-                  helperText="Identificador único en minúsculas con guiones"
+                  info="Identificador único en minúsculas con guiones."
                   maxLength={100}
                   required
                   fullWidth

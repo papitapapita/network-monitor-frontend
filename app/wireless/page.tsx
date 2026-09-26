@@ -126,7 +126,7 @@ export default function WirelessThroughputPage() {
     <div className="p-8">
       <PageHeader
         title="Tráfico en vivo"
-        subtitle="Throughput de cada radio, actualizado cuando el sondeo guarda una lectura nueva"
+        info="Throughput de cada radio, actualizado cuando el sondeo guarda una lectura nueva. El uso se mide contra el plan contratado de la estación o, si no tiene contrato, contra su capacidad manual."
         actions={<StreamIndicator state={state} />}
       />
 

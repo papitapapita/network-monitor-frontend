@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import { AlertDTO, AlertSeverity } from '@/types/alert.types';
 import { DeviceResponseDTO } from '@/types/device.types';
-import { Card, Badge, LoadingSpinner, type BadgeVariant } from '@/components/ui';
+import { Card, Badge, LoadingSpinner, SectionTitle, type BadgeVariant } from '@/components/ui';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -138,10 +138,7 @@ export function DeviceHistoryTab({ device }: Props) {
   return (
     <Card>
       <Card.Header>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Historial</h2>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Alertas de conectividad e inalámbricas, y reemplazos de equipo.
-        </p>
+        <SectionTitle info="Alertas de conectividad e inalámbricas, y reemplazos de equipo.">Historial</SectionTitle>
       </Card.Header>
       <Card.Body>
         {loading ? (

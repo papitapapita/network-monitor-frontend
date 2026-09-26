@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Input } from '@/components/ui';
+import { FieldLabel, Input } from '@/components/ui';
 import { TicketAddressDTO, TicketAddressInput } from '@/types/ticket.types';
 import { reverseGeocode } from '@/services/geocoding.service';
 
@@ -132,24 +132,26 @@ interface TicketAddressFieldsProps {
   isGeocoding?: boolean;
 }
 
+/** Shown beside whichever heading introduces the address fields. */
+export const TICKET_ADDRESS_SNAPSHOT_NOTE =
+  'La dirección se copia al ticket y no se vuelve a consultar: es el único lugar del sistema donde vive la dirección de una visita, y un ticket cerrado conserva la dirección donde realmente se trabajó aunque el cliente se mude.';
+
 export function TicketAddressFields({ form, errors, onChange, onLocationPick, isGeocoding }: TicketAddressFieldsProps) {
   return (
     <>
       {onLocationPick && (
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <FieldLabel info="Haga clic o arrastre el marcador para ubicar el punto exacto. Se completará lo que se pueda inferir; el resto queda en blanco para usted.">
             Ubicar en el mapa
-          </label>
+          </FieldLabel>
           <LocationPickerMap
             latitude={form.latitude}
             longitude={form.longitude}
             onPick={(lat, lon) => onLocationPick(String(lat), String(lon))}
           />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {isGeocoding
-              ? 'Completando datos desde el mapa...'
-              : 'Haga clic o arrastre el marcador para ubicar el punto exacto. Se completará lo que se pueda inferir; el resto queda en blanco para usted.'}
-          </p>
+          {isGeocoding && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Completando datos desde el mapa...</p>
+          )}
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -214,11 +216,6 @@ export function TicketAddressFields({ form, errors, onChange, onLocationPick, is
           fullWidth
         />
       </div>
-      <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-        La dirección se copia al ticket y no se vuelve a consultar: es el único lugar del sistema
-        donde vive la dirección de una visita, y un ticket cerrado conserva la dirección donde
-        realmente se trabajó aunque el cliente se mude.
-      </p>
     </>
   );
 }

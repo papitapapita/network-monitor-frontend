@@ -23,7 +23,8 @@ import {
   Badge,
   IconButton,
   EditFormActions,
-  getDeviceStatusBadgeVariant
+  getDeviceStatusBadgeVariant,
+  FieldLabel,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
@@ -274,7 +275,6 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 fullWidth
               />
               {canEditModel ? (
-                <div>
                 <Combobox
                   label="Modelo"
                   options={(() => {
@@ -304,22 +304,16 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   }}
                   placeholder="Escribir modelo o fabricante..."
                   error={formErrors.deviceModelId}
+                  info="Solo para corregir un modelo mal registrado, no para sustituir el equipo."
                   fullWidth
                 />
-                {!formErrors.deviceModelId && (
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Solo para corregir un modelo mal registrado, no para sustituir el equipo.
-                  </p>
-                )}
-                </div>
               ) : (
                 <div>
-                  <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modelo</span>
+                  <FieldLabel info="El modelo solo puede corregirse mientras el dispositivo está en inventario.">
+                    Modelo
+                  </FieldLabel>
                   <p className="text-sm text-gray-900 dark:text-gray-100 py-2">
                     {deviceModel ? `${deviceModel.vendorName} ${deviceModel.model}` : device.deviceModelId}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    El modelo solo puede corregirse mientras el dispositivo está en inventario.
                   </p>
                 </div>
               )}
@@ -343,13 +337,11 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
               />
               {hasWirelessConfig ? (
                 <div>
-                  <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría</span>
+                  <FieldLabel info="Fijada por la configuración inalámbrica: elimínela en la pestaña «Inalámbrico» para poder recategorizar el dispositivo.">
+                    Categoría
+                  </FieldLabel>
                   <p className="text-sm text-gray-900 dark:text-gray-100 py-2">
                     {deviceCategoryLabel(device.category)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Fijada por la configuración inalámbrica: elimínela en la pestaña «Inalámbrico»
-                    para poder recategorizar el dispositivo.
                   </p>
                 </div>
               ) : (

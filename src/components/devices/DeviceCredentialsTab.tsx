@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
 import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
-import { Card, Button, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions } from '@/components/ui';
+import { Card, Button, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions, InfoTip, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
 
@@ -341,13 +341,14 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
 
               {/* HTTP section */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  HTTP / API Web <span className="font-normal text-gray-500 dark:text-gray-400">(requerido)</span>
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Usadas por el sondeo AirOS y el reinicio remoto. El backend reemplaza el par completo en
-                  cada guardado, por lo que la contraseña debe volver a escribirse.
-                </p>
+                <div className="mb-3">
+                  <SectionTitle
+                    as="h3"
+                    info="Usadas por el sondeo inalámbrico de equipos Ubiquiti (AirOS) y el reinicio remoto. El backend reemplaza el par completo en cada guardado, por lo que la contraseña debe volver a escribirse."
+                  >
+                    HTTP / API Web <span className="font-normal text-gray-500 dark:text-gray-400">(requerido)</span>
+                  </SectionTitle>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Usuario *"
@@ -381,9 +382,10 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
                     onChange={(e) => field('snmpEnabled', e.target.checked)}
                     label="Configurar SNMP"
                   />
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    (opcional — aún no lo consume ningún colector)
-                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">(opcional)</span>
+                  <InfoTip label="Acerca de SNMP">
+                    Usado por el sondeo inalámbrico de equipos Mimosa. Los demás equipos no lo necesitan.
+                  </InfoTip>
                 </div>
 
                 {form.snmpEnabled && (
