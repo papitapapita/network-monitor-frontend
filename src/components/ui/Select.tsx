@@ -51,7 +51,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
   ) => {
     const [isOpen, setIsOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
-    const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
+    const [dropdownRect, setDropdownRect] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -72,12 +72,13 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
             maxHeight: Math.min(maxDropdownHeight, spaceBelow),
           });
         } else {
-          const height = Math.min(maxDropdownHeight, spaceAbove);
+          // Anchor by the bottom edge: the list is often shorter than maxHeight,
+          // and a top computed from maxHeight leaves it floating above the field.
           setDropdownRect({
-            top: rect.top - height - gap,
+            bottom: window.innerHeight - rect.top + gap,
             left: rect.left,
             width: rect.width,
-            maxHeight: height,
+            maxHeight: Math.min(maxDropdownHeight, spaceAbove),
           });
         }
       }
@@ -173,6 +174,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
               style={{
                 position: 'fixed',
                 top: dropdownRect.top,
+                bottom: dropdownRect.bottom,
                 left: dropdownRect.left,
                 width: dropdownRect.width,
                 maxHeight: dropdownRect.maxHeight,
