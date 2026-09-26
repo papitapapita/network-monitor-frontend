@@ -222,11 +222,18 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       fetchPollingStatus();
     } else if (result.status === 409) {
       // A device nobody is watching cannot be polled on demand: the reading
-      // would sit there with nothing scheduled to correct it. Only reachable
-      // if monitoring was turned off elsewhere while this tab was open — so
-      // catch the card up first, then say why the click did nothing.
+      // would sit there with nothing scheduled to correct it. Neither can one
+      // whose status is not polled (retired). Both are only reachable if the
+      // device changed elsewhere while this tab was open — so catch the card
+      // up first, then say why the click did nothing.
       await fetchPollingStatus();
-      const message = 'El monitoreo está deshabilitado para este dispositivo; habilítelo antes de sondearlo.';
+      const message = result.error?.includes('is not polled')
+        ? 'El estado de este dispositivo no admite sondeo (está fuera de servicio).'
+        : 'El monitoreo está deshabilitado para este dispositivo; habilítelo antes de sondearlo.';
+      setStatusError(message);
+      showError(message);
+    } else if (result.status === 404) {
+      const message = 'Este dispositivo ya no existe; es posible que se haya eliminado.';
       setStatusError(message);
       showError(message);
     } else {
