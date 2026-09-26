@@ -1,8 +1,11 @@
 'use client';
 import React from 'react';
+import { InfoTip } from './InfoTip';
 
 interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
   label?: React.ReactNode;
+  /** How the option behaves; shown behind an info icon beside the label. */
+  info?: React.ReactNode;
 }
 
 /**
@@ -12,7 +15,7 @@ interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>
  * behavior, which every form here still relies on via `e.target.checked`.
  */
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ label, id, className = '', disabled, ...props }, ref) => {
+  ({ label, info, id, className = '', disabled, ...props }, ref) => {
     return (
       <span className={`inline-flex items-center gap-2 ${className}`}>
         <span className="relative inline-flex h-[18px] w-[18px] shrink-0">
@@ -59,6 +62,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             {label}
           </label>
         )}
+        {info && <InfoTip>{info}</InfoTip>}
       </span>
     );
   }

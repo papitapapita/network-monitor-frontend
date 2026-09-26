@@ -9,11 +9,14 @@
 import React, { useEffect } from 'react';
 import { Button } from './Button';
 import { submitOnEnter } from './enterToSubmit';
+import { InfoTip } from './InfoTip';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  /** How the dialog's action behaves; shown behind an info icon beside the title. */
+  info?: React.ReactNode;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showCloseButton?: boolean;
@@ -38,6 +41,7 @@ export function Modal({
   isOpen,
   onClose,
   title,
+  info,
   children,
   size = 'md',
   showCloseButton = true,
@@ -100,12 +104,15 @@ export function Modal({
           {/* Header */}
           <div className="bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h3
-                className="text-lg font-semibold text-gray-900 dark:text-gray-100"
-                id="modal-title"
-              >
-                {title}
-              </h3>
+              <div className="flex min-w-0 items-center gap-1.5">
+                <h3
+                  className="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                  id="modal-title"
+                >
+                  {title}
+                </h3>
+                {info && <InfoTip label={`Acerca de «${title}»`}>{info}</InfoTip>}
+              </div>
               {showCloseButton && (
                 <button
                   type="button"

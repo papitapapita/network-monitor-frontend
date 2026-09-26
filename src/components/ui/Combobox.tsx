@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import { FieldLabel } from './FieldLabel';
 
 interface ComboboxOption {
   value: string;
@@ -17,6 +18,8 @@ interface ComboboxProps {
   placeholder?: string;
   error?: string;
   required?: boolean;
+  /** How the field behaves; shown behind an info icon beside the label. */
+  info?: React.ReactNode;
   fullWidth?: boolean;
   disabled?: boolean;
   createLabel?: string;
@@ -31,6 +34,7 @@ export function Combobox({
   placeholder = 'Escribir para buscar...',
   error,
   required,
+  info,
   fullWidth,
   disabled,
   createLabel,
@@ -236,13 +240,9 @@ export function Combobox({
   return (
     <div ref={containerRef} className={`relative ${fullWidth ? 'w-full' : ''}`}>
       {label && (
-        <label
-          htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
+        <FieldLabel htmlFor={inputId} required={required} info={info}>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </FieldLabel>
       )}
       <input
         ref={inputRef}

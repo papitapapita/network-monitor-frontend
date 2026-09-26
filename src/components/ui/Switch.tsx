@@ -1,9 +1,12 @@
 'use client';
 import React from 'react';
+import { InfoTip } from './InfoTip';
 
 interface SwitchProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
   label?: React.ReactNode;
   description?: React.ReactNode;
+  /** How the setting behaves; shown behind an info icon beside the label. */
+  info?: React.ReactNode;
 }
 
 /**
@@ -12,7 +15,7 @@ interface SwitchProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 
  * same technique as Checkbox, `e.target.checked` still works for callers.
  */
 export const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
-  ({ label, description, id, className = '', disabled, ...props }, ref) => {
+  ({ label, description, info, id, className = '', disabled, ...props }, ref) => {
     return (
       <span className={`inline-flex items-start gap-3 ${className}`}>
         <span className="relative inline-flex h-6 w-11 shrink-0">
@@ -46,16 +49,19 @@ export const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
         {(label || description) && (
           <span className="flex flex-col">
             {label && (
-              <label
-                htmlFor={id}
-                className={`text-sm font-medium select-none ${
-                  disabled
-                    ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                    : 'text-gray-700 dark:text-gray-300 cursor-pointer'
-                }`}
-              >
-                {label}
-              </label>
+              <span className="inline-flex items-center gap-1">
+                <label
+                  htmlFor={id}
+                  className={`text-sm font-medium select-none ${
+                    disabled
+                      ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                      : 'text-gray-700 dark:text-gray-300 cursor-pointer'
+                  }`}
+                >
+                  {label}
+                </label>
+                {info && <InfoTip>{info}</InfoTip>}
+              </span>
             )}
             {description && (
               <span className="text-xs text-gray-400 dark:text-gray-500">{description}</span>

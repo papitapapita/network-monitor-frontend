@@ -2,10 +2,13 @@
 
 import React from 'react';
 import { IconButton } from './IconButton';
+import { InfoTip } from './InfoTip';
 
 interface PageHeaderProps {
   title: string;
   subtitle?: React.ReactNode;
+  /** How the page behaves; shown behind an info icon beside the title. */
+  info?: React.ReactNode;
   /** Omit to hide the "Actualizar" button. */
   onRefresh?: () => void;
   isRefreshing?: boolean;
@@ -37,6 +40,7 @@ function RefreshIcon() {
 export function PageHeader({
   title,
   subtitle,
+  info,
   onRefresh,
   isRefreshing = false,
   lastRefreshed,
@@ -45,7 +49,10 @@ export function PageHeader({
   return (
     <div className="flex flex-row sm:flex-col items-start justify-between sm:justify-start gap-4 sm:gap-2 mb-6">
       <div className="w-1/2 sm:w-full min-w-0">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
+          {info && <InfoTip label={`Acerca de «${title}»`}>{info}</InfoTip>}
+        </div>
         {subtitle && <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">{subtitle}</p>}
       </div>
 

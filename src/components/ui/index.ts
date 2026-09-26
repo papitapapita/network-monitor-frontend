@@ -56,6 +56,10 @@ export { Switch } from './Switch';
 
 export { Tooltip } from './Tooltip';
 
+export { InfoTip } from './InfoTip';
+export { FieldLabel } from './FieldLabel';
+export { SectionTitle } from './SectionTitle';
+
 export { IconButton } from './IconButton';
 
 export { EditFormActions } from './EditFormActions';

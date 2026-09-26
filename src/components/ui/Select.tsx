@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { ChevronDownIcon, CheckIcon } from './icons';
+import { FieldLabel } from './FieldLabel';
 
 interface SelectOption {
   value: string;
@@ -12,6 +13,8 @@ interface SelectProps {
   label?: string;
   error?: string;
   helperText?: string;
+  /** How the field behaves; shown behind an info icon beside the label. */
+  info?: React.ReactNode;
   options: SelectOption[];
   placeholder?: string;
   fullWidth?: boolean;
@@ -36,6 +39,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       label,
       error,
       helperText,
+      info,
       options,
       placeholder,
       fullWidth = false,
@@ -214,13 +218,9 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     return (
       <div className={`${fullWidth ? 'w-full' : ''}`}>
         {label && (
-          <label
-            htmlFor={selectId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
+          <FieldLabel htmlFor={selectId} required={required} info={info}>
             {label}
-            {required && <span className="text-red-500 ml-1">*</span>}
-          </label>
+          </FieldLabel>
         )}
 
         <div ref={containerRef} className="relative">

@@ -1,9 +1,12 @@
 import React from 'react';
+import { FieldLabel } from './FieldLabel';
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: React.ReactNode;
   error?: string;
   helperText?: string;
+  /** How the field behaves; shown behind an info icon beside the label. */
+  info?: React.ReactNode;
   fullWidth?: boolean;
 }
 
@@ -13,6 +16,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       label,
       error,
       helperText,
+      info,
       fullWidth = false,
       className = '',
       id,
@@ -30,13 +34,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className={`${fullWidth ? 'w-full' : ''}`}>
         {label && (
-          <label
-            htmlFor={textareaId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
+          <FieldLabel htmlFor={textareaId} required={props.required} info={info}>
             {label}
-            {props.required && <span className="text-red-500 ml-1">*</span>}
-          </label>
+          </FieldLabel>
         )}
 
         <textarea

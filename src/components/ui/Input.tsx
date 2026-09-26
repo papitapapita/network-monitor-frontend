@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { XIcon, EyeIcon, EyeOffIcon } from './icons';
+import { FieldLabel } from './FieldLabel';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  /** Status shown under the field, e.g. "Buscando…". Explanations of behavior go in `info`. */
   helperText?: string;
+  /** How the field behaves; shown behind an info icon beside the label. */
+  info?: React.ReactNode;
   fullWidth?: boolean;
   /** Leading icon rendered inside the field, e.g. a search glyph — pairs with `aria-label` when `label` is omitted. */
   icon?: React.ReactNode;
@@ -18,6 +22,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       label,
       error,
       helperText,
+      info,
       fullWidth = false,
       icon,
       onClear,
@@ -39,13 +44,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={`${fullWidth ? 'w-full' : ''}`}>
         {label && (
-          <label
-            htmlFor={inputId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
+          <FieldLabel htmlFor={inputId} required={props.required} info={info}>
             {label}
-            {props.required && <span className="text-red-500 ml-1">*</span>}
-          </label>
+          </FieldLabel>
         )}
 
         <div className="relative">
