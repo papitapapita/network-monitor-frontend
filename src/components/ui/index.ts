@@ -63,4 +63,4 @@ export { submitOnEnter, submitOnEnterCancelOnEscape, isCancelEscape } from './en
 
 export { BackLink } from './BackLink';
 
-export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon, EyeIcon, EyeOffIcon } from './icons';
+export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon, EyeIcon, EyeOffIcon, ExpandIcon, CollapseIcon, LocateIcon } from './icons';
