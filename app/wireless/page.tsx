@@ -16,6 +16,7 @@ import {
   fmtKbps,
   utilisationBarClass,
   utilisationVariant,
+  LINK_CAPACITY_SOURCE_LABELS,
 } from '@/constants/wireless.constants';
 import { apiService } from '@/services/api.service';
 
@@ -227,8 +228,9 @@ export default function WirelessThroughputPage() {
                             {fmtBps(r.throughputTotalBps)}
                           </td>
                           <td className="py-2 pr-3">
-                            {/* An AP has no provisioned plan, so it never has a
-                                utilisation — say so instead of showing 0%. */}
+                            {/* An AP never has a capacity, nor does a station with
+                                no contract and no manual fallback — say so
+                                instead of showing 0%. */}
                             {r.linkCapacityKbps === null ? (
                               <span className="text-xs text-gray-400 dark:text-gray-500">
                                 Sin plan
@@ -236,8 +238,12 @@ export default function WirelessThroughputPage() {
                             ) : (
                               <div className="min-w-[120px]">
                                 <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-                                  <span className="text-gray-500 dark:text-gray-400">
+                                  <span
+                                    className="text-gray-500 dark:text-gray-400"
+                                    title={r.linkCapacitySource ? LINK_CAPACITY_SOURCE_LABELS[r.linkCapacitySource] : undefined}
+                                  >
                                     {fmtKbps(r.linkCapacityKbps)}
+                                    {r.linkCapacitySource === 'MANUAL' && ' (manual)'}
                                   </span>
                                   <Badge variant={utilisationVariant(r.utilisationPercent)}>
                                     {r.utilisationPercent !== null

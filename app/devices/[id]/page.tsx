@@ -496,6 +496,7 @@ export default function DeviceDetailPage() {
           deviceId={deviceId}
           category={device.category}
           deviceIpAddress={device.ipAddress}
+          vendorSlug={deviceModel?.vendorSlug ?? null}
           deviceStatus={device.status}
           deviceDeletedAt={device.deletedAt}
           deviceReplacedAt={device.replacedAt}

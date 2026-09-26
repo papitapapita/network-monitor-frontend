@@ -1904,7 +1904,8 @@ interface WirelessThroughputDTO {
   throughputTxBps: number | null;
   throughputRxBps: number | null;
   throughputTotalBps: number | null; // null if either leg is null
-  linkCapacityKbps: number | null; // the provisioned plan; STATION-only
+  linkCapacityKbps: number | null; // effective capacity: contracted plan (down + up), else the config value; STATION-only (WLS-166)
+  linkCapacitySource: 'CONTRACT' | 'MANUAL' | null; // which of the two applied; null exactly when linkCapacityKbps is
   utilisationPercent: number | null; // 2dp; null without a capacity, so always null for an AP
 }
 
@@ -1967,7 +1968,7 @@ interface WirelessClientDTO {
   ipAddress?: string | null                // IPv4 or IPv6; used for HTTP API polling
   intervalSecs?: number                    // 60–86400; default 3600
   enabled?: boolean                        // default true
-  linkCapacityKbps?: number | null         // STATION only — provisioned uplink capacity in kbps
+  linkCapacityKbps?: number | null         // STATION only — fallback capacity in kbps, used only when no contracted plan covers the device
   clientsProvisionedLimit?: number | null  // ACCESS_POINT only — max expected clients
   provisionedLanSpeedMbps?: number | null  // one of 10/100/1000/2500/10000 — see note below; usually left unset
   parentApDeviceId?: string | null         // STATION only — the ACCESS_POINT device this CPE is declared to sit on
@@ -2010,7 +2011,9 @@ there rather than assuming it.
 - `intervalSecs` must be **at least 60**. Polling AirOS faster than that overloads the embedded web server on the radio, so the floor is a hardware constraint, not a preference.
 - `provisionedLanSpeedMbps`, when set, must be one of `10`, `100`, `1000`, `2500`, `10000` — returns 400 for any other value (WLS-165). The auto-captured baseline (WLS-099) is not subject to this check; it always mirrors whatever the radio reports.
 
-> **`linkCapacityKbps` is in kbps, not bps** — a 50 Mbps link is `50000`. It feeds the link-saturation alert, which warns at 80 % of this value, so an entry off by 1000× either never fires or fires permanently.
+> **`linkCapacityKbps` is usually left unset (WLS-166).** A station with an `ACTIVE` or `PENDING` contracted service takes its capacity from that service's plan (`downloadMbps + uploadMbps`), and the configured value is ignored while that holds. Set it for stations with no contract, such as backhauls and infrastructure links. The throughput DTO's `linkCapacitySource` shows which value is in effect.
+>
+> **It is in kbps, not bps.** A 50 Mbps link is `50000`. It feeds the link-saturation alert, which warns at 80 % of the capacity, so an entry off by 1000× either never fires or fires permanently.
 
 > **`provisionedLanSpeedMbps` is usually not something you set (WLS-089/WLS-099).** It's the negotiated Ethernet speed (`10`, `100`, `1000`, `2500` or `10000` — WLS-165) this device's LAN port is expected to run at, and it auto-fills itself: the first poll that reports a speed for a device with no baseline yet stores that reading here, and every degradation warning after that compares against it instead of one fixed number shared by every device. Set it explicitly only to correct a baseline captured while the port was already degraded (e.g. right after this feature went live), or to pre-seed it before the first poll.
 
@@ -2044,7 +2047,7 @@ there rather than assuming it.
   ipAddress?: string | null
   intervalSecs?: number                   // 60–86400
   enabled?: boolean
-  linkCapacityKbps?: number | null        // kbps; STATION only — returns 400 if config is ACCESS_POINT
+  linkCapacityKbps?: number | null        // kbps; STATION only (400 on an ACCESS_POINT); fallback when no contracted plan applies (WLS-166)
   clientsProvisionedLimit?: number | null // ACCESS_POINT only — returns 400 if config is STATION
   provisionedLanSpeedMbps?: number | null // one of 10/100/1000/2500/10000 — see the note under POST; null clears the auto-captured baseline
   parentApDeviceId?: string | null        // STATION only — returns 400 if config is ACCESS_POINT; null clears the declared link
@@ -2228,7 +2231,8 @@ retry: 5000
 event: throughput
 data: {"deviceId":"…","deviceType":"STATION","collectedAt":"2026-08-12T10:00:00.000Z",
        "ageSeconds":12,"stale":false,"throughputTxBps":8000000,"throughputRxBps":2000000,
-       "throughputTotalBps":10000000,"linkCapacityKbps":50000,"utilisationPercent":20}
+       "throughputTotalBps":10000000,"linkCapacityKbps":50000,"linkCapacitySource":"CONTRACT",
+       "utilisationPercent":20}
 
 : ping
 ```
@@ -2366,12 +2370,13 @@ WirelessAlertDTO; // isActive: false
   metricsCollected: boolean
   alertsTriggered: number
   alertsCleared: number
-  collectionMethod: string
+  collectionMethod: string    // 'http_api' (Ubiquiti AirOS) | 'snmp' (Mimosa)
   skipped?: boolean           // true if polling was disabled and forceExecution not set
 }
 ```
 
 > Triggers an on-demand poll. Returns 404 if the device has no wireless polling configuration.  
+> The collector is chosen by the vendor of the device's model (WLS-053): Ubiquiti devices are polled over the AirOS HTTP API with the device's HTTP credentials, Mimosa devices over SNMP with its SNMP credentials. Returns 400 `Wireless polling is not supported for vendor '<slug>'` for any other vendor.  
 > The poll attempts real device connectivity — expect 400/500 in environments without reachable devices.
 
 ---

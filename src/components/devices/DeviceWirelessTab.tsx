@@ -31,6 +31,8 @@ import {
   WIRELESS_INDEPENDENT_OF_ICMP_NOTE,
   lanSpeedOptions,
   isValidLanSpeed,
+  wirelessCollectorFor,
+  COLLECTION_METHOD_LABELS,
 } from '@/constants/wireless.constants';
 import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
 
@@ -114,6 +116,11 @@ interface Props {
   deviceId: string;
   category: DeviceCategory | null;
   deviceIpAddress: string | null;
+  /**
+   * Of the device's model. Picks how the backend polls the radio — and so
+   * which credentials it needs — or whether it can at all. Null while unknown.
+   */
+  vendorSlug: string | null;
   /**
    * The backend owns `enabled` too — a move to a retired status turns polling
    * off, a move to COMMISSIONING turns it back on — so the tab re-reads the
@@ -350,6 +357,7 @@ export function DeviceWirelessTab({
   deviceId,
   category,
   deviceIpAddress,
+  vendorSlug,
   deviceStatus,
   deviceDeletedAt,
   deviceReplacedAt,
@@ -378,8 +386,10 @@ export function DeviceWirelessTab({
   const [polling, setPolling] = useState(false);
   const [pollMsg, setPollMsg] = useState<string | null>(null);
 
-  // Reboot needs HTTP credentials — the tab loads them only to gate the button.
+  // Polling and reboot log in with the device credentials — the tab loads
+  // their presence only to gate the buttons.
   const [hasHttpCreds, setHasHttpCreds] = useState<boolean | null>(null);
+  const [hasSnmpCreds, setHasSnmpCreds] = useState<boolean | null>(null);
   const [showRebootModal, setShowRebootModal] = useState(false);
   const [rebooting, setRebooting] = useState(false);
   const [rebootError, setRebootError] = useState<string | null>(null);
@@ -592,6 +602,7 @@ export function DeviceWirelessTab({
   useEffect(() => {
     apiService.getDeviceCredentials(deviceId).then((r) => {
       setHasHttpCreds(r.success && r.data ? r.data.hasHttpCredentials : false);
+      setHasSnmpCreds(r.success && r.data ? r.data.hasSnmpCredentials : false);
     });
   }, [deviceId]);
 
@@ -752,20 +763,35 @@ export function DeviceWirelessTab({
    * are still there waiting for the equipment to come back into service.
    */
   const disabledByStatus = !!config && !config.enabled && !canEnablePolling;
+  // Ubiquiti radios are polled over the AirOS HTTP API, Mimosa over SNMP, and
+  // any other vendor is refused by the backend without contacting the radio.
+  const collector = vendorSlug ? wirelessCollectorFor(vendorSlug) : null;
+  const unsupportedVendorReason =
+    vendorSlug && !collector
+      ? `El sondeo inalámbrico no está disponible para equipos del fabricante «${vendorSlug}»; solo Ubiquiti y Mimosa.`
+      : null;
+  // Model failed to load: don't guess which pair — let the backend decide.
+  let hasCollectorCreds: boolean | null = null;
+  if (collector) hasCollectorCreds = collector.credentials === 'http' ? hasHttpCreds : hasSnmpCreds;
+  else if (!vendorSlug && hasHttpCreds !== null && hasSnmpCreds !== null) hasCollectorCreds = hasHttpCreds || hasSnmpCreds;
   // The backend takes the IP from the wireless config and the login from the
   // device credentials — without either it answers 400, so block it up front.
-  const rebootBlockedReason = !config?.ipAddress
-    ? 'El equipo no tiene IP configurada en el monitoreo inalámbrico'
-    : hasHttpCreds === false
-      ? 'Configura credenciales HTTP en la pestaña Credenciales'
-      : null;
-  // Wireless collection polls the radio's AirOS HTTP API, so a config created
-  // without HTTP credentials would just sit there never collecting anything —
-  // require them up front instead of letting the operator find out later.
+  // Only AirOS exposes a reboot the backend can drive.
+  const rebootBlockedReason = collector && !collector.canReboot
+    ? 'El reinicio remoto solo está disponible para equipos Ubiquiti (AirOS)'
+    : !config?.ipAddress
+      ? 'El equipo no tiene IP configurada en el monitoreo inalámbrico'
+      : hasHttpCreds === false
+        ? 'Configura credenciales HTTP en la pestaña Credenciales'
+        : null;
+  // A config created without the credentials its collector logs in with would
+  // just sit there never collecting anything — require them up front instead
+  // of letting the operator find out later.
   const credentialsBlockedReason =
-    hasHttpCreds === false
-      ? 'Configura credenciales HTTP en la pestaña Credenciales antes de crear el sondeo inalámbrico'
-      : null;
+    unsupportedVendorReason ??
+    (hasCollectorCreds === false
+      ? `Configura credenciales ${collector ? collector.credentials.toUpperCase() : 'HTTP o SNMP'} en la pestaña Credenciales antes de crear el sondeo inalámbrico`
+      : null);
 
   return (
     <div className="space-y-6">
@@ -836,7 +862,7 @@ export function DeviceWirelessTab({
                 <Button
                   size="sm"
                   onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
-                  disabled={hasHttpCreds !== true}
+                  disabled={hasCollectorCreds !== true}
                 >
                   Crear Configuración
                 </Button>
@@ -874,7 +900,7 @@ export function DeviceWirelessTab({
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.intervalSecs}s</dd>
               </div>
               <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">IP (HTTP API)</dt>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">IP de sondeo</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{config.ipAddress ?? '—'}</dd>
               </div>
               <div>
@@ -885,7 +911,7 @@ export function DeviceWirelessTab({
               </div>
               {!isAP && config.linkCapacityKbps != null && (
                 <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Cap. de enlace</dt>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Cap. manual (respaldo)</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtKbps(config.linkCapacityKbps)}</dd>
                 </div>
               )}
@@ -963,13 +989,22 @@ export function DeviceWirelessTab({
                   )}
                 </div>
                 {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  <Input
-                    label="Capacidad de enlace (kbps)"
-                    type="number"
-                    value={configForm.linkCapacityKbps}
-                    onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityKbps: e.target.value }))}
-                    fullWidth
-                  />
+                  <div>
+                    <Input
+                      label="Capacidad manual (kbps)"
+                      type="number"
+                      value={configForm.linkCapacityKbps}
+                      onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityKbps: e.target.value }))}
+                      fullWidth
+                    />
+                    {/* WLS-166: a live contract's plan overrides this value, so
+                        it only matters for links nobody pays for. */}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Normalmente se deja vacía: si la estación tiene un servicio contratado activo o
+                      pendiente, se usa la velocidad de su plan. Solo aplica a enlaces sin contrato, como
+                      backhauls. En kbps: 50 Mbps = 50000.
+                    </p>
+                  </div>
                 )}
                 {(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
                   <Input
@@ -1040,7 +1075,7 @@ export function DeviceWirelessTab({
               </Card.Header>
               <Card.Body>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  El último sondeo AirOS reportó estos valores distintos a los registrados en el inventario.
+                  El último sondeo reportó estos valores distintos a los registrados en el inventario.
                 </p>
                 <div className="space-y-2">
                   {visibleSuggestions.map((s) => {
@@ -1101,7 +1136,7 @@ export function DeviceWirelessTab({
                   {status && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {effectiveDeviceType === 'ACCESS_POINT' ? 'Access Point' : 'Estación'} ·{' '}
-                      Método: <span className="font-mono">{status.collectionMethod}</span>
+                      Método: {COLLECTION_METHOD_LABELS[status.collectionMethod] ?? status.collectionMethod}
                     </p>
                   )}
                 </div>
@@ -1109,11 +1144,11 @@ export function DeviceWirelessTab({
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchStatus} disabled={statusLoading || isRebooting} />
                   <IconButton
                     icon={<PollIcon />}
-                    label="Sondear ahora"
+                    label={unsupportedVendorReason ?? 'Sondear ahora'}
                     variant="primary"
                     onClick={handlePollNow}
                     isLoading={polling}
-                    disabled={isRebooting}
+                    disabled={isRebooting || unsupportedVendorReason !== null}
                   />
                   {canWrite && (
                     <IconButton

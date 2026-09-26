@@ -66,13 +66,18 @@ export function WirelessThroughputCard({ deviceId, intervalSecs }: Props) {
                 <Metric label="Total" value={fmtBps(reading.throughputTotalBps)} />
               </div>
 
-              {/* Capacity is provisioned per station, so an AP has no plan to
-                  measure against and the backend sends null for both fields. */}
+              {/* Capacity is per station, so an AP has nothing to measure
+                  against and the backend sends null for both fields. A station
+                  with a live contract is measured against its plan, anything
+                  else against the config's manual fallback. */}
               {reading.linkCapacityKbps !== null && (
                 <div>
                   <div className="mb-1 flex items-baseline justify-between text-xs">
                     <span className="text-gray-500 dark:text-gray-400">
-                      Uso del plan contratado ({fmtKbps(reading.linkCapacityKbps)})
+                      {reading.linkCapacitySource === 'MANUAL'
+                        ? 'Uso de la capacidad manual'
+                        : 'Uso del plan contratado'}{' '}
+                      ({fmtKbps(reading.linkCapacityKbps)})
                     </span>
                     <Badge variant={utilisationVariant(utilisation)}>
                       {utilisation !== null ? `${utilisation.toFixed(2)} %` : '—'}

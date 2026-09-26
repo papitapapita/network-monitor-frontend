@@ -3,6 +3,8 @@ import { BulkReportBuckets } from './common.types';
 export type WirelessDeviceType = 'STATION' | 'ACCESS_POINT';
 export type WirelessCollectionMethod = 'snmp' | 'http_api' | 'mixed';
 export type WirelessAlertSeverity = 'WARNING' | 'CRITICAL';
+/** CONTRACT = the station's ACTIVE/PENDING service plan; MANUAL = the config's fallback. */
+export type LinkCapacitySource = 'CONTRACT' | 'MANUAL';
 
 export interface WirelessMetricsDTO {
   signalRxDbm: number | null;
@@ -109,8 +111,13 @@ export interface WirelessThroughputDTO {
   throughputRxBps: number | null;
   /** Null if either leg is null. */
   throughputTotalBps: number | null;
-  /** The provisioned plan. STATION-only — always null for an AP. */
+  /**
+   * Effective capacity: the contracted plan (download + upload), else the
+   * config's fallback value. STATION-only — always null for an AP.
+   */
   linkCapacityKbps: number | null;
+  /** Which of the two applied; null exactly when `linkCapacityKbps` is. */
+  linkCapacitySource: LinkCapacitySource | null;
   /** 2dp. Null without a capacity, so always null for an AP. */
   utilisationPercent: number | null;
 }
@@ -226,6 +233,7 @@ export interface WirelessPollResult {
   metricsCollected: boolean;
   alertsTriggered: number;
   alertsCleared: number;
+  /** 'http_api' for Ubiquiti AirOS, 'snmp' for Mimosa. */
   collectionMethod: string;
   skipped?: boolean;
 }

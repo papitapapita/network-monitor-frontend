@@ -1,6 +1,7 @@
 import type { SseState } from '@/services/sse';
 import type { BadgeVariant } from '@/components/ui';
 import type { DeviceCategory, DeviceStatus } from '@/types/device.types';
+import type { LinkCapacitySource } from '@/types/wireless.types';
 import {
   DEVICE_STATUS_LABELS,
   RETIRED_STATUSES,
@@ -62,6 +63,42 @@ export const WIRELESS_DISABLED_BY_STATUS_NOTE =
  */
 export const WIRELESS_INDEPENDENT_OF_ICMP_NOTE =
   'Pausar el monitoreo ICMP del dispositivo no detiene el sondeo inalámbrico: se controla aquí, por separado.';
+
+export interface WirelessCollector {
+  /** What the poll reports as `collectionMethod`. */
+  method: 'http_api' | 'snmp';
+  /** Which pair on the Credenciales tab the poll logs in with. */
+  credentials: 'http' | 'snmp';
+  /** Only AirOS exposes a reboot endpoint the backend can call. */
+  canReboot: boolean;
+}
+
+/**
+ * The backend picks the collector by the vendor slug of the device's model
+ * (WLS-053/WLS-054) and answers 400 for any vendor missing here, without
+ * contacting the radio. Keep in step with the backend's collector registry.
+ */
+const WIRELESS_COLLECTORS: Record<string, WirelessCollector> = {
+  ubiquiti: { method: 'http_api', credentials: 'http', canReboot: true },
+  mimosa: { method: 'snmp', credentials: 'snmp', canReboot: false },
+};
+
+/** Null when the vendor has no collector, so the radio cannot be polled at all. */
+export function wirelessCollectorFor(vendorSlug: string): WirelessCollector | null {
+  return WIRELESS_COLLECTORS[vendorSlug.toLowerCase()] ?? null;
+}
+
+export const COLLECTION_METHOD_LABELS: Record<string, string> = {
+  http_api: 'HTTP (AirOS)',
+  snmp: 'SNMP',
+  mixed: 'Mixto',
+};
+
+/** Where the capacity a utilisation is measured against came from (WLS-166). */
+export const LINK_CAPACITY_SOURCE_LABELS: Record<LinkCapacitySource, string> = {
+  CONTRACT: 'Plan contratado',
+  MANUAL: 'Capacidad manual',
+};
 
 /** Bits per second, as the radios report throughput. */
 export function fmtBps(val: number | null | undefined): string {
