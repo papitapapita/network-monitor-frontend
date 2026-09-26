@@ -12,7 +12,7 @@ import {
   isDeviceUnreachable,
   isWirelessAlert,
 } from '@/types/alert.types';
-import { Badge, Button, Card, IconButton, LoadingSpinner, TrashIcon } from '@/components/ui';
+import { BackLink, Badge, Button, Card, IconButton, LoadingSpinner, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
@@ -226,18 +226,14 @@ export default function AlertDetailPage() {
       />
 
       {/* Header */}
+      <BackLink onClick={() => goBack()} className="mb-2" />
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8 sm:flex-col sm:justify-start">
-        <div className="flex items-start gap-4 min-w-0">
-          <Button variant="outline" size="sm" onClick={() => goBack()}>
-            ← Alertas
-          </Button>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 wrap-anywhere">{describe(alert)}</h1>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={getSeverityVariant(alert.severity)}>{SEVERITY_LABELS[alert.severity]}</Badge>
-              <Badge variant={getStatusVariant(alert.status)}>{STATUS_LABELS[alert.status]}</Badge>
-              <span className="text-sm text-gray-500 dark:text-gray-400">{alert.source}</span>
-            </div>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 wrap-anywhere">{describe(alert)}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={getSeverityVariant(alert.severity)}>{SEVERITY_LABELS[alert.severity]}</Badge>
+            <Badge variant={getStatusVariant(alert.status)}>{STATUS_LABELS[alert.status]}</Badge>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{alert.source}</span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">

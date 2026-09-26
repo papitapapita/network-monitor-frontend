@@ -208,7 +208,7 @@ function DeviceTrashPageContent() {
       {/* The bin is a detour off the device list, so the way back out sits where
           a back control is looked for: top left, ahead of the title. */}
       <div className="mb-4">
-        <BackLink label="Dispositivos" onClick={() => goBack()} />
+        <BackLink onClick={() => goBack()} />
       </div>
 
       <PageHeader

@@ -7,7 +7,7 @@ import { LocationResponseDTO, UpdateLocationDTO } from '@/types/location.types';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { LOCATION_TYPE_LABELS, LOCATION_TYPE_BADGE_VARIANTS } from '@/constants/location.constants';
 import { DEVICE_STATUS_LABELS, deviceCategoryLabel } from '@/constants/device.constants';
-import { Button, Badge, EditIcon, IconButton, EditFormActions, LoadingSpinner, Card, Table, TableEmptyState, TrashIcon } from '@/components/ui';
+import { BackLink, Button, Badge, EditIcon, IconButton, EditFormActions, LoadingSpinner, Card, Table, TableEmptyState, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import {
   LocationForm,
@@ -189,19 +189,17 @@ export default function LocationDetailPage() {
       />
 
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-8 sm:flex-col sm:justify-start">
-        <div className="flex items-start gap-4 min-w-0">
-          <Button variant="outline" size="sm" onClick={() => goBack()}>
-            ← Ubicaciones
-          </Button>
+      <div className="mb-8">
+        <BackLink onClick={() => goBack()} className="mb-2" />
+        <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-col sm:justify-start">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-2">{location.name}</h1>
             <Badge variant={LOCATION_TYPE_BADGE_VARIANTS[location.type]}>
               {LOCATION_TYPE_LABELS[location.type]}
             </Badge>
           </div>
+          <IconButton icon={<TrashIcon />} label="Eliminar ubicación" variant="danger" onClick={() => setShowDeleteModal(true)} />
         </div>
-        <IconButton icon={<TrashIcon />} label="Eliminar ubicación" variant="danger" onClick={() => setShowDeleteModal(true)} />
       </div>
 
       {error && (

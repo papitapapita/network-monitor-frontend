@@ -136,7 +136,7 @@ export default function BillDetailPage() {
       )}
 
       <div className="mb-2">
-        <BackLink label="Facturas" onClick={() => goBack()} />
+        <BackLink onClick={() => goBack()} />
       </div>
       <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-col sm:justify-start">
         <div className="min-w-0">

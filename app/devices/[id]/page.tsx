@@ -303,7 +303,7 @@ export default function DeviceDetailPage() {
 
       {/* Header */}
       <div className="mb-6">
-        <BackLink label="Dispositivos" onClick={() => goBack()} className="mb-2" />
+        <BackLink onClick={() => goBack()} className="mb-2" />
         <div className="flex flex-wrap items-center justify-between gap-4 sm:flex-col sm:items-start sm:justify-start">
           <div className="flex items-center gap-3 min-w-0">
             <ConnectivityDot device={device} onlineStatus={onlineStatus} />

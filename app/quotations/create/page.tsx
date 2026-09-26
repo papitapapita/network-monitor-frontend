@@ -168,7 +168,7 @@ export default function CreateQuotationPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="mb-6">
-        <BackLink label="Cotizaciones" onClick={() => goBack()} className="mb-2" />
+        <BackLink onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Nueva Cotización</h1>
         <p className="text-gray-600 dark:text-gray-400">Prepara una propuesta comercial para un cliente o prospecto</p>
       </div>
