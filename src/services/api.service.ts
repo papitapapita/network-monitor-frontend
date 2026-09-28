@@ -874,6 +874,8 @@ class ApiService {
   async listAlerts(query?: ListAlertsQuery): Promise<ApiResponse<AlertListResponse>> {
     const qs = this.buildQuery({
       deviceId: query?.deviceId,
+      status: query?.status,
+      severity: query?.severity,
       limit: query?.limit,
       offset: query?.offset
     });

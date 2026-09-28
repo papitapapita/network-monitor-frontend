@@ -50,7 +50,17 @@ function describe(alert: AlertDTO): string {
   return alert.description || alert.type;
 }
 
-type SortColumn = 'severity' | 'status' | 'source' | 'description' | 'device';
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString('es', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+type SortColumn = 'severity' | 'status' | 'source' | 'description' | 'device' | 'startedAt';
 type SortDirection = 'asc' | 'desc';
 
 type AlertColumn = DataTableColumn<AlertDTO> & { label: string; locked?: boolean };
@@ -61,7 +71,8 @@ type AlertColumn = DataTableColumn<AlertDTO> & { label: string; locked?: boolean
  *
  * Kept to what's filterable (severity, status, source, device) plus the
  * description, which is the minimum needed to recognize an alert at a
- * glance. Everything else (type, duration, timestamps, producer-specific
+ * glance, and when it started. Everything else (type, duration, the other
+ * timestamps, producer-specific
  * details) lives on the alert's own detail page.
  */
 function alertColumnCatalog(deviceNames: Record<string, string>): AlertColumn[] {
@@ -114,6 +125,17 @@ function alertColumnCatalog(deviceNames: Record<string, string>): AlertColumn[] 
         >
           {deviceNames[a.deviceId] ?? a.deviceId}
         </Link>
+      ),
+    },
+    {
+      key: 'startedAt',
+      label: 'Inicio',
+      header: 'Inicio',
+      sortable: true,
+      cell: (a) => (
+        <span className="whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+          {formatDate(a.startedAt)}
+        </span>
       ),
     },
   ];
@@ -181,6 +203,9 @@ function AlertsPageContent() {
   const statusFilter = get('status', '');
   const sourceFilter = get('source', '');
   const deviceIdFilter = get('deviceId', '');
+  // 'YYYY-MM-DD' straight from <input type="date">, compared as local days.
+  const fromFilter = get('from', '');
+  const toFilter = get('to', '');
   // Sources present in the fetched page — the backend exposes no source filter,
   // so the options list can only reflect what we already have.
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
@@ -202,6 +227,8 @@ function AlertsPageContent() {
       limit: LIMIT,
       offset: (currentPage - 1) * LIMIT,
       deviceId: deviceIdFilter || undefined,
+      severity: (severityFilter as AlertSeverity) || undefined,
+      status: (statusFilter as AlertStatus) || undefined,
     });
 
     if (!result.success || !result.data) {
@@ -213,27 +240,30 @@ function AlertsPageContent() {
     const fetched = result.data.alerts;
     setSourceOptions([...new Set(fetched.map((a: AlertDTO) => a.source))].sort());
 
+    // Severity and status are filtered server-side; source and dates only
+    // narrow the page already fetched.
     let rows = fetched;
-    if (severityFilter) rows = rows.filter((a: AlertDTO) => a.severity === (severityFilter as AlertSeverity));
-    if (statusFilter) rows = rows.filter((a: AlertDTO) => a.status === (statusFilter as AlertStatus));
     if (sourceFilter) rows = rows.filter((a: AlertDTO) => a.source === sourceFilter);
+    if (fromFilter) {
+      // A bare 'YYYY-MM-DD' parses as UTC midnight; the time suffix keeps it local.
+      const from = Date.parse(`${fromFilter}T00:00`);
+      rows = rows.filter((a: AlertDTO) => Date.parse(a.startedAt) >= from);
+    }
+    if (toFilter) {
+      const to = Date.parse(`${toFilter}T23:59:59.999`);
+      rows = rows.filter((a: AlertDTO) => Date.parse(a.startedAt) <= to);
+    }
 
     setAlerts(rows);
     setTotalAlerts(result.data.total);
     setTotalPages(Math.max(1, Math.ceil(result.data.total / LIMIT)));
 
-    const uniqueIds = [...new Set(rows.map((a: AlertDTO) => a.deviceId))];
-    const nameEntries = await Promise.all(
-      uniqueIds.map(async (id) => {
-        const res = await apiService.getDevice(id);
-        return [id, res.success && res.data ? res.data.name : id] as [string, string];
-      })
-    );
-    setDeviceNames(Object.fromEntries(nameEntries));
+    // Each row names its device (by its current name), so no lookups are needed.
+    setDeviceNames(Object.fromEntries(rows.map((a) => [a.deviceId, a.deviceName])));
     setLastRefreshed(new Date());
 
     setIsLoading(false);
-  }, [currentPage, severityFilter, statusFilter, sourceFilter, deviceIdFilter]);
+  }, [currentPage, severityFilter, statusFilter, sourceFilter, deviceIdFilter, fromFilter, toFilter]);
 
   useEffect(() => {
     fetchAlerts();
@@ -260,13 +290,14 @@ function AlertsPageContent() {
   };
 
   const clearFilters = () =>
-    set({ severity: null, status: null, source: null, deviceId: null, page: null });
+    set({ severity: null, status: null, source: null, deviceId: null, from: null, to: null, page: null });
 
   const handleSort = (col: SortColumn) => {
     if (sortColumn === col) {
       set({ dir: sortDirection === 'asc' ? 'desc' : 'asc' });
     } else {
-      set({ sort: col, dir: 'asc' });
+      // Dates open newest-first, matching the order the backend already returns.
+      set({ sort: col, dir: col === 'startedAt' ? 'desc' : 'asc' });
     }
   };
 
@@ -290,6 +321,9 @@ function AlertsPageContent() {
         case 'device':
           cmp = (deviceNames[a.deviceId] ?? a.deviceId).localeCompare(deviceNames[b.deviceId] ?? b.deviceId);
           break;
+        case 'startedAt':
+          cmp = Date.parse(a.startedAt) - Date.parse(b.startedAt);
+          break;
       }
       return sortDirection === 'asc' ? cmp : -cmp;
     });
@@ -304,7 +338,8 @@ function AlertsPageContent() {
     [deviceNames, visibleKeys]
   );
 
-  const hasFilters = severityFilter || statusFilter || sourceFilter || deviceIdFilter;
+  const hasFilters =
+    severityFilter || statusFilter || sourceFilter || deviceIdFilter || fromFilter || toFilter;
 
   const totalLabel = totalAlerts > 0
     ? `${totalAlerts} ${totalAlerts === 1 ? 'alerta' : 'alertas'} en total`
@@ -330,7 +365,7 @@ function AlertsPageContent() {
       />
 
       <FilterBar
-        columns={5}
+        columns={4}
         hasFilters={!!hasFilters}
         onClear={clearFilters}
         secondaryFiltersActive={!!hasFilters}
@@ -372,6 +407,22 @@ function AlertsPageContent() {
           value={deviceIdFilter}
           onChange={(e) => set({ deviceId: e.target.value || null, page: null })}
           placeholder="UUID del dispositivo"
+          fullWidth
+        />
+        <Input
+          label="Desde"
+          type="date"
+          value={fromFilter}
+          max={toFilter || undefined}
+          onChange={(e) => set({ from: e.target.value || null, page: null })}
+          fullWidth
+        />
+        <Input
+          label="Hasta"
+          type="date"
+          value={toFilter}
+          min={fromFilter || undefined}
+          onChange={(e) => set({ to: e.target.value || null, page: null })}
           fullWidth
         />
       </FilterBar>
@@ -422,7 +473,7 @@ function AlertsPageContent() {
           hasFilters ? 'Ninguna alerta coincide con los filtros' : 'No hay alertas registradas.'
         }
         sort={{ field: sortColumn, direction: sortDirection, onSort: (f) => handleSort(f as SortColumn) }}
-        selectionResetKey={`${currentPage}|${severityFilter}|${statusFilter}|${sourceFilter}|${deviceIdFilter}`}
+        selectionResetKey={`${currentPage}|${severityFilter}|${statusFilter}|${sourceFilter}|${deviceIdFilter}|${fromFilter}|${toFilter}`}
         /*
          * Two actions with opposite eligibility — clearing wants the open ones,
          * deleting only takes the resolved — so nothing gates the checkboxes:

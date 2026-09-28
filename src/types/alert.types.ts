@@ -63,8 +63,14 @@ export interface BulkDeleteAlertsResult extends BulkReportBuckets {
   deleted: string[];
 }
 
+/** Only the list carries `deviceName`; `GET /api/alerts/:id` returns a plain AlertDTO. */
+export interface AlertListItemDTO extends AlertDTO {
+  /** The device's current name, so a renamed device's old alerts show the new one. */
+  deviceName: string;
+}
+
 export interface AlertListResponse {
-  alerts: AlertDTO[];
+  alerts: AlertListItemDTO[];
   total: number;
   hasMore: boolean;
   limit: number;
@@ -73,6 +79,8 @@ export interface AlertListResponse {
 
 export interface ListAlertsQuery {
   deviceId?: string;
+  status?: AlertStatus;
+  severity?: AlertSeverity;
   limit?: number;
   offset?: number;
 }
