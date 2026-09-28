@@ -141,9 +141,8 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   });
   const [configSaving, setConfigSaving] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [configErrors, setConfigErrors] = useState<Record<string, string>>({});
-  const [configSuccess, setConfigSuccess] = useState(false);
 
   // ── History ───────────────────────────────────────────────
   const [historyQuery, setHistoryQuery] = useState({
@@ -233,7 +232,6 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const handleEnableMonitoring = async () => {
     setIsEnabling(true);
     setConfigError(null);
-    setConfigSuccess(false);
 
     const updated = await apiService.updateDevice(deviceId, { monitoringEnabled: true });
     if (!updated.success || !updated.data) {
@@ -272,7 +270,6 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
 
     setConfigSaving(true);
     setConfigError(null);
-    setConfigSuccess(false);
 
     const intervalSeconds = configForm.intervalSeconds ? parseInt(configForm.intervalSeconds) : undefined;
     const failuresBeforeDown = configForm.failuresBeforeDown ? parseInt(configForm.failuresBeforeDown) : undefined;
@@ -285,7 +282,8 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     });
 
     if (result.success) {
-      setConfigSuccess(true);
+      showSuccess('Configuración guardada.');
+      setShowConfig(false);
       setNoConfig(false);
       fetchPollingStatus();
     } else {
@@ -433,11 +431,6 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
               {configError && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 mb-4 text-sm text-red-800 dark:text-red-400">
                   {configError}
-                </div>
-              )}
-              {configSuccess && (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3 mb-4 text-sm text-green-800 dark:text-green-400">
-                  Configuración guardada.
                 </div>
               )}
               {monitoringOff ? (
