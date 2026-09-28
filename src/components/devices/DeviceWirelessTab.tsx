@@ -35,6 +35,7 @@ import {
   COLLECTION_METHOD_LABELS,
 } from '@/constants/wireless.constants';
 import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
+import { LinkDiagnosisCard } from '@/components/wireless/LinkDiagnosisCard';
 
 function CloseIcon() {
   return (
@@ -1102,6 +1103,10 @@ export function DeviceWirelessTab({
               its own while the snapshot below stays where "Actualizar" left it. */}
           <WirelessThroughputCard deviceId={deviceId} intervalSecs={config.intervalSecs} />
 
+          {/* On-demand check for a failing link. The backend refuses a vendor
+              it cannot read, so there is nothing to offer for one. */}
+          {!unsupportedVendorReason && <LinkDiagnosisCard deviceId={deviceId} canWrite={canWrite} />}
+
           {/* Latest snapshot */}
           <Card>
             <Card.Header>
@@ -1168,6 +1173,10 @@ export function DeviceWirelessTab({
 
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Señal</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400">SSID</dt>
+                      <dd className="mt-1 text-gray-900 dark:text-gray-100 break-all">{metrics.ssid ?? '—'}</dd>
+                    </div>
                     {!isAP && (
                       <div>
                         <dt className="text-gray-500 dark:text-gray-400">Señal RX (del AP)</dt>

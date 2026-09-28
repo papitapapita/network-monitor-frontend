@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 /**
- * Hand-rolled SVG charts for the dashboard. No chart library: the shapes
+ * Hand-rolled SVG charts for the dashboard (the helpers are shared with the
+ * link diagnosis chart). No chart library: the shapes
  * needed are few, and owning them keeps the marks on the app's own tokens
  * (`--viz-*` in globals.css) in both themes.
  *
@@ -15,7 +16,7 @@ import Link from 'next/link';
  */
 
 /** Tracks an element's rendered width, so SVG text is laid out at 1:1 scale. */
-function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
+export function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
   const ref = useRef<T>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -39,7 +40,7 @@ function niceStep(value: number, count: number): number {
 }
 
 /** Axis ceiling and ticks: the first round step at or above the data. */
-function niceAxis(value: number, count = 3, integer = false): { max: number; ticks: number[] } {
+export function niceAxis(value: number, count = 3, integer = false): { max: number; ticks: number[] } {
   const step = integer ? Math.max(1, Math.ceil(niceStep(value, count))) : niceStep(value, count);
   const max = Math.max(step, Math.ceil(value / step) * step);
   const ticks: number[] = [];
@@ -311,7 +312,7 @@ export function StackedColumns({
   );
 }
 
-function Tooltip({
+export function Tooltip({
   x,
   y,
   containerWidth,

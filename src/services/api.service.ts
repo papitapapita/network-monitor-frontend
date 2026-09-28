@@ -70,6 +70,11 @@ import {
   WirelessIdentitySuggestionsResponse,
   WirelessThroughputDTO,
   WirelessThroughputSnapshot,
+  LinkDiagnosisDTO,
+  LinkDiagnosisReportDTO,
+  PingSampleDTO,
+  RadioSampleDTO,
+  StartLinkDiagnosisResult,
 } from '../types/wireless.types';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
@@ -189,6 +194,18 @@ export interface WirelessThroughputStreamHandlers {
 export interface FleetThroughputStreamHandlers extends WirelessThroughputStreamHandlers {
   /** The opening frame only — the whole fleet at once. */
   onSnapshot: (snapshot: WirelessThroughputSnapshot) => void;
+}
+
+export interface LinkDiagnosisStreamHandlers {
+  /** Once on connect: the whole session with every sample so far. */
+  onDiagnosis: (diagnosis: LinkDiagnosisDTO) => void;
+  onPing: (sample: PingSampleDTO) => void;
+  onRadio: (sample: RadioSampleDTO) => void;
+  /** Right after each radio read. */
+  onReport: (report: LinkDiagnosisReportDTO) => void;
+  /** Once, when the session ends — without samples. The stream is closed by then. */
+  onEnd: (diagnosis: LinkDiagnosisDTO) => void;
+  onState?: (state: SseState) => void;
 }
 
 class ApiService {
@@ -1025,6 +1042,33 @@ class ApiService {
     });
   }
 
+  /**
+   * Starts a live diagnosis, or joins the one already running for the device
+   * (`started: false`, with its original duration — it is not restarted).
+   * 429 means the server is already running its maximum number of sessions.
+   */
+  async startLinkDiagnosis(
+    deviceId: string,
+    durationSeconds?: number
+  ): Promise<ApiResponse<StartLinkDiagnosisResult>> {
+    return this.request<StartLinkDiagnosisResult>(`/devices/${deviceId}/wireless/diagnosis`, {
+      method: 'POST',
+      body: JSON.stringify(durationSeconds !== undefined ? { durationSeconds } : {})
+    });
+  }
+
+  /** The running session, or the last one if it ended under 15 minutes ago, with samples. 404 when neither. */
+  async getLinkDiagnosis(deviceId: string): Promise<ApiResponse<LinkDiagnosisDTO>> {
+    return this.request<LinkDiagnosisDTO>(`/devices/${deviceId}/wireless/diagnosis`);
+  }
+
+  /** Ends the running session early (`STOPPED`). 404 when nothing is running. */
+  async stopLinkDiagnosis(deviceId: string): Promise<ApiResponse<LinkDiagnosisDTO>> {
+    return this.request<LinkDiagnosisDTO>(`/devices/${deviceId}/wireless/diagnosis`, {
+      method: 'DELETE'
+    });
+  }
+
   async getWirelessHistory(
     deviceId: string,
     query: WirelessHistoryQuery
@@ -1089,6 +1133,50 @@ class ApiService {
         if (dto) handlers.onThroughput(dto);
       },
     });
+  }
+
+  /**
+   * Watches a diagnosis session. Opening it never starts one — start first;
+   * 404 means there is nothing to watch. The server keeps the connection open
+   * after `end`, and a client that stays connected reconnects into the
+   * finished session and replays it, so this closes the stream itself on `end`.
+   */
+  streamLinkDiagnosis(deviceId: string, handlers: LinkDiagnosisStreamHandlers): () => void {
+    const close = openSseStream(`${this.baseUrl}/devices/${deviceId}/wireless/diagnosis/stream`, {
+      token: this.token,
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        switch (event) {
+          case 'diagnosis': {
+            const dto = parseStreamJson<LinkDiagnosisDTO>(data);
+            if (dto) handlers.onDiagnosis(dto);
+            break;
+          }
+          case 'ping': {
+            const dto = parseStreamJson<PingSampleDTO>(data);
+            if (dto) handlers.onPing(dto);
+            break;
+          }
+          case 'radio': {
+            const dto = parseStreamJson<RadioSampleDTO>(data);
+            if (dto) handlers.onRadio(dto);
+            break;
+          }
+          case 'report': {
+            const dto = parseStreamJson<LinkDiagnosisReportDTO>(data);
+            if (dto) handlers.onReport(dto);
+            break;
+          }
+          case 'end': {
+            close();
+            const dto = parseStreamJson<LinkDiagnosisDTO>(data);
+            if (dto) handlers.onEnd(dto);
+            break;
+          }
+        }
+      },
+    });
+    return close;
   }
 
   /**

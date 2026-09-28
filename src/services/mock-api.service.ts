@@ -65,6 +65,7 @@ import {
   BulkClearAlertsResult,
   BulkDeleteAlertsResult,
 } from '../types/alert.types';
+import type { LinkDiagnosisDTO, StartLinkDiagnosisResult } from '../types/wireless.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
 import { SseState } from './sse';
@@ -1126,6 +1127,17 @@ class MockApiService {
   async getWirelessHistory() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
+  async startLinkDiagnosis(): Promise<ApiResponse<StartLinkDiagnosisResult>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  // A 404 is what the real backend answers with no session, so the card just
+  // shows its start button.
+  async getLinkDiagnosis(): Promise<ApiResponse<LinkDiagnosisDTO>> {
+    return { success: false, status: 404, error: 'No disponible en modo mock' };
+  }
+  async stopLinkDiagnosis(): Promise<ApiResponse<LinkDiagnosisDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
   async getWirelessAlertHistory() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
@@ -1148,6 +1160,14 @@ class MockApiService {
   }
 
   streamFleetThroughput(handlers: { onState?: (state: SseState) => void }): () => void {
+    handlers.onState?.({ status: 'error', error: 'No disponible en modo mock' });
+    return () => {};
+  }
+
+  streamLinkDiagnosis(
+    _deviceId: string,
+    handlers: { onState?: (state: SseState) => void }
+  ): () => void {
     handlers.onState?.({ status: 'error', error: 'No disponible en modo mock' });
     return () => {};
   }

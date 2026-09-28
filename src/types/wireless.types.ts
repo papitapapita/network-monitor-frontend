@@ -14,6 +14,8 @@ export interface WirelessMetricsDTO {
   ccqPercent: number | null;
   frequencyMhz: number | null;
   channelWidthMhz: number | null;
+  /** The SSID an AP broadcasts, or the one a station is associated to. */
+  ssid: string | null;
   throughputTxBps: number | null;
   throughputRxBps: number | null;
   throughputTxPps: number | null;
@@ -258,4 +260,127 @@ export interface WirelessHistoryQuery {
   from: string;
   to: string;
   limit?: number;
+}
+
+// ============================================================
+// Live link diagnosis
+// ============================================================
+//
+// A time-boxed, on-demand check of one radio: ping every second (to the parent
+// AP too, for a station), a radio read every 2 s, and a report rebuilt after
+// each read. Nothing is stored — a session lives in server memory, stays
+// readable for 15 minutes after it ends, and never opens alerts.
+
+export type DiagnosisVerdict = 'HEALTHY' | 'DEGRADED' | 'FAILING' | 'INCONCLUSIVE';
+/** TARGET_LINK: this radio or its own link; UPSTREAM: the parent AP or backhaul. */
+export type DiagnosisFaultLocation = 'NONE' | 'TARGET_LINK' | 'UPSTREAM' | 'UNDETERMINED';
+export type DiagnosisStatus = 'RUNNING' | 'COMPLETED' | 'STOPPED';
+export type DiagnosisHop = 'TARGET' | 'PARENT';
+
+export interface PingSampleDTO {
+  hop: DiagnosisHop;
+  at: string;
+  /** Null = no reply within 1 s. */
+  latencyMs: number | null;
+}
+
+export interface RadioSampleDTO {
+  at: string;
+  /** False = the read failed; see `error`. */
+  ok: boolean;
+  error: string | null;
+  /** From interface byte counters between reads. */
+  throughputTxBps: number | null;
+  throughputRxBps: number | null;
+  /** airMAX estimate. */
+  capacityTxKbps: number | null;
+  capacityRxKbps: number | null;
+  signalRxDbm: number | null;
+  signalTxDbm: number | null;
+  noiseFloorDbm: number | null;
+  snrDb: number | null;
+  ccqPercent: number | null;
+  /** The radio's own tx latency, not the ping. */
+  radioLatencyMs: number | null;
+  cpuLoadPercent: number | null;
+  lanStatus: 'UP' | 'DOWN' | null;
+  lanSpeedMbps: number | null;
+}
+
+export interface PingStatisticsDTO {
+  sent: number;
+  received: number;
+  lossPercent: number;
+  minMs: number | null;
+  avgMs: number | null;
+  maxMs: number | null;
+  /** Mean delta between consecutive replies. */
+  jitterMs: number | null;
+  /** Replies >= 150 ms. */
+  spikeCount: number;
+}
+
+export interface DiagnosisFindingDTO {
+  /**
+   * 'unreachable' | 'packet_loss' | 'high_latency' | 'latency_spikes' |
+   * 'jitter' | 'radio_unreadable', or any wireless alert metric.
+   */
+  code: string;
+  hop: DiagnosisHop | 'RADIO';
+  severity: WirelessAlertSeverity;
+  value: number | null;
+  threshold: number | null;
+  /** Spanish, ready to display. */
+  message: string;
+}
+
+export interface LinkDiagnosisReportDTO {
+  verdict: DiagnosisVerdict;
+  faultLocation: DiagnosisFaultLocation;
+  /** Spanish one-liner, ready to display. */
+  summary: string;
+  findings: DiagnosisFindingDTO[];
+  target: PingStatisticsDTO;
+  /** Null when there is no parent hop. */
+  parent: PingStatisticsDTO | null;
+  radio: {
+    samples: number;
+    failures: number;
+    throughput: {
+      avgTxBps: number | null;
+      avgRxBps: number | null;
+      peakTxBps: number | null;
+      peakRxBps: number | null;
+      /** Contracted plan, else the manual value. */
+      linkCapacityKbps: number | null;
+    };
+  };
+  generatedAt: string;
+}
+
+export interface DiagnosisEndpoint {
+  deviceId: string | null;
+  ipAddress: string;
+  name: string | null;
+}
+
+export interface LinkDiagnosisDTO {
+  deviceId: string;
+  deviceType: WirelessDeviceType;
+  status: DiagnosisStatus;
+  startedAt: string;
+  endsAt: string;
+  endedAt: string | null;
+  durationSeconds: number;
+  target: DiagnosisEndpoint;
+  parent: DiagnosisEndpoint | null;
+  report: LinkDiagnosisReportDTO;
+  /** Only on GET and the stream — POST and the `end` frame leave them out. */
+  samples?: { ping: PingSampleDTO[]; radio: RadioSampleDTO[] };
+}
+
+export interface StartLinkDiagnosisResult {
+  /** False = a session was already running and was joined, not restarted. */
+  started: boolean;
+  diagnosis: LinkDiagnosisDTO;
 }
