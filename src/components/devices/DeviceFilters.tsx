@@ -61,8 +61,8 @@ export function DeviceFilters({
         onChange={(e) => onConnectivityChange(e.target.value)}
         options={[
           { value: '', label: 'Todos' },
-          { value: 'ONLINE', label: 'En línea' },
-          { value: 'OFFLINE', label: 'Desconectado' },
+          { value: 'UP', label: 'En línea' },
+          { value: 'DOWN', label: 'Desconectado' },
           { value: 'UNKNOWN', label: 'Desconocido' },
         ]}
         fullWidth

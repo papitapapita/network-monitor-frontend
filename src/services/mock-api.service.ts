@@ -7,6 +7,8 @@
 import {
   DeviceResponseDTO,
   DeviceListResponse,
+  DeviceListItemDTO,
+  DeviceConnectivity,
   CreateDeviceDTO,
   UpdateDeviceDTO,
   ListDevicesQuery,
@@ -119,6 +121,20 @@ const MOCK_VENDORS: VendorDTO[] = [
 ];
 let vendors: VendorDTO[] = [...MOCK_VENDORS];
 const pollingStatus: Record<string, PollingStatusDTO> = { ...MOCK_POLLING_STATUS };
+
+/** What the real list joins in from device-monitoring (DEV-148). */
+function connectivityOf(device: DeviceResponseDTO): DeviceConnectivity | null {
+  if (!device.monitoringEnabled) return null;
+  const status = pollingStatus[device.id];
+  if (!status) return { status: 'UNKNOWN', downSince: null, lastSeen: null };
+  const up = status.currentStatus === 'ONLINE';
+  const down = status.currentStatus === 'OFFLINE';
+  return {
+    status: up ? 'UP' : down ? 'DOWN' : 'UNKNOWN',
+    downSince: down ? status.lastPolled : null,
+    lastSeen: up ? status.lastPolled : null,
+  };
+}
 const pollingHistory: Record<string, ReturnType<typeof MOCK_POLLING_HISTORY[string]['slice']>> = {};
 for (const [k, v] of Object.entries(MOCK_POLLING_HISTORY)) pollingHistory[k] = [...v];
 /** No row means "never configured" — always-notify defaults, same as the real API. */
@@ -282,11 +298,24 @@ class MockApiService {
       );
     }
 
+    let rows: DeviceListItemDTO[] = result.map((d) => ({ ...d, connectivity: connectivityOf(d) }));
+    if (query?.connectivity) rows = rows.filter((d) => d.connectivity?.status === query.connectivity);
+
+    // Longest outage first on ASC; devices not down follow, unmonitored last.
+    if (query?.sortBy === 'downSince') {
+      const direction = query.sortOrder === 'DESC' ? -1 : 1;
+      const tier = (d: DeviceListItemDTO) => (!d.connectivity ? 2 : d.connectivity.downSince ? 0 : 1);
+      rows = [...rows].sort((a, b) => {
+        if (tier(a) !== tier(b)) return tier(a) - tier(b);
+        const l = a.connectivity?.downSince ?? '';
+        const r = b.connectivity?.downSince ?? '';
+        return l === r ? 0 : (l < r ? -1 : 1) * direction;
+      });
     // The bin is read newest-deleted-first, so the sort has to work here too.
-    if (query?.sortBy) {
+    } else if (query?.sortBy) {
       const field = query.sortBy;
       const direction = query.sortOrder === 'ASC' ? 1 : -1;
-      result = [...result].sort((a, b) => {
+      rows = [...rows].sort((a, b) => {
         const l = a[field] ?? '';
         const r = b[field] ?? '';
         return l === r ? 0 : (l < r ? -1 : 1) * direction;
@@ -295,7 +324,7 @@ class MockApiService {
 
     const limit = query?.limit ?? 20;
     const offset = query?.offset ?? 0;
-    const { items, total } = paginate(result, limit, offset);
+    const { items, total } = paginate(rows, limit, offset);
 
     return ok({
       devices: items,

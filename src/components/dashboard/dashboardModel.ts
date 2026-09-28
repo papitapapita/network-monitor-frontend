@@ -1,5 +1,5 @@
 import type { AlertDTO, AlertSeverity } from '@/types/alert.types';
-import type { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
+import type { DeviceListItemDTO, DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import type { PollingStatusDTO } from '@/types/polling.types';
 import type { TicketDTO, TicketPriority } from '@/types/ticket.types';
 import { isDeviceUnreachable } from '@/types/alert.types';
@@ -8,7 +8,8 @@ import { todayISODate } from '@/constants/ticket.constants';
 /**
  * Pure derivations for the dashboard. Everything here is computed from four
  * list reads plus the (cached) per-device polling statuses, so the page costs a
- * bounded number of requests however many widgets it shows.
+ * bounded number of requests however many widgets it shows. Connectivity comes
+ * with the device list; the polling statuses only add latency and failure counts.
  */
 
 export const ALERT_WINDOW_DAYS = 14;
@@ -22,30 +23,23 @@ export interface ConnectivitySummary {
   offline: number;
   unknown: number;
   unmonitored: number;
-  /** Monitored devices whose status could not be read — shown, never folded into "unknown". */
-  unread: number;
   monitored: number;
 }
 
-export function summarizeConnectivity(
-  devices: DeviceResponseDTO[],
-  statuses: Record<string, PollingStatusDTO>,
-  unread: number
-): ConnectivitySummary {
-  const summary: ConnectivitySummary = { online: 0, offline: 0, unknown: 0, unmonitored: 0, unread, monitored: 0 };
+/** Read off the list itself — every row carries its device's current state. */
+export function summarizeConnectivity(devices: DeviceListItemDTO[]): ConnectivitySummary {
+  const summary: ConnectivitySummary = { online: 0, offline: 0, unknown: 0, unmonitored: 0, monitored: 0 };
   for (const d of devices) {
-    if (!d.monitoringEnabled) {
+    if (!d.connectivity) {
       summary.unmonitored++;
       continue;
     }
     summary.monitored++;
-    const status = statuses[d.id]?.currentStatus;
-    if (status === 'ONLINE') summary.online++;
-    else if (status === 'OFFLINE') summary.offline++;
-    // No reading at all is UNKNOWN too, unless the read itself failed (counted in `unread`).
+    if (d.connectivity.status === 'UP') summary.online++;
+    else if (d.connectivity.status === 'DOWN') summary.offline++;
+    // A monitored device never polled comes back UNKNOWN too.
     else summary.unknown++;
   }
-  summary.unknown = Math.max(0, summary.unknown - unread);
   return summary;
 }
 
@@ -69,26 +63,24 @@ export interface Problem {
 const isOpen = (a: AlertDTO) => a.status === 'OPEN';
 
 export function buildProblems(
-  devices: DeviceResponseDTO[],
+  devices: DeviceListItemDTO[],
   statuses: Record<string, PollingStatusDTO>,
   alerts: AlertDTO[],
   locationNames: Record<string, string>
 ): Problem[] {
   const byId = new Map(devices.map((d) => [d.id, d]));
   const openAlerts = alerts.filter(isOpen);
-  const location = (d: DeviceResponseDTO | undefined) =>
+  const location = (d: DeviceListItemDTO | undefined) =>
     d?.locationId ? locationNames[d.locationId] ?? null : null;
 
   const problems: Problem[] = [];
   const downIds = new Set<string>();
 
   for (const d of devices) {
-    const status = statuses[d.id];
-    if (status?.currentStatus !== 'OFFLINE') continue;
+    if (d.connectivity?.status !== 'DOWN') continue;
     downIds.add(d.id);
-    // The open unreachable alert is the only record of when the outage began.
-    const alert = openAlerts.find((a) => a.deviceId === d.id && isDeviceUnreachable(a));
-    const failures = status.consecutiveFailures;
+    // The failure count is only on the per-device reading, which may not be in yet.
+    const failures = statuses[d.id]?.consecutiveFailures ?? 0;
     problems.push({
       key: `down:${d.id}`,
       kind: 'down',
@@ -100,7 +92,7 @@ export function buildProblems(
       detail: [d.ipAddress, failures > 0 ? `${failures} sondeo${failures === 1 ? '' : 's'} fallido${failures === 1 ? '' : 's'}` : null]
         .filter(Boolean)
         .join(' · ') || null,
-      since: alert?.startedAt ?? null,
+      since: d.connectivity.downSince,
     });
   }
 

@@ -1,38 +1,42 @@
 import { useEffect, useState } from 'react';
-import { useQuery, useQueryClient, keepPreviousData, QueryClient } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
-  DeviceResponseDTO,
+  ConnectivityStatus,
   ListDevicesQuery,
   DeviceStatus,
   DeviceCategory,
 } from '@/types/device.types';
-import { PollingStatus } from '@/types/polling.types';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useUrlState } from '@/hooks/useUrlState';
-import { fetchPollingStatuses, invalidatePollingStatuses } from '@/hooks/pollingStatusQuery';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
-/** The column key is the URL/localStorage-facing name; only 'ip' diverges from the API's `sortBy`. */
+/**
+ * The column key is the URL/localStorage-facing name. 'ip' maps to the API's
+ * `ipAddress`, and the connectivity column sorts by outage start — the API has
+ * no `sortBy=connectivity`, and "down longest first" is the order worth having.
+ */
 function toSortBy(field: string): ListDevicesQuery['sortBy'] {
-  return (field === 'ip' ? 'ipAddress' : field) as ListDevicesQuery['sortBy'];
+  if (field === 'ip') return 'ipAddress';
+  if (field === 'connectivity') return 'downSince';
+  return field as ListDevicesQuery['sortBy'];
 }
 
-async function buildPollingStatusMap(
-  queryClient: QueryClient,
-  devices: DeviceResponseDTO[]
-): Promise<{ map: Record<string, PollingStatus>; failed: number }> {
-  const { byId, unpolled, failed } = await fetchPollingStatuses(queryClient, devices);
-  const map: Record<string, PollingStatus> = {};
-  for (const [id, status] of Object.entries(byId)) map[id] = status.currentStatus;
-  for (const id of unpolled) map[id] = 'UNKNOWN';
-  return { map, failed };
+/**
+ * The filter used to speak the polling endpoints' ONLINE/OFFLINE; the list
+ * speaks UP/DOWN. Old links and bookmarks still land on the right filter.
+ */
+const LEGACY_CONNECTIVITY: Record<string, ConnectivityStatus> = { ONLINE: 'UP', OFFLINE: 'DOWN' };
+
+function toConnectivity(value: string): ConnectivityStatus | undefined {
+  if (!value) return undefined;
+  return LEGACY_CONNECTIVITY[value] ?? (value as ConnectivityStatus);
 }
 
-async function fetchDevicesData(queryClient: QueryClient, params: {
+async function fetchDevicesData(params: {
   currentPage: number;
   limit: number;
   statusFilter: string;
@@ -45,55 +49,6 @@ async function fetchDevicesData(queryClient: QueryClient, params: {
 }) {
   const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search, sortField, sortDirection } = params;
 
-  if (connectivityFilter) {
-    const allResult = await apiService.listDevices({
-      limit: 300,
-      locationId: locationFilter || undefined,
-      // Connectivity itself is filtered locally below (the API has no such
-      // param), but the server-sorted order still holds through that filter
-      // and the slice that follows, so the page stays sorted correctly.
-      ...(sortField
-        ? { sortBy: toSortBy(sortField), sortOrder: sortDirection === 'asc' ? 'ASC' : 'DESC' }
-        : {}),
-    });
-    if (!allResult.success || !allResult.data) {
-      throw new Error(allResult.error || 'Error al cargar dispositivos');
-    }
-
-    const allDevices = allResult.data.devices;
-    const { map: statusMap, failed } = await buildPollingStatusMap(queryClient, allDevices);
-    // A device whose reading could not be fetched would silently fall out of
-    // the filter below, so a rate-limited run would read as "no devices match".
-    if (failed > 0) {
-      throw new Error(
-        `No se pudo consultar la conectividad de ${failed} dispositivo${failed === 1 ? '' : 's'} (posible límite de solicitudes). Intente de nuevo en un minuto.`
-      );
-    }
-
-    let filtered = allDevices.filter((d) => statusMap[d.id] === connectivityFilter);
-    if (statusFilter) filtered = filtered.filter((d) => d.status === (statusFilter as DeviceStatus));
-    if (categoryFilter) filtered = filtered.filter((d) => d.category === (categoryFilter as DeviceCategory));
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(
-        (d) =>
-          d.name.toLowerCase().includes(q) ||
-          d.ipAddress?.toLowerCase().includes(q) ||
-          d.macAddress?.toLowerCase().includes(q) ||
-          d.serialNumber?.toLowerCase().includes(q)
-      );
-    }
-
-    const total = filtered.length;
-    const offset = (currentPage - 1) * limit;
-    return {
-      devices: filtered.slice(offset, offset + limit),
-      pollingStatuses: statusMap,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-    };
-  }
-
   const query: ListDevicesQuery = {
     limit,
     offset: (currentPage - 1) * limit,
@@ -102,6 +57,7 @@ async function fetchDevicesData(queryClient: QueryClient, params: {
   if (categoryFilter) query.category = categoryFilter as DeviceCategory;
   if (locationFilter) query.locationId = locationFilter;
   if (search) query.search = search;
+  query.connectivity = toConnectivity(connectivityFilter);
   if (sortField) {
     query.sortBy = toSortBy(sortField);
     query.sortOrder = sortDirection === 'asc' ? 'ASC' : 'DESC';
@@ -112,10 +68,8 @@ async function fetchDevicesData(queryClient: QueryClient, params: {
     throw new Error(result.error || 'Error al cargar dispositivos');
   }
 
-  const pageDevices = result.data.devices;
   return {
-    devices: pageDevices,
-    pollingStatuses: (await buildPollingStatusMap(queryClient, pageDevices)).map,
+    devices: result.data.devices,
     total: result.data.total,
     totalPages: Math.max(1, Math.ceil(result.data.total / limit)),
   };
@@ -130,13 +84,12 @@ async function fetchDevicesData(queryClient: QueryClient, params: {
  */
 export function useDevices() {
   const { get, getNumber, set } = useUrlState();
-  const queryClient = useQueryClient();
 
   const currentPage = getNumber('page', 1);
   const limit = getNumber('limit', 20);
   const statusFilter = get('status', '');
   const categoryFilter = get('category', '');
-  const connectivityFilter = get('connectivity', '');
+  const connectivityFilter = toConnectivity(get('connectivity', '')) ?? '';
   const locationFilter = get('locationId', '');
   const sortField = get('sort', '') || null;
   const sortDirection = get('dir', 'asc') as 'asc' | 'desc';
@@ -157,12 +110,11 @@ export function useDevices() {
 
   const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = useQuery({
     queryKey,
-    queryFn: () => fetchDevicesData(queryClient, { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch, sortField, sortDirection }),
+    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch, sortField, sortDirection }),
     placeholderData: keepPreviousData,
   });
 
   const devices = data?.devices ?? [];
-  const pollingStatuses = data?.pollingStatuses ?? {};
   const totalDevices = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 1;
   const lastRefreshed = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
@@ -191,6 +143,7 @@ export function useDevices() {
     if (sortField === field) {
       set({ dir: sortDirection === 'asc' ? 'desc' : 'asc', page: null });
     } else {
+      // ASC on connectivity is the longest outage first, which is the useful end.
       set({ sort: field, dir: 'asc', page: null });
     }
   };
@@ -199,7 +152,6 @@ export function useDevices() {
     // The API sorts and paginates together, so a header click here just
     // requests the new sortBy/sortOrder and the returned page is rendered as-is.
     devices,
-    pollingStatuses,
     isLoading: isLoading,
     isFetching,
     error: error ? (error as Error).message : null,
@@ -223,11 +175,7 @@ export function useDevices() {
     setCurrentPage,
     handleSort,
     clearFilters,
-    // An explicit refresh should show current readings, not the cached ones.
-    fetchDevices: async () => {
-      await invalidatePollingStatuses(queryClient);
-      return refetch();
-    },
+    fetchDevices: () => refetch(),
     limit,
     setLimit,
     PAGE_SIZE_OPTIONS,

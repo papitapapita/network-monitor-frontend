@@ -66,12 +66,13 @@ export default function DashboardPage() {
   const now = useNow(60_000);
 
   const devicesLoading = data.devicesQuery.isPending;
-  const statusLoading = devicesLoading || data.statusQuery.isPending;
+  // Connectivity arrives with the device list; only latency waits on the per-device reads.
+  const latencyLoading = devicesLoading || data.statusQuery.isPending;
   const alertsLoading = data.alertsQuery.isPending;
 
   const connectivity = useMemo(
-    () => summarizeConnectivity(devices, statuses, data.statusQuery.data?.failed ?? 0),
-    [devices, statuses, data.statusQuery.data]
+    () => summarizeConnectivity(devices),
+    [devices]
   );
   const problems = useMemo(
     () => buildProblems(devices, statuses, alerts, locationNames),
@@ -84,6 +85,7 @@ export default function DashboardPage() {
   const ticketSummary = useMemo(() => summarizeTickets(tickets), [tickets]);
   const lifecycle = useMemo(() => countByStatus(devices), [devices]);
 
+  const unread = data.statusQuery.data?.failed ?? 0;
   const openAlerts = alerts.filter((a) => a.status === 'OPEN');
   const criticalOpen = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
   const measured = connectivity.online + connectivity.offline;
@@ -126,16 +128,16 @@ export default function DashboardPage() {
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <KpiTile
           label="Disponibilidad"
-          href="/devices?connectivity=ONLINE"
-          loading={statusLoading}
+          href="/devices?connectivity=UP"
+          loading={devicesLoading}
           tone={availability === null ? 'neutral' : availability === 100 ? 'good' : availability >= 90 ? 'warning' : 'critical'}
           value={availability === null ? '—' : `${availability}%`}
           sub={measured > 0 ? `${connectivity.online} de ${measured} con lectura` : 'Sin dispositivos medidos'}
         />
         <KpiTile
           label="Caídos"
-          href="/devices?connectivity=OFFLINE"
-          loading={statusLoading}
+          href="/devices?connectivity=DOWN&sort=connectivity"
+          loading={devicesLoading}
           tone={connectivity.offline > 0 ? 'critical' : 'good'}
           value={connectivity.offline}
           sub={
@@ -173,10 +175,10 @@ export default function DashboardPage() {
         />
       </div>
 
-      {connectivity.unread > 0 && (
+      {unread > 0 && (
         <p className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-          No se pudo leer el estado de {connectivity.unread} dispositivo{connectivity.unread === 1 ? '' : 's'} (límite de
-          solicitudes); las cifras de conectividad están incompletas hasta la próxima actualización.
+          No se pudo leer el último sondeo de {unread} dispositivo{unread === 1 ? '' : 's'} (límite de
+          solicitudes); la latencia está incompleta hasta la próxima actualización.
         </p>
       )}
 
@@ -193,7 +195,7 @@ export default function DashboardPage() {
               </Badge>
             ) : undefined
           }
-          loading={statusLoading || alertsLoading}
+          loading={devicesLoading || alertsLoading}
           error={data.alertsQuery.error?.message ?? data.devicesQuery.error?.message}
           className="lg:col-span-2"
         >
@@ -204,16 +206,16 @@ export default function DashboardPage() {
         <Panel
           title="Conectividad"
           info="Último resultado del sondeo ICMP de cada dispositivo monitoreado. «Sin lectura» significa que aún no se ha sondeado."
-          loading={statusLoading}
+          loading={devicesLoading}
           error={data.devicesQuery.error?.message}
         >
           <Ring
             centerValue={`${connectivity.online}/${connectivity.monitored}`}
             centerLabel="monitoreados en línea"
             segments={[
-              { key: 'online', label: 'En línea', value: connectivity.online, color: 'var(--viz-good)', href: '/devices?connectivity=ONLINE' },
+              { key: 'online', label: 'En línea', value: connectivity.online, color: 'var(--viz-good)', href: '/devices?connectivity=UP' },
               { key: 'unknown', label: 'Sin lectura', value: connectivity.unknown, color: 'var(--viz-unknown)', href: '/devices?connectivity=UNKNOWN' },
-              { key: 'offline', label: 'Caído', value: connectivity.offline, color: 'var(--viz-critical)', href: '/devices?connectivity=OFFLINE' },
+              { key: 'offline', label: 'Caído', value: connectivity.offline, color: 'var(--viz-critical)', href: '/devices?connectivity=DOWN&sort=connectivity' },
             ]}
           />
           {connectivity.unmonitored > 0 && (
@@ -331,7 +333,7 @@ export default function DashboardPage() {
         <Panel
           title="Latencia"
           info={`Último ping de cada dispositivo monitoreado, los más lentos arriba. Sobre ${SLOW_PING_MS} ms se marca en ámbar; «sin respuesta» es un ping fallido.`}
-          loading={statusLoading}
+          loading={latencyLoading}
         >
           {latency.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">Sin sondeos todavía</p>

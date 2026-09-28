@@ -364,6 +364,7 @@ class ApiService {
       // Omitted means live devices only; 'true' is the recycle bin.
       deleted: query?.deleted,
       search: query?.search,
+      connectivity: query?.connectivity,
       sortBy: query?.sortBy,
       sortOrder: query?.sortOrder
     });

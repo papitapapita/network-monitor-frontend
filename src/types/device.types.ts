@@ -116,12 +116,44 @@ export interface ListDevicesQuery {
    */
   deleted?: 'true' | 'false' | 'any';
   search?: string;
-  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt' | 'ipAddress';
+  /**
+   * Matches monitored devices only, and `total` counts the same set. UNKNOWN
+   * includes monitored devices never polled.
+   */
+  connectivity?: ConnectivityStatus;
+  /**
+   * `downSince` ASC (its default) puts the longest outage first; devices not
+   * down follow, unmonitored ones always last.
+   */
+  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'status' | 'deletedAt' | 'ipAddress' | 'downSince';
   sortOrder?: 'ASC' | 'DESC';
 }
 
+/** The list's own vocabulary — not the polling endpoints' ONLINE/OFFLINE. */
+export type ConnectivityStatus = 'UP' | 'DOWN' | 'UNKNOWN';
+
+export interface DeviceConnectivity {
+  status: ConnectivityStatus;
+  /** When the current outage began; null unless DOWN. */
+  downSince: string | null;
+  /** Last successful ping. */
+  lastSeen: string | null;
+}
+
+/**
+ * A list row: the device plus its current reachability, so the list needs no
+ * per-device polling calls. `GET /api/devices/:id` returns a plain DTO.
+ */
+export interface DeviceListItemDTO extends DeviceResponseDTO {
+  /**
+   * Null when monitoring is off — a state recorded before it was switched off
+   * is stale and not shown. A monitored device never polled is UNKNOWN.
+   */
+  connectivity: DeviceConnectivity | null;
+}
+
 export interface DeviceListResponse {
-  devices: DeviceResponseDTO[];
+  devices: DeviceListItemDTO[];
   total: number;
   hasMore: boolean;
   limit: number;

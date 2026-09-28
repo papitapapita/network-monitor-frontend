@@ -1,13 +1,9 @@
 'use client';
 
-import { DeviceResponseDTO } from '@/types/device.types';
-import { PollingStatus } from '@/types/polling.types';
-import {
-  Badge,
-  getDeviceStatusBadgeVariant,
-  getPollingStatusBadgeVariant,
-} from '@/components/ui';
-import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import type { ConnectivityStatus, DeviceListItemDTO } from '@/types/device.types';
+import { Badge, getDeviceStatusBadgeVariant } from '@/components/ui';
+import type { BadgeVariant, DataTableColumn, PickableColumn } from '@/components/ui';
+import { fmtAge } from '@/constants/wireless.constants';
 import {
   DEVICE_OWNER_LABELS,
   DEVICE_STATUS_LABELS as STATUS_LABELS,
@@ -15,30 +11,46 @@ import {
 } from '@/constants/device.constants';
 import type { DeviceLookups } from '@/hooks/useCatalogs';
 
-const CONNECTIVITY_LABELS: Record<string, string> = {
-  ONLINE: 'En línea',
-  OFFLINE: 'Desconectado',
+const CONNECTIVITY_LABELS: Record<ConnectivityStatus, string> = {
+  UP: 'En línea',
+  DOWN: 'Desconectado',
   UNKNOWN: 'Desconocido',
 };
 
-function ConnectivityBadge({
-  device,
-  pollingStatuses,
-}: {
-  device: DeviceResponseDTO;
-  pollingStatuses: Record<string, PollingStatus>;
-}) {
-  if (!device.monitoringEnabled) {
+const CONNECTIVITY_VARIANTS: Record<ConnectivityStatus, BadgeVariant> = {
+  UP: 'success',
+  DOWN: 'danger',
+  UNKNOWN: 'neutral',
+};
+
+/**
+ * The list carries each device's state, so the badge needs no request of its
+ * own. A DOWN device also says for how long — the question an operator
+ * scanning the list is actually asking.
+ */
+function ConnectivityBadge({ device, now }: { device: DeviceListItemDTO; now: number }) {
+  const connectivity = device.connectivity;
+  if (!connectivity) {
     return <span className="text-gray-400 dark:text-gray-500 text-sm">No monitoreado</span>;
   }
-  const status = pollingStatuses[device.id];
-  if (!status) {
-    return <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>;
-  }
+  const downFor =
+    connectivity.downSince !== null
+      ? fmtAge(Math.max(0, (now - Date.parse(connectivity.downSince)) / 1000))
+      : null;
   return (
-    <Badge variant={getPollingStatusBadgeVariant(status)}>
-      {CONNECTIVITY_LABELS[status] ?? status}
-    </Badge>
+    <div className="flex flex-col items-start gap-0.5">
+      <Badge variant={CONNECTIVITY_VARIANTS[connectivity.status]}>
+        {CONNECTIVITY_LABELS[connectivity.status] ?? connectivity.status}
+      </Badge>
+      {downFor && (
+        <span
+          className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"
+          title={new Date(connectivity.downSince!).toLocaleString('es')}
+        >
+          desde {downFor}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -63,7 +75,7 @@ function DateText({ iso }: { iso: string | null }) {
 }
 
 /** A DataTable column plus what the column picker needs to list it. */
-type DeviceColumn = DataTableColumn<DeviceResponseDTO> & {
+type DeviceColumn = DataTableColumn<DeviceListItemDTO> & {
   /** Name shown in the picker. */
   label: string;
   /** Cannot be hidden. */
@@ -71,7 +83,8 @@ type DeviceColumn = DataTableColumn<DeviceResponseDTO> & {
 };
 
 interface DeviceColumnOptions {
-  pollingStatuses: Record<string, PollingStatus>;
+  /** The clock "caído desde hace…" counts against, ticked by the page. */
+  now: number;
   lookups: DeviceLookups;
   /** Keys the user picked — the serial line under the name drops out when its own column is up. */
   visibleKeys: string[];
@@ -81,12 +94,13 @@ interface DeviceColumnOptions {
  * Every column the devices table can show, in display order. `sortable` marks
  * a column sortable by a header click, restricted to the fields GET
  * /api/devices can order by (sortBy: createdAt | updatedAt | name | status |
- * deletedAt | ipAddress) — the server sorts before pagination, so the page
- * just requests the field and renders whatever page comes back. The 'ip'
- * column key maps to the API's `ipAddress` in `useDevices`' `toSortBy`.
+ * deletedAt | ipAddress | downSince) — the server sorts before pagination, so
+ * the page just requests the field and renders whatever page comes back.
+ * `useDevices`' `toSortBy` maps 'ip' to `ipAddress` and 'connectivity' to
+ * `downSince`.
  */
 function deviceColumnCatalog({
-  pollingStatuses,
+  now,
   lookups,
   visibleKeys,
 }: DeviceColumnOptions): DeviceColumn[] {
@@ -131,8 +145,9 @@ function deviceColumnCatalog({
       key: 'connectivity',
       label: 'Conectividad',
       header: 'Conectividad',
+      sortable: true,
       className: 'hidden md:table-cell',
-      cell: (device) => <ConnectivityBadge device={device} pollingStatuses={pollingStatuses} />,
+      cell: (device) => <ConnectivityBadge device={device} now={now} />,
     },
     {
       key: 'status',
@@ -229,7 +244,7 @@ function deviceColumnCatalog({
 
 /** What the column picker lists, derived from the catalog so the two cannot drift. */
 export const DEVICE_COLUMN_OPTIONS: PickableColumn[] = deviceColumnCatalog({
-  pollingStatuses: {},
+  now: 0,
   lookups: { modelNames: {}, locationNames: {} },
   visibleKeys: [],
 }).map(({ key, label, locked }) => ({ key, label, locked }));
@@ -250,7 +265,7 @@ export const LOOKUP_DEVICE_COLUMNS = ['model', 'location'];
 /** The catalog narrowed to the columns the user kept. */
 export function buildDeviceColumns(
   options: DeviceColumnOptions
-): DataTableColumn<DeviceResponseDTO>[] {
+): DataTableColumn<DeviceListItemDTO>[] {
   return deviceColumnCatalog(options).filter(
     (col) => col.locked || options.visibleKeys.includes(col.key)
   );

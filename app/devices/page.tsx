@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useDevices } from '@/hooks/useDevices';
 import { useDeviceLookups } from '@/hooks/useCatalogs';
+import { useNow } from '@/hooks/useWirelessThroughput';
 import { apiService } from '@/services/api.service';
 import { DeviceFilters } from '@/components/devices/DeviceFilters';
 import {
@@ -34,7 +35,6 @@ function DevicesPageContent() {
   const router = useRouter();
   const {
     devices,
-    pollingStatuses,
     isLoading,
     isFetching,
     error,
@@ -78,11 +78,14 @@ function DevicesPageContent() {
     DEFAULT_DEVICE_COLUMNS
   );
 
+  // Outage durations tick once a minute; the list itself refreshes on demand.
+  const now = useNow(60_000);
+
   const lookups = useDeviceLookups(LOOKUP_DEVICE_COLUMNS.some((k) => visibleKeys.includes(k)));
 
   const columns = useMemo(
-    () => buildDeviceColumns({ pollingStatuses, lookups, visibleKeys }),
-    [pollingStatuses, lookups, visibleKeys]
+    () => buildDeviceColumns({ now, lookups, visibleKeys }),
+    [now, lookups, visibleKeys]
   );
 
   const deviceCountLabel =
