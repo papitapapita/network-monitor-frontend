@@ -17,10 +17,25 @@ async function fetchAgents(): Promise<AgentDTO[]> {
   return r.data.agents;
 }
 
-export function useAgents() {
+export function useAgents(enabled = true) {
   return useQuery({
     queryKey: AGENTS_QUERY_KEY,
     queryFn: fetchAgents,
+    refetchInterval: AGENT_REFRESH_MS,
+    enabled,
+  });
+}
+
+/** One agent, on the same key the agent page and the pairing dialog use. */
+export function useAgent(id: string | null | undefined) {
+  return useQuery({
+    queryKey: [...AGENTS_QUERY_KEY, id],
+    queryFn: async (): Promise<AgentDTO> => {
+      const r = await apiService.getAgent(id!);
+      if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar el agente');
+      return r.data;
+    },
+    enabled: !!id,
     refetchInterval: AGENT_REFRESH_MS,
   });
 }

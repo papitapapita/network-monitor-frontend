@@ -88,6 +88,7 @@ import {
   RESTORE_GRACE_DAYS,
   liveDeviceModelMessage,
   binnedDeviceModelMessage,
+  translateDeviceInvariant,
 } from '../constants/device.constants';
 import {
   CustomerDTO,
@@ -136,6 +137,10 @@ const pollingStatus: Record<string, PollingStatusDTO> = { ...MOCK_POLLING_STATUS
 function connectivityOf(device: DeviceResponseDTO): DeviceConnectivity | null {
   if (!device.monitoringEnabled) return null;
   const status = pollingStatus[device.id];
+  // MON-006: a silent agent's devices are unknown, not down; lastSeen is kept.
+  if (agentNotReporting(device)) {
+    return { status: 'UNKNOWN', downSince: null, lastSeen: status?.currentStatus === 'ONLINE' ? status.lastPolled : null };
+  }
   if (!status) return { status: 'UNKNOWN', downSince: null, lastSeen: null };
   const up = status.currentStatus === 'ONLINE';
   const down = status.currentStatus === 'OFFLINE';
@@ -221,13 +226,28 @@ function resolveAgentForNewDevice(agentId: string | null | undefined): { agentId
   if (agentId !== undefined) {
     const agent = agents.find((a) => a.id === agentId);
     if (!agent) return { error: `Agent not found: ${agentId}` };
-    if (agent.status === 'REVOKED') return { error: 'Cannot place a device behind a revoked agent' };
+    if (agent.status === 'REVOKED') return { error: `Agent ${agentId} is revoked and cannot take devices` };
     return { agentId };
   }
   const usable = agents.filter((a) => a.status !== 'REVOKED');
   if (usable.length === 0) return { agentId: null };
   if (usable.length === 1) return { agentId: usable[0].id };
-  return { error: 'agentId is required when more than one agent exists' };
+  return { error: 'agentId is required when more than one agent exists — choose which one reaches this device' };
+}
+
+/** The DEV-165/166 refusal, worded as the real service's translator words it. */
+function agentRefusal(error: string): ApiResponse<never> {
+  const translated = translateDeviceInvariant(error);
+  return translated
+    ? { success: false, status: 400, error: translated.message, errorField: translated.field ?? undefined }
+    : { success: false, status: 400, error };
+}
+
+/** MON-006: behind an agent that is offline, pending or revoked. */
+function agentNotReporting(device: DeviceResponseDTO): boolean {
+  if (!device.agentId) return false;
+  const agent = agents.find((a) => a.id === device.agentId);
+  return !agent || agent.status !== 'ACTIVE' || agent.offlineSince !== null;
 }
 
 /** Stands in for the authenticated user id the backend records on a delete. */
@@ -305,7 +325,7 @@ class MockApiService {
     if (taken) return conflict(taken);
 
     const resolvedAgent = resolveAgentForNewDevice(data.agentId);
-    if ('error' in resolvedAgent) return { success: false, status: 400, error: resolvedAgent.error };
+    if ('error' in resolvedAgent) return agentRefusal(resolvedAgent.error);
 
     const now = new Date().toISOString();
     const device: DeviceResponseDTO = {
@@ -413,6 +433,12 @@ class MockApiService {
 
     const taken = findDeviceConflict(data, id);
     if (taken) return conflict(taken);
+
+    // DEV-165: re-sending the agent a device already has is not re-checked.
+    if (data.agentId && data.agentId !== devices[idx].agentId) {
+      const resolved = resolveAgentForNewDevice(data.agentId);
+      if ('error' in resolved) return agentRefusal(resolved.error);
+    }
 
     const updated = { ...devices[idx], ...data, updatedAt: new Date().toISOString() };
     const missing = findMissingIdentifier(updated);
@@ -844,6 +870,7 @@ class MockApiService {
         consecutiveFailures: 0,
       };
     }
+    if (agentNotReporting(device)) return ok({ ...pollingStatus[deviceId], currentStatus: 'UNKNOWN' });
     return ok(pollingStatus[deviceId]);
   }
 
@@ -955,6 +982,13 @@ class MockApiService {
   async triggerPoll(deviceId: string): Promise<ApiResponse<ManualPollResultDTO>> {
     const device = findLiveDevice(deviceId);
     if (!device) return err('Device not found');
+    if (device.agentId) {
+      return {
+        success: false,
+        status: 409,
+        error: `Cannot poll device ${deviceId} — it is polled by an on-site agent, and polling it on demand is not available yet`,
+      };
+    }
 
     const success = Math.random() > 0.2;
     const now = new Date().toISOString();

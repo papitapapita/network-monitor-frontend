@@ -19,6 +19,8 @@ import { InlineModelForm } from '@/components/devices/InlineModelForm';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useAgents } from '@/hooks/useAgents';
+import { AgentPicker, agentIdFromPicker } from '@/components/agents/AgentPicker';
 
 
 export default function CreateDevicePage() {
@@ -68,6 +70,15 @@ export default function CreateDevicePage() {
     };
     loadOptions();
   }, []);
+
+  // DEV-166: with no agent the server polls the device, with one it goes
+  // behind that one, and with several the operator has to say which — the
+  // backend refuses to guess. The picker shows the one-agent default too, so
+  // choosing "Servidor" instead stays possible.
+  const { data: agents = [] } = useAgents();
+  const assignableAgents = agents.filter((a) => a.status !== 'REVOKED');
+  const [agentChoice, setAgentChoice] = useState('');
+  const effectiveAgent = agentChoice || (assignableAgents.length === 1 ? assignableAgents[0].id : '');
 
   const requiresWireless = isWirelessCategory(formData.category);
 
@@ -136,6 +147,9 @@ export default function CreateDevicePage() {
     if (status === 'ACTIVE' && !formData.locationId) {
       errors.locationId = 'La ubicación es requerida para dispositivos activos';
     }
+    if (assignableAgents.length > 1 && !effectiveAgent) {
+      errors.agentId = 'Elige qué agente sondea este dispositivo, o «Servidor»';
+    }
     if (formData.installedDate && formData.installedDate > new Date().toISOString().slice(0, 10)) {
       errors.installedDate = 'La fecha de instalación no puede ser futura';
     }
@@ -177,6 +191,7 @@ export default function CreateDevicePage() {
     if (formData.macAddress.trim()) dto.macAddress = formData.macAddress.trim();
     if (formData.serialNumber.trim()) dto.serialNumber = formData.serialNumber.trim();
     if (formData.locationId) dto.locationId = formData.locationId;
+    if (effectiveAgent) dto.agentId = agentIdFromPicker(effectiveAgent);
     if (formData.installedDate) dto.installedDate = new Date(formData.installedDate).toISOString();
     if (formData.description.trim()) dto.description = formData.description.trim();
 
@@ -471,6 +486,18 @@ export default function CreateDevicePage() {
                     </button>
                   </div>
                 </div>
+                {assignableAgents.length > 0 && (
+                  <AgentPicker
+                    agents={agents}
+                    value={effectiveAgent}
+                    onChange={(value) => {
+                      setAgentChoice(value);
+                      if (formErrors.agentId) setFormErrors((prev) => { const n = { ...prev }; delete n.agentId; return n; });
+                    }}
+                    error={formErrors.agentId}
+                    required={assignableAgents.length > 1}
+                  />
+                )}
                 <Input
                   label="Fecha de Instalación"
                   name="installedDate"

@@ -2,12 +2,12 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { AgentDTO, AgentPairingDTO } from '@/types/agent.types';
 import { useAuth } from '@/contexts/auth.context';
 import { useToast } from '@/contexts/toast.context';
-import { AGENTS_QUERY_KEY, useAgents } from '@/hooks/useAgents';
+import { AGENTS_QUERY_KEY, useAgent, useAgents } from '@/hooks/useAgents';
 import { useGoBack } from '@/hooks/useGoBack';
 import {
   agentCondition,
@@ -20,9 +20,6 @@ import { AgentStatusBadges } from '@/components/agents/AgentStatusBadges';
 import { AgentInstallSteps } from '@/components/agents/AgentInstallSteps';
 import { PairingKeyModal } from '@/components/agents/PairingKeyModal';
 import { AgentDeviceAssignmentCard } from '@/components/agents/AgentDeviceAssignmentCard';
-
-/** Same pace as the list: the agent reports every 30 s. */
-const AGENT_REFRESH_MS = 30_000;
 
 function Notice({ tone, children }: { tone: 'danger' | 'warning' | 'info'; children: React.ReactNode }) {
   const tones = {
@@ -98,20 +95,7 @@ export default function AgentDetailPage() {
   const [showRevoke, setShowRevoke] = useState(false);
   const [isRevoking, setIsRevoking] = useState(false);
 
-  const {
-    data: agent,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: [...AGENTS_QUERY_KEY, agentId],
-    queryFn: async () => {
-      const r = await apiService.getAgent(agentId);
-      if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar el agente');
-      return r.data;
-    },
-    refetchInterval: AGENT_REFRESH_MS,
-  });
+  const { data: agent, isLoading, error, refetch } = useAgent(agentId);
   const { data: allAgents = [] } = useAgents();
 
   const store = (updated: AgentDTO) => {

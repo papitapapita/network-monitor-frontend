@@ -8,6 +8,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 import { ConfirmModal, Modal, UndoModal } from './Modal';
 import { Button } from './Button';
 import { Textarea } from './Textarea';
+import { Select } from './Select';
 import { useToast } from '@/contexts/toast.context';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import { BulkFanOutProgress, runBulkFanOut } from '@/services/bulk-fanout';
@@ -90,6 +91,11 @@ export interface BulkAction<T = unknown> {
     maxLength?: number;
     /** Shown under the field while it is empty; the confirm button stays disabled. */
     requiredMessage: string;
+    /**
+     * A choice instead of free text — the destination of a move, say. The
+     * selected option's `value` is what reaches the runner.
+     */
+    options?: { value: string; label: string }[];
   };
 }
 
@@ -1107,7 +1113,23 @@ export function DataTable<T>({
               </p>
             )}
 
-            {pendingAction.prompt && !actionProgress && (
+            {pendingAction.prompt?.options && !actionProgress && (
+              <Select
+                label={pendingAction.prompt.label}
+                name={`bulk-${pendingAction.key}-input`}
+                options={pendingAction.prompt.options}
+                value={actionInput}
+                onChange={(e) => setActionInput(e.target.value)}
+                placeholder={pendingAction.prompt.placeholder}
+                helperText={pendingAction.prompt.helper}
+                error={actionInput ? undefined : pendingAction.prompt.requiredMessage}
+                required
+                fullWidth
+                disabled={isRunningAction}
+              />
+            )}
+
+            {pendingAction.prompt && !pendingAction.prompt.options && !actionProgress && (
               <Textarea
                 label={pendingAction.prompt.label}
                 name={`bulk-${pendingAction.key}-input`}

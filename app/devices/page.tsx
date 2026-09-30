@@ -26,6 +26,11 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import { RESTORE_GRACE_DAYS } from '@/constants/device.constants';
+import { useAgents } from '@/hooks/useAgents';
+import { AGENT_STATUS_LABELS, SERVER_POLLER_LABEL } from '@/constants/agent.constants';
+import { SERVER_AGENT_VALUE, agentIdFromPicker } from '@/components/agents/AgentPicker';
+import type { BulkAction } from '@/components/ui';
+import type { DeviceListItemDTO } from '@/types/device.types';
 
 const COLUMNS_STORAGE_KEY = 'nms:devices-columns';
 
@@ -87,6 +92,49 @@ function DevicesPageContent() {
     () => buildDeviceColumns({ now, lookups, visibleKeys }),
     [now, lookups, visibleKeys]
   );
+
+  // Where a device is polled from only means something once an agent exists.
+  const { data: agents = [] } = useAgents();
+  const moveAction: BulkAction<DeviceListItemDTO> | null =
+    agents.length === 0
+      ? null
+      : {
+          key: 'assign-agent',
+          label: 'Mover a agente',
+          confirmTitle: 'Cambiar quién los sondea',
+          confirmMessage: (n) =>
+            `${deviceCount(n)} pasará${n === 1 ? '' : 'n'} a sondearse desde el destino que elijas. Asegúrate de que alcance sus direcciones IP.`,
+          confirmText: 'Mover',
+          doneParticiple: 'movid',
+          prompt: {
+            label: 'Sondeado por',
+            placeholder: 'Elige el destino...',
+            requiredMessage: 'Elige un agente o el servidor',
+            // A revoked agent cannot take devices (DEV-165).
+            options: [
+              { value: SERVER_AGENT_VALUE, label: SERVER_POLLER_LABEL },
+              ...agents
+                .filter((a) => a.status !== 'REVOKED')
+                .map((a) => ({
+                  value: a.id,
+                  label: a.status === 'ACTIVE' ? a.name : `${a.name} (${AGENT_STATUS_LABELS[a.status].toLowerCase()})`,
+                })),
+            ],
+          },
+          // One request for the selection; the backend moves each device on
+          // its own and lists the ones it refused.
+          run: async (ids, target) => {
+            const result = await apiService.assignDevicesToAgent({
+              agentId: agentIdFromPicker(target!),
+              deviceIds: ids,
+            });
+            if (!result.success || !result.data) return { success: false, error: result.error };
+            return {
+              success: true,
+              data: { succeeded: result.data.assigned, skipped: [], failed: result.data.failed },
+            };
+          },
+        };
 
   const deviceCountLabel =
     totalDevices > 0
@@ -194,9 +242,13 @@ function DevicesPageContent() {
               // would sit there with nothing scheduled to correct it. Say so up
               // front instead of collecting one error per row.
               skipRow: (device) =>
-                device.monitoringEnabled ? null : 'monitoreo deshabilitado',
+                !device.monitoringEnabled ? 'monitoreo deshabilitado'
+                // MON-022: only its agent polls it; the server answers 409.
+                : device.agentId ? 'detrás de un agente (el sondeo manual aún no está disponible ahí)'
+                : null,
               runOne: (id) => apiService.triggerPoll(id),
             },
+            ...(moveAction ? [moveAction] : []),
           ],
         }}
         pagination={{

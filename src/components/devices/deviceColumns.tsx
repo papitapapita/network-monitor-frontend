@@ -191,6 +191,18 @@ function deviceColumnCatalog({
       ),
     },
     {
+      key: 'agent',
+      label: 'Sondeado por',
+      header: 'Sondeado por',
+      className: 'hidden lg:table-cell',
+      cell: (device) =>
+        device.agentId ? (
+          <Text value={lookups.agentNames[device.agentId] ?? 'Agente'} />
+        ) : (
+          <span className="text-gray-500 dark:text-gray-400 text-sm">Servidor</span>
+        ),
+    },
+    {
       key: 'serial',
       label: 'Número de serie',
       header: 'Número de serie',
@@ -245,7 +257,7 @@ function deviceColumnCatalog({
 /** What the column picker lists, derived from the catalog so the two cannot drift. */
 export const DEVICE_COLUMN_OPTIONS: PickableColumn[] = deviceColumnCatalog({
   now: 0,
-  lookups: { modelNames: {}, locationNames: {} },
+  lookups: { modelNames: {}, locationNames: {}, agentNames: {} },
   visibleKeys: [],
 }).map(({ key, label, locked }) => ({ key, label, locked }));
 
@@ -260,7 +272,7 @@ export const DEFAULT_DEVICE_COLUMNS = [
 ];
 
 /** Only the model and location columns need ids resolved to names. */
-export const LOOKUP_DEVICE_COLUMNS = ['model', 'location'];
+export const LOOKUP_DEVICE_COLUMNS = ['model', 'location', 'agent'];
 
 /** The catalog narrowed to the columns the user kept. */
 export function buildDeviceColumns(

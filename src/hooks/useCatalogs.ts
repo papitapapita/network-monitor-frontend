@@ -5,6 +5,7 @@ import { DeviceModelResponseDTO, DeviceResponseDTO } from '@/types/device.types'
 import { LocationResponseDTO } from '@/types/location.types';
 import { CustomerDTO } from '@/types/customer.types';
 import { TechnicianDTO } from '@/types/technician.types';
+import { useAgents } from './useAgents';
 
 /** These list endpoints cap `limit` at 100, so a whole catalog takes several calls. */
 const PAGE_SIZE = 100;
@@ -89,6 +90,7 @@ export async function fetchAllLocations(): Promise<LocationResponseDTO[]> {
 export interface DeviceLookups {
   modelNames: Record<string, string>;
   locationNames: Record<string, string>;
+  agentNames: Record<string, string>;
 }
 
 /**
@@ -110,6 +112,7 @@ export function useDeviceLookups(enabled: boolean): DeviceLookups {
     queryFn: fetchAllLocations,
     enabled,
   });
+  const { data: agents } = useAgents(enabled);
 
   return useMemo(() => {
     const modelNames: Record<string, string> = {};
@@ -122,6 +125,11 @@ export function useDeviceLookups(enabled: boolean): DeviceLookups {
       locationNames[l.id] = l.name;
     });
 
-    return { modelNames, locationNames };
-  }, [models, locations]);
+    const agentNames: Record<string, string> = {};
+    agents?.forEach((a) => {
+      agentNames[a.id] = a.name;
+    });
+
+    return { modelNames, locationNames, agentNames };
+  }, [models, locations, agents]);
 }

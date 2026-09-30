@@ -40,7 +40,7 @@ export const normalizeMacAddress = (value: string): string =>
  * and name the field it belongs to, so a form can mark the offending input.
  */
 export type DeviceConflict = {
-  field: 'macAddress' | 'ipAddress' | 'serialNumber' | 'locationId' | 'deviceModelId' | 'category' | null;
+  field: 'macAddress' | 'ipAddress' | 'serialNumber' | 'locationId' | 'deviceModelId' | 'category' | 'agentId' | null;
   message: string;
 };
 
@@ -196,6 +196,21 @@ export function translateDeviceInvariant(error: string): DeviceConflict | null {
   const locationMissing = error.match(/^Location not found: /);
   if (locationMissing) {
     return { field: 'locationId', message: 'La ubicación seleccionada ya no existe' };
+  }
+
+  // DEV-165 / DEV-166. The form offers a picker whenever there are two agents,
+  // so these fire only when an agent was created or revoked while it was open.
+  if (/^agentId is required when more than one agent exists/.test(error)) {
+    return {
+      field: 'agentId',
+      message: 'Hay más de un agente: elige cuál alcanza este dispositivo, o «Servidor» si no va detrás de ninguno',
+    };
+  }
+  if (/^Agent \S+ is revoked and cannot take devices$/.test(error)) {
+    return { field: 'agentId', message: 'El agente seleccionado fue revocado y ya no puede recibir dispositivos' };
+  }
+  if (/^Agent not found: /.test(error)) {
+    return { field: 'agentId', message: 'El agente seleccionado ya no existe' };
   }
 
   // The wireless config's radio mode was derived from the category when it was

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import {
   PollingStatusDTO,
@@ -38,6 +39,10 @@ import {
 } from '@/constants/device.constants';
 import { WIRELESS_INDEPENDENT_OF_ICMP_NOTE } from '@/constants/wireless.constants';
 import { DeviceResponseDTO } from '@/types/device.types';
+import { useQueryClient, matchQuery } from '@tanstack/react-query';
+import { AGENTS_QUERY_KEY, useAgent } from '@/hooks/useAgents';
+import { AgentDTO } from '@/types/agent.types';
+import { AGENT_CONDITION_LABELS, agentCondition, formatAgentDate } from '@/constants/agent.constants';
 
 function RefreshIcon() {
   return (
@@ -127,6 +132,15 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
 
   /** Null while monitoring can be turned on from here — the same rule the details form applies. */
   const blockedReason = monitoringBlockedReason(device.status, device.ipAddress);
+
+  // ── Agent ─────────────────────────────────────────────────
+  // A device behind an on-site agent is polled by that agent alone (MON-022):
+  // the server refuses to poll it on demand, and while the agent is not
+  // reporting the status reads UNKNOWN with the agent's last reading behind it.
+  const behindAgent = device.agentId !== null;
+  const { data: agent } = useAgent(device.agentId);
+  const agentState = agent ? agentCondition(agent) : null;
+  const agentSilent = agentState !== null && agentState !== 'ONLINE';
 
   /** The last ping on record, whether or not one is still scheduled. */
   const lastPolledAt = pollingStatus?.lastPolled ?? pollingStatus?.lastResult?.timestamp ?? null;
@@ -315,6 +329,35 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     setHistoryLoading(false);
   };
 
+  // An agent that comes back uploads what it measured while offline, dated
+  // when it was measured — so the past on screen may have just changed. The
+  // agent query's cache is the outside source here: its updates are watched,
+  // and the refresh runs from that callback.
+  const historyShown = pollingHistory !== null;
+  const refreshAfterReconnect = useRef<() => void>(() => {});
+  useEffect(() => {
+    refreshAfterReconnect.current = () => {
+      fetchPollingStatus();
+      if (historyShown) fetchHistory(historyQuery.offset);
+    };
+  });
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!device.agentId) return;
+    const key = [...AGENTS_QUERY_KEY, device.agentId];
+    const conditionNow = () => {
+      const cached = queryClient.getQueryData<AgentDTO>(key);
+      return cached ? agentCondition(cached) : null;
+    };
+    let previous = conditionNow();
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated' || !matchQuery({ queryKey: key, exact: true }, event.query)) return;
+      const next = conditionNow();
+      if (next === 'ONLINE' && previous !== null && previous !== 'ONLINE') refreshAfterReconnect.current();
+      previous = next;
+    });
+  }, [device.agentId, queryClient]);
+
   /** Sorting is a fresh page 1 from the server, not a client re-sort of what's already loaded. */
   const toggleHistorySort = () => {
     const next = historySortOrder === 'ASC' ? 'DESC' : 'ASC';
@@ -401,14 +444,16 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
               {!monitoringOff && !showConfig && (
                 <>
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchPollingStatus} disabled={statusLoading} />
-                  <IconButton
-                    icon={<PollIcon />}
-                    label="Sondear ahora"
-                    variant="primary"
-                    onClick={handlePollNow}
-                    isLoading={isPolling}
-                    disabled={!hasIp}
-                  />
+                  {!behindAgent && (
+                    <IconButton
+                      icon={<PollIcon />}
+                      label="Sondear ahora"
+                      variant="primary"
+                      onClick={handlePollNow}
+                      isLoading={isPolling}
+                      disabled={!hasIp}
+                    />
+                  )}
                 </>
               )}
               <EditToggleButton
@@ -526,6 +571,38 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
             </>
           ) : pollingStatus ? (
             <>
+              {behindAgent && (
+                <p className={`mb-4 rounded-md border p-3 text-sm ${
+                  agentSilent
+                    ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 text-gray-700 dark:text-gray-300'
+                }`}>
+                  {agentSilent && agent ? (
+                    <>
+                      <strong>
+                        El agente{' '}
+                        <Link href={`/agents/${agent.id}`} className="underline">{agent.name}</Link>{' '}
+                        no está reportando
+                      </strong>{' '}
+                      ({AGENT_CONDITION_LABELS[agentState!].toLowerCase()}
+                      {agent.offlineSince && ` desde el ${formatAgentDate(agent.offlineSince)}`}). Por eso el estado
+                      es «Desconocido»: los datos de abajo son la última medición que hizo, no una caída del equipo.
+                    </>
+                  ) : (
+                    <>
+                      Lo sondea el agente{' '}
+                      {agent ? (
+                        <Link href={`/agents/${agent.id}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                          {agent.name}
+                        </Link>
+                      ) : (
+                        'asignado'
+                      )}
+                      , instalado en su red. El sondeo manual todavía no está disponible para estos equipos.
+                    </>
+                  )}
+                </p>
+              )}
               <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Estado Actual</dt>

@@ -26,6 +26,9 @@ import {
   FieldLabel,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { useAgents } from '@/hooks/useAgents';
+import { AgentPicker, agentIdFromPicker, agentPickerValue } from '@/components/agents/AgentPicker';
+import { SERVER_POLLER_LABEL } from '@/constants/agent.constants';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 
@@ -52,12 +55,19 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     macAddress: d.macAddress ?? '',
     serialNumber: d.serialNumber ?? '',
     locationId: d.locationId ?? '',
+    agentId: agentPickerValue(d.agentId),
     installedDate: d.installedDate ? d.installedDate.slice(0, 10) : '',
     description: d.description ?? '',
     monitoringEnabled: d.monitoringEnabled
   });
 
   const [formData, setFormData] = useState(makeFormData(device));
+
+  // An install that never set up an agent has nothing to choose between, so
+  // the field only appears once there is one — or the device is behind one.
+  const { data: agents = [] } = useAgents();
+  const showAgent = agents.length > 0 || device.agentId !== null;
+  const deviceAgent = agents.find((a) => a.id === device.agentId);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { showError, showFormErrors } = useToast();
 
@@ -214,6 +224,11 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       macAddress: formData.macAddress.trim() || null,
       serialNumber: formData.serialNumber.trim() || null,
       locationId: formData.locationId || null,
+      // Only when changed: a device whose agent was revoked since can still be
+      // saved, but the backend refuses a revoked agent picked afresh.
+      ...(agentIdFromPicker(formData.agentId) !== device.agentId
+        ? { agentId: agentIdFromPicker(formData.agentId) }
+        : {}),
       installedDate: formData.installedDate ? new Date(formData.installedDate).toISOString() : null,
       description: formData.description.trim() || null,
       monitoringEnabled: formData.monitoringEnabled
@@ -386,6 +401,18 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 error={formErrors.locationId}
                 fullWidth
               />
+              {showAgent && (
+                <AgentPicker
+                  agents={agents}
+                  value={formData.agentId}
+                  currentAgentId={device.agentId}
+                  onChange={(value) => {
+                    setFormData((prev) => ({ ...prev, agentId: value }));
+                    if (formErrors.agentId) setFormErrors((prev) => { const n = { ...prev }; delete n.agentId; return n; });
+                  }}
+                  error={formErrors.agentId}
+                />
+              )}
               <Input
                 label="Fecha de Instalación"
                 name="installedDate"
@@ -493,6 +520,20 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                         })()
                       : '—',
                   },
+                  ...(showAgent
+                    ? [
+                        {
+                          label: 'Sondeado por',
+                          value: device.agentId ? (
+                            <Link href={`/agents/${device.agentId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                              {deviceAgent ? deviceAgent.name : 'Agente'}
+                            </Link>
+                          ) : (
+                            SERVER_POLLER_LABEL
+                          ),
+                        },
+                      ]
+                    : []),
                   {
                     label: 'Modelo',
                     value: (

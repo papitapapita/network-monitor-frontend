@@ -1256,7 +1256,23 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    return result.success ? result : { ...result, error: translateAgentError('assign', result.status, result.error) };
+    if (!result.success) return { ...result, error: translateAgentError('assign', result.status, result.error) };
+    // A refused device breaks one of the ordinary device rules (an ACTIVE unit
+    // with no location), which the device translators already word in Spanish.
+    if (!result.data) return result;
+    return {
+      ...result,
+      data: {
+        ...result.data,
+        failed: result.data.failed.map((f) => ({
+          ...f,
+          error:
+            translateDeviceNotFoundError(f.error) ??
+            translateDeviceInvariant(stripValidationPrefix(f.error))?.message ??
+            f.error,
+        })),
+      },
+    };
   }
 
   // ============================================================
