@@ -9,12 +9,14 @@ import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, Input, T
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 
 export default function ServicePlanDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/service-plans');
   const queryClient = useQueryClient();
@@ -143,11 +145,13 @@ export default function ServicePlanDetailPage() {
           </div>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5 font-mono">{plan.downloadMbps}↓ / {plan.uploadMbps}↑ Mbps · {fmtPrice(plan.monthlyPrice)}/mes</p>
         </div>
-        <IconButton icon={<TrashIcon />} label="Eliminar plan" variant="danger" onClick={() => setShowDeleteModal(true)} />
+        {permissions.isAdmin && (
+          <IconButton icon={<TrashIcon />} label="Eliminar plan" variant="danger" onClick={() => setShowDeleteModal(true)} />
+        )}
       </div>
 
       <div>
-        {!isEditing && (
+        {!isEditing && permissions.canWrite && (
           <div className="flex justify-end mb-2">
             <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
           </div>

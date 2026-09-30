@@ -17,6 +17,7 @@ import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const CONTRACT_STATUS_LABELS: Record<ContractedServiceStatus, string> = {
   PENDING: 'Pendiente',
@@ -39,6 +40,7 @@ const CONTRACT_TARGET_STATUS_OPTIONS = [
 ];
 
 export default function CustomerDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/customers');
   const queryClient = useQueryClient();
@@ -395,12 +397,14 @@ export default function CustomerDetailPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>
         </div>
-        <IconButton icon={<TrashIcon />} label="Eliminar cliente" variant="danger" onClick={() => setShowDeleteModal(true)} />
+        {permissions.isAdmin && (
+          <IconButton icon={<TrashIcon />} label="Eliminar cliente" variant="danger" onClick={() => setShowDeleteModal(true)} />
+        )}
       </div>
 
       {/* Customer info */}
       <div>
-        {!isEditing && (
+        {!isEditing && permissions.canWrite && (
           <div className="flex justify-end mb-2">
             <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
           </div>
@@ -459,7 +463,7 @@ export default function CustomerDetailPage() {
               Servicios Contratados
               {contracts.length > 0 && <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({contracts.length})</span>}
             </h2>
-            {!showAddForm && (
+            {!showAddForm && permissions.canWrite && (
               <Button size="sm" onClick={() => setShowAddForm(true)}>Agregar Servicio</Button>
             )}
           </div>
@@ -596,41 +600,45 @@ export default function CustomerDetailPage() {
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2">
-                        {(cs.status === 'ACTIVE' || cs.status === 'PENDING') && (
+                      {permissions.canWrite && (
+                        <div className="flex gap-2">
+                          {(cs.status === 'ACTIVE' || cs.status === 'PENDING') && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'SUSPEND' }); }}
+                            >
+                              Suspender
+                            </Button>
+                          )}
+                          {cs.status === 'SUSPENDED' && (
+                            <Button
+                              size="sm"
+                              variant="success"
+                              onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'REACTIVATE' }); }}
+                            >
+                              Reactivar
+                            </Button>
+                          )}
                           <Button
                             size="sm"
-                            variant="secondary"
-                            onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'SUSPEND' }); }}
+                            variant="outline"
+                            onClick={() => {
+                              setEditingContractId(cs.id);
+                              // PENDING is not a valid update target — offer ACTIVE as the next step.
+                              setEditStatus(cs.status === 'PENDING' ? 'ACTIVE' : cs.status);
+                              setEditPlanId(cs.servicePlanId);
+                              setEditDeviceId(cs.deviceId ?? '');
+                              setEditError(null);
+                            }}
                           >
-                            Suspender
+                            Editar
                           </Button>
-                        )}
-                        {cs.status === 'SUSPENDED' && (
-                          <Button
-                            size="sm"
-                            variant="success"
-                            onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'REACTIVATE' }); }}
-                          >
-                            Reactivar
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingContractId(cs.id);
-                            // PENDING is not a valid update target — offer ACTIVE as the next step.
-                            setEditStatus(cs.status === 'PENDING' ? 'ACTIVE' : cs.status);
-                            setEditPlanId(cs.servicePlanId);
-                            setEditDeviceId(cs.deviceId ?? '');
-                            setEditError(null);
-                          }}
-                        >
-                          Editar
-                        </Button>
-                        <Button size="sm" variant="danger" onClick={() => handleDeleteContract(cs.id)} isLoading={deletingContractId === cs.id}>Eliminar</Button>
-                      </div>
+                          {permissions.isAdmin && (
+                            <Button size="sm" variant="danger" onClick={() => handleDeleteContract(cs.id)} isLoading={deletingContractId === cs.id}>Eliminar</Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

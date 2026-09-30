@@ -10,8 +10,10 @@ import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceModelDetailsTab } from '@/components/device-models/DeviceModelDetailsTab';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function DeviceModelDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/device-models');
   const queryClient = useQueryClient();
@@ -140,10 +142,12 @@ export default function DeviceModelDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{model.model}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 wrap-anywhere">{model.vendorName}</p>
           </div>
-          {!isEditing && (
+          {!isEditing && permissions.canWrite && (
             <div className="flex gap-2">
               <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
-              <IconButton icon={<TrashIcon />} label="Eliminar modelo" variant="danger" onClick={() => setShowDeleteModal(true)} />
+              {permissions.isAdmin && (
+                <IconButton icon={<TrashIcon />} label="Eliminar modelo" variant="danger" onClick={() => setShowDeleteModal(true)} />
+              )}
             </div>
           )}
         </div>

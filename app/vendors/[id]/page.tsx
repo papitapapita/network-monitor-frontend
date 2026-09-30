@@ -9,6 +9,7 @@ import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, TrashIco
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 function toSlug(name: string): string {
   return name
@@ -20,6 +21,7 @@ function toSlug(name: string): string {
 }
 
 export default function VendorDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/vendors');
   const queryClient = useQueryClient();
@@ -197,10 +199,12 @@ export default function VendorDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere mb-1">{vendor.name}</h1>
             <p className="font-mono text-sm text-gray-500 dark:text-gray-400 wrap-anywhere">{vendor.slug}</p>
           </div>
-          {!isEditing && (
+          {!isEditing && permissions.canWrite && (
             <div className="flex gap-2">
               <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
-              <IconButton icon={<TrashIcon />} label="Eliminar fabricante" variant="danger" onClick={() => setShowDeleteModal(true)} />
+              {permissions.isAdmin && (
+                <IconButton icon={<TrashIcon />} label="Eliminar fabricante" variant="danger" onClick={() => setShowDeleteModal(true)} />
+              )}
             </div>
           )}
         </div>

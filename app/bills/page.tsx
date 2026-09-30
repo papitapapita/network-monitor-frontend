@@ -35,6 +35,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:bills-columns';
@@ -125,6 +126,7 @@ function buildBillColumns(
 }
 
 function BillsPageContent() {
+  const permissions = usePermissions();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -230,8 +232,12 @@ function BillsPageContent() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <Button variant="outline" onClick={() => setShowBulk(true)}>Generación Masiva</Button>
-            <IconButton icon={<PlusIcon />} label="Generar Factura" variant="primary" size="md" onClick={() => setShowSingle(true)} />
+            {permissions.canWrite && (
+              <>
+                <Button variant="outline" onClick={() => setShowBulk(true)}>Generación Masiva</Button>
+                <IconButton icon={<PlusIcon />} label="Generar Factura" variant="primary" size="md" onClick={() => setShowSingle(true)} />
+              </>
+            )}
           </>
         }
       />

@@ -37,6 +37,7 @@ import {
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type PendingAction = 'send' | 'accept' | 'expire' | null;
 
@@ -56,6 +57,7 @@ interface LineItemRow {
 }
 
 export default function QuotationDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/quotations');
   const queryClient = useQueryClient();
@@ -300,7 +302,7 @@ export default function QuotationDetailPage() {
   if (!quotation) return null;
 
   const copy = pendingAction ? ACTION_COPY[pendingAction] : null;
-  const editable = canEditQuotation(quotation.status);
+  const editable = permissions.canWrite && canEditQuotation(quotation.status);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
@@ -359,12 +361,12 @@ export default function QuotationDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} isLoading={isDownloading}>Descargar PDF</Button>
-          {canSend(quotation.status) && <Button size="sm" onClick={() => setPendingAction('send')}>Enviar</Button>}
-          {canAccept(quotation.status) && <Button size="sm" onClick={() => setPendingAction('accept')}>Aceptar</Button>}
-          {canReject(quotation.status) && (
+          {permissions.canWrite && canSend(quotation.status) && <Button size="sm" onClick={() => setPendingAction('send')}>Enviar</Button>}
+          {permissions.canWrite && canAccept(quotation.status) && <Button size="sm" onClick={() => setPendingAction('accept')}>Aceptar</Button>}
+          {permissions.canWrite && canReject(quotation.status) && (
             <Button size="sm" variant="outline" onClick={() => setShowRejectModal(true)}>Rechazar</Button>
           )}
-          {canExpire(quotation.status, quotation.validUntil) && (
+          {permissions.canWrite && canExpire(quotation.status, quotation.validUntil) && (
             <Button size="sm" variant="danger" onClick={() => setPendingAction('expire')}>Marcar Expirada</Button>
           )}
         </div>

@@ -22,6 +22,7 @@ import { AssignDeviceModal } from '@/components/locations/AssignDeviceModal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const DEVICE_STATUS_VARIANTS: Record<DeviceStatus, BadgeVariant> = {
   ACTIVE: 'active',
@@ -49,6 +50,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 // ─────────────────────────────────────────────
 
 export default function LocationDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/locations');
   const params = useParams();
@@ -198,7 +200,9 @@ export default function LocationDetailPage() {
               {LOCATION_TYPE_LABELS[location.type]}
             </Badge>
           </div>
-          <IconButton icon={<TrashIcon />} label="Eliminar ubicación" variant="danger" onClick={() => setShowDeleteModal(true)} />
+          {permissions.isAdmin && (
+            <IconButton icon={<TrashIcon />} label="Eliminar ubicación" variant="danger" onClick={() => setShowDeleteModal(true)} />
+          )}
         </div>
       </div>
 
@@ -208,7 +212,7 @@ export default function LocationDetailPage() {
         </div>
       )}
 
-      {!isEditing && (
+      {!isEditing && permissions.canWrite && (
         <div className="flex justify-end mb-3">
           <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
         </div>
@@ -299,9 +303,11 @@ export default function LocationDetailPage() {
             )}
           </h2>
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => setShowAssignModal(true)}>
-              Agregar
-            </Button>
+            {permissions.canWrite && (
+              <Button size="sm" onClick={() => setShowAssignModal(true)}>
+                Agregar
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => router.push(`/devices?locationId=${locationId}`)}>
               Ver todos
             </Button>

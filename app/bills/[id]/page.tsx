@@ -19,6 +19,7 @@ import { Card, Button, LoadingSpinner, Badge, Table, BackLink, SectionTitle } fr
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type PendingAction = 'pay' | 'overdue' | 'cancel' | null;
 
@@ -29,6 +30,7 @@ const ACTION_COPY: Record<Exclude<PendingAction, null>, { title: string; message
 };
 
 export default function BillDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/bills');
   const queryClient = useQueryClient();
@@ -150,11 +152,11 @@ export default function BillDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} isLoading={isDownloading}>Descargar PDF</Button>
-          {canPay(bill.status) && <Button size="sm" onClick={() => setPendingAction('pay')}>Marcar Pagada</Button>}
-          {canMarkOverdue(bill.status, bill.dueDate) && (
+          {permissions.canWrite && canPay(bill.status) && <Button size="sm" onClick={() => setPendingAction('pay')}>Marcar Pagada</Button>}
+          {permissions.canWrite && canMarkOverdue(bill.status, bill.dueDate) && (
             <Button size="sm" variant="outline" onClick={() => setPendingAction('overdue')}>Marcar Vencida</Button>
           )}
-          {canCancel(bill.status) && <Button size="sm" variant="danger" onClick={() => setPendingAction('cancel')}>Cancelar</Button>}
+          {permissions.canWrite && canCancel(bill.status) && <Button size="sm" variant="danger" onClick={() => setPendingAction('cancel')}>Cancelar</Button>}
         </div>
       </div>
 

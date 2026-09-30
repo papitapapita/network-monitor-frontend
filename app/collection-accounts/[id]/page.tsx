@@ -17,6 +17,7 @@ import { Card, Button, LoadingSpinner, Badge, Table, BackLink, SectionTitle } fr
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type PendingAction = 'pay' | 'cancel' | null;
 
@@ -28,6 +29,7 @@ const ACTION_COPY: Record<Exclude<PendingAction, null>, { title: string; message
 const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es') : '—');
 
 export default function CollectionAccountDetailPage() {
+  const permissions = usePermissions();
   const router = useRouter();
   const goBack = useGoBack('/collection-accounts');
   const queryClient = useQueryClient();
@@ -141,10 +143,10 @@ export default function CollectionAccountDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} isLoading={isDownloading}>Descargar PDF</Button>
-          {canPayCollectionAccount(account.status) && (
+          {permissions.canWrite && canPayCollectionAccount(account.status) && (
             <Button size="sm" onClick={() => setPendingAction('pay')}>Marcar Pagada</Button>
           )}
-          {canCancelCollectionAccount(account.status) && (
+          {permissions.canWrite && canCancelCollectionAccount(account.status) && (
             <Button size="sm" variant="danger" onClick={() => setPendingAction('cancel')}>Anular</Button>
           )}
         </div>
