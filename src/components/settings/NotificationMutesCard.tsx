@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
+import { canWriteRole } from '@/constants/roles';
 import { useToast } from '@/contexts/toast.context';
 import { Button, Input, Switch, LoadingSpinner, Badge, SectionTitle } from '@/components/ui';
 import {
@@ -18,7 +19,7 @@ import {
  */
 export function NotificationMutesCard() {
   const { user } = useAuth();
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+  const canEdit = canWriteRole(user?.role);
   const { showError, showSuccess } = useToast();
 
   const [muted, setMuted] = useState<string[]>([]);

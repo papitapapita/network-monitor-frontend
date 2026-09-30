@@ -24,6 +24,7 @@ import {
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole } from '@/constants/roles';
 import {
   POLLING_INTERVAL_MIN_SECONDS,
   INTERVAL_MAX_SECONDS,
@@ -106,7 +107,7 @@ interface Props {
 
 export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminRole(user?.role);
   const deviceId = device.id;
   // Polling targets the device IP, so nothing can be configured or triggered without one.
   const hasIp = !!device.ipAddress;

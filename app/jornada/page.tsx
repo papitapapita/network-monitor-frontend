@@ -8,6 +8,7 @@ import { TicketDetailDTO } from '@/types/ticket.types';
 import { TechnicianDTO } from '@/types/technician.types';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
 import { useAuth } from '@/contexts/auth.context';
+import { canWriteRole } from '@/constants/roles';
 import { technicianActiveLabel, technicianActiveVariant } from '@/constants/technician.constants';
 import {
   TICKET_PRIORITY_LABELS,
@@ -200,7 +201,7 @@ function DayTicketCard({
 function JornadaPageContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+  const canWrite = canWriteRole(user?.role);
 
   const [technicianId, setTechnicianId] = useState(() => searchParams.get('technicianId') ?? '');
   const [date, setDate] = useState(() => searchParams.get('date') ?? todayISODate());

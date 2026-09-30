@@ -6,6 +6,7 @@ import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/d
 import { Card, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions, EditToggleButton, ConfirmModal, InfoTip, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole } from '@/constants/roles';
 
 interface Props {
   deviceId: string;
@@ -64,7 +65,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
   // own permission — an operator who may edit the device still cannot touch
   // them. Reading stays open to everyone: the response is masked.
   const { user } = useAuth();
-  const canManage = user?.role === 'ADMIN';
+  const canManage = isAdminRole(user?.role);
 
   const [creds, setCreds] = useState<DeviceCredentialsResponseDTO | null>(null);
   const [noCreds, setNoCreds] = useState(false);

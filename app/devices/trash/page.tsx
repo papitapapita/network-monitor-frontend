@@ -4,6 +4,7 @@ import React, { useState, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole } from '@/constants/roles';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { useUrlState } from '@/hooks/useUrlState';
 import {
@@ -130,7 +131,7 @@ const DEFAULT_DEVICE_TRASH_COLUMNS = DEVICE_TRASH_COLUMN_CATALOG.map((c) => c.ke
 function DeviceTrashPageContent() {
   const goBack = useGoBack('/devices');
   const { user } = useAuth();
-  const canManage = user?.role === 'ADMIN';
+  const canManage = isAdminRole(user?.role);
 
   const { getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);

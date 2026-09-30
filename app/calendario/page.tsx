@@ -8,6 +8,7 @@ import type { TicketDTO, TimeBlock } from '@/types/ticket.types';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useAuth } from '@/contexts/auth.context';
+import { canWriteRole } from '@/constants/roles';
 import { useToast } from '@/contexts/toast.context';
 import { todayISODate } from '@/constants/ticket.constants';
 import { Button, ErrorBanner, LoadingSpinner, PageHeader } from '@/components/ui';
@@ -88,7 +89,7 @@ function CalendarPageContent() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { showError } = useToast();
-  const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+  const canWrite = canWriteRole(user?.role);
   const { get, set } = useUrlState();
 
   const today = todayISODate();

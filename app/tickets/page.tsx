@@ -7,6 +7,7 @@ import { apiService } from '@/services/api.service';
 import { useTickets } from '@/hooks/useTickets';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole, canWriteRole } from '@/constants/roles';
 import {
   buildTicketColumns,
   DEFAULT_TICKET_COLUMNS,
@@ -44,8 +45,8 @@ const ticketCount = (n: number) => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
 function TicketsPageContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
-  const isAdmin = user?.role === 'ADMIN';
+  const canWrite = canWriteRole(user?.role);
+  const isAdmin = isAdminRole(user?.role);
 
   const t = useTickets();
 

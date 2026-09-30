@@ -7,6 +7,7 @@ import { apiService } from '@/services/api.service';
 import { TechnicianDTO, UpdateTechnicianDTO } from '@/types/technician.types';
 import { TicketDTO } from '@/types/ticket.types';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole, canWriteRole } from '@/constants/roles';
 import {
   technicianActiveLabel,
   technicianActiveVariant,
@@ -30,8 +31,8 @@ export default function TechnicianDetailPage() {
   const { id: technicianId } = useParams() as { id: string };
 
   const { user } = useAuth();
-  const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
-  const isAdmin = user?.role === 'ADMIN';
+  const canWrite = canWriteRole(user?.role);
+  const isAdmin = isAdminRole(user?.role);
 
   const [technician, setTechnician] = useState<TechnicianDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

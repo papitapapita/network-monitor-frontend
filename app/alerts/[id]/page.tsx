@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole, canWriteRole } from '@/constants/roles';
 import {
   AlertDTO,
   AlertSeverity,
@@ -96,8 +97,8 @@ export default function AlertDetailPage() {
   const params = useParams();
   const alertId = params.id as string;
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
-  const canWrite = isAdmin || user?.role === 'OPERATOR';
+  const isAdmin = isAdminRole(user?.role);
+  const canWrite = canWriteRole(user?.role);
 
   const [alert, setAlert] = useState<AlertDTO | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);

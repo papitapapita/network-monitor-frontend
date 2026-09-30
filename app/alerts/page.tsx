@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole, canWriteRole } from '@/constants/roles';
 import { AlertDTO, AlertSeverity, AlertStatus } from '@/types/alert.types';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import { useUrlState } from '@/hooks/useUrlState';
@@ -186,8 +187,8 @@ const CLEAR_REOPEN_NOTE =
 function AlertsPageContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
-  const canWrite = isAdmin || user?.role === 'OPERATOR';
+  const isAdmin = isAdminRole(user?.role);
+  const canWrite = canWriteRole(user?.role);
 
   const [alerts, setAlerts] = useState<AlertDTO[]>([]);
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
