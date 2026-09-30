@@ -57,7 +57,9 @@ export function AgentDeviceAssignmentCard({ agent, allAgents }: AgentDeviceAssig
 
   const confirmMessage = pending
     ? pending.direction === 'in'
-      ? `Todos los dispositivos que hoy sondea ${nameOf(pending.other)} pasarán a este agente, «${agent.name}». Asegúrate de que este PC alcance sus direcciones IP.`
+      ? `Todos los dispositivos que hoy sondea ${nameOf(pending.other)} pasarán a este agente, «${agent.name}». Asegúrate de que este PC alcance sus direcciones IP.${
+          isPending ? ' Mientras no se instale, nadie los sondeará.' : ''
+        }`
       : `Todos los dispositivos de «${agent.name}» pasarán a ${nameOf(pending.other)}.${
           pending.other === SERVER ? ' El servidor solo los alcanza si sus IP son accesibles desde internet.' : ''
         }`
@@ -94,17 +96,18 @@ export function AgentDeviceAssignmentCard({ agent, allAgents }: AgentDeviceAssig
         />
 
         <div className="space-y-6">
-          {isPending && (
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Instala y empareja el agente antes de traerle dispositivos: hasta entonces no sondea nada y quedarían sin
-              vigilancia.
-            </p>
-          )}
-          {!isRevoked && !isPending && (
+          {!isRevoked && (
             <div className="space-y-2">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Pasa a este agente todos los dispositivos que hoy sondea otro.
               </p>
+              {/* DEV-165 allows it on purpose: a site's devices can be loaded before its installer runs. */}
+              {isPending && (
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  Este agente aún no está instalado: lo que traigas quedará como «desconocido», sin vigilancia, hasta que
+                  se empareje.
+                </p>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <Select
                   label="Traer desde"
