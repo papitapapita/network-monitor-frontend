@@ -67,11 +67,11 @@ is for items the frontend can land on its own.
 
 ## Priority 2 — Subscription
 
-- [ ] **Read-only mode still shows edit and delete buttons on most detail pages** — `BACKEND_API.md` (Subscription) asks to "disable every edit control rather than letting users hit `402`"
-  - What already follows it: every page that gated on role (`usePermissions().canWrite` / `.isAdmin` fold in `readOnly`), the "Agregar" button on every list page, the device list's row checkboxes and bulk actions, and any `/create` or `/edit` route (AppShell shows "Sistema en solo lectura")
-  - What does not: detail pages that never checked the role at all — vendors, device models, locations, customers, service plans, contracted services, bills, collection accounts, quotations — plus the device detail tabs' edit toggles and the bulk delete on the other list pages. A click there answers 402, the toast says the subscription is expired, and the shell switches to read-only; nothing breaks, the button is just there
-  - Fix: gate each on `usePermissions().canWrite` (or `.isAdmin` where the endpoint is ADMIN-only). This also fixes the same buttons for a VIEWER, who today gets a 403 from them — the two gaps are one change
-  - Cheapest path: `EditToggleButton`, `IconButton` with `TrashIcon`, and `DataTable`'s `bulkDelete` cover most of them; a `canWrite` prop defaulting from the hook would reach many call sites at once
+- [x] **Read-only mode still shows edit and delete buttons on most detail pages** — **done 2026-09-30**
+  - `EditToggleButton` and `DataTable`'s `bulkDelete` read `usePermissions()` themselves, so every inline edit toggle and every list page's selection follow the role and the subscription without per-page wiring
+  - Detail pages (vendors, device models, locations, customers and their contracts, service plans, bills, collection accounts, quotations) gate edits and status actions on `canWrite` and deletes on `isAdmin`; the device tabs also hide "Sondear ahora", "Habilitar Monitoreo" and the notification reset from anyone who cannot write
+  - Every delete is ADMIN-only, as the role table says: an OPERATOR loses the wireless-config delete, and `DataTable` strips the bulk "Eliminar" (and the checkboxes, where no other bulk action remains) for anyone but an ADMIN
+  - Covered by `e2e/subscription.spec.ts` (read-only device page, every tab); the same gating hides these from a VIEWER
 
 ---
 

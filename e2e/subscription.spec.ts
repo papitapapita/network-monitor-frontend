@@ -48,6 +48,21 @@ test('read-only: says alerts are off and offers no writes', async ({ page }) => 
   await expect(page.getByText('Sistema en solo lectura')).toBeVisible();
 });
 
+test('read-only: a device’s page offers no edit, delete or poll on any tab', async ({ page, api }) => {
+  const { devices } = await api.get<{ devices: Array<{ id: string; name: string }> }>('devices?limit=1');
+  test.skip(devices.length === 0, 'no device to open');
+  await withSubscription(page, () => stage('READ_ONLY', -5));
+  await page.goto(`/devices/${devices[0].id}`);
+  await expect(page.getByRole('heading', { name: devices[0].name })).toBeVisible();
+
+  const writes = /^(Editar|Eliminar|Reemplazar|Intercambiar|Sondear ahora|Configurar|Crear configuración|Restablecer|Reiniciar)/;
+  for (const tab of ['Detalles', 'Sondeo', 'Notificaciones', 'Credenciales']) {
+    await page.getByRole('button', { name: tab, exact: true }).click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('main').getByRole('button', { name: writes })).toHaveCount(0);
+  }
+});
+
 test('locked: only the lock screen, no way into the app', async ({ page }) => {
   await withSubscription(page, () => stage('LOCKED', -12));
   await page.goto('/devices');
