@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { NavItem } from '../ui/NavItem';
 import { useAuth } from '@/contexts/auth.context';
 import { useSavedListHref } from '@/hooks/listState';
+import { useInstallation } from '@/hooks/useInstallation';
+import type { InstallationDTO } from '@/types/installation.types';
+import { isRouteAvailable } from '@/constants/installation.constants';
 
 const ROLE_LABELS: Record<string, string> = {
+  VENDOR: 'Proveedor',
   ADMIN: 'Administrador',
   OPERATOR: 'Operador',
   VIEWER: 'Lector',
@@ -206,6 +210,15 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
   },
 ];
 
+/** The menu this install actually offers; a group left with no pages goes too. */
+function availableNavItems(installation: InstallationDTO): (NavLink | NavGroup)[] {
+  return NAV_ITEMS.flatMap((item): (NavLink | NavGroup)[] => {
+    if (!('group' in item)) return isRouteAvailable(item.href, installation) ? [item] : [];
+    const children = item.children.filter((c) => isRouteAvailable(c.href, installation));
+    return children.length > 0 ? [{ ...item, children }] : [];
+  });
+}
+
 const SETTINGS_ICON = icon([
   'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
   'M15 12a3 3 0 11-6 0 3 3 0 016 0z',
@@ -312,6 +325,8 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const installation = useInstallation();
+  const navItems = useMemo(() => availableNavItems(installation), [installation]);
   const [hovered, setHovered] = useState(false);
 
   const isActive = (path: string) =>
@@ -377,7 +392,7 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
 
       {/* Main nav — scrolls if items overflow */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-0.5">
-        {NAV_ITEMS.map((item) =>
+        {navItems.map((item) =>
           'group' in item ? (
             <NavGroupItem
               key={item.group}

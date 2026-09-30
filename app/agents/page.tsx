@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { AgentDTO, AgentPairingDTO } from '@/types/agent.types';
 import { useAgents } from '@/hooks/useAgents';
 import { useAuth } from '@/contexts/auth.context';
+import { canWriteRole, isVendorRole } from '@/constants/roles';
 import { useUrlTableSort, useUrlState } from '@/hooks/useUrlState';
-import { agentCondition, formatAgentDate, formatAgo } from '@/constants/agent.constants';
+import { PAIRING_UNAVAILABLE_MESSAGE, agentCondition, formatAgentDate, formatAgo } from '@/constants/agent.constants';
+import { useInstallation } from '@/hooks/useInstallation';
 import {
   DataTable,
   ErrorBanner,
@@ -41,6 +43,12 @@ const COLUMNS: DataTableColumn<AgentDTO>[] = [
     cell: (a) => <AgentStatusBadges agent={a} />,
   },
   {
+    key: 'deviceCount',
+    header: 'Dispositivos',
+    sortValue: (a) => a.deviceCount,
+    cell: (a) => <span className="text-sm text-gray-700 dark:text-gray-300">{a.deviceCount}</span>,
+  },
+  {
     key: 'lastSeenAt',
     header: 'Último reporte',
     sortValue: (a) => a.lastSeenAt,
@@ -73,8 +81,9 @@ const COLUMNS: DataTableColumn<AgentDTO>[] = [
 function AgentsPageContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
-  const canWrite = isAdmin || user?.role === 'OPERATOR';
+  const canManageAgents = isVendorRole(user?.role);
+  const { agentPairingAvailable } = useInstallation();
+  const canWrite = canWriteRole(user?.role);
 
   const { get, set } = useUrlState();
   const sort = useUrlTableSort({ get, set });
@@ -117,19 +126,27 @@ function AgentsPageContent() {
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
-          isAdmin && (
+          canManageAgents && (
             <IconButton
               icon={<PlusIcon />}
-              label="Nuevo agente"
+              label={agentPairingAvailable ? 'Nuevo agente' : PAIRING_UNAVAILABLE_MESSAGE}
               variant="primary"
               size="md"
               onClick={() => setShowCreate(true)}
+              disabled={!agentPairingAvailable}
             />
           )
         }
       />
 
       {error && <ErrorBanner message={(error as Error).message} onRetry={() => refetch()} />}
+
+      {/* Only the vendor can act on it; to the customer it would be noise. */}
+      {canManageAgents && !agentPairingAvailable && (
+        <p className="mb-6 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-300">
+          {PAIRING_UNAVAILABLE_MESSAGE} Configúrala en el servidor y reinícialo para poder crear agentes.
+        </p>
+      )}
 
       <DataTable
         columns={COLUMNS}
@@ -140,9 +157,11 @@ function AgentsPageContent() {
         isLoading={isLoading}
         loadingMessage="Cargando agentes..."
         emptyMessage={
-          isAdmin
-            ? 'Sin agentes. Crea uno para vigilar la red de un cliente desde adentro.'
-            : 'Sin agentes. Un administrador puede crearlos.'
+          canManageAgents && agentPairingAvailable
+            ? 'Sin agentes. Crea uno para vigilar la red del cliente desde adentro.'
+            : canManageAgents
+            ? 'Sin agentes.'
+            : 'Sin agentes. El proveedor del sistema los instala.'
         }
         sort={sort}
       />

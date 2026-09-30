@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
+import { isAdminRole, canWriteRole } from '@/constants/roles';
 import {
   DeviceModelResponseDTO,
   DeviceResponseDTO,
@@ -111,8 +112,8 @@ export default function DeviceDetailPage() {
   // deleting, so the same authority governs both. Replacing hardware is an
   // `activate` operation, which an operator also holds.
   const { user } = useAuth();
-  const canDelete = user?.role === 'ADMIN';
-  const canReplace = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+  const canDelete = isAdminRole(user?.role);
+  const canReplace = canWriteRole(user?.role);
 
   const [device, setDevice] = useState<DeviceResponseDTO | null>(null);
   const [deviceModel, setDeviceModel] = useState<DeviceModelResponseDTO | null>(null);
@@ -500,6 +501,7 @@ export default function DeviceDetailPage() {
           deviceStatus={device.status}
           deviceDeletedAt={device.deletedAt}
           deviceReplacedAt={device.replacedAt}
+          deviceAgentId={device.agentId}
           onDeviceUpdated={setDevice}
         />
       )}

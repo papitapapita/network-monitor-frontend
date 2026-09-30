@@ -64,7 +64,10 @@ import {
   CreateAgentDTO,
   AgentAssignmentDTO,
   AgentAssignmentResultDTO,
+  AgentOutageDTO,
+  AgentOutageListResponse,
 } from '../types/agent.types';
+import { InstallationDTO, InstallerListResponse } from '../types/installation.types';
 import { translateAgentError } from '../constants/agent.constants';
 import {
   AlertDTO,
@@ -243,6 +246,11 @@ function agentRefusal(error: string): ApiResponse<never> {
     : { success: false, status: 400, error };
 }
 
+/** AGT-010: counted on read, from the live devices, as the backend does. */
+function withDeviceCount(agent: AgentDTO): AgentDTO {
+  return { ...agent, deviceCount: liveDevices().filter((d) => d.agentId === agent.id).length };
+}
+
 /** MON-006: behind an agent that is offline, pending or revoked. */
 function agentNotReporting(device: DeviceResponseDTO): boolean {
   if (!device.agentId) return false;
@@ -371,6 +379,10 @@ class MockApiService {
     if (query?.category) result = result.filter((d) => d.category === query.category);
     if (query?.owner) result = result.filter((d) => d.ownerType === query.owner);
     if (query?.locationId) result = result.filter((d) => d.locationId === query.locationId);
+    if (query?.agentId) {
+      const agentId = query.agentId === 'none' ? null : query.agentId;
+      result = result.filter((d) => d.agentId === agentId);
+    }
     if (query?.deviceModelId) result = result.filter((d) => d.deviceModelId === query.deviceModelId);
     if (query?.monitoringEnabled !== undefined)
       result = result.filter((d) => d.monitoringEnabled === query.monitoringEnabled);
@@ -1494,13 +1506,15 @@ class MockApiService {
 
   async listAgents(): Promise<ApiResponse<AgentListResponse>> {
     settleMockAgents();
-    return ok({ agents: [...agents] });
+    return ok({ agents: agents.map(withDeviceCount) });
   }
 
   async getAgent(id: string): Promise<ApiResponse<AgentDTO>> {
     settleMockAgents();
     const agent = agents.find((a) => a.id === id);
-    return agent ? ok(agent) : { success: false, status: 404, error: translateAgentError('get', 404, undefined) };
+    return agent
+      ? ok(withDeviceCount(agent))
+      : { success: false, status: 404, error: translateAgentError('get', 404, undefined) };
   }
 
   async createAgent(data: CreateAgentDTO): Promise<ApiResponse<AgentPairingDTO>> {
@@ -1521,6 +1535,7 @@ class MockApiService {
       clockOffsetMs: null,
       offlineSince: null,
       clockDriftSince: null,
+      deviceCount: 0,
       createdAt: new Date(now).toISOString(),
       updatedAt: new Date(now).toISOString(),
     };
@@ -1592,6 +1607,48 @@ class MockApiService {
       result.assigned.push(id);
     }
     return ok(result);
+  }
+
+  /** One synthetic open outage for an offline agent; nothing is recorded for the others. */
+  async listAgentOutages(id: string): Promise<ApiResponse<AgentOutageListResponse>> {
+    const agent = agents.find((a) => a.id === id);
+    if (!agent) return { success: false, status: 404, error: translateAgentError('get', 404, undefined) };
+    const outages: AgentOutageDTO[] = agent.offlineSince
+      ? [{
+          id: `out-${agent.id}`,
+          silentSince: agent.lastSeenAt ?? agent.offlineSince,
+          offlineSince: agent.offlineSince,
+          endedAt: null,
+          endReason: null,
+        }]
+      : [];
+    return ok({ outages, total: outages.length, limit: 20, offset: 0, hasMore: false });
+  }
+
+  // ── Installation ───────────────────────────────────────────
+
+  async getInstallation(): Promise<ApiResponse<InstallationDTO>> {
+    return ok({
+      modules: { customers: true, billing: true, quoting: true, tickets: true, enforcement: true },
+      serverOnSite: true,
+      agentPairingAvailable: true,
+      installersAvailable: true,
+    });
+  }
+
+  async listInstallers(): Promise<ApiResponse<InstallerListResponse>> {
+    const at = new Date(Date.now() - 86_400_000).toISOString();
+    return ok({
+      installers: [
+        { fileName: 'nms-agent-setup-0.1.0.exe', platform: 'windows', version: '0.1.0', sizeBytes: 48_234_112, modifiedAt: at },
+        { fileName: 'nms-agent-0.1.0-linux-x64.tar.gz', platform: 'linux', version: '0.1.0', sizeBytes: 31_457_280, modifiedAt: at },
+      ],
+    });
+  }
+
+  async downloadInstaller(fileName: string, onProgress?: (fraction: number | null) => void): Promise<ApiResponse<Blob>> {
+    onProgress?.(1);
+    return ok(new Blob([`mock installer: ${fileName}`], { type: 'application/octet-stream' }));
   }
 
   // ── Tickets & technicians ──────────────────────────────────

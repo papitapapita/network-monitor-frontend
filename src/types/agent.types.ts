@@ -22,6 +22,8 @@ export interface AgentDTO {
   offlineSince: string | null;
   /** Set while the PC's clock is more than a minute off. Results are already corrected. */
   clockDriftSince: string | null;
+  /** Live devices behind it; the recycle bin is not counted (AGT-010). */
+  deviceCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,4 +55,26 @@ export type AgentAssignmentDTO =
 export interface AgentAssignmentResultDTO {
   assigned: string[];
   failed: { id: string; error: string }[];
+}
+
+export type AgentOutageEndReason = 'RECONNECTED' | 'REVOKED';
+
+/** One time the agent went offline (AGT-026). Recorded since 2026-09-29. */
+export interface AgentOutageDTO {
+  id: string;
+  /** Its last contact before the silence — when the outage really began. */
+  silentSince: string;
+  /** When it was marked offline, about 5 minutes later. */
+  offlineSince: string;
+  /** null while it is still offline — that entry matches the agent's `offlineSince`. */
+  endedAt: string | null;
+  endReason: AgentOutageEndReason | null;
+}
+
+export interface AgentOutageListResponse {
+  outages: AgentOutageDTO[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
 }

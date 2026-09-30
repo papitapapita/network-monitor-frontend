@@ -51,6 +51,7 @@ function DevicesPageContent() {
     categoryFilter,
     connectivityFilter,
     locationFilter,
+    agentFilter,
     search,
     sortField,
     sortDirection,
@@ -59,6 +60,7 @@ function DevicesPageContent() {
     setCategoryFilter,
     setConnectivityFilter,
     setLocationFilter,
+    setAgentFilter,
     setSearch,
     setCurrentPage,
     handleSort,
@@ -197,6 +199,19 @@ function DevicesPageContent() {
         categoryFilter={categoryFilter}
         connectivityFilter={connectivityFilter}
         search={search}
+        agentFilter={agentFilter}
+        agentOptions={
+          agents.length > 0
+            ? [
+                { value: 'none', label: SERVER_POLLER_LABEL },
+                ...agents.map((a) => ({
+                  value: a.id,
+                  label: a.status === 'REVOKED' ? `${a.name} (revocado)` : a.name,
+                })),
+              ]
+            : undefined
+        }
+        onAgentChange={setAgentFilter}
         hasFilters={hasFilters}
         onStatusChange={setStatusFilter}
         onCategoryChange={setCategoryFilter}
@@ -221,7 +236,7 @@ function DevicesPageContent() {
             : 'Sin dispositivos. Agrega el primero para comenzar.'
         }
         sort={{ field: sortField, direction: sortDirection, onSort: handleSort }}
-        selectionResetKey={`${currentPage}|${statusFilter}|${categoryFilter}|${connectivityFilter}|${search}`}
+        selectionResetKey={`${currentPage}|${statusFilter}|${categoryFilter}|${connectivityFilter}|${agentFilter}|${search}`}
         bulkDelete={{
           deleteOne: (id) => apiService.deleteDevice(id),
           undoOne: (id) => apiService.restoreDevice(id),

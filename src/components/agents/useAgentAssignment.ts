@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { AgentAssignmentDTO } from '@/types/agent.types';
+import { AGENTS_QUERY_KEY } from '@/hooks/useAgents';
 
 export interface AssignmentOutcome {
   assigned: number;
@@ -38,6 +39,8 @@ export function useAgentAssignment() {
         // depends on whether its agent is reporting.
         queryClient.invalidateQueries({ queryKey: ['devices'] });
         queryClient.invalidateQueries({ queryKey: ['devicesCatalog'] });
+        // Each agent's deviceCount moved with them.
+        queryClient.invalidateQueries({ queryKey: AGENTS_QUERY_KEY });
         return { outcome: { assigned: result.data.assigned.length, failed } };
       } finally {
         setIsRunning(false);

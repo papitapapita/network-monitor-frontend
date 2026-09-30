@@ -83,7 +83,9 @@ import {
   CreateAgentDTO,
   AgentAssignmentDTO,
   AgentAssignmentResultDTO,
+  AgentOutageListResponse,
 } from '../types/agent.types';
+import { InstallationDTO, InstallerListResponse } from '../types/installation.types';
 import { translateAgentError } from '../constants/agent.constants';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
@@ -391,6 +393,7 @@ class ApiService {
       deleted: query?.deleted,
       search: query?.search,
       connectivity: query?.connectivity,
+      agentId: query?.agentId,
       sortBy: query?.sortBy,
       sortOrder: query?.sortOrder
     });
@@ -953,10 +956,19 @@ class ApiService {
   // ============================================================
 
   async scanNetwork(data: NetworkScanRequest): Promise<ApiResponse<NetworkScanResult>> {
-    return this.request<NetworkScanResult>('/network/scan', {
+    const result = await this.request<NetworkScanResult>('/network/scan', {
       method: 'POST',
       body: JSON.stringify(data)
     });
+    // DEV-171: the menu hides the scan on such installs, so this is only
+    // reached through a saved link.
+    if (result.status === 409) {
+      return {
+        ...result,
+        error: 'El escaneo no está disponible: el servidor de esta instalación no está en la red monitoreada. Los agentes vigilan esa red desde adentro.',
+      };
+    }
+    return result;
   }
 
   // ============================================================
@@ -1273,6 +1285,76 @@ class ApiService {
         })),
       },
     };
+  }
+
+  /** Newest first. An agent that was never offline answers an empty page. */
+  async listAgentOutages(
+    id: string,
+    query?: { limit?: number; offset?: number }
+  ): Promise<ApiResponse<AgentOutageListResponse>> {
+    const qs = this.buildQuery({ limit: query?.limit, offset: query?.offset });
+    return this.request<AgentOutageListResponse>(`/agents/${id}/outages${qs}`);
+  }
+
+  // ============================================================
+  // Installation
+  // ============================================================
+
+  async getInstallation(): Promise<ApiResponse<InstallationDTO>> {
+    return this.request<InstallationDTO>('/installation');
+  }
+
+  /** 503 when the install has no installer folder (`installersAvailable: false`). */
+  async listInstallers(): Promise<ApiResponse<InstallerListResponse>> {
+    return this.request<InstallerListResponse>('/installation/installers');
+  }
+
+  /**
+   * The route needs the Bearer token, so a plain link cannot download it. The
+   * body is read as a stream so a download of tens of megabytes can show how
+   * far along it is — `onProgress` gets a fraction, or null when the server
+   * sent no length.
+   */
+  async downloadInstaller(fileName: string, onProgress?: (fraction: number | null) => void): Promise<ApiResponse<Blob>> {
+    try {
+      const headers: Record<string, string> = {};
+      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+      const response = await fetch(`${this.baseUrl}/installation/installers/${encodeURIComponent(fileName)}`, { headers });
+      if (response.status === 401) {
+        this.clearSession();
+        return { success: false, status: 401, error: 'Sesión expirada. Por favor inicia sesión nuevamente.' };
+      }
+      if (!response.ok) {
+        let error = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const data = await response.json();
+          error = data.error || data.message || error;
+        } catch {
+          /* non-JSON error body */
+        }
+        return {
+          success: false,
+          status: response.status,
+          error: response.status === 404 ? 'Ese instalador ya no está disponible. Actualiza la lista.' : error,
+        };
+      }
+      const total = Number(response.headers.get('content-length')) || 0;
+      if (!response.body) return { success: true, data: await response.blob() };
+
+      const reader = response.body.getReader();
+      const chunks: BlobPart[] = [];
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        onProgress?.(total > 0 ? Math.min(1, received / total) : null);
+      }
+      return { success: true, data: new Blob(chunks, { type: 'application/octet-stream' }) };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
   }
 
   // ============================================================

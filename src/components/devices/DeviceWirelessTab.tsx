@@ -17,6 +17,8 @@ import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.
 import { Card, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useAuth } from '@/contexts/auth.context';
+import { useInstallation } from '@/hooks/useInstallation';
+import { canWriteRole } from '@/constants/roles';
 import {
   WIRELESS_INTERVAL_MIN_SECONDS,
   INTERVAL_MAX_SECONDS,
@@ -118,6 +120,8 @@ interface Props {
   deviceStatus: DeviceStatus;
   deviceDeletedAt: string | null;
   deviceReplacedAt: string | null;
+  /** The probe agent it sits behind; null when the server polls it. */
+  deviceAgentId: string | null;
   /** Called after an identity suggestion is accepted and the device record changes underneath the caller. */
   onDeviceUpdated: (device: DeviceResponseDTO) => void;
 }
@@ -350,9 +354,15 @@ export function DeviceWirelessTab({
   deviceStatus,
   deviceDeletedAt,
   deviceReplacedAt,
+  deviceAgentId,
   onDeviceUpdated,
 }: Props) {
   const { user } = useAuth();
+  // WLS-029: an install whose server is off site cannot reach a device behind
+  // an agent, so poll, reboot and diagnosis would all answer 409. An on-site
+  // server (the default) keeps them working.
+  const { serverOnSite } = useInstallation();
+  const serverCannotReach = !serverOnSite && deviceAgentId !== null;
   const [config, setConfig] = useState<WirelessConfigDTO | null>(null);
   const [noConfig, setNoConfig] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
@@ -741,7 +751,7 @@ export function DeviceWirelessTab({
   const effectiveDeviceType = config?.deviceType ?? inferDeviceType(category);
 
   const isRebooting = rebootingUntil !== null;
-  const canWrite = user?.role === 'ADMIN' || user?.role === 'OPERATOR';
+  const canWrite = canWriteRole(user?.role);
 
   const deviceLifecycle = { deletedAt: deviceDeletedAt, replacedAt: deviceReplacedAt };
   const enableBlockedReason = wirelessEnableBlockedReason(deviceStatus, category, deviceLifecycle);
@@ -1105,7 +1115,7 @@ export function DeviceWirelessTab({
 
           {/* On-demand check for a failing link. The backend refuses a vendor
               it cannot read, so there is nothing to offer for one. */}
-          {!unsupportedVendorReason && <LinkDiagnosisCard deviceId={deviceId} canWrite={canWrite} />}
+          {!unsupportedVendorReason && !serverCannotReach && <LinkDiagnosisCard deviceId={deviceId} canWrite={canWrite} />}
 
           {/* Latest snapshot */}
           <Card>
@@ -1122,15 +1132,17 @@ export function DeviceWirelessTab({
                 </div>
                 <div className="flex gap-2">
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchStatus} disabled={statusLoading || isRebooting} />
-                  <IconButton
-                    icon={<PollIcon />}
-                    label={unsupportedVendorReason ?? 'Sondear ahora'}
-                    variant="primary"
-                    onClick={handlePollNow}
-                    isLoading={polling}
-                    disabled={isRebooting || unsupportedVendorReason !== null}
-                  />
-                  {canWrite && (
+                  {!serverCannotReach && (
+                    <IconButton
+                      icon={<PollIcon />}
+                      label={unsupportedVendorReason ?? 'Sondear ahora'}
+                      variant="primary"
+                      onClick={handlePollNow}
+                      isLoading={polling}
+                      disabled={isRebooting || unsupportedVendorReason !== null}
+                    />
+                  )}
+                  {canWrite && !serverCannotReach && (
                     <IconButton
                       icon={<PowerIcon />}
                       label={rebootBlockedReason ?? 'Reiniciar equipo'}
@@ -1143,6 +1155,12 @@ export function DeviceWirelessTab({
               </div>
             </Card.Header>
             <Card.Body>
+              {serverCannotReach && (
+                <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                  Este equipo está detrás de un agente y el servidor no está en su red, así que el sondeo manual, el
+                  reinicio y el diagnóstico no están disponibles desde aquí.
+                </p>
+              )}
               {isRebooting && (
                 <div className="mb-4 p-3 rounded-md text-sm bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300">
                   Reiniciando… el equipo estará fuera de línea alrededor de 2 minutos.

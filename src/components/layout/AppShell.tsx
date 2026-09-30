@@ -5,6 +5,18 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '@/contexts/auth.context';
 import { LoadingSpinner } from '@/components/ui';
+import { StatusPage } from './StatusPage';
+import { useInstallation } from '@/hooks/useInstallation';
+import { isRouteAvailable } from '@/constants/installation.constants';
+
+function UnavailableIcon() {
+  return (
+    <svg className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" d="M5.6 5.6l12.8 12.8" />
+    </svg>
+  );
+}
 
 /** Sidebar collapse preference, kept in localStorage so it survives reloads. */
 const COLLAPSED_KEY = 'nms:sidebar-collapsed';
@@ -29,6 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading, logout } = useAuth();
+  const installation = useInstallation();
 
   const isLoginPage = pathname === '/login';
 
@@ -106,7 +119,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             horizontally-scrollable container. Every wide-content component
             (tables, the device detail tab bar) already scrolls within its
             own wrapper, so main never legitimately needs to scroll sideways. */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          {/* A saved link into a module this install does not run: its API
+              answers 404 on every call, so say so once instead of letting the
+              page fail request by request. */}
+          {installation.isLoaded && !isRouteAvailable(pathname, installation) ? (
+            <StatusPage
+              icon={<UnavailableIcon />}
+              iconTone="amber"
+              title="No disponible en esta instalación"
+              description={
+                pathname.startsWith('/network-scan')
+                  ? 'El servidor de esta instalación no está en la red monitoreada, así que no puede escanearla. Los agentes vigilan esa red desde adentro.'
+                  : 'Esta sección pertenece a un módulo que no está activo en esta instalación. Si lo necesitas, habla con el proveedor del sistema.'
+              }
+              primaryAction={{ label: 'Volver al inicio', href: '/' }}
+            />
+          ) : (
+            children
+          )}
+        </main>
       </div>
     </div>
   );

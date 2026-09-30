@@ -1,11 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  AGENT_DOWNLOAD_URL,
-  LINUX_INSTALLER_FILE,
-  WINDOWS_INSTALLER_FILE,
-} from '@/constants/agent.constants';
+import { LINUX_INSTALLER_FILE, WINDOWS_INSTALLER_FILE } from '@/constants/agent.constants';
+import { InstallerDownload } from './InstallerDownload';
 
 type Platform = 'windows' | 'linux';
 
@@ -19,23 +16,6 @@ const Code = ({ children }: { children: React.ReactNode }) => (
     {children}
   </code>
 );
-
-function Download({ file }: { file: string }) {
-  if (!AGENT_DOWNLOAD_URL) return <>Copia <Code>{file}</Code></>;
-  return (
-    <>
-      <a
-        href={AGENT_DOWNLOAD_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
-      >
-        Descarga
-      </a>{' '}
-      <Code>{file}</Code>
-    </>
-  );
-}
 
 /**
  * How to put the agent on the customer's PC (AGT-067, AGT-068). The installer
@@ -77,7 +57,7 @@ export function AgentInstallSteps({ pairingKey }: AgentInstallStepsProps) {
       {platform === 'windows' ? (
         <ol className="list-decimal space-y-1.5 pl-5">
           <li>
-            <Download file={WINDOWS_INSTALLER_FILE} /> a ese PC.
+            <InstallerDownload platform="windows" fallbackFileName={WINDOWS_INSTALLER_FILE} /> y cópialo a ese PC.
           </li>
           <li>Ejecútalo como administrador.</li>
           <li>Pega la clave de emparejamiento cuando la pida. Es lo único que pregunta.</li>
@@ -89,7 +69,8 @@ export function AgentInstallSteps({ pairingKey }: AgentInstallStepsProps) {
       ) : (
         <ol className="list-decimal space-y-1.5 pl-5">
           <li>
-            <Download file={LINUX_INSTALLER_FILE} /> a ese equipo (requiere systemd).
+            <InstallerDownload platform="linux" fallbackFileName={LINUX_INSTALLER_FILE} /> y cópialo a ese equipo
+            (requiere systemd).
           </li>
           <li>
             Descomprímelo y, como root, ejecuta: <Code>sudo ./install.sh {key}</Code>

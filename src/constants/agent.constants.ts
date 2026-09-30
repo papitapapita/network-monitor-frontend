@@ -10,14 +10,7 @@ export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
 /** Matches the backend's `AgentName` bounds. */
 export const AGENT_NAME_MAX_LENGTH = 60;
 
-/**
- * Where the installers can be downloaded from. The backend does not serve them
- * (the files are build output of `npm run package:agent`), so the install
- * vendor sets this to wherever it publishes them — a release page, a shared
- * folder. Unset, the install steps name the files instead of linking them.
- */
-export const AGENT_DOWNLOAD_URL = process.env.NEXT_PUBLIC_AGENT_DOWNLOAD_URL || null;
-
+/** Named in the install steps when the server has no installer to offer. */
 export const WINDOWS_INSTALLER_FILE = 'nms-agent-setup-<versión>.exe';
 export const LINUX_INSTALLER_FILE = 'nms-agent-<versión>-linux-x64.tar.gz';
 
@@ -111,4 +104,19 @@ export function translateAgentError(
     return 'No se pueden asignar dispositivos a un agente revocado.';
   }
   return error || 'Error al comunicarse con el servidor';
+}
+
+/** Shown where a new pairing key would be issued, on an install without AGENT_PUBLIC_URL (the backend answers 503). */
+export const PAIRING_UNAVAILABLE_MESSAGE =
+  'Esta instalación no puede emitir claves de emparejamiento: falta configurar la dirección pública del servidor para agentes (AGENT_PUBLIC_URL).';
+
+/** "3 h 12 min" — how long an outage lasted. */
+export function formatDuration(ms: number): string {
+  const minutes = Math.max(0, Math.round(ms / 60_000));
+  if (minutes < 1) return 'menos de 1 min';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return minutes % 60 ? `${hours} h ${minutes % 60} min` : `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return hours % 24 ? `${days} d ${hours % 24} h` : `${days} d`;
 }

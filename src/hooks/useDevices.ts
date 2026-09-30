@@ -43,11 +43,12 @@ async function fetchDevicesData(params: {
   categoryFilter: string;
   connectivityFilter: string;
   locationFilter: string;
+  agentFilter: string;
   search: string;
   sortField: string | null;
   sortDirection: 'asc' | 'desc';
 }) {
-  const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search, sortField, sortDirection } = params;
+  const { currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, agentFilter, search, sortField, sortDirection } = params;
 
   const query: ListDevicesQuery = {
     limit,
@@ -56,6 +57,7 @@ async function fetchDevicesData(params: {
   if (statusFilter) query.status = statusFilter as DeviceStatus;
   if (categoryFilter) query.category = categoryFilter as DeviceCategory;
   if (locationFilter) query.locationId = locationFilter;
+  if (agentFilter) query.agentId = agentFilter;
   if (search) query.search = search;
   query.connectivity = toConnectivity(connectivityFilter);
   if (sortField) {
@@ -91,6 +93,8 @@ export function useDevices() {
   const categoryFilter = get('category', '');
   const connectivityFilter = toConnectivity(get('connectivity', '')) ?? '';
   const locationFilter = get('locationId', '');
+  // An agent's id, or 'none' for the devices the server polls itself.
+  const agentFilter = get('agentId', '');
   const sortField = get('sort', '') || null;
   const sortDirection = get('dir', 'asc') as 'asc' | 'desc';
 
@@ -106,11 +110,11 @@ export function useDevices() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
-  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, debouncedSearch, sortField, sortDirection];
+  const queryKey = ['devices', currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, agentFilter, debouncedSearch, sortField, sortDirection];
 
   const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = useQuery({
     queryKey,
-    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, search: debouncedSearch, sortField, sortDirection }),
+    queryFn: () => fetchDevicesData({ currentPage, limit, statusFilter, categoryFilter, connectivityFilter, locationFilter, agentFilter, search: debouncedSearch, sortField, sortDirection }),
     placeholderData: keepPreviousData,
   });
 
@@ -125,6 +129,7 @@ export function useDevices() {
   const setCategoryFilter = (v: string) => set({ category: v || null, page: null });
   const setConnectivityFilter = (v: string) => set({ connectivity: v || null, page: null });
   const setLocationFilter = (v: string) => set({ locationId: v || null, page: null });
+  const setAgentFilter = (v: string) => set({ agentId: v || null, page: null });
   const setSearch = (v: string) => setSearchState(v);
 
   const clearFilters = () => {
@@ -134,6 +139,7 @@ export function useDevices() {
       category: null,
       connectivity: null,
       locationId: null,
+      agentId: null,
       search: null,
       page: null,
     });
@@ -163,14 +169,16 @@ export function useDevices() {
     categoryFilter,
     connectivityFilter,
     locationFilter,
+    agentFilter,
     search,
     sortField,
     sortDirection,
-    hasFilters: !!(statusFilter || categoryFilter || connectivityFilter || locationFilter || search),
+    hasFilters: !!(statusFilter || categoryFilter || connectivityFilter || locationFilter || agentFilter || search),
     setStatusFilter,
     setCategoryFilter,
     setConnectivityFilter,
     setLocationFilter,
+    setAgentFilter,
     setSearch,
     setCurrentPage,
     handleSort,

@@ -8,6 +8,10 @@ interface DeviceFiltersProps {
   categoryFilter: string;
   connectivityFilter: string;
   search: string;
+  /** Omitted on an install with no agents, where every device is the server's. */
+  agentFilter?: string;
+  agentOptions?: { value: string; label: string }[];
+  onAgentChange?: (value: string) => void;
   hasFilters: boolean;
   onStatusChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
@@ -21,6 +25,9 @@ export function DeviceFilters({
   categoryFilter,
   connectivityFilter,
   search,
+  agentFilter = '',
+  agentOptions,
+  onAgentChange,
   hasFilters,
   onStatusChange,
   onCategoryChange,
@@ -33,7 +40,7 @@ export function DeviceFilters({
       columns={4}
       hasFilters={hasFilters}
       onClear={onClear}
-      secondaryFiltersActive={!!(statusFilter || categoryFilter || connectivityFilter)}
+      secondaryFiltersActive={!!(statusFilter || categoryFilter || connectivityFilter || agentFilter)}
       search={{
         value: search,
         onChange: onSearchChange,
@@ -67,6 +74,15 @@ export function DeviceFilters({
         ]}
         fullWidth
       />
+      {agentOptions && onAgentChange && (
+        <Select
+          label="Sondeado por"
+          value={agentFilter}
+          onChange={(e) => onAgentChange(e.target.value)}
+          options={[{ value: '', label: 'Todos' }, ...agentOptions]}
+          fullWidth
+        />
+      )}
     </FilterBar>
   );
 }

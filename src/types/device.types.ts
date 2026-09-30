@@ -117,6 +117,8 @@ export interface ListDevicesQuery {
   category?: DeviceCategory;
   owner?: DeviceOwnerType;
   locationId?: string;
+  /** An agent's id, or 'none' for the devices the server polls itself. */
+  agentId?: string;
   deviceModelId?: string;
   monitoringEnabled?: boolean;
   /**

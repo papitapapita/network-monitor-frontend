@@ -6,10 +6,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { AgentDTO, AgentPairingDTO } from '@/types/agent.types';
 import { useAuth } from '@/contexts/auth.context';
+import { canWriteRole, isVendorRole } from '@/constants/roles';
 import { useToast } from '@/contexts/toast.context';
 import { AGENTS_QUERY_KEY, useAgent, useAgents } from '@/hooks/useAgents';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useInstallation } from '@/hooks/useInstallation';
 import {
+  PAIRING_UNAVAILABLE_MESSAGE,
   agentCondition,
   formatAgentDate,
   formatAgo,
@@ -20,6 +23,8 @@ import { AgentStatusBadges } from '@/components/agents/AgentStatusBadges';
 import { AgentInstallSteps } from '@/components/agents/AgentInstallSteps';
 import { PairingKeyModal } from '@/components/agents/PairingKeyModal';
 import { AgentDeviceAssignmentCard } from '@/components/agents/AgentDeviceAssignmentCard';
+import { AgentDevicesCard } from '@/components/agents/AgentDevicesCard';
+import { AgentOutagesCard } from '@/components/agents/AgentOutagesCard';
 
 function Notice({ tone, children }: { tone: 'danger' | 'warning' | 'info'; children: React.ReactNode }) {
   const tones = {
@@ -87,8 +92,9 @@ export default function AgentDetailPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { showError, showSuccess } = useToast();
-  const isAdmin = user?.role === 'ADMIN';
-  const canWrite = isAdmin || user?.role === 'OPERATOR';
+  const canManageAgents = isVendorRole(user?.role);
+  const { agentPairingAvailable } = useInstallation();
+  const canWrite = canWriteRole(user?.role);
 
   const [pairing, setPairing] = useState<AgentPairingDTO | null>(null);
   const [isRekeying, setIsRekeying] = useState(false);
@@ -172,10 +178,15 @@ export default function AgentDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{agent.name}</h1>
             <AgentStatusBadges agent={agent} />
           </div>
-          {isAdmin && agent.status !== 'REVOKED' && (
+          {canManageAgents && agent.status !== 'REVOKED' && (
             <div className="flex flex-wrap gap-2">
               {isPending && (
-                <Button onClick={rekey} isLoading={isRekeying}>
+                <Button
+                  onClick={rekey}
+                  isLoading={isRekeying}
+                  disabled={!agentPairingAvailable}
+                  title={agentPairingAvailable ? undefined : PAIRING_UNAVAILABLE_MESSAGE}
+                >
                   Nueva clave
                 </Button>
               )}
@@ -220,6 +231,7 @@ export default function AgentDetailPage() {
                   {Math.abs(agent.clockOffsetMs) < 1000 ? 'En hora' : formatClockOffset(agent.clockOffsetMs)}
                 </Fact>
               )}
+              <Fact label="Dispositivos">{agent.deviceCount}</Fact>
               <Fact label="Creado">{formatAgentDate(agent.createdAt)}</Fact>
               {agent.revokedAt && <Fact label="Revocado">{formatAgentDate(agent.revokedAt)}</Fact>}
             </dl>
@@ -233,7 +245,7 @@ export default function AgentDetailPage() {
             </Card.Header>
             <Card.Body>
               <AgentInstallSteps />
-              {isAdmin && (
+              {canManageAgents && (
                 <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
                   La clave solo se muestra al emitirla. Si no la tienes a mano, usa «Nueva clave»: la anterior deja de
                   servir.
@@ -243,7 +255,11 @@ export default function AgentDetailPage() {
           </Card>
         )}
 
+        <AgentDevicesCard agent={agent} />
+
         {canWrite && <AgentDeviceAssignmentCard agent={agent} allAgents={allAgents} />}
+
+        {agent.status !== 'PENDING' && <AgentOutagesCard agent={agent} />}
       </div>
     </div>
   );
