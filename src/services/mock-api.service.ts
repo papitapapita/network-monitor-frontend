@@ -69,6 +69,13 @@ import {
 } from '../types/agent.types';
 import { InstallationDTO, InstallerListResponse } from '../types/installation.types';
 import { SubscriptionStatusDTO } from '../types/subscription.types';
+import {
+  UserAccountDTO,
+  CreateUserDTO,
+  UpdateUserDTO,
+  ChangeMyPasswordDTO,
+  DataPurgeResultDTO,
+} from '../types/user.types';
 import { translateAgentError } from '../constants/agent.constants';
 import {
   AlertDTO,
@@ -195,6 +202,12 @@ const MOCK_PAIRING_DELAY_MS = 15_000;
 const PAIRING_KEY_TTL_MS = 24 * 3_600_000;
 
 let agents: AgentDTO[] = [];
+
+/** 'mock-user' is the signed-in account mock login returns. */
+let mockUsers: UserAccountDTO[] = [
+  { id: 'mock-user', email: 'admin@example.com', role: 'ADMIN', disabled: false, disabledAt: null, createdAt: new Date(Date.now() - 90 * 86_400_000).toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'user-op', email: 'operador@example.com', role: 'OPERATOR', disabled: false, disabledAt: null, createdAt: new Date(Date.now() - 30 * 86_400_000).toISOString(), updatedAt: new Date().toISOString() },
+];
 /** When each pending agent's current key was issued, for the simulated pairing. */
 const keyIssuedAt: Record<string, number> = {};
 
@@ -1624,6 +1637,53 @@ class MockApiService {
         }]
       : [];
     return ok({ outages, total: outages.length, limit: 20, offset: 0, hasMore: false });
+  }
+
+  // ── Users ──────────────────────────────────────────────────
+
+  async listUsers(): Promise<ApiResponse<{ users: UserAccountDTO[] }>> {
+    return ok({ users: [...mockUsers] });
+  }
+
+  async createUser(data: CreateUserDTO): Promise<ApiResponse<UserAccountDTO>> {
+    const email = data.email.trim().toLowerCase();
+    if (mockUsers.some((u) => u.email === email)) {
+      return { success: false, status: 409, errorField: 'email', error: 'Ya existe un usuario con ese correo.' };
+    }
+    const now = new Date().toISOString();
+    const user: UserAccountDTO = { id: `user-${uid()}`, email, role: data.role, disabled: false, disabledAt: null, createdAt: now, updatedAt: now };
+    mockUsers = [...mockUsers, user];
+    return ok(user);
+  }
+
+  async updateUser(id: string, data: UpdateUserDTO): Promise<ApiResponse<UserAccountDTO>> {
+    const idx = mockUsers.findIndex((u) => u.id === id);
+    if (idx === -1) return { success: false, status: 404, error: 'Ese usuario ya no existe.' };
+    if (mockUsers[idx].role === 'VENDOR' || mockUsers[idx].id === 'mock-user') {
+      return { success: false, status: 403, error: 'No se puede modificar la cuenta del proveedor ni la tuya desde aquí.' };
+    }
+    const now = new Date().toISOString();
+    const current = mockUsers[idx];
+    const updated: UserAccountDTO = {
+      ...current,
+      role: data.role ?? current.role,
+      disabled: data.disabled ?? current.disabled,
+      disabledAt: data.disabled === undefined ? current.disabledAt : data.disabled ? now : null,
+      updatedAt: now,
+    };
+    mockUsers[idx] = updated;
+    return ok(updated);
+  }
+
+  async changeMyPassword(data: ChangeMyPasswordDTO): Promise<ApiResponse<{ token: string }>> {
+    if (!data.currentPassword) {
+      return { success: false, status: 400, errorField: 'currentPassword', error: 'La contraseña actual no es correcta.' };
+    }
+    return ok({ token: 'mock-token' });
+  }
+
+  async purgeStaleData(): Promise<ApiResponse<DataPurgeResultDTO>> {
+    return ok({ pingResultsDeleted: 0, alertsDeleted: 0, wirelessSnapshotsDeleted: 0, wirelessAlertRecordsDeleted: 0 });
   }
 
   // ── Subscription ───────────────────────────────────────────

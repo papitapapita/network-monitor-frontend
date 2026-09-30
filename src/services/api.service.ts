@@ -87,6 +87,13 @@ import {
 } from '../types/agent.types';
 import { InstallationDTO, InstallerListResponse } from '../types/installation.types';
 import { SubscriptionStatusDTO } from '../types/subscription.types';
+import {
+  UserAccountDTO,
+  CreateUserDTO,
+  UpdateUserDTO,
+  ChangeMyPasswordDTO,
+  DataPurgeResultDTO,
+} from '../types/user.types';
 import { translateAgentError } from '../constants/agent.constants';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
@@ -1307,6 +1314,56 @@ class ApiService {
   ): Promise<ApiResponse<AgentOutageListResponse>> {
     const qs = this.buildQuery({ limit: query?.limit, offset: query?.offset });
     return this.request<AgentOutageListResponse>(`/agents/${id}/outages${qs}`);
+  }
+
+  // ============================================================
+  // Users (IDN-140) and the signed-in account
+  // ============================================================
+
+  /** Oldest first, unpaginated. The vendor account is left out unless the caller is the vendor. */
+  async listUsers(): Promise<ApiResponse<{ users: UserAccountDTO[] }>> {
+    return this.request<{ users: UserAccountDTO[] }>('/users');
+  }
+
+  async createUser(data: CreateUserDTO): Promise<ApiResponse<UserAccountDTO>> {
+    const result = await this.request<UserAccountDTO>('/users', { method: 'POST', body: JSON.stringify(data) });
+    if (result.status === 409) {
+      return { ...result, error: 'Ya existe un usuario con ese correo.', errorField: 'email' };
+    }
+    return result;
+  }
+
+  /**
+   * Refused (403) for the vendor account and for the caller's own — the page
+   * hides those rows' actions, so this only fires against a stale list.
+   */
+  async updateUser(id: string, data: UpdateUserDTO): Promise<ApiResponse<UserAccountDTO>> {
+    const result = await this.request<UserAccountDTO>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    if (result.status === 403) {
+      return { ...result, error: 'No se puede modificar la cuenta del proveedor ni la tuya desde aquí.' };
+    }
+    if (result.status === 404) return { ...result, error: 'Ese usuario ya no existe.' };
+    return result;
+  }
+
+  /**
+   * Signs this account out everywhere, this session included: the caller has
+   * to swap in the token that comes back or the next request answers 401.
+   */
+  async changeMyPassword(data: ChangeMyPasswordDTO): Promise<ApiResponse<{ token: string }>> {
+    const result = await this.request<{ token: string }>('/users/me/password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!result.success && result.error && /current password is incorrect/i.test(result.error)) {
+      return { ...result, error: 'La contraseña actual no es correcta.', errorField: 'currentPassword' };
+    }
+    return result;
+  }
+
+  /** NOT-131: the daily retention sweep, run now. Vendor maintenance. */
+  async purgeStaleData(): Promise<ApiResponse<DataPurgeResultDTO>> {
+    return this.request<DataPurgeResultDTO>('/admin/data-retention/purge', { method: 'POST' });
   }
 
   // ============================================================

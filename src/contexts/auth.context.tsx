@@ -14,6 +14,12 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   logout: () => void;
+  /**
+   * Keeps the session going after a change that revoked it — a password
+   * change signs the account out everywhere, this session included, and hands
+   * back the one token that still works (IDN-144).
+   */
+  replaceToken: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -59,8 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const replaceToken = useCallback((token: string) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    apiService.setToken(token);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, replaceToken }}>
       {children}
     </AuthContext.Provider>
   );

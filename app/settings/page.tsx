@@ -3,9 +3,13 @@
 import React from 'react';
 import { useSettings } from '@/contexts/settings.context';
 import { NotificationMutesCard } from '@/components/settings/NotificationMutesCard';
+import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard';
+import { DataPurgeCard } from '@/components/settings/DataPurgeCard';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useSettings();
+  const permissions = usePermissions();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -70,8 +74,18 @@ export default function SettingsPage() {
       </section>
 
       <div className="mt-6">
+        <ChangePasswordCard />
+      </div>
+
+      <div className="mt-6">
         <NotificationMutesCard />
       </div>
+
+      {permissions.isVendor && (
+        <div className="mt-6">
+          <DataPurgeCard />
+        </div>
+      )}
     </div>
   );
 }
