@@ -6,8 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { useTickets } from '@/hooks/useTickets';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
-import { useAuth } from '@/contexts/auth.context';
-import { isAdminRole, canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   buildTicketColumns,
   DEFAULT_TICKET_COLUMNS,
@@ -44,9 +43,9 @@ const ticketCount = (n: number) => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
 
 function TicketsPageContent() {
   const router = useRouter();
-  const { user } = useAuth();
-  const canWrite = canWriteRole(user?.role);
-  const isAdmin = isAdminRole(user?.role);
+  const permissions = usePermissions();
+  const canWrite = permissions.canWrite;
+  const isAdmin = permissions.isAdmin;
 
   const t = useTickets();
 

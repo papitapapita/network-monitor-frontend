@@ -5,8 +5,7 @@ import { apiService } from '@/services/api.service';
 import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
 import { Card, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions, EditToggleButton, ConfirmModal, InfoTip, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
-import { useAuth } from '@/contexts/auth.context';
-import { isAdminRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface Props {
   deviceId: string;
@@ -64,8 +63,8 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
   // These endpoints carry device passwords and SNMP keys, so writing them is its
   // own permission — an operator who may edit the device still cannot touch
   // them. Reading stays open to everyone: the response is masked.
-  const { user } = useAuth();
-  const canManage = isAdminRole(user?.role);
+  const permissions = usePermissions();
+  const canManage = permissions.isAdmin;
 
   const [creds, setCreds] = useState<DeviceCredentialsResponseDTO | null>(null);
   const [noCreds, setNoCreds] = useState(false);

@@ -7,8 +7,7 @@ import { apiService } from '@/services/api.service';
 import type { TicketDTO, TimeBlock } from '@/types/ticket.types';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
 import { useUrlState } from '@/hooks/useUrlState';
-import { useAuth } from '@/contexts/auth.context';
-import { canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/toast.context';
 import { todayISODate } from '@/constants/ticket.constants';
 import { Button, ErrorBanner, LoadingSpinner, PageHeader } from '@/components/ui';
@@ -87,9 +86,9 @@ async function fetchAllPages(query: Parameters<typeof apiService.listTickets>[0]
 function CalendarPageContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const permissions = usePermissions();
   const { showError } = useToast();
-  const canWrite = canWriteRole(user?.role);
+  const canWrite = permissions.canWrite;
   const { get, set } = useUrlState();
 
   const today = todayISODate();

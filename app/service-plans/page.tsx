@@ -21,6 +21,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:service-plans-columns';
@@ -100,6 +101,7 @@ const DEFAULT_SERVICE_PLAN_COLUMNS = SERVICE_PLAN_COLUMN_CATALOG.map((c) => c.ke
 
 function ServicePlansContent() {
   const router = useRouter();
+  const permissions = usePermissions();
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
   const search = get('search', '');
@@ -163,13 +165,15 @@ function ServicePlansContent() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Agregar Plan"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/service-plans/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Plan"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/service-plans/create')}
+              />
+            )}
           </>
         }
       />

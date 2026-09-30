@@ -4,8 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
-import { useAuth } from '@/contexts/auth.context';
-import { isAdminRole, canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   AlertDTO,
   AlertSeverity,
@@ -96,9 +95,9 @@ export default function AlertDetailPage() {
   const goBack = useGoBack('/alerts');
   const params = useParams();
   const alertId = params.id as string;
-  const { user } = useAuth();
-  const isAdmin = isAdminRole(user?.role);
-  const canWrite = canWriteRole(user?.role);
+  const permissions = usePermissions();
+  const isAdmin = permissions.isAdmin;
+  const canWrite = permissions.canWrite;
 
   const [alert, setAlert] = useState<AlertDTO | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);

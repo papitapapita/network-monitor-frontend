@@ -20,6 +20,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:customers-columns';
@@ -68,6 +69,7 @@ const DEFAULT_CUSTOMER_COLUMNS = CUSTOMER_COLUMN_CATALOG.map((c) => c.key);
 
 function CustomersPageContent() {
   const router = useRouter();
+  const permissions = usePermissions();
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
   const search = get('search', '');
@@ -131,13 +133,15 @@ function CustomersPageContent() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Agregar Cliente"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/customers/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Cliente"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/customers/create')}
+              />
+            )}
           </>
         }
       />

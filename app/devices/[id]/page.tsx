@@ -4,8 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
-import { useAuth } from '@/contexts/auth.context';
-import { isAdminRole, canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   DeviceModelResponseDTO,
   DeviceResponseDTO,
@@ -111,9 +110,9 @@ export default function DeviceDetailPage() {
   // Deleting takes ADMIN, and so does undoing it — restoring is the inverse of
   // deleting, so the same authority governs both. Replacing hardware is an
   // `activate` operation, which an operator also holds.
-  const { user } = useAuth();
-  const canDelete = isAdminRole(user?.role);
-  const canReplace = canWriteRole(user?.role);
+  const permissions = usePermissions();
+  const canDelete = permissions.isAdmin;
+  const canReplace = permissions.canWrite;
 
   const [device, setDevice] = useState<DeviceResponseDTO | null>(null);
   const [deviceModel, setDeviceModel] = useState<DeviceModelResponseDTO | null>(null);

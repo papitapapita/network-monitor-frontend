@@ -28,6 +28,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const PAGE_LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:locations-columns';
@@ -103,6 +104,7 @@ const DEFAULT_LOCATION_COLUMNS = LOCATION_COLUMN_CATALOG.map((c) => c.key);
 
 function LocationsPageContent() {
   const router = useRouter();
+  const permissions = usePermissions();
 
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
@@ -170,13 +172,15 @@ function LocationsPageContent() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Agregar Ubicación"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/locations/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Ubicación"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/locations/create')}
+              />
+            )}
           </>
         }
       />

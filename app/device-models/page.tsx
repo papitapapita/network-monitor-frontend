@@ -22,6 +22,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:device-models-columns';
@@ -88,6 +89,7 @@ const DEFAULT_DEVICE_MODEL_COLUMNS = DEVICE_MODEL_COLUMN_CATALOG.map((c) => c.ke
 
 function DeviceModelsPageContent() {
   const router = useRouter();
+  const permissions = usePermissions();
 
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
@@ -154,13 +156,15 @@ function DeviceModelsPageContent() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Agregar Modelo"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/device-models/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Modelo"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/device-models/create')}
+              />
+            )}
           </>
         }
       />

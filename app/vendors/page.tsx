@@ -19,6 +19,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:vendors-columns';
@@ -82,6 +83,7 @@ const DEFAULT_VENDOR_COLUMNS = VENDOR_COLUMN_CATALOG.map((c) => c.key);
 
 function VendorsPageContent() {
   const router = useRouter();
+  const permissions = usePermissions();
 
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
@@ -143,13 +145,15 @@ function VendorsPageContent() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Agregar Fabricante"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/vendors/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Fabricante"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/vendors/create')}
+              />
+            )}
           </>
         }
       />

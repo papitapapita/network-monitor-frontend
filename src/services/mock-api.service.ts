@@ -68,6 +68,7 @@ import {
   AgentOutageListResponse,
 } from '../types/agent.types';
 import { InstallationDTO, InstallerListResponse } from '../types/installation.types';
+import { SubscriptionStatusDTO } from '../types/subscription.types';
 import { translateAgentError } from '../constants/agent.constants';
 import {
   AlertDTO,
@@ -1623,6 +1624,31 @@ class MockApiService {
         }]
       : [];
     return ok({ outages, total: outages.length, limit: 20, offset: 0, hasMore: false });
+  }
+
+  // ── Subscription ───────────────────────────────────────────
+
+  /**
+   * Not enforced unless localStorage `nms:mock-subscription` holds a state
+   * (GRACE, READ_ONLY, LOCKED…), so each stage's screens can be seen offline.
+   */
+  async getSubscription(): Promise<ApiResponse<SubscriptionStatusDTO>> {
+    const day = 86_400_000;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('nms:mock-subscription') : null;
+    const state = (stored ?? 'NOT_ENFORCED') as SubscriptionStatusDTO['state'];
+    if (state === 'NOT_ENFORCED') {
+      return ok({ state, paidThrough: null, graceEndsAt: null, lockedAt: null, readOnly: false, locked: false });
+    }
+    const offset = { ACTIVE: 3, GRACE: -1, READ_ONLY: -5, LOCKED: -12 }[state];
+    const paidThrough = Date.now() + offset * day;
+    return ok({
+      state,
+      paidThrough: new Date(paidThrough).toISOString(),
+      graceEndsAt: new Date(paidThrough + 3 * day).toISOString(),
+      lockedAt: new Date(paidThrough + 10 * day).toISOString(),
+      readOnly: state === 'READ_ONLY' || state === 'LOCKED',
+      locked: state === 'LOCKED',
+    });
   }
 
   // ── Installation ───────────────────────────────────────────

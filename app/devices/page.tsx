@@ -31,6 +31,7 @@ import { AGENT_STATUS_LABELS, SERVER_POLLER_LABEL } from '@/constants/agent.cons
 import { SERVER_AGENT_VALUE, agentIdFromPicker } from '@/components/agents/AgentPicker';
 import type { BulkAction } from '@/components/ui';
 import type { DeviceListItemDTO } from '@/types/device.types';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const COLUMNS_STORAGE_KEY = 'nms:devices-columns';
 
@@ -38,6 +39,7 @@ const deviceCount = (n: number) => `${n} ${n === 1 ? 'dispositivo' : 'dispositiv
 
 function DevicesPageContent() {
   const router = useRouter();
+  const permissions = usePermissions();
   const {
     devices,
     isLoading,
@@ -167,13 +169,15 @@ function DevicesPageContent() {
               size="md"
               onClick={() => router.push('/devices/trash')}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Agregar Dispositivo"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/devices/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Dispositivo"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/devices/create')}
+              />
+            )}
           </>
         }
       />
@@ -237,7 +241,8 @@ function DevicesPageContent() {
         }
         sort={{ field: sortField, direction: sortDirection, onSort: handleSort }}
         selectionResetKey={`${currentPage}|${statusFilter}|${categoryFilter}|${connectivityFilter}|${agentFilter}|${search}`}
-        bulkDelete={{
+        // Every bulk action writes; without the right to, the checkboxes go too.
+        bulkDelete={permissions.canWrite ? {
           deleteOne: (id) => apiService.deleteDevice(id),
           undoOne: (id) => apiService.restoreDevice(id),
           onFinished: () => { fetchDevices(); },
@@ -265,7 +270,7 @@ function DevicesPageContent() {
             },
             ...(moveAction ? [moveAction] : []),
           ],
-        }}
+        } : undefined}
         pagination={{
           currentPage,
           totalPages,

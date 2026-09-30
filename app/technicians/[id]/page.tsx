@@ -6,8 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { TechnicianDTO, UpdateTechnicianDTO } from '@/types/technician.types';
 import { TicketDTO } from '@/types/ticket.types';
-import { useAuth } from '@/contexts/auth.context';
-import { isAdminRole, canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   technicianActiveLabel,
   technicianActiveVariant,
@@ -30,9 +29,9 @@ export default function TechnicianDetailPage() {
   const queryClient = useQueryClient();
   const { id: technicianId } = useParams() as { id: string };
 
-  const { user } = useAuth();
-  const canWrite = canWriteRole(user?.role);
-  const isAdmin = isAdminRole(user?.role);
+  const permissions = usePermissions();
+  const canWrite = permissions.canWrite;
+  const isAdmin = permissions.isAdmin;
 
   const [technician, setTechnician] = useState<TechnicianDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

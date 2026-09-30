@@ -5,8 +5,7 @@ import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { AgentDTO, AgentPairingDTO } from '@/types/agent.types';
-import { useAuth } from '@/contexts/auth.context';
-import { canWriteRole, isVendorRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/toast.context';
 import { AGENTS_QUERY_KEY, useAgent, useAgents } from '@/hooks/useAgents';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -90,11 +89,11 @@ export default function AgentDetailPage() {
   const agentId = params.id as string;
   const goBack = useGoBack('/agents');
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const permissions = usePermissions();
   const { showError, showSuccess } = useToast();
-  const canManageAgents = isVendorRole(user?.role);
+  const canManageAgents = permissions.isVendor;
   const { agentPairingAvailable } = useInstallation();
-  const canWrite = canWriteRole(user?.role);
+  const canWrite = permissions.canWrite;
 
   const [pairing, setPairing] = useState<AgentPairingDTO | null>(null);
   const [isRekeying, setIsRekeying] = useState(false);

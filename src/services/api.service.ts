@@ -86,6 +86,7 @@ import {
   AgentOutageListResponse,
 } from '../types/agent.types';
 import { InstallationDTO, InstallerListResponse } from '../types/installation.types';
+import { SubscriptionStatusDTO } from '../types/subscription.types';
 import { translateAgentError } from '../constants/agent.constants';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
@@ -293,6 +294,18 @@ class ApiService {
 
       if (response.status === 204) {
         return { success: true };
+      }
+
+      // Past the subscription's grace (R17): writes are refused while read-only,
+      // everything while locked. The shell re-reads the subscription and
+      // switches screens; the caller just reports the refusal.
+      if (response.status === 402) {
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('nms:payment-required'));
+        return {
+          success: false,
+          status: 402,
+          error: 'La suscripción está vencida: el sistema está en solo lectura hasta que se registre el pago.',
+        };
       }
 
       if (response.status === 403) {
@@ -1294,6 +1307,15 @@ class ApiService {
   ): Promise<ApiResponse<AgentOutageListResponse>> {
     const qs = this.buildQuery({ limit: query?.limit, offset: query?.offset });
     return this.request<AgentOutageListResponse>(`/agents/${id}/outages${qs}`);
+  }
+
+  // ============================================================
+  // Subscription
+  // ============================================================
+
+  /** Answers in every stage, LOCKED included. */
+  async getSubscription(): Promise<ApiResponse<SubscriptionStatusDTO>> {
+    return this.request<SubscriptionStatusDTO>('/subscription');
   }
 
   // ============================================================

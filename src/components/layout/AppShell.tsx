@@ -7,7 +7,18 @@ import { useAuth } from '@/contexts/auth.context';
 import { LoadingSpinner } from '@/components/ui';
 import { StatusPage } from './StatusPage';
 import { useInstallation } from '@/hooks/useInstallation';
+import { useSubscription } from '@/hooks/useSubscription';
+import { SubscriptionBanner } from './SubscriptionBanner';
 import { isRouteAvailable } from '@/constants/installation.constants';
+
+function LockIcon() {
+  return (
+    <svg className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path strokeLinecap="round" d="M8 11V7a4 4 0 118 0v4" />
+    </svg>
+  );
+}
 
 function UnavailableIcon() {
   return (
@@ -42,6 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading, logout } = useAuth();
   const installation = useInstallation();
+  const subscription = useSubscription();
 
   const isLoginPage = pathname === '/login';
 
@@ -75,6 +87,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
+  // LOCKED (R17): every /api route but sign-in answers 402, so there is
+  // nothing to show but this — and a way out to sign in as someone else.
+  if (subscription.locked) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-900">
+        <StatusPage
+          fullScreen
+          icon={<LockIcon />}
+          iconTone="red"
+          title="Acceso bloqueado"
+          description="La suscripción de esta instalación está vencida. Los datos se conservan intactos; el acceso vuelve en cuanto se registre el pago. Comunícate con el proveedor del sistema."
+          primaryAction={{
+            label: 'Cerrar sesión',
+            onClick: () => {
+              logout();
+              router.replace('/login');
+            },
+          }}
+        />
+      </div>
+    );
+  }
+
+  // A form that can only end in 402 is not worth opening.
+  const blockedByReadOnly = subscription.readOnly && /\/(create|edit)(\/|$)/.test(pathname);
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -119,11 +157,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             horizontally-scrollable container. Every wide-content component
             (tables, the device detail tab bar) already scrolls within its
             own wrapper, so main never legitimately needs to scroll sideways. */}
+        <SubscriptionBanner subscription={subscription} />
+
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {/* A saved link into a module this install does not run: its API
               answers 404 on every call, so say so once instead of letting the
               page fail request by request. */}
-          {installation.isLoaded && !isRouteAvailable(pathname, installation) ? (
+          {blockedByReadOnly ? (
+            <StatusPage
+              icon={<LockIcon />}
+              iconTone="amber"
+              title="Sistema en solo lectura"
+              description="La suscripción está vencida, así que no se pueden crear ni modificar registros. Puedes seguir consultando todo."
+              primaryAction={{ label: 'Volver atrás', onClick: () => router.back() }}
+            />
+          ) : installation.isLoaded && !isRouteAvailable(pathname, installation) ? (
             <StatusPage
               icon={<UnavailableIcon />}
               iconTone="amber"

@@ -11,8 +11,7 @@ import {
   UpdateTicketDTO,
 } from '@/types/ticket.types';
 import { fetchAllCustomers, fetchAllDevices, fetchAllTechnicians } from '@/hooks/useCatalogs';
-import { useAuth } from '@/contexts/auth.context';
-import { isAdminRole, canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import { technicianActiveLabel, technicianActiveVariant } from '@/constants/technician.constants';
 import {
   TICKET_CATEGORY_OPTIONS,
@@ -76,9 +75,9 @@ export default function TicketDetailPage() {
   const queryClient = useQueryClient();
   const { id: ticketId } = useParams() as { id: string };
 
-  const { user } = useAuth();
-  const canWrite = canWriteRole(user?.role);
-  const isAdmin = isAdminRole(user?.role);
+  const permissions = usePermissions();
+  const canWrite = permissions.canWrite;
+  const isAdmin = permissions.isAdmin;
 
   const [ticket, setTicket] = useState<TicketDetailDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

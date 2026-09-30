@@ -58,6 +58,14 @@ is for items the frontend can land on its own.
   - Leave the form fields and submit plumbing in place rather than deleting them — the section gets re-enabled when the backend's "SNMP system metrics" (its Priority 3) lands
   - Safe to hide without data loss: the backend's `extractCreateData` carries stored SNMP values forward when a request omits them, so an HTTP-only save cannot wipe existing keys
 
+## Priority 2 — Subscription
+
+- [ ] **Read-only mode still shows edit and delete buttons on most detail pages** — `BACKEND_API.md` (Subscription) asks to "disable every edit control rather than letting users hit `402`"
+  - What already follows it: every page that gated on role (`usePermissions().canWrite` / `.isAdmin` fold in `readOnly`), the "Agregar" button on every list page, the device list's row checkboxes and bulk actions, and any `/create` or `/edit` route (AppShell shows "Sistema en solo lectura")
+  - What does not: detail pages that never checked the role at all — vendors, device models, locations, customers, service plans, contracted services, bills, collection accounts, quotations — plus the device detail tabs' edit toggles and the bulk delete on the other list pages. A click there answers 402, the toast says the subscription is expired, and the shell switches to read-only; nothing breaks, the button is just there
+  - Fix: gate each on `usePermissions().canWrite` (or `.isAdmin` where the endpoint is ADMIN-only). This also fixes the same buttons for a VIEWER, who today gets a 403 from them — the two gaps are one change
+  - Cheapest path: `EditToggleButton`, `IconButton` with `TrashIcon`, and `DataTable`'s `bulkDelete` cover most of them; a `canWrite` prop defaulting from the hook would reach many call sites at once
+
 ---
 
 ## Priority 3 — Nice to have

@@ -27,6 +27,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:quotations-columns';
@@ -108,6 +109,7 @@ const DEFAULT_QUOTATION_COLUMNS = quotationColumnCatalog().map((c) => c.key);
 
 export default function QuotationsPage() {
   const router = useRouter();
+  const permissions = usePermissions();
 
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
@@ -171,13 +173,15 @@ export default function QuotationsPage() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Nueva Cotización"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/quotations/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Nueva Cotización"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/quotations/create')}
+              />
+            )}
           </>
         }
       />

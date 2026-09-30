@@ -28,6 +28,7 @@ import {
   useColumnVisibility,
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:collection-accounts-columns';
@@ -121,6 +122,7 @@ const DEFAULT_COLLECTION_ACCOUNT_COLUMNS = collectionAccountColumnCatalog().map(
 
 export default function CollectionAccountsPage() {
   const router = useRouter();
+  const permissions = usePermissions();
 
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
@@ -185,13 +187,15 @@ export default function CollectionAccountsPage() {
               onReset={reset}
               isDefault={isDefault}
             />
-            <IconButton
-              icon={<PlusIcon />}
-              label="Nueva Cuenta de Cobro"
-              variant="primary"
-              size="md"
-              onClick={() => router.push('/collection-accounts/create')}
-            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Nueva Cuenta de Cobro"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/collection-accounts/create')}
+              />
+            )}
           </>
         }
       />

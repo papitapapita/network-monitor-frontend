@@ -4,8 +4,7 @@ import React, { useMemo, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { AgentDTO, AgentPairingDTO } from '@/types/agent.types';
 import { useAgents } from '@/hooks/useAgents';
-import { useAuth } from '@/contexts/auth.context';
-import { canWriteRole, isVendorRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useUrlTableSort, useUrlState } from '@/hooks/useUrlState';
 import { PAIRING_UNAVAILABLE_MESSAGE, agentCondition, formatAgentDate, formatAgo } from '@/constants/agent.constants';
 import { useInstallation } from '@/hooks/useInstallation';
@@ -80,10 +79,10 @@ const COLUMNS: DataTableColumn<AgentDTO>[] = [
 
 function AgentsPageContent() {
   const router = useRouter();
-  const { user } = useAuth();
-  const canManageAgents = isVendorRole(user?.role);
+  const permissions = usePermissions();
+  const canManageAgents = permissions.isVendor;
   const { agentPairingAvailable } = useInstallation();
-  const canWrite = canWriteRole(user?.role);
+  const canWrite = permissions.canWrite;
 
   const { get, set } = useUrlState();
   const sort = useUrlTableSort({ get, set });

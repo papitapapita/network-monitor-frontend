@@ -2,8 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api.service';
-import { useAuth } from '@/contexts/auth.context';
-import { canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/toast.context';
 import { Button, Input, Switch, LoadingSpinner, Badge, SectionTitle } from '@/components/ui';
 import {
@@ -18,8 +17,8 @@ import {
  * the alerts screen (BACKEND_API.md, NOT-190).
  */
 export function NotificationMutesCard() {
-  const { user } = useAuth();
-  const canEdit = canWriteRole(user?.role);
+  const permissions = usePermissions();
+  const canEdit = permissions.canWrite;
   const { showError, showSuccess } = useToast();
 
   const [muted, setMuted] = useState<string[]>([]);

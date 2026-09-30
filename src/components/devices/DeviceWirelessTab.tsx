@@ -16,9 +16,8 @@ import {
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
 import { Card, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
-import { useAuth } from '@/contexts/auth.context';
 import { useInstallation } from '@/hooks/useInstallation';
-import { canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   WIRELESS_INTERVAL_MIN_SECONDS,
   INTERVAL_MAX_SECONDS,
@@ -357,7 +356,7 @@ export function DeviceWirelessTab({
   deviceAgentId,
   onDeviceUpdated,
 }: Props) {
-  const { user } = useAuth();
+  const permissions = usePermissions();
   // WLS-029: an install whose server is off site cannot reach a device behind
   // an agent, so poll, reboot and diagnosis would all answer 409. An on-site
   // server (the default) keeps them working.
@@ -751,7 +750,7 @@ export function DeviceWirelessTab({
   const effectiveDeviceType = config?.deviceType ?? inferDeviceType(category);
 
   const isRebooting = rebootingUntil !== null;
-  const canWrite = canWriteRole(user?.role);
+  const canWrite = permissions.canWrite;
 
   const deviceLifecycle = { deletedAt: deviceDeletedAt, replacedAt: deviceReplacedAt };
   const enableBlockedReason = wirelessEnableBlockedReason(deviceStatus, category, deviceLifecycle);

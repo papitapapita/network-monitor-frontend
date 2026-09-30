@@ -6,8 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { TechnicianDTO } from '@/types/technician.types';
 import { fetchAllTechnicians } from '@/hooks/useCatalogs';
-import { useAuth } from '@/contexts/auth.context';
-import { isAdminRole, canWriteRole } from '@/constants/roles';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   TECHNICIAN_ACTIVE_FILTER_OPTIONS,
@@ -90,9 +89,9 @@ const DEFAULT_TECHNICIAN_COLUMNS = TECHNICIAN_COLUMN_CATALOG.map((c) => c.key);
 
 function TechniciansPageContent() {
   const router = useRouter();
-  const { user } = useAuth();
-  const canWrite = canWriteRole(user?.role);
-  const isAdmin = isAdminRole(user?.role);
+  const permissions = usePermissions();
+  const canWrite = permissions.canWrite;
+  const isAdmin = permissions.isAdmin;
 
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
