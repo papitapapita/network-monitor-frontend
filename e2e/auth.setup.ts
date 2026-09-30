@@ -1,5 +1,6 @@
 import { test as setup, expect } from '@playwright/test';
 import { E2E } from '../playwright.config';
+import { field } from './fixtures/helpers';
 
 /**
  * Logs in through the real login form once per run and saves the resulting
@@ -11,8 +12,10 @@ import { E2E } from '../playwright.config';
 setup('authenticate', async ({ page }) => {
   await page.goto('/login');
 
-  await page.getByLabel('Correo electrónico').fill(E2E.email);
-  await page.getByLabel('Contraseña').fill(E2E.password);
+  // field() anchors the label, so the "Mostrar contraseña" toggle beside the
+  // input does not match too.
+  await field(page, 'Correo electrónico').fill(E2E.email);
+  await field(page, 'Contraseña').fill(E2E.password);
   await page.getByRole('button', { name: 'Ingresar' }).click();
 
   // The app redirects to the dashboard on success.
