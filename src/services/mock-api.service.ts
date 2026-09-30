@@ -58,6 +58,15 @@ import {
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import {
+  AgentDTO,
+  AgentListResponse,
+  AgentPairingDTO,
+  CreateAgentDTO,
+  AgentAssignmentDTO,
+  AgentAssignmentResultDTO,
+} from '../types/agent.types';
+import { translateAgentError } from '../constants/agent.constants';
+import {
   AlertDTO,
   AlertListResponse,
   ListAlertsQuery,
@@ -168,6 +177,59 @@ const liveDevices = (): DeviceResponseDTO[] => devices.filter((d) => !d.deletedA
 const findLiveDevice = (id: string): DeviceResponseDTO | undefined =>
   devices.find((d) => d.id === id && !d.deletedAt);
 
+// ── Probe agents ─────────────────────────────────────────────
+// Mock mode has no PC to install on, so a pending agent pairs itself a few
+// seconds after its key is issued — enough to walk through the whole
+// create → install → connected flow without a backend.
+
+const MOCK_PAIRING_DELAY_MS = 15_000;
+const PAIRING_KEY_TTL_MS = 24 * 3_600_000;
+
+let agents: AgentDTO[] = [];
+/** When each pending agent's current key was issued, for the simulated pairing. */
+const keyIssuedAt: Record<string, number> = {};
+
+function pairingKeyFor(agent: AgentDTO): string {
+  return `pk1.bW9jay5sb2NhbA.${agent.id}-${uid()}${uid()}`;
+}
+
+/** Applies the pairing the installer would have done by now. */
+function settleMockAgents(now: number = Date.now()) {
+  agents = agents.map((a) => {
+    const issued = keyIssuedAt[a.id];
+    if (a.status !== 'PENDING' || issued === undefined) return a;
+    if (a.pairingExpiresAt && Date.parse(a.pairingExpiresAt) <= now) return a;
+    if (now - issued < MOCK_PAIRING_DELAY_MS) return a;
+    delete keyIssuedAt[a.id];
+    const at = new Date(issued + MOCK_PAIRING_DELAY_MS).toISOString();
+    return {
+      ...a,
+      status: 'ACTIVE',
+      pairingExpiresAt: null,
+      enrolledAt: at,
+      lastSeenAt: new Date(now).toISOString(),
+      agentVersion: '0.1.0',
+      clockOffsetMs: 120,
+      updatedAt: at,
+    };
+  });
+}
+
+/** DEV-164: the create-time default the backend applies when `agentId` is omitted. */
+function resolveAgentForNewDevice(agentId: string | null | undefined): { agentId: string | null } | { error: string } {
+  if (agentId === null) return { agentId: null };
+  if (agentId !== undefined) {
+    const agent = agents.find((a) => a.id === agentId);
+    if (!agent) return { error: `Agent not found: ${agentId}` };
+    if (agent.status === 'REVOKED') return { error: 'Cannot place a device behind a revoked agent' };
+    return { agentId };
+  }
+  const usable = agents.filter((a) => a.status !== 'REVOKED');
+  if (usable.length === 0) return { agentId: null };
+  if (usable.length === 1) return { agentId: usable[0].id };
+  return { error: 'agentId is required when more than one agent exists' };
+}
+
 /** Stands in for the authenticated user id the backend records on a delete. */
 const MOCK_USER_ID = 'mock-user';
 
@@ -242,11 +304,15 @@ class MockApiService {
     const taken = findDeviceConflict(data);
     if (taken) return conflict(taken);
 
+    const resolvedAgent = resolveAgentForNewDevice(data.agentId);
+    if ('error' in resolvedAgent) return { success: false, status: 400, error: resolvedAgent.error };
+
     const now = new Date().toISOString();
     const device: DeviceResponseDTO = {
       id: `dev-${uid()}`,
       deviceModelId: data.deviceModelId,
       locationId: data.locationId ?? null,
+      agentId: resolvedAgent.agentId,
       status: data.status ?? 'INVENTORY',
       category: data.category ?? null,
       ownerType: data.ownerType ?? null,
@@ -458,6 +524,7 @@ class MockApiService {
       id: `dev-${uid()}`,
       deviceModelId: data.deviceModelId,
       locationId: retiring.locationId,
+      agentId: retiring.agentId,
       status: inheritedIp ? 'COMMISSIONING' : 'INVENTORY',
       category: retiring.category,
       ownerType: retiring.ownerType,
@@ -1387,6 +1454,110 @@ class MockApiService {
   }
   async downloadCollectionAccountPdf() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+
+  // ── Probe agents ───────────────────────────────────────────
+
+  async listAgents(): Promise<ApiResponse<AgentListResponse>> {
+    settleMockAgents();
+    return ok({ agents: [...agents] });
+  }
+
+  async getAgent(id: string): Promise<ApiResponse<AgentDTO>> {
+    settleMockAgents();
+    const agent = agents.find((a) => a.id === id);
+    return agent ? ok(agent) : { success: false, status: 404, error: translateAgentError('get', 404, undefined) };
+  }
+
+  async createAgent(data: CreateAgentDTO): Promise<ApiResponse<AgentPairingDTO>> {
+    const name = data.name.trim();
+    if (agents.some((a) => a.name.toLowerCase() === name.toLowerCase())) {
+      return { success: false, status: 409, errorField: 'name', error: translateAgentError('create', 409, undefined) };
+    }
+    const now = Date.now();
+    const agent: AgentDTO = {
+      id: `agent-${uid()}`,
+      name,
+      status: 'PENDING',
+      pairingExpiresAt: new Date(now + PAIRING_KEY_TTL_MS).toISOString(),
+      enrolledAt: null,
+      revokedAt: null,
+      lastSeenAt: null,
+      agentVersion: null,
+      clockOffsetMs: null,
+      offlineSince: null,
+      clockDriftSince: null,
+      createdAt: new Date(now).toISOString(),
+      updatedAt: new Date(now).toISOString(),
+    };
+    agents = [...agents, agent];
+    keyIssuedAt[agent.id] = now;
+    return ok({ agent, pairingKey: pairingKeyFor(agent) });
+  }
+
+  async issueAgentPairingKey(id: string): Promise<ApiResponse<AgentPairingDTO>> {
+    settleMockAgents();
+    const idx = agents.findIndex((a) => a.id === id);
+    if (idx === -1) return { success: false, status: 404, error: translateAgentError('rekey', 404, undefined) };
+    if (agents[idx].status !== 'PENDING') {
+      return { success: false, status: 409, error: translateAgentError('rekey', 409, undefined) };
+    }
+    const now = Date.now();
+    const agent = {
+      ...agents[idx],
+      pairingExpiresAt: new Date(now + PAIRING_KEY_TTL_MS).toISOString(),
+      updatedAt: new Date(now).toISOString(),
+    };
+    agents[idx] = agent;
+    keyIssuedAt[id] = now;
+    return ok({ agent, pairingKey: pairingKeyFor(agent) });
+  }
+
+  async revokeAgent(id: string): Promise<ApiResponse<AgentDTO>> {
+    settleMockAgents();
+    const idx = agents.findIndex((a) => a.id === id);
+    if (idx === -1) return { success: false, status: 404, error: translateAgentError('revoke', 404, undefined) };
+    if (agents[idx].status === 'REVOKED') {
+      return { success: false, status: 409, error: translateAgentError('revoke', 409, undefined) };
+    }
+    const now = new Date().toISOString();
+    const agent: AgentDTO = {
+      ...agents[idx],
+      status: 'REVOKED',
+      revokedAt: now,
+      pairingExpiresAt: null,
+      offlineSince: null,
+      updatedAt: now,
+    };
+    agents[idx] = agent;
+    delete keyIssuedAt[id];
+    return ok(agent);
+  }
+
+  async assignDevicesToAgent(data: AgentAssignmentDTO): Promise<ApiResponse<AgentAssignmentResultDTO>> {
+    if (data.agentId !== null) {
+      const target = agents.find((a) => a.id === data.agentId);
+      if (!target) return { success: false, status: 404, error: translateAgentError('assign', 404, undefined) };
+      if (target.status === 'REVOKED') {
+        return { success: false, status: 400, error: translateAgentError('assign', 400, 'revoked') };
+      }
+    }
+    const ids =
+      'deviceIds' in data
+        ? data.deviceIds
+        : liveDevices().filter((d) => d.agentId === data.fromAgentId).map((d) => d.id);
+    const result: AgentAssignmentResultDTO = { assigned: [], failed: [] };
+    for (const id of ids) {
+      const device = findLiveDevice(id);
+      if (!device) {
+        result.failed.push({ id, error: `Device not found: ${id}` });
+        continue;
+      }
+      device.agentId = data.agentId;
+      device.updatedAt = new Date().toISOString();
+      result.assigned.push(id);
+    }
+    return ok(result);
   }
 
   // ── Tickets & technicians ──────────────────────────────────

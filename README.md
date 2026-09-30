@@ -130,6 +130,7 @@ a schedule), not a push channel.
    NEXT_PUBLIC_API_URL=http://localhost:3000/api
    NEXT_PUBLIC_WS_URL=ws://localhost:3000   # unused by current code, kept for parity with backend config
    # NEXT_PUBLIC_USE_MOCK=true              # optional: run against mock-api.service.ts, no backend needed
+   # NEXT_PUBLIC_AGENT_DOWNLOAD_URL=...     # optional: where the probe agent installers are published
    ```
 3. Start the backend + database (see the [root README](../README.md)), or set
    `NEXT_PUBLIC_USE_MOCK=true` to run the UI standalone.

@@ -34,6 +34,8 @@ export interface DeviceResponseDTO {
   id: string;
   deviceModelId: string;
   locationId: string | null;
+  /** The on-site probe agent that polls it; null = polled by the server itself. */
+  agentId: string | null;
   status: DeviceStatus;
   category: DeviceCategory | null;
   ownerType: DeviceOwnerType | null;
@@ -73,6 +75,11 @@ export interface CreateDeviceDTO {
   status?: DeviceStatus;
   category?: DeviceCategory | null;
   locationId?: string | null;
+  /**
+   * Omitted → the only non-revoked agent, or the server when there is none;
+   * refused when there are two or more. `null` always means the server.
+   */
+  agentId?: string | null;
   serialNumber?: string | null;
   macAddress?: string | null;
   ipAddress?: string | null;
@@ -93,6 +100,8 @@ export interface UpdateDeviceDTO {
   category?: DeviceCategory | null;
   ownerType?: DeviceOwnerType;
   locationId?: string | null;
+  /** null = polled by the server; a revoked agent is refused. */
+  agentId?: string | null;
   serialNumber?: string | null;
   macAddress?: string | null;
   ipAddress?: string | null;

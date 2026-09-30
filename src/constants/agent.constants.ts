@@ -1,0 +1,114 @@
+import { AgentDTO, AgentStatus } from '../types/agent.types';
+import type { BadgeVariant } from '@/components/ui';
+
+export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
+  PENDING: 'Pendiente',
+  ACTIVE: 'Activo',
+  REVOKED: 'Revocado',
+};
+
+/** Matches the backend's `AgentName` bounds. */
+export const AGENT_NAME_MAX_LENGTH = 60;
+
+/**
+ * Where the installers can be downloaded from. The backend does not serve them
+ * (the files are build output of `npm run package:agent`), so the install
+ * vendor sets this to wherever it publishes them — a release page, a shared
+ * folder. Unset, the install steps name the files instead of linking them.
+ */
+export const AGENT_DOWNLOAD_URL = process.env.NEXT_PUBLIC_AGENT_DOWNLOAD_URL || null;
+
+export const WINDOWS_INSTALLER_FILE = 'nms-agent-setup-<versión>.exe';
+export const LINUX_INSTALLER_FILE = 'nms-agent-<versión>-linux-x64.tar.gz';
+
+/**
+ * What the operator should read off an agent at a glance. Offline and an
+ * expired key are states the backend does not name in `status` — an offline
+ * agent is still ACTIVE, an expired one still PENDING — but they are what
+ * decides the next action, so they win the badge.
+ */
+export type AgentCondition = 'ONLINE' | 'OFFLINE' | 'NEVER_CONNECTED' | 'PENDING' | 'KEY_EXPIRED' | 'REVOKED';
+
+export function agentCondition(agent: AgentDTO, now: number = Date.now()): AgentCondition {
+  if (agent.status === 'REVOKED') return 'REVOKED';
+  if (agent.status === 'PENDING') {
+    return agent.pairingExpiresAt && Date.parse(agent.pairingExpiresAt) <= now ? 'KEY_EXPIRED' : 'PENDING';
+  }
+  if (agent.offlineSince) return 'OFFLINE';
+  // Paired, but the service has not opened its connection yet — normal for
+  // the first seconds after install, and not yet "offline" (that takes 5 min).
+  if (!agent.lastSeenAt) return 'NEVER_CONNECTED';
+  return 'ONLINE';
+}
+
+export const AGENT_CONDITION_LABELS: Record<AgentCondition, string> = {
+  ONLINE: 'En línea',
+  OFFLINE: 'Sin conexión',
+  NEVER_CONNECTED: 'Emparejado, sin conectar',
+  PENDING: 'Esperando instalación',
+  KEY_EXPIRED: 'Clave vencida',
+  REVOKED: 'Revocado',
+};
+
+export const AGENT_CONDITION_VARIANTS: Record<AgentCondition, BadgeVariant> = {
+  ONLINE: 'success',
+  OFFLINE: 'danger',
+  NEVER_CONNECTED: 'info',
+  PENDING: 'draft',
+  KEY_EXPIRED: 'warning',
+  REVOKED: 'neutral',
+};
+
+export const formatAgentDate = (iso: string | null): string =>
+  iso ? new Date(iso).toLocaleString('es') : '—';
+
+/** "hace 3 min" — how long ago the agent last reported. */
+export function formatAgo(iso: string, now: number = Date.now()): string {
+  const seconds = Math.max(0, (now - Date.parse(iso)) / 1000);
+  if (seconds < 60) return 'hace un momento';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  return `hace ${Math.floor(hours / 24)} d`;
+}
+
+/** "adelantado 2 min" / "atrasado 45 s" — positive offset means the PC clock runs ahead. */
+export function formatClockOffset(ms: number): string {
+  const direction = ms >= 0 ? 'adelantado' : 'atrasado';
+  const seconds = Math.round(Math.abs(ms) / 1000);
+  const amount = seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
+  return `${direction} ${amount}`;
+}
+
+/** Where a device is polled from, for pickers and summaries. */
+export const SERVER_POLLER_LABEL = 'Servidor (sin agente)';
+
+/**
+ * The agent endpoints give each status one meaning, so the Spanish message is
+ * chosen by status rather than by matching the English prose, which the
+ * backend is free to reword.
+ */
+export function translateAgentError(
+  action: 'create' | 'rekey' | 'revoke' | 'get' | 'assign',
+  status: number | undefined,
+  error: string | undefined
+): string {
+  if (status === 503) {
+    return 'El servidor no tiene configurada su dirección pública para agentes (AGENT_PUBLIC_URL), así que no puede emitir claves de emparejamiento. Pídele al proveedor que la configure.';
+  }
+  if (status === 404) {
+    return action === 'assign'
+      ? 'El agente de destino ya no existe.'
+      : 'El agente ya no existe.';
+  }
+  if (status === 409) {
+    if (action === 'create') return 'Ya existe un agente con ese nombre (los revocados también cuentan). Elige otro.';
+    if (action === 'rekey') return 'Solo se puede emitir una clave nueva a un agente pendiente. Este agente ya se emparejó o fue revocado.';
+    if (action === 'revoke') return 'Este agente ya estaba revocado.';
+  }
+  if (status === 400 && action === 'assign' && error && /revoked/i.test(error)) {
+    return 'No se pueden asignar dispositivos a un agente revocado.';
+  }
+  return error || 'Error al comunicarse con el servidor';
+}

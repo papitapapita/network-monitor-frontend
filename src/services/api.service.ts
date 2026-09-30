@@ -76,6 +76,15 @@ import {
   RadioSampleDTO,
   StartLinkDiagnosisResult,
 } from '../types/wireless.types';
+import {
+  AgentDTO,
+  AgentListResponse,
+  AgentPairingDTO,
+  CreateAgentDTO,
+  AgentAssignmentDTO,
+  AgentAssignmentResultDTO,
+} from '../types/agent.types';
+import { translateAgentError } from '../constants/agent.constants';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
 import {
@@ -1199,6 +1208,55 @@ class ApiService {
         }
       },
     });
+  }
+
+  // ============================================================
+  // Probe agents
+  // ============================================================
+
+  /** Oldest first, unpaginated — an install has a handful of agents, not hundreds. */
+  async listAgents(): Promise<ApiResponse<AgentListResponse>> {
+    return this.request<AgentListResponse>('/agents');
+  }
+
+  async getAgent(id: string): Promise<ApiResponse<AgentDTO>> {
+    const result = await this.request<AgentDTO>(`/agents/${id}`);
+    return result.success ? result : { ...result, error: translateAgentError('get', result.status, result.error) };
+  }
+
+  /** The response carries the pairing key, which the backend never shows again. */
+  async createAgent(data: CreateAgentDTO): Promise<ApiResponse<AgentPairingDTO>> {
+    const result = await this.request<AgentPairingDTO>('/agents', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (result.success) return result;
+    return {
+      ...result,
+      error: translateAgentError('create', result.status, result.error),
+      errorField: result.status === 409 ? 'name' : result.errorField,
+    };
+  }
+
+  /** PENDING agents only. The previous key stops working at once. */
+  async issueAgentPairingKey(id: string): Promise<ApiResponse<AgentPairingDTO>> {
+    const result = await this.request<AgentPairingDTO>(`/agents/${id}/pairing-key`, { method: 'POST' });
+    return result.success ? result : { ...result, error: translateAgentError('rekey', result.status, result.error) };
+  }
+
+  /** Final. The agent's PC forgets its token, device list and unsent results. */
+  async revokeAgent(id: string): Promise<ApiResponse<AgentDTO>> {
+    const result = await this.request<AgentDTO>(`/agents/${id}/revoke`, { method: 'POST' });
+    return result.success ? result : { ...result, error: translateAgentError('revoke', result.status, result.error) };
+  }
+
+  /** Moves devices between agents, or back to server polling. Each device succeeds or fails on its own. */
+  async assignDevicesToAgent(data: AgentAssignmentDTO): Promise<ApiResponse<AgentAssignmentResultDTO>> {
+    const result = await this.request<AgentAssignmentResultDTO>('/devices/agent-assignment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return result.success ? result : { ...result, error: translateAgentError('assign', result.status, result.error) };
   }
 
   // ============================================================

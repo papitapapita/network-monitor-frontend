@@ -91,6 +91,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         label: 'Escaneo',
         icon: icon('M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z'),
       },
+      // The PCs that poll a customer's network from inside it.
+      {
+        href: '/agents',
+        label: 'Agentes',
+        icon: icon('M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'),
+      },
     ],
   },
   {

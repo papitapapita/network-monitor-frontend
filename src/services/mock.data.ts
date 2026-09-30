@@ -56,16 +56,17 @@ export const MOCK_LOCATIONS: LocationResponseDTO[] = [
  */
 type DeviceFixture = Omit<
   DeviceResponseDTO,
-  'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
+  'agentId' | 'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
 > &
   Partial<
     Pick<
       DeviceResponseDTO,
-      'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
+      'agentId' | 'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
     >
   >;
 
 const liveDevice = (d: DeviceFixture): DeviceResponseDTO => ({
+  agentId: null,
   deletedAt: null,
   deletedBy: null,
   replacedAt: null,
