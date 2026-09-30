@@ -183,7 +183,18 @@ Without those the validation paths still run, and no packets leave the machine.
 
 The dev server starts automatically if it isn't already running. The backend
 must be up on its own. Point the tests elsewhere with `E2E_BASE_URL`,
-`E2E_API_URL`, `E2E_EMAIL` and `E2E_PASSWORD`.
+`E2E_API_URL`, `E2E_EMAIL` and `E2E_PASSWORD` (the customer's ADMIN).
+
+The vendor-only paths — agent pairing, the data purge — run only when the
+install's VENDOR account is given too; otherwise they are skipped:
+
+```bash
+E2E_VENDOR_EMAIL=... E2E_VENDOR_PASSWORD=... npm run e2e
+```
+
+Probe agents, user accounts, password changes and the purge cannot be undone
+through the API, so those specs answer their writes with `page.route`
+(`e2e/fixtures/agents.ts`) instead of touching the database.
 
 **Writing a spec.** Import from the fixtures, not from `@playwright/test`:
 

@@ -35,10 +35,17 @@ is for items the frontend can land on its own.
   - Fine at today's volume; it grows with the scheduled backlog, not with the panel's contents. Ask the backend for an `unscheduledOnly=true` query param (mirroring `unassignedOnly`), then replace the loop with one `limit: 100` request and drop the client-side filter
   - Until then, hiding the panel (the `»` button) stops the fetch — the query is behind `enabled: panelOpen`
 
-- [ ] **Role gating has no e2e coverage** — every write in the app is gated on `user.role`, and nothing tests it
+- [ ] **The e2e suite has drifted from the UI: 82 of 222 fail on 2026-09-30** — the specs, not the app
+  - Run of the full suite on 2026-09-30: 134 passed, 82 failed, 6 skipped. Checked against `3c2e02f`, before the agents/subscription work: the causes were already there
+  - `selectOption` on fields that are now the custom `Select` (a `role="combobox"` button, `src/components/ui/Select.tsx`) — Estado, Categoría, Tipo, Técnico in `devices.spec.ts` and `tickets.spec.ts`. Swap for `selectDropdown()` from `e2e/fixtures/helpers.ts`
+  - `getByLabel('Fabricante')` on the device create form (41 failures), which no longer has that field — the specs predate the flat model picker
+  - Card actions that went icon-only in `c8f9d70` (`credentials-edit` expected to read "Editar"), "Habilitar Monitoreo" now inside the polling tab's config view, and two "Reemplazar equipo" buttons in the replace dialog
+  - Until fixed, a red run says nothing about a new change; run the affected spec files on their own (`npx playwright test e2e/agents.spec.ts …`)
+
+- [ ] **Role gating has no e2e coverage for OPERATOR and VIEWER** — every write in the app is gated on the role, and only ADMIN and VENDOR are exercised
   - Not specific to tickets, but tickets made it visible: `canWrite` hides the whole action bar for a VIEWER, and that is now the main thing the page does
-  - The harness logs in once as `E2E_EMAIL` (an ADMIN) in `e2e/auth.setup.ts` and every project reuses that `storageState`, so there is no way to exercise a VIEWER or OPERATOR path
-  - Needs a second setup project writing a second `storageState`, and seeded non-admin users to log in as
+  - Half done 2026-09-30: `e2e/auth.setup.ts` writes a second session for the VENDOR (`E2E_VENDOR_EMAIL` / `E2E_VENDOR_PASSWORD`, `e2e/.auth/vendor.json`), and `agents.spec.ts` / `users.spec.ts` run their vendor blocks under it with `test.use({ storageState })`. The same pattern takes an OPERATOR and a VIEWER session
+  - Still needs those accounts to exist. They can now be made through `POST /api/users` (IDN-140), but the API has no delete, so seed them once rather than per run
 
 ## Priority 2 — Devices
 

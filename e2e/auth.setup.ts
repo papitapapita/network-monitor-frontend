@@ -27,3 +27,23 @@ setup('authenticate', async ({ page }) => {
 
   await page.context().storageState({ path: E2E.storageState });
 });
+
+/**
+ * The vendor's session, for the tests that exercise what only the vendor may
+ * do (agent pairing, the data purge). Skipped without credentials — and so
+ * are those tests.
+ */
+setup('authenticate vendor', async ({ page }) => {
+  setup.skip(!E2E.vendorEmail || !E2E.vendorPassword, 'E2E_VENDOR_EMAIL / E2E_VENDOR_PASSWORD not set');
+
+  await page.goto('/login');
+  await field(page, 'Correo electrónico').fill(E2E.vendorEmail!);
+  await field(page, 'Contraseña').fill(E2E.vendorPassword!);
+  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await page.waitForURL(`${E2E.baseURL}/`);
+
+  const user = await page.evaluate(() => JSON.parse(localStorage.getItem('nms_user') ?? 'null'));
+  expect(user?.role, 'E2E_VENDOR_EMAIL is not the VENDOR account').toBe('VENDOR');
+
+  await page.context().storageState({ path: E2E.vendorStorageState });
+});
