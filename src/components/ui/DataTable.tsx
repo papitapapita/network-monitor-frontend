@@ -10,6 +10,7 @@ import { Button } from './Button';
 import { Textarea } from './Textarea';
 import { Select } from './Select';
 import { useToast } from '@/contexts/toast.context';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import { BulkFanOutProgress, runBulkFanOut } from '@/services/bulk-fanout';
 
@@ -303,10 +304,20 @@ export function DataTable<T>({
   loadingMessage = 'Cargando...',
   emptyMessage,
   sort,
-  bulkDelete,
+  bulkDelete: bulkDeleteProp,
   selectionResetKey,
   pagination,
 }: DataTableProps<T>) {
+  const { canWrite, isAdmin } = usePermissions();
+  const bulkDelete = useMemo(() => {
+    // Selection only ever leads to a write, so a user who cannot write gets none.
+    if (!bulkDeleteProp || !canWrite) return undefined;
+    if (isAdmin) return bulkDeleteProp;
+    // Deleting is ADMIN-only; an OPERATOR keeps the selection only for the
+    // table's other bulk actions (poll, resolve…), if it has any.
+    if (!bulkDeleteProp.bulkActions?.length) return undefined;
+    return { ...bulkDeleteProp, deleteOne: undefined, deleteMany: undefined, undoOne: undefined, confirmAndRetry: undefined };
+  }, [bulkDeleteProp, canWrite, isAdmin]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
