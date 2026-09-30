@@ -444,7 +444,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
               {!monitoringOff && !showConfig && (
                 <>
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchPollingStatus} disabled={statusLoading} />
-                  {!behindAgent && (
+                  {!behindAgent && permissions.canWrite && (
                     <IconButton
                       icon={<PollIcon />}
                       label="Sondear ahora"
@@ -484,15 +484,17 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                     El monitoreo está deshabilitado, así que no hay configuración de sondeo que
                     ajustar.
                   </p>
-                  <div className="mt-4">
-                    <Button
-                      onClick={handleEnableMonitoring}
-                      isLoading={isEnabling}
-                      disabled={!canEnableMonitoring(device.status, device.ipAddress)}
-                    >
-                      Habilitar Monitoreo
-                    </Button>
-                  </div>
+                  {permissions.canWrite && (
+                    <div className="mt-4">
+                      <Button
+                        onClick={handleEnableMonitoring}
+                        isLoading={isEnabling}
+                        disabled={!canEnableMonitoring(device.status, device.ipAddress)}
+                      >
+                        Habilitar Monitoreo
+                      </Button>
+                    </div>
+                  )}
                   {blockedReason && (
                     <p className="mt-3 text-sm text-yellow-700 dark:text-yellow-500">{blockedReason}</p>
                   )}

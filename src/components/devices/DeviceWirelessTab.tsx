@@ -841,7 +841,7 @@ export function DeviceWirelessTab({
                   editLabel={noConfig ? 'Crear configuración' : 'Editar'}
                   disabled={noConfig && !showConfigForm && hasCollectorCreds !== true}
                 />
-                {!noConfig && !showConfigForm && (
+                {!noConfig && !showConfigForm && permissions.isAdmin && (
                   <IconButton icon={<TrashIcon />} label="Eliminar configuración" variant="danger" onClick={handleDeleteConfig} />
                 )}
               </div>
@@ -1131,7 +1131,7 @@ export function DeviceWirelessTab({
                 </div>
                 <div className="flex gap-2">
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchStatus} disabled={statusLoading || isRebooting} />
-                  {!serverCannotReach && (
+                  {canWrite && !serverCannotReach && (
                     <IconButton
                       icon={<PollIcon />}
                       label={unsupportedVendorReason ?? 'Sondear ahora'}
@@ -1317,7 +1317,10 @@ export function DeviceWirelessTab({
                 </>
               ) : isRebooting ? null : (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  Sin datos disponibles. Haga clic en &quot;Sondear Ahora&quot; para obtener métricas.
+                  Sin datos disponibles.{' '}
+                  {canWrite && !serverCannotReach
+                    ? <>Haga clic en &quot;Sondear Ahora&quot; para obtener métricas.</>
+                    : 'Las métricas aparecerán tras el próximo sondeo programado.'}
                 </p>
               )}
             </Card.Body>

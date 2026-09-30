@@ -15,6 +15,7 @@ import {
   SectionTitle,
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   DEFAULT_ALERT_DELAY_MINUTES,
   validateQuietHours,
@@ -55,6 +56,7 @@ const toForm = (policy: DeviceNotificationPolicyDTO): FormState => ({
  */
 export function DeviceNotificationPolicyTab({ deviceId }: Props) {
   const { showError, showSuccess, showFormErrors } = useToast();
+  const { canWrite } = usePermissions();
 
   const [policy, setPolicy] = useState<DeviceNotificationPolicyDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,7 +165,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
               {!loading && !loadError && (
                 <>
                   <EditToggleButton isEditing={isEditing} onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
-                  {hasCustomPolicy && !isEditing && (
+                  {hasCustomPolicy && !isEditing && canWrite && (
                     <IconButton
                       icon={<ResetIcon />}
                       label="Restablecer a valores por defecto"
