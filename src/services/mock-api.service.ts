@@ -57,6 +57,7 @@ import {
   BulkUpsertDeviceNotificationPoliciesResponseDTO,
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
+import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
 import {
   AgentDTO,
   AgentListResponse,
@@ -166,6 +167,7 @@ for (const [k, v] of Object.entries(MOCK_POLLING_HISTORY)) pollingHistory[k] = [
 /** No row means "never configured" — always-notify defaults, same as the real API. */
 const notificationPolicies: Record<string, DeviceNotificationPolicyDTO> = {};
 let mutedMetrics: string[] = [];
+let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true };
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -1116,6 +1118,21 @@ class MockApiService {
   // ============================================================
   // Notification Mutes
   // ============================================================
+
+  async getNotificationSettings(): Promise<ApiResponse<NotificationSettingsDTO>> {
+    return ok({ ...notificationSettings });
+  }
+
+  async saveNotificationSettings(data: NotificationSettingsDTO): Promise<ApiResponse<NotificationSettingsDTO>> {
+    notificationSettings = { ...data, telegramChatId: data.telegramChatId?.trim() || null };
+    return ok({ ...notificationSettings });
+  }
+
+  async testNotificationSettings(telegramChatId?: string): Promise<ApiResponse<NotificationTestResultDTO>> {
+    const chat = telegramChatId || notificationSettings.telegramChatId;
+    if (!chat) return { success: false, error: 'No Telegram chat is configured for this install' };
+    return ok({ telegramChatId: chat });
+  }
 
   async getNotificationMutes(): Promise<ApiResponse<NotificationMutesDTO>> {
     return ok({ metrics: [...mutedMetrics] });

@@ -4,7 +4,8 @@ import type { UserRole } from '../types/auth.types';
  * VENDOR is the company that runs the install and holds everything ADMIN has
  * (BACKEND_API.md, Roles: "wherever an endpoint lists ADMIN, VENDOR is allowed
  * too"). Every "is this an administrator" question goes through here so the
- * two never drift apart again.
+ * two never drift apart again. It also answers `manage-settings` (IDN-034):
+ * the install's notification settings and their test message.
  */
 export const isAdminRole = (role: UserRole | undefined): boolean => role === 'ADMIN' || role === 'VENDOR';
 

@@ -44,6 +44,7 @@ import {
   BulkUpsertDeviceNotificationPoliciesResponseDTO,
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
+import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
 import {
   AlertDTO,
   AlertListResponse,
@@ -896,6 +897,31 @@ class ApiService {
     return this.request<BulkUpsertDeviceNotificationPoliciesResponseDTO>('/notification-policies/bulk', {
       method: 'PUT',
       body: JSON.stringify(data)
+    });
+  }
+
+  // ============================================================
+  // Notification Settings
+  // ============================================================
+
+  /** The env defaults until the first save, so it always answers (NOT-201). */
+  async getNotificationSettings(): Promise<ApiResponse<NotificationSettingsDTO>> {
+    return this.request<NotificationSettingsDTO>('/notification-settings');
+  }
+
+  /** All three fields, nothing else. ADMIN only (`manage-settings`). */
+  async saveNotificationSettings(data: NotificationSettingsDTO): Promise<ApiResponse<NotificationSettingsDTO>> {
+    return this.request<NotificationSettingsDTO>('/notification-settings', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /** Sends one test message to `telegramChatId` as typed, or to the saved chat when omitted. Stores nothing (NOT-202). */
+  async testNotificationSettings(telegramChatId?: string): Promise<ApiResponse<NotificationTestResultDTO>> {
+    return this.request<NotificationTestResultDTO>('/notification-settings/test', {
+      method: 'POST',
+      body: JSON.stringify(telegramChatId ? { telegramChatId } : {})
     });
   }
 

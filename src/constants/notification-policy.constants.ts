@@ -1,6 +1,3 @@
-/** The system default when a device carries no override (BACKEND_API.md: `DEVICE_DOWN_ALERT_DELAY_MINUTES`). */
-export const DEFAULT_ALERT_DELAY_MINUTES = 60;
-
 export const ALERT_DELAY_MINUTES_MIN = 0;
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;

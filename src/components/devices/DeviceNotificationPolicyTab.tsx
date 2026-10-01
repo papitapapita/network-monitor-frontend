@@ -16,8 +16,8 @@ import {
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useNotificationSettings } from '@/hooks/useNotificationSettings';
 import {
-  DEFAULT_ALERT_DELAY_MINUTES,
   validateQuietHours,
   validateAlertDelayMinutes,
 } from '@/constants/notification-policy.constants';
@@ -57,6 +57,8 @@ const toForm = (policy: DeviceNotificationPolicyDTO): FormState => ({
 export function DeviceNotificationPolicyTab({ deviceId }: Props) {
   const { showError, showSuccess, showFormErrors } = useToast();
   const { canWrite } = usePermissions();
+  // The install's delay (NOT-200) applies when the device carries none of its own.
+  const installDelay = useNotificationSettings().data?.downAlertDelayMinutes;
 
   const [policy, setPolicy] = useState<DeviceNotificationPolicyDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -215,14 +217,16 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
                   label="Retraso de alerta de caída (minutos)"
                   type="number"
                   min={0}
-                  placeholder={String(DEFAULT_ALERT_DELAY_MINUTES)}
+                  placeholder={installDelay != null ? String(installDelay) : undefined}
                   value={form.alertDelayMinutes}
                   onChange={(e) => {
                     setForm((p) => ({ ...p, alertDelayMinutes: e.target.value }));
                     setErrors((p) => { const n = { ...p }; delete n.alertDelayMinutes; return n; });
                   }}
                   error={errors.alertDelayMinutes}
-                  info={`Vacío usa el valor por defecto del sistema (${DEFAULT_ALERT_DELAY_MINUTES} min).`}
+                  info={installDelay != null
+                    ? `Vacío usa el de la instalación (${installDelay} min, en Configuración).`
+                    : 'Vacío usa el de la instalación (en Configuración).'}
                   fullWidth
                 />
               </div>
@@ -242,7 +246,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">
                   {policy?.alertDelayMinutes != null
                     ? `${policy.alertDelayMinutes} min`
-                    : `${DEFAULT_ALERT_DELAY_MINUTES} min (por defecto)`}
+                    : installDelay != null ? `${installDelay} min (de la instalación)` : 'El de la instalación'}
                 </dd>
               </div>
               <div>

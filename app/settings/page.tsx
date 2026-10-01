@@ -3,6 +3,7 @@
 import React from 'react';
 import { useSettings } from '@/contexts/settings.context';
 import { NotificationMutesCard } from '@/components/settings/NotificationMutesCard';
+import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard';
 import { DataPurgeCard } from '@/components/settings/DataPurgeCard';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -75,6 +76,10 @@ export default function SettingsPage() {
 
       <div className="mt-6">
         <ChangePasswordCard />
+      </div>
+
+      <div className="mt-6">
+        <NotificationSettingsCard />
       </div>
 
       <div className="mt-6">
