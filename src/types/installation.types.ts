@@ -10,7 +10,7 @@ export interface InstallationDTO {
     tickets: boolean;
     enforcement: boolean;
   };
-  /** false: the server cannot reach devices behind agents — no wireless poll, reboot, diagnosis or network scan for them. */
+  /** false: the server talks to no device (MON-023) — no manual ping, wireless poll, reboot, diagnosis or network scan for any of them, and a device with no agent stays UNKNOWN. */
   serverOnSite: boolean;
   /** false: creating an agent or a new key answers 503. */
   agentPairingAvailable: boolean;
