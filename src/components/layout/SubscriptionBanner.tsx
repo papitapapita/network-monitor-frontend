@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { SubscriptionStatusDTO } from '@/types/subscription.types';
 import { useNow } from '@/hooks/useWirelessThroughput';
 
@@ -22,7 +23,11 @@ const TONES = {
  * dashboard open (R17). READ_ONLY in particular has to say that alerts are
  * off, so an empty alert feed is not read as a quiet network.
  */
-export function SubscriptionBanner({ subscription }: { subscription: SubscriptionStatusDTO }) {
+export function SubscriptionBanner({ subscription, paymentHref }: {
+  subscription: SubscriptionStatusDTO;
+  /** The vendor's way to record the payment; absent for everyone else. */
+  paymentHref?: string;
+}) {
   const now = useNow(60 * 60_000);
   const { state, paidThrough, graceEndsAt, lockedAt } = subscription;
 
@@ -59,6 +64,14 @@ export function SubscriptionBanner({ subscription }: { subscription: Subscriptio
   return (
     <div role="status" className={`border-b px-4 py-2.5 text-sm ${TONES[tone]}`}>
       {message}
+      {paymentHref && (
+        <>
+          {' '}
+          <Link href={paymentHref} className="font-medium underline">
+            Registrar pago
+          </Link>
+        </>
+      )}
     </div>
   );
 }

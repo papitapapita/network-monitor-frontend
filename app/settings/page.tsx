@@ -1,6 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/auth.context';
+import { isVendorRole } from '@/constants/roles';
 import { useSettings } from '@/contexts/settings.context';
 import { NotificationMutesCard } from '@/components/settings/NotificationMutesCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
@@ -11,6 +14,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 export default function SettingsPage() {
   const { theme, setTheme } = useSettings();
   const permissions = usePermissions();
+  // The role alone: the vendor's settings answer even on a lapsed install.
+  const { user } = useAuth();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -18,6 +23,21 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Configuración</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Preferencias de la aplicación</p>
       </div>
+
+      {isVendorRole(user?.role) && (
+        <Link
+          href="/settings/installation"
+          className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-6 py-4 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+        >
+          <span>
+            <span className="block text-base font-semibold text-gray-900 dark:text-gray-100">Configuración del proveedor</span>
+            <span className="block text-sm text-gray-600 dark:text-gray-400">
+              Suscripción y pagos, retención de datos, emisor, WhatsApp y router de cumplimiento.
+            </span>
+          </span>
+          <span aria-hidden="true" className="text-blue-600 dark:text-blue-400">→</span>
+        </Link>
+      )}
 
       {/* Apariencia */}
       <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">

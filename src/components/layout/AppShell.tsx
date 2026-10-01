@@ -10,6 +10,7 @@ import { useInstallation } from '@/hooks/useInstallation';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionBanner } from './SubscriptionBanner';
 import { isRouteAvailable } from '@/constants/installation.constants';
+import { isVendorRole } from '@/constants/roles';
 
 function LockIcon() {
   return (
@@ -51,11 +52,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarCollapsed = useSyncExternalStore(subscribeCollapsed, getCollapsed, () => false);
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout, user } = useAuth();
   const installation = useInstallation();
   const subscription = useSubscription();
 
   const isLoginPage = pathname === '/login';
+  // The vendor's settings answer on a locked install too (INS-030): that is
+  // where the payment is recorded.
+  const isVendor = isVendorRole(user?.role);
+  const paymentHref = isVendor ? '/settings/installation#suscripcion' : undefined;
 
   // Redirect unauthenticated users to login
   useEffect(() => {
@@ -90,6 +95,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // LOCKED (R17): every /api route but sign-in answers 402, so there is
   // nothing to show but this — and a way out to sign in as someone else.
+  // The vendor alone gets one way in: its settings, to record the payment.
+  if (subscription.locked && isVendor && pathname === '/settings/installation') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div role="status" className="border-b px-4 py-2.5 text-sm bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 flex flex-wrap items-center justify-between gap-2">
+          <span>
+            <strong>Instalación bloqueada.</strong> Registra el pago en «Suscripción» y guarda: el acceso vuelve al instante.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              router.replace('/login');
+            }}
+            className="underline"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+        <main>{children}</main>
+      </div>
+    );
+  }
+
   if (subscription.locked) {
     return (
       <div className="bg-gray-50 dark:bg-gray-900">
@@ -98,14 +127,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           icon={<LockIcon />}
           iconTone="red"
           title="Acceso bloqueado"
-          description="La suscripción de esta instalación está vencida. Los datos se conservan intactos; el acceso vuelve en cuanto se registre el pago. Comunícate con el proveedor del sistema."
-          primaryAction={{
-            label: 'Cerrar sesión',
-            onClick: () => {
-              logout();
-              router.replace('/login');
-            },
-          }}
+          description={
+            paymentHref
+              ? 'La suscripción de esta instalación está vencida. Los datos se conservan intactos; registra el pago para que el acceso vuelva al instante.'
+              : 'La suscripción de esta instalación está vencida. Los datos se conservan intactos; el acceso vuelve en cuanto se registre el pago. Comunícate con el proveedor del sistema.'
+          }
+          primaryAction={
+            paymentHref
+              ? { label: 'Registrar pago', href: paymentHref }
+              : {
+                  label: 'Cerrar sesión',
+                  onClick: () => {
+                    logout();
+                    router.replace('/login');
+                  },
+                }
+          }
+          secondaryAction={
+            paymentHref
+              ? {
+                  label: 'Cerrar sesión',
+                  onClick: () => {
+                    logout();
+                    router.replace('/login');
+                  },
+                }
+              : undefined
+          }
         />
       </div>
     );
@@ -157,7 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             horizontally-scrollable container. Every wide-content component
             (tables, the device detail tab bar) already scrolls within its
             own wrapper, so main never legitimately needs to scroll sideways. */}
-        <SubscriptionBanner subscription={subscription} />
+        <SubscriptionBanner subscription={subscription} paymentHref={paymentHref} />
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {/* A saved link into a module this install does not run: its API

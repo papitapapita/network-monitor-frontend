@@ -58,6 +58,7 @@ import {
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
+import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AgentDTO,
   AgentListResponse,
@@ -167,6 +168,19 @@ for (const [k, v] of Object.entries(MOCK_POLLING_HISTORY)) pollingHistory[k] = [
 /** No row means "never configured" — always-notify defaults, same as the real API. */
 const notificationPolicies: Record<string, DeviceNotificationPolicyDTO> = {};
 let mutedMetrics: string[] = [];
+let vendorSettings: VendorSettingsDTO = {
+  vendorTelegramChatId: null,
+  subscriptionPaidUntil: null,
+  subscriptionGraceDays: 3,
+  subscriptionReadOnlyDays: 7,
+  pingResultRetentionDays: 30,
+  alertRetentionDays: 90,
+  wirelessSnapshotRetentionDays: 30,
+  wirelessAlertRecordRetentionDays: 90,
+  issuer: null,
+  whatsApp: null,
+  enforcementRouter: null,
+};
 let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true };
 
 function uid(): string {
@@ -1729,6 +1743,15 @@ class MockApiService {
   }
 
   // ── Installation ───────────────────────────────────────────
+
+  async getVendorSettings(): Promise<ApiResponse<VendorSettingsDTO>> {
+    return ok(structuredClone(vendorSettings));
+  }
+
+  async saveVendorSettings(data: VendorSettingsDTO): Promise<ApiResponse<VendorSettingsDTO>> {
+    vendorSettings = structuredClone(data);
+    return ok(structuredClone(vendorSettings));
+  }
 
   /** On site unless localStorage `nms:mock-server-off-site` is set, so the off-site screens can be seen offline. */
   async getInstallation(): Promise<ApiResponse<InstallationDTO>> {

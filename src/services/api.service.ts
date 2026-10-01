@@ -45,6 +45,7 @@ import {
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
+import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AlertDTO,
   AlertListResponse,
@@ -1404,6 +1405,19 @@ class ApiService {
   // ============================================================
   // Installation
   // ============================================================
+
+  /** VENDOR only, reads included; answers on a read-only or locked install too (INS-030). */
+  async getVendorSettings(): Promise<ApiResponse<VendorSettingsDTO>> {
+    return this.request<VendorSettingsDTO>('/installation/settings');
+  }
+
+  /** All eight, nothing else; a group is complete or null. Applies on the next request, alert or purge. */
+  async saveVendorSettings(data: VendorSettingsDTO): Promise<ApiResponse<VendorSettingsDTO>> {
+    return this.request<VendorSettingsDTO>('/installation/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
 
   async getInstallation(): Promise<ApiResponse<InstallationDTO>> {
     return this.request<InstallationDTO>('/installation');

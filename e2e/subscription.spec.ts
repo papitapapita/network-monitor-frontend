@@ -67,7 +67,7 @@ test('locked: only the lock screen, no way into the app', async ({ page }) => {
   await withSubscription(page, () => stage('LOCKED', -12));
   await page.goto('/devices');
   await expect(page.getByRole('heading', { name: 'Acceso bloqueado' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Dispositivos' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Panel' })).toHaveCount(0);
 });
 
 test('a 402 on a write switches the app to read-only at once', async ({ page }) => {
