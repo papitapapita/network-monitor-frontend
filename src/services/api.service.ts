@@ -1749,7 +1749,7 @@ class ApiService {
         } catch {
           /* non-JSON error body */
         }
-        return { success: false, error };
+        return { success: false, error, status: response.status };
       }
       const blob = await response.blob();
       return { success: true, data: blob };

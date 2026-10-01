@@ -121,6 +121,13 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
 
 ## Done
 
+- [x] **Settings from the dashboard, and an off-site server that talks to no device** — the backend's 2026-09-30 API update — **done 2026-10-01**
+  - **MON-023 / WLS-029:** with `serverOnSite: false` every device loses manual ping, wireless poll, reboot and diagnosis, agent or not; the bulk "Sondear" leaves `/devices`; a device with no agent says nobody polls it and points at «Sondeado por». `e2e/devices.spec.ts` (MON-023)
+  - **NOT-200:** a «Notificaciones» card on `/settings` — chat, down-alert delay, wireless switch, test message. Everyone reads, ADMIN saves (`manage-settings`). The device tab shows the install's delay instead of a hard-coded 60. `e2e/notification-settings.spec.ts`
+  - **INS-028:** `/settings/installation`, VENDOR only — subscription terms and payment, retention, issuer, WhatsApp, enforcement router. Gated on the raw role because the route answers on a lapsed install; the lock screen and the banner offer the vendor «Registrar pago». `e2e/vendor-settings.spec.ts`
+  - **BIL-232:** a cuenta de cobro PDF refused for want of an issuer says so, and links the vendor to `#emisor`. `e2e/collection-accounts.spec.ts`
+  - Not covered: the wireless tab's off-site path (no device with a wireless config in the dev database to hang it on), and the vendor specs' real-session read, which skips without `E2E_VENDOR_*`. Every save in those specs is answered by a stub, so the real install's settings were never changed
+
 - [x] **Acciones rápidas en la barra de selección: sondear dispositivos y resolver tickets** — **done 2026-08-18**
   - `/devices` gained **Sondear** and `/tickets` gained **Resolver**, beside the existing delete. Neither endpoint takes a batch, so `BulkAction` grew `runOne` — a paced fan-out over the selection — alongside the existing whole-selection `run` the alerts list uses
   - `src/services/bulk-delete.ts` is now `bulk-fanout.ts` (`runBulkFanOut`): the pacing and 429 backoff were never delete-specific, and writes share the same 60/min per-user budget

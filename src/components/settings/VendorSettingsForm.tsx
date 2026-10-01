@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { useToast } from '@/contexts/toast.context';
@@ -105,6 +105,14 @@ export function VendorSettingsForm() {
     enabled: routerOn,
     retry: false,
   });
+
+  // A link to one section (#emisor, from a PDF refused for want of one)
+  // lands before the form exists; scroll there once it does.
+  const loaded = !!saved;
+  useEffect(() => {
+    if (!loaded || !window.location.hash) return;
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [loaded]);
 
   if (isLoading) {
     return (

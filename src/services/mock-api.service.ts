@@ -1543,8 +1543,8 @@ class MockApiService {
   async cancelCollectionAccount() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
-  async downloadCollectionAccountPdf() {
-    return { success: false as const, error: 'No disponible en modo mock' };
+  async downloadCollectionAccountPdf(): Promise<ApiResponse<Blob>> {
+    return { success: false, error: 'No disponible en modo mock' };
   }
 
   // ── Probe agents ───────────────────────────────────────────

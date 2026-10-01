@@ -18,6 +18,9 @@ import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
 import { usePermissions } from '@/hooks/usePermissions';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/auth.context';
+import { isVendorRole } from '@/constants/roles';
 
 type PendingAction = 'pay' | 'cancel' | null;
 
@@ -37,6 +40,9 @@ export default function CollectionAccountDetailPage() {
   const { showError } = useToast();
 
   const [actionError, setActionError] = useState<string | null>(null);
+  // BIL-232: no PDF until the vendor sets the issuer printed on it.
+  const [issuerMissing, setIssuerMissing] = useState(false);
+  const { user } = useAuth();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [isActing, setIsActing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -74,6 +80,7 @@ export default function CollectionAccountDetailPage() {
     if (!account) return;
     setIsDownloading(true);
     setActionError(null);
+    setIssuerMissing(false);
     const r = await apiService.downloadCollectionAccountPdf(accountId);
     setIsDownloading(false);
     if (r.success && r.data) {
@@ -85,6 +92,8 @@ export default function CollectionAccountDetailPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } else if (r.status === 409) {
+      setIssuerMissing(true);
     } else {
       const message = r.error || 'No se pudo descargar el PDF';
       setActionError(message);
@@ -151,6 +160,22 @@ export default function CollectionAccountDetailPage() {
           )}
         </div>
       </div>
+
+      {issuerMissing && (
+        <div role="alert" className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-amber-800 dark:text-amber-300">
+          <p>
+            <strong>Falta configurar el emisor.</strong> La cuenta de cobro no se puede imprimir hasta que se indique
+            quién la emite (nombre, NIT, dirección y contacto).
+          </p>
+          {isVendorRole(user?.role) ? (
+            <Link href="/settings/installation#emisor" className="mt-2 inline-block font-medium underline">
+              Configurar el emisor
+            </Link>
+          ) : (
+            <p className="mt-1 text-sm">Pídele al proveedor del sistema que lo configure.</p>
+          )}
+        </div>
+      )}
 
       {actionError && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
