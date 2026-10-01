@@ -1,6 +1,7 @@
 import { Locator, Page } from '@playwright/test';
 import { test, expect, uniqueName } from './fixtures/test';
 import { ApiClient } from './fixtures/api';
+import { patchInstallation } from './fixtures/agents';
 import {
   captureCreate,
   confirmDialog,
@@ -1219,6 +1220,28 @@ test.describe('device conventions', () => {
 
     await page.reload();
     await expect(detailValue(page, 'Monitoreo')).toHaveText('Habilitado');
+  });
+
+  // ── MON-023 — an off-site server pings nothing ─────────────────────────
+  test('MON-023: an off-site server polls no device, and says who should', async ({ page, api }) => {
+    const location = await arrangeLocation(api);
+    // 198.18/15 routes nowhere; teardown deletes the device and its schedule.
+    // `agentId: null` keeps it off the install's only agent, if there is one (DEV-166).
+    const ipAddress = uniqueIp();
+    const { device } = await arrangeDevice(api, { status: 'ACTIVE', ipAddress, locationId: location.id, monitoringEnabled: true, agentId: null });
+    await api.post(`devices/${device.id}/polling/config`, { enabled: true, ipAddress });
+
+    await patchInstallation(page, (i) => { i.serverOnSite = false; });
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Sondeo' }).click();
+    await expect(page.getByText('Nadie sondea este equipo.')).toBeVisible();
+    await expect(page.locator('main').getByRole('button', { name: 'Sondear ahora' })).toHaveCount(0);
+
+    await page.goto('/devices');
+    await searchFor(page, device.name);
+    await page.getByRole('checkbox', { name: `Seleccionar ${device.name}` }).click();
+    await expect(page.getByRole('button', { name: 'Eliminar', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sondear', exact: true })).toHaveCount(0);
   });
 
   // ── DEV-058 — a new COMMISSIONING device is watched by default ──────────

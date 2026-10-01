@@ -500,7 +500,6 @@ export default function DeviceDetailPage() {
           deviceStatus={device.status}
           deviceDeletedAt={device.deletedAt}
           deviceReplacedAt={device.replacedAt}
-          deviceAgentId={device.agentId}
           onDeviceUpdated={setDevice}
         />
       )}

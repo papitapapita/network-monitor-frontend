@@ -32,6 +32,7 @@ import { SERVER_AGENT_VALUE, agentIdFromPicker } from '@/components/agents/Agent
 import type { BulkAction } from '@/components/ui';
 import type { DeviceListItemDTO } from '@/types/device.types';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useInstallation } from '@/hooks/useInstallation';
 
 const COLUMNS_STORAGE_KEY = 'nms:devices-columns';
 
@@ -40,6 +41,8 @@ const deviceCount = (n: number) => `${n} ${n === 1 ? 'dispositivo' : 'dispositiv
 function DevicesPageContent() {
   const router = useRouter();
   const permissions = usePermissions();
+  // MON-023: a server off the monitored network refuses every manual poll.
+  const { serverOnSite } = useInstallation();
   const {
     devices,
     isLoading,
@@ -249,7 +252,7 @@ function DevicesPageContent() {
           entity: { singular: 'dispositivo', plural: 'dispositivos', gender: 'm' },
           confirmNote: `Saldrán de todos los listados y dejarán de monitorearse, pero podrás restaurarlos durante ${RESTORE_GRACE_DAYS} días desde la papelera.`,
           bulkActions: [
-            {
+            ...(serverOnSite ? [{
               key: 'poll',
               label: 'Sondear',
               confirmTitle: 'Sondear dispositivos',
@@ -266,8 +269,8 @@ function DevicesPageContent() {
                 // MON-022: only its agent polls it; the server answers 409.
                 : device.agentId ? 'detrás de un agente (el sondeo manual aún no está disponible ahí)'
                 : null,
-              runOne: (id) => apiService.triggerPoll(id),
-            },
+              runOne: (id: string) => apiService.triggerPoll(id),
+            } satisfies BulkAction<DeviceListItemDTO>] : []),
             ...(moveAction ? [moveAction] : []),
           ],
         } : undefined}

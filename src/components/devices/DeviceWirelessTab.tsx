@@ -119,8 +119,6 @@ interface Props {
   deviceStatus: DeviceStatus;
   deviceDeletedAt: string | null;
   deviceReplacedAt: string | null;
-  /** The probe agent it sits behind; null when the server polls it. */
-  deviceAgentId: string | null;
   /** Called after an identity suggestion is accepted and the device record changes underneath the caller. */
   onDeviceUpdated: (device: DeviceResponseDTO) => void;
 }
@@ -353,15 +351,14 @@ export function DeviceWirelessTab({
   deviceStatus,
   deviceDeletedAt,
   deviceReplacedAt,
-  deviceAgentId,
   onDeviceUpdated,
 }: Props) {
   const permissions = usePermissions();
-  // WLS-029: an install whose server is off site cannot reach a device behind
-  // an agent, so poll, reboot and diagnosis would all answer 409. An on-site
-  // server (the default) keeps them working.
+  // WLS-029: an install whose server is off site talks to no device, so poll,
+  // reboot and diagnosis would all answer 409 — with or without an agent. An
+  // on-site server (the default) keeps them working for every device.
   const { serverOnSite } = useInstallation();
-  const serverCannotReach = !serverOnSite && deviceAgentId !== null;
+  const serverCannotReach = !serverOnSite;
   const [config, setConfig] = useState<WirelessConfigDTO | null>(null);
   const [noConfig, setNoConfig] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
@@ -1156,8 +1153,8 @@ export function DeviceWirelessTab({
             <Card.Body>
               {serverCannotReach && (
                 <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                  Este equipo está detrás de un agente y el servidor no está en su red, así que el sondeo manual, el
-                  reinicio y el diagnóstico no están disponibles desde aquí.
+                  El servidor no está en la red monitoreada, así que el sondeo manual, el reinicio y el diagnóstico
+                  no están disponibles desde aquí.
                 </p>
               )}
               {isRebooting && (

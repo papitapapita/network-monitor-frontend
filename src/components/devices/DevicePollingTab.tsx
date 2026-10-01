@@ -24,6 +24,7 @@ import {
 } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useInstallation } from '@/hooks/useInstallation';
 import {
   POLLING_INTERVAL_MIN_SECONDS,
   INTERVAL_MAX_SECONDS,
@@ -141,6 +142,10 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const { data: agent } = useAgent(device.agentId);
   const agentState = agent ? agentCondition(agent) : null;
   const agentSilent = agentState !== null && agentState !== 'ONLINE';
+  // MON-023: a server off the monitored network pings nothing, so it refuses
+  // every manual poll, and a device with no agent stays UNKNOWN with no down
+  // alert until an agent takes it over.
+  const { serverOnSite } = useInstallation();
 
   /** The last ping on record, whether or not one is still scheduled. */
   const lastPolledAt = pollingStatus?.lastPolled ?? pollingStatus?.lastResult?.timestamp ?? null;
@@ -444,7 +449,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
               {!monitoringOff && !showConfig && (
                 <>
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchPollingStatus} disabled={statusLoading} />
-                  {!behindAgent && permissions.canWrite && (
+                  {!behindAgent && serverOnSite && permissions.canWrite && (
                     <IconButton
                       icon={<PollIcon />}
                       label="Sondear ahora"
@@ -573,6 +578,13 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
             </>
           ) : pollingStatus ? (
             <>
+              {!behindAgent && !serverOnSite && (
+                <p className="mb-4 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-300">
+                  <strong>Nadie sondea este equipo.</strong> El servidor no está en la red monitoreada, así que su
+                  estado queda «Desconocido» y no genera alertas de caída. Asígnale un agente en «Detalles»
+                  (Sondeado por) para monitorearlo.
+                </p>
+              )}
               {behindAgent && (
                 <p className={`mb-4 rounded-md border p-3 text-sm ${
                   agentSilent

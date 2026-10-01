@@ -1713,10 +1713,12 @@ class MockApiService {
 
   // ── Installation ───────────────────────────────────────────
 
+  /** On site unless localStorage `nms:mock-server-off-site` is set, so the off-site screens can be seen offline. */
   async getInstallation(): Promise<ApiResponse<InstallationDTO>> {
+    const offSite = typeof window !== 'undefined' && localStorage.getItem('nms:mock-server-off-site') !== null;
     return ok({
       modules: { customers: true, billing: true, quoting: true, tickets: true, enforcement: true },
-      serverOnSite: true,
+      serverOnSite: !offSite,
       agentPairingAvailable: true,
       installersAvailable: true,
     });
