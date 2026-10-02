@@ -115,6 +115,12 @@ a schedule), not a push channel.
 - **Dev server runs on port 3001** (`next dev -p 3001`) so it can sit next to
   a backend on `3000` without colliding; `next.config.ts` also proxies
   `/api/*` to `http://localhost:3000/api/*` via rewrites.
+- **Docker image** (`docker build -t nms-frontend .`) is shared by every
+  customer install. It is built with `BACKEND_INTERNAL_URL=http://backend:3000`
+  (the backend service in each install's compose project) and
+  `NEXT_STANDALONE=true`, and serves on port 3001. Both variables are read at
+  build time; unset, the build is the same as before (proxy to
+  `localhost:3000`, run with `next start`).
 
 ## Getting started
 

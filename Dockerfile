@@ -1,40 +1,23 @@
-# ----------- Stage 1: Build -----------
-FROM node:24-alpine AS builder
+# Dashboard image shared by every customer install. /api is proxied to the
+# `backend` service of the same compose project.
 
-# Set working directory inside container
-
+FROM node:24-bookworm-slim AS builder
 WORKDIR /app
-
-# Copy package files first (better caching)
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy rest of the source code
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
-
-# Build the Next.js app
+ENV NEXT_TELEMETRY_DISABLED=1 \
+  NEXT_PUBLIC_API_URL=/api \
+  BACKEND_INTERNAL_URL=http://backend:3000 \
+  NEXT_STANDALONE=true
 RUN npm run build
 
-
-# ----------- Stage 2: Production Image -----------
-FROM node:20-alpine AS runner
-
+FROM node:24-bookworm-slim
 WORKDIR /app
-
-ENV NODE_ENV=production
-
-# Copy only necessary files from builder
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package*.json ./
-
-# Install only production dependencies
-RUN npm install --omit=dev
-
-# Expose Next.js default port
-EXPOSE 3000
-
-# Start the app
-CMD ["npm", "start"]
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3001 HOSTNAME=0.0.0.0
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+USER node
+EXPOSE 3001
+CMD ["node", "server.js"]
