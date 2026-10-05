@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { XIcon, EyeIcon, EyeOffIcon } from './icons';
+import React, { useRef, useState } from 'react';
+import { XIcon, EyeIcon, EyeOffIcon, ChevronDownIcon } from './icons';
 import { FieldLabel } from './FieldLabel';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -40,6 +40,33 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const [revealed, setRevealed] = useState(false);
     const isPassword = props.type === 'password';
     const hasClear = !!onClear && typeof props.value === 'string' && props.value.length > 0;
+    // Number fields get our own stepper in place of the browser's spinner,
+    // which globals.css hides.
+    const hasStepper = props.type === 'number' && !props.readOnly;
+    const innerRef = useRef<HTMLInputElement | null>(null);
+    const setRefs = (el: HTMLInputElement | null) => {
+      innerRef.current = el;
+      if (typeof ref === 'function') ref(el);
+      else if (ref) ref.current = el;
+    };
+
+    const step = (direction: 1 | -1) => {
+      const el = innerRef.current;
+      if (!el) return;
+      // `step="any"` makes the native stepUp() throw, so do the arithmetic here.
+      const size = props.step && props.step !== 'any' ? Number(props.step) : 1;
+      const current = Number(el.value);
+      let next = (Number.isFinite(current) ? current : 0) + direction * size;
+      if (props.min !== undefined && props.min !== '') next = Math.max(next, Number(props.min));
+      if (props.max !== undefined && props.max !== '') next = Math.min(next, Number(props.max));
+      // Drop float noise such as 0.30000000000000004.
+      next = Math.round(next * 1e6) / 1e6;
+      // Go through the native setter and an input event, so the parent's
+      // onChange sees it exactly like a keystroke.
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(el, String(next));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.focus();
+    };
 
     return (
       <div className={`${fullWidth ? 'w-full' : ''}`}>
@@ -57,11 +84,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
 
           <input
-            ref={ref}
+            ref={setRefs}
             id={inputId}
             className={`
               block w-full py-2 rounded-md shadow-sm transition-colors
-              ${icon ? 'pl-9' : 'px-3'} ${icon && !hasClear ? 'pr-3' : ''} ${hasClear || isPassword ? 'pr-9' : ''}
+              ${icon ? 'pl-9' : 'px-3'} ${icon && !hasClear ? 'pr-3' : ''} ${hasClear || isPassword ? 'pr-9' : ''} ${hasStepper ? 'pr-10' : ''}
               bg-white dark:bg-gray-800
               text-gray-900 dark:text-gray-100
               placeholder-gray-400 dark:placeholder-gray-500
@@ -77,6 +104,28 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
             type={isPassword && revealed ? 'text' : props.type}
           />
+
+          {hasStepper && (
+            <div className="absolute inset-y-px right-px flex w-7 flex-col overflow-hidden rounded-r-md border-l border-gray-300 dark:border-gray-600">
+              {([1, -1] as const).map((direction) => (
+                <button
+                  key={direction}
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={direction === 1 ? 'Aumentar' : 'Disminuir'}
+                  disabled={props.disabled}
+                  // Keep focus where it is; step() hands it to the field.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => step(direction)}
+                  className={`flex flex-1 items-center justify-center text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-200 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
+                    direction === 1 ? 'border-b border-gray-300 dark:border-gray-600' : ''
+                  }`}
+                >
+                  <ChevronDownIcon className={`h-3 w-3 ${direction === 1 ? 'rotate-180' : ''}`} />
+                </button>
+              ))}
+            </div>
+          )}
 
           {isPassword && (
             <button

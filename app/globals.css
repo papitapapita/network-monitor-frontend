@@ -18,6 +18,17 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Number fields: the shared Input draws its own stepper, so drop the browser's. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* Scrollbars: match the app's gray palette, subtle until hovered. */
 :root {
   --scrollbar-thumb: #d1d5db; /* gray-300 */

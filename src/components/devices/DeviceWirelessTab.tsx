@@ -14,7 +14,7 @@ import {
   WirelessIdentitySuggestion,
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
-import { Card, Input, Select, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle } from '@/components/ui';
+import { Card, Input, Select, Combobox, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useInstallation } from '@/hooks/useInstallation';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -414,7 +414,7 @@ export function DeviceWirelessTab({
 
   // Candidate parents for a STATION's `parentApDeviceId` — loaded lazily, only
   // once the edit form for a STATION is actually opened.
-  const [apDevices, setApDevices] = useState<{ id: string; name: string }[]>([]);
+  const [apDevices, setApDevices] = useState<{ id: string; name: string; ipAddress: string | null }[]>([]);
   const [apDevicesLoading, setApDevicesLoading] = useState(false);
   // The declared parent AP's name, resolved for display in the read-only view
   // (the config only carries the id).
@@ -596,7 +596,7 @@ export function DeviceWirelessTab({
     setApDevicesLoading(true);
     apiService.listDevices({ category: 'ACCESS_POINT', deleted: 'false', limit: 200 }).then((r) => {
       if (r.success && r.data) {
-        setApDevices(r.data.devices.map((d) => ({ id: d.id, name: d.name })));
+        setApDevices(r.data.devices.map((d) => ({ id: d.id, name: d.name, ipAddress: d.ipAddress })));
       }
       setApDevicesLoading(false);
     });
@@ -1011,12 +1011,13 @@ export function DeviceWirelessTab({
                   />
                 )}
                 {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  <Select
+                  // Typing filters on name and IP alike; clearing the text leaves it undeclared.
+                  <Combobox
                     label="AP declarado"
                     value={configForm.parentApDeviceId}
-                    onChange={(e) => setConfigForm((p) => ({ ...p, parentApDeviceId: e.target.value }))}
-                    options={apDevices.map((d) => ({ value: d.id, label: d.name }))}
-                    placeholder={apDevicesLoading ? 'Cargando...' : 'Sin declarar'}
+                    onChange={(id) => setConfigForm((p) => ({ ...p, parentApDeviceId: id }))}
+                    options={apDevices.map((d) => ({ value: d.id, label: d.name, sublabel: d.ipAddress ?? undefined }))}
+                    placeholder={apDevicesLoading ? 'Cargando...' : 'Sin declarar · escribir para buscar'}
                     disabled={apDevicesLoading}
                     info="El AP donde esta estación debería estar conectada. Alimenta la vista de «Estaciones Esperadas» en ese AP."
                     fullWidth
