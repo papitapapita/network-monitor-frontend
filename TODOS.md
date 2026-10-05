@@ -121,8 +121,14 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
 
 ## Done
 
+- [x] **Polling through the agent, and self-updating agents** — the backend's 2026-10-01 API update — **done 2026-10-02**
+  - **MON-022:** «Sondear ahora» is back for devices behind an agent, on- or off-site, and the bulk «Sondear» polls them too. Off site, only devices with no agent are set aside. The agent's no-reading answers (offline, older than 0.3.0, 25 s timeout, the agent's own error) are shown in Spanish by `agentPollFailure`. `e2e/devices.spec.ts` (MON-022)
+  - **WLS-029:** off site, the wireless poll is offered for a radio behind an agent, while reboot and diagnosis stay hidden for every device. `e2e/installation.spec.ts`
+  - **AGT-084:** `AgentDTO.lastUpdate`. A rolled-back or rejected update is a warning on the agent page, and any outcome is listed as «Última actualización». `e2e/agents.spec.ts`
+  - Not yet run: the backend and dev server were down when this landed, so only tsc and lint passed. Every new test stubs the agent and the poll answer, so no real agent is asked
+
 - [x] **Settings from the dashboard, and an off-site server that talks to no device** — the backend's 2026-09-30 API update — **done 2026-10-01**
-  - **MON-023 / WLS-029:** with `serverOnSite: false` every device loses manual ping, wireless poll, reboot and diagnosis, agent or not; the bulk "Sondear" leaves `/devices`; a device with no agent says nobody polls it and points at «Sondeado por». `e2e/devices.spec.ts` (MON-023)
+  - **MON-023 / WLS-029:** with `serverOnSite: false` every device loses manual ping, wireless poll, reboot and diagnosis, agent or not (agents got the polls back 2026-10-02, see above); the bulk "Sondear" leaves `/devices`; a device with no agent says nobody polls it and points at «Sondeado por». `e2e/devices.spec.ts` (MON-023)
   - **NOT-200:** a «Notificaciones» card on `/settings` — chat, down-alert delay, wireless switch, test message. Everyone reads, ADMIN saves (`manage-settings`). The device tab shows the install's delay instead of a hard-coded 60. `e2e/notification-settings.spec.ts`
   - **INS-028:** `/settings/installation`, VENDOR only — subscription terms and payment, retention, issuer, WhatsApp, enforcement router. Gated on the raw role because the route answers on a lapsed install; the lock screen and the banner offer the vendor «Registrar pago». `e2e/vendor-settings.spec.ts`
   - **BIL-232:** a cuenta de cobro PDF refused for want of an issuer says so, and links the vendor to `#emisor`. `e2e/collection-accounts.spec.ts`

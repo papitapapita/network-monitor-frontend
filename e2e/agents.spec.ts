@@ -37,6 +37,26 @@ test.describe('customer admin', () => {
     await expect(page.getByText(/No reporta desde/)).toBeVisible();
     await expect(page.getByRole('heading', { name: /Historial de desconexiones/ })).toBeVisible();
   });
+
+  test('a self-update that failed is a warning; one that installed is just a fact', async ({ page }) => {
+    const at = iso(Date.now() - 3_600_000);
+    const agents = [
+      fakeAgent({ id: 'a1', name: 'Cliente Norte', agentVersion: '0.3.0',
+        lastUpdate: { version: '0.4.0', outcome: 'ROLLED_BACK', reason: 'the new version never reached the backend', at } }),
+      fakeAgent({ id: 'a2', name: 'Oficina principal', agentVersion: '0.4.0',
+        lastUpdate: { version: '0.4.0', outcome: 'INSTALLED', reason: null, at } }),
+    ];
+    await stubAgents(page, agents);
+
+    await page.goto('/agents/a1');
+    await expect(page.getByText('La actualización a la versión 0.4.0 se revirtió')).toBeVisible();
+    await expect(page.getByText(/the new version never reached the backend/)).toBeVisible();
+    await expect(page.getByText(/Sigue midiendo con la versión 0\.3\.0/)).toBeVisible();
+
+    await page.goto('/agents/a2');
+    await expect(page.getByText('0.4.0 · instalada')).toBeVisible();
+    await expect(page.getByText(/La actualización a la versión/)).toHaveCount(0);
+  });
 });
 
 test.describe('vendor', () => {

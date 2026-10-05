@@ -5,6 +5,22 @@
 
 export type AgentStatus = 'PENDING' | 'ACTIVE' | 'REVOKED';
 
+/**
+ * How a self-update ended (AGT-084): ROLLED_BACK = the new version never
+ * reached the backend, so the previous one was put back; REJECTED = size,
+ * checksum, signature or self-test failed and nothing changed.
+ */
+export type AgentUpdateOutcome = 'INSTALLED' | 'ROLLED_BACK' | 'REJECTED';
+
+export interface AgentUpdateDTO {
+  /** The version it tried to install. */
+  version: string;
+  outcome: AgentUpdateOutcome;
+  /** The agent's words; null once INSTALLED. */
+  reason: string | null;
+  at: string;
+}
+
 export interface AgentDTO {
   id: string;
   /** Unique across all agents, revoked included; 1–60 chars. */
@@ -22,6 +38,8 @@ export interface AgentDTO {
   offlineSince: string | null;
   /** Set while the PC's clock is more than a minute off. Results are already corrected. */
   clockDriftSince: string | null;
+  /** How the last self-update ended; null until the agent reports one. */
+  lastUpdate: AgentUpdateDTO | null;
   /** Live devices behind it; the recycle bin is not counted (AGT-010). */
   deviceCount: number;
   createdAt: string;

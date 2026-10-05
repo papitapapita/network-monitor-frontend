@@ -24,6 +24,7 @@ export function fakeAgent(over: Partial<FakeAgent> & { id: string; name: string 
     clockOffsetMs: 40,
     offlineSince: null,
     clockDriftSince: null,
+    lastUpdate: null,
     deviceCount: 0,
     createdAt: iso(now - 10 * 86_400_000),
     updatedAt: iso(now),

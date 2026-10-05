@@ -11,6 +11,7 @@ import { AGENTS_QUERY_KEY, useAgent, useAgents } from '@/hooks/useAgents';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useInstallation } from '@/hooks/useInstallation';
 import {
+  AGENT_UPDATE_OUTCOME_LABELS,
   PAIRING_UNAVAILABLE_MESSAGE,
   agentCondition,
   formatAgentDate,
@@ -72,6 +73,24 @@ function AgentNotices({ agent }: { agent: AgentDTO }) {
           {agent.clockOffsetMs !== null && <> ({formatClockOffset(agent.clockOffsetMs)})</>} desde el{' '}
           {formatAgentDate(agent.clockDriftSince)}. Las mediciones ya se corrigen, pero conviene ajustar la hora del
           equipo (activar la hora automática).
+        </Notice>
+      )}
+      {/* AGT-084: a failed self-update changes nothing the agent measures, and
+          that release is never offered to it again — the fix is a newer one. */}
+      {agent.status === 'ACTIVE' && agent.lastUpdate && agent.lastUpdate.outcome !== 'INSTALLED' && (
+        <Notice tone="warning">
+          <strong>
+            {agent.lastUpdate.outcome === 'ROLLED_BACK'
+              ? `La actualización a la versión ${agent.lastUpdate.version} se revirtió`
+              : `La actualización a la versión ${agent.lastUpdate.version} se rechazó`}
+          </strong>{' '}
+          el {formatAgentDate(agent.lastUpdate.at)}
+          {agent.lastUpdate.reason && <> ({agent.lastUpdate.reason})</>}.{' '}
+          {agent.lastUpdate.outcome === 'ROLLED_BACK'
+            ? 'La versión nueva no logró comunicarse con el servidor, así que el agente volvió a la anterior.'
+            : 'El archivo no pasó la verificación (tamaño, suma, firma o autoprueba) y no se cambió nada.'}{' '}
+          Sigue midiendo con la versión {agent.agentVersion ?? 'que tenía'}; esa versión no se le vuelve a ofrecer, así
+          que el proveedor debe publicar una más nueva.
         </Notice>
       )}
       {agent.status === 'REVOKED' && (
@@ -225,6 +244,12 @@ export default function AgentDetailPage() {
               </Fact>
               {/* Both arrive with the first connection; before it they are only noise. */}
               {agent.agentVersion && <Fact label="Versión">{agent.agentVersion}</Fact>}
+              {agent.lastUpdate && (
+                <Fact label="Última actualización">
+                  {agent.lastUpdate.version} · {AGENT_UPDATE_OUTCOME_LABELS[agent.lastUpdate.outcome].toLowerCase()}{' '}
+                  <span className="text-sm text-gray-500 dark:text-gray-400">({formatAgentDate(agent.lastUpdate.at)})</span>
+                </Fact>
+              )}
               {agent.clockOffsetMs !== null && (
                 <Fact label="Reloj del PC">
                   {Math.abs(agent.clockOffsetMs) < 1000 ? 'En hora' : formatClockOffset(agent.clockOffsetMs)}

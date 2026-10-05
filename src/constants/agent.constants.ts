@@ -1,4 +1,4 @@
-import { AgentDTO, AgentStatus } from '../types/agent.types';
+import { AgentDTO, AgentStatus, AgentUpdateOutcome } from '../types/agent.types';
 import type { BadgeVariant } from '@/components/ui';
 
 export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
@@ -143,3 +143,9 @@ export function agentPollFailure(status: number | undefined, error: string | und
   }
   return null;
 }
+
+export const AGENT_UPDATE_OUTCOME_LABELS: Record<AgentUpdateOutcome, string> = {
+  INSTALLED: 'Instalada',
+  ROLLED_BACK: 'Revertida',
+  REJECTED: 'Rechazada',
+};

@@ -1583,6 +1583,7 @@ class MockApiService {
       clockOffsetMs: null,
       offlineSince: null,
       clockDriftSince: null,
+      lastUpdate: null,
       deviceCount: 0,
       createdAt: new Date(now).toISOString(),
       updatedAt: new Date(now).toISOString(),
