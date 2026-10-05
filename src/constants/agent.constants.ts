@@ -120,3 +120,26 @@ export function formatDuration(ms: number): string {
   const days = Math.floor(hours / 24);
   return hours % 24 ? `${days} d ${hours % 24} h` : `${days} d`;
 }
+
+/**
+ * Why a manual poll through the device's agent gave no reading (MON-022,
+ * WLS-029), or null when the failure is not the agent's. The ping and the
+ * wireless poll word these alike ("poll it" / "read it"), so one translator
+ * serves both; nothing was recorded in any of these cases.
+ */
+export function agentPollFailure(status: number | undefined, error: string | undefined): string | null {
+  const reason = error?.split(' — ').slice(1).join(' — ') ?? '';
+  if (!reason.startsWith('its on-site agent')) return null;
+  if (status === 409 && reason.endsWith('is not connected')) {
+    return 'El agente de este equipo no está conectado, así que no puede sondearlo ahora. Revisa el agente.';
+  }
+  if (status === 409 && reason.includes('must be updated')) {
+    return 'El agente de este equipo es anterior a la versión 0.3.0 y no sondea a pedido. Actualízalo (reinstalándolo una vez si es la 0.1.0).';
+  }
+  if (status === 504) return 'El agente no respondió a tiempo (25 s). Inténtalo de nuevo.';
+  if (status === 502) {
+    const detail = reason.split(/could not (?:poll|read) it: /)[1];
+    return `El agente no pudo sondear el equipo${detail ? `: ${detail}` : '.'}`;
+  }
+  return null;
+}

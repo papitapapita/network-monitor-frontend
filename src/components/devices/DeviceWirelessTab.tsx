@@ -37,6 +37,7 @@ import {
 } from '@/constants/wireless.constants';
 import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
 import { LinkDiagnosisCard } from '@/components/wireless/LinkDiagnosisCard';
+import { agentPollFailure } from '@/constants/agent.constants';
 
 function CloseIcon() {
   return (
@@ -111,6 +112,8 @@ interface Props {
    * which credentials it needs — or whether it can at all. Null while unknown.
    */
   vendorSlug: string | null;
+  /** The on-site agent it sits behind, if any. Off site, only it can read the radio on demand (WLS-029). */
+  deviceAgentId: string | null;
   /**
    * The backend owns `enabled` too — a move to a retired status turns polling
    * off, a move to COMMISSIONING turns it back on — so the tab re-reads the
@@ -348,17 +351,20 @@ export function DeviceWirelessTab({
   category,
   deviceIpAddress,
   vendorSlug,
+  deviceAgentId,
   deviceStatus,
   deviceDeletedAt,
   deviceReplacedAt,
   onDeviceUpdated,
 }: Props) {
   const permissions = usePermissions();
-  // WLS-029: an install whose server is off site talks to no device, so poll,
-  // reboot and diagnosis would all answer 409 — with or without an agent. An
-  // on-site server (the default) keeps them working for every device.
+  // WLS-029: an install whose server is off site talks to no device itself:
+  // reboot and diagnosis answer 409 for every device, and a poll is read
+  // through the device's agent or not at all. An on-site server (the
+  // default) keeps all three working for every device.
   const { serverOnSite } = useInstallation();
   const serverCannotReach = !serverOnSite;
+  const canPollFromHere = serverOnSite || deviceAgentId !== null;
   const [config, setConfig] = useState<WirelessConfigDTO | null>(null);
   const [noConfig, setNoConfig] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
@@ -643,8 +649,10 @@ export function DeviceWirelessTab({
       fetchStatus();
       fetchAlerts();
     } else {
-      setPollMsg(`Error: ${result.error}`);
-      showError(result.error || 'Error al sondear el equipo');
+      // An agent that gave no reading recorded nothing; say why in Spanish.
+      const message = agentPollFailure(result.status, result.error) ?? result.error ?? 'Error al sondear el equipo';
+      setPollMsg(`Error: ${message}`);
+      showError(message);
     }
     setPolling(false);
   };
@@ -1128,7 +1136,7 @@ export function DeviceWirelessTab({
                 </div>
                 <div className="flex gap-2">
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchStatus} disabled={statusLoading || isRebooting} />
-                  {canWrite && !serverCannotReach && (
+                  {canWrite && canPollFromHere && (
                     <IconButton
                       icon={<PollIcon />}
                       label={unsupportedVendorReason ?? 'Sondear ahora'}
@@ -1153,8 +1161,9 @@ export function DeviceWirelessTab({
             <Card.Body>
               {serverCannotReach && (
                 <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                  El servidor no está en la red monitoreada, así que el sondeo manual, el reinicio y el diagnóstico
-                  no están disponibles desde aquí.
+                  {deviceAgentId
+                    ? 'El servidor no está en la red monitoreada: el sondeo se hace a través del agente del equipo, y el reinicio y el diagnóstico no están disponibles desde aquí.'
+                    : 'El servidor no está en la red monitoreada, así que el sondeo manual, el reinicio y el diagnóstico no están disponibles desde aquí.'}
                 </p>
               )}
               {isRebooting && (
@@ -1315,9 +1324,11 @@ export function DeviceWirelessTab({
               ) : isRebooting ? null : (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                   Sin datos disponibles.{' '}
-                  {canWrite && !serverCannotReach
-                    ? <>Haga clic en &quot;Sondear Ahora&quot; para obtener métricas.</>
-                    : 'Las métricas aparecerán tras el próximo sondeo programado.'}
+                  {!canPollFromHere
+                    ? 'Sin un agente, nadie lee este equipo: asígnale uno en «Detalles» (Sondeado por).'
+                    : canWrite
+                      ? <>Haga clic en &quot;Sondear Ahora&quot; para obtener métricas.</>
+                      : 'Las métricas aparecerán tras el próximo sondeo programado.'}
                 </p>
               )}
             </Card.Body>

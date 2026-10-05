@@ -27,7 +27,7 @@ import {
 } from '@/components/ui';
 import { RESTORE_GRACE_DAYS } from '@/constants/device.constants';
 import { useAgents } from '@/hooks/useAgents';
-import { AGENT_STATUS_LABELS, SERVER_POLLER_LABEL } from '@/constants/agent.constants';
+import { AGENT_STATUS_LABELS, SERVER_POLLER_LABEL, agentPollFailure } from '@/constants/agent.constants';
 import { SERVER_AGENT_VALUE, agentIdFromPicker } from '@/components/agents/AgentPicker';
 import type { BulkAction } from '@/components/ui';
 import type { DeviceListItemDTO } from '@/types/device.types';
@@ -252,7 +252,7 @@ function DevicesPageContent() {
           entity: { singular: 'dispositivo', plural: 'dispositivos', gender: 'm' },
           confirmNote: `Saldrán de todos los listados y dejarán de monitorearse, pero podrás restaurarlos durante ${RESTORE_GRACE_DAYS} días desde la papelera.`,
           bulkActions: [
-            ...(serverOnSite ? [{
+            {
               key: 'poll',
               label: 'Sondear',
               confirmTitle: 'Sondear dispositivos',
@@ -266,11 +266,15 @@ function DevicesPageContent() {
               // front instead of collecting one error per row.
               skipRow: (device) =>
                 !device.monitoringEnabled ? 'monitoreo deshabilitado'
-                // MON-022: only its agent polls it; the server answers 409.
-                : device.agentId ? 'detrás de un agente (el sondeo manual aún no está disponible ahí)'
+                // MON-023: an off-site server pings only through an agent.
+                : !device.agentId && !serverOnSite ? 'sin agente, y el servidor no está en la red monitoreada'
                 : null,
-              runOne: (id: string) => apiService.triggerPoll(id),
-            } satisfies BulkAction<DeviceListItemDTO>] : []),
+              // MON-022: a device behind an agent is polled by asking that agent.
+              runOne: async (id: string) => {
+                const result = await apiService.triggerPoll(id);
+                return result.success ? result : { ...result, error: agentPollFailure(result.status, result.error) ?? result.error };
+              },
+            } satisfies BulkAction<DeviceListItemDTO>,
             ...(moveAction ? [moveAction] : []),
           ],
         } : undefined}

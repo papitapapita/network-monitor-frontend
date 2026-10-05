@@ -1,7 +1,7 @@
 import { Locator, Page } from '@playwright/test';
 import { test, expect, uniqueName } from './fixtures/test';
 import { ApiClient } from './fixtures/api';
-import { patchInstallation } from './fixtures/agents';
+import { fakeAgent, patchInstallation, stubAgents } from './fixtures/agents';
 import {
   captureCreate,
   confirmDialog,
@@ -1237,11 +1237,55 @@ test.describe('device conventions', () => {
     await expect(page.getByText('Nadie sondea este equipo.')).toBeVisible();
     await expect(page.locator('main').getByRole('button', { name: 'Sondear ahora' })).toHaveCount(0);
 
+    // The bulk poll stays for devices behind an agent; this one is set aside.
     await page.goto('/devices');
     await searchFor(page, device.name);
     await page.getByRole('checkbox', { name: `Seleccionar ${device.name}` }).click();
-    await expect(page.getByRole('button', { name: 'Eliminar', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sondear', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Sondear', exact: true }).click();
+    await expect(page.getByText(/sin agente, y el servidor no está en la red monitoreada/)).toBeVisible();
+  });
+
+  // ── MON-022 — a manual poll of a device behind an agent asks the agent ─
+  test('MON-022: a device behind an agent is polled on demand through it, off site too', async ({ page, api }) => {
+    const location = await arrangeLocation(api);
+    // 198.18/15 routes nowhere; teardown deletes the device and its schedule.
+    const ipAddress = uniqueIp();
+    const { device } = await arrangeDevice(api, { status: 'ACTIVE', ipAddress, locationId: location.id, monitoringEnabled: true, agentId: null });
+    await api.post(`devices/${device.id}/polling/config`, { enabled: true, ipAddress });
+
+    // Shown as behind a stubbed agent, and the poll answered here: a real one
+    // would ask a real agent on the customer's network.
+    await stubAgents(page, [fakeAgent({ id: 'e2e-a1', name: 'Oficina principal', agentVersion: '0.3.0' })]);
+    await page.route(new RegExp(`/api/devices/${device.id}$`), async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const res = await route.fetch();
+      const body = await res.json();
+      body.data.agentId = 'e2e-a1';
+      return route.fulfill({ response: res, json: body });
+    });
+    const answers = [
+      { status: 409, error: `Cannot poll device ${device.id} — its on-site agent is not connected` },
+      { status: 502, error: `Cannot poll device ${device.id} — its on-site agent could not poll it: ping: permission denied` },
+    ];
+    const polls: string[] = [];
+    await page.route(new RegExp(`/api/devices/${device.id}/poll$`), (route) => {
+      polls.push(route.request().method());
+      const { status, error } = answers.shift()!;
+      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ success: false, error }) });
+    });
+    await patchInstallation(page, (i) => { i.serverOnSite = false; });
+
+    await page.goto(`/devices/${device.id}`);
+    await page.getByRole('button', { name: 'Sondeo' }).click();
+    await expect(page.getByText(/«Sondear ahora» se lo pide a ese agente/)).toBeVisible();
+    await expect(page.getByText('Nadie sondea este equipo.')).toHaveCount(0);
+
+    const pollNow = page.locator('main').getByRole('button', { name: 'Sondear ahora' });
+    await pollNow.click();
+    await expect(page.getByText(/El agente de este equipo no está conectado/)).toBeVisible();
+    await pollNow.click();
+    await expect(page.getByText('El agente no pudo sondear el equipo: ping: permission denied')).toBeVisible();
+    expect(polls).toEqual(['POST', 'POST']);
   });
 
   // ── DEV-058 — a new COMMISSIONING device is watched by default ──────────

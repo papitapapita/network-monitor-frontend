@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test';
 import type { Page } from '@playwright/test';
 import type { ApiClient } from './fixtures/api';
-import { patchInstallation } from './fixtures/agents';
+import { fakeAgent, patchInstallation, stubAgents } from './fixtures/agents';
 
 /**
  * What the install runs (GET /api/installation). Its values are fixed by the
@@ -26,14 +26,25 @@ test('an off-site server offers no network scan', async ({ page }) => {
 /**
  * WLS-029 on a real access point: AP VANGUARDIA carries a wireless config.
  * Nothing is clicked — the poll, reboot and diagnosis would reach the radio.
+ * Off site, whether it sits behind an agent decides the poll, so that is set
+ * on the response either way.
  */
 test.describe('the wireless tab of a configured radio', () => {
   const name = 'AP VANGUARDIA';
 
-  async function openWirelessTab(page: Page, api: ApiClient) {
+  async function openWirelessTab(page: Page, api: ApiClient, agentId?: string | null) {
     const { devices } = await api.get<{ devices: Array<{ id: string; name: string }> }>(`devices?search=${encodeURIComponent(name)}&limit=5`);
     const device = devices.find((d) => d.name === name);
     test.skip(!device, `no device named ${name}`);
+    if (agentId !== undefined) {
+      await page.route(new RegExp(`/api/devices/${device!.id}$`), async (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        const res = await route.fetch();
+        const body = await res.json();
+        body.data.agentId = agentId;
+        return route.fulfill({ response: res, json: body });
+      });
+    }
     await page.goto(`/devices/${device!.id}`);
     await page.getByRole('button', { name: 'Inalámbrico', exact: true }).click();
     // The tab keeps an SSE stream open, so wait on the content, not the network.
@@ -48,12 +59,23 @@ test.describe('the wireless tab of a configured radio', () => {
     await expect(main.getByText(/no está en la red monitoreada/)).toHaveCount(0);
   });
 
-  test('off site: none of them, and it says why', async ({ page, api }) => {
+  test('off site with no agent: none of them, and it says why', async ({ page, api }) => {
     await patchInstallation(page, (i) => { i.serverOnSite = false; });
-    await openWirelessTab(page, api);
+    await openWirelessTab(page, api, null);
     const main = page.locator('main');
     await expect(main.getByText(/El servidor no está en la red monitoreada, así que el sondeo manual/)).toBeVisible();
     await expect(main.getByRole('button', { name: /Sondear ahora|Reiniciar equipo/ })).toHaveCount(0);
+    await expect(main.getByText('Diagnóstico en vivo')).toHaveCount(0);
+  });
+
+  test('off site behind an agent: the poll goes through the agent; reboot and diagnosis stay off', async ({ page, api }) => {
+    await patchInstallation(page, (i) => { i.serverOnSite = false; });
+    await stubAgents(page, [fakeAgent({ id: 'e2e-a1', name: 'Oficina principal', agentVersion: '0.3.0' })]);
+    await openWirelessTab(page, api, 'e2e-a1');
+    const main = page.locator('main');
+    await expect(main.getByText(/el sondeo se hace a través del agente del equipo/)).toBeVisible();
+    await expect(main.getByRole('button', { name: /Sondear ahora|no está disponible para equipos/ })).toHaveCount(1);
+    await expect(main.getByRole('button', { name: 'Reiniciar equipo' })).toHaveCount(0);
     await expect(main.getByText('Diagnóstico en vivo')).toHaveCount(0);
   });
 });

@@ -87,7 +87,7 @@ import {
   BulkClearAlertsResult,
   BulkDeleteAlertsResult,
 } from '../types/alert.types';
-import type { LinkDiagnosisDTO, StartLinkDiagnosisResult } from '../types/wireless.types';
+import type { LinkDiagnosisDTO, StartLinkDiagnosisResult, WirelessPollResult } from '../types/wireless.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
 import { SseState } from './sse';
@@ -1024,12 +1024,15 @@ class MockApiService {
   async triggerPoll(deviceId: string): Promise<ApiResponse<ManualPollResultDTO>> {
     const device = findLiveDevice(deviceId);
     if (!device) return err('Device not found');
+    // MON-022: a device behind an agent is polled by asking that agent.
     if (device.agentId) {
-      return {
-        success: false,
-        status: 409,
-        error: `Cannot poll device ${deviceId} — it is polled by an on-site agent, and polling it on demand is not available yet`,
-      };
+      settleMockAgents();
+      const agent = agents.find((a) => a.id === device.agentId);
+      if (!agent || agent.status !== 'ACTIVE' || agent.offlineSince || !agent.lastSeenAt) {
+        return { success: false, status: 409, error: `Cannot poll device ${deviceId} — its on-site agent is not connected` };
+      }
+    } else if (localStorage.getItem('nms:mock-server-off-site') !== null) {
+      return { success: false, status: 409, error: `Cannot poll device ${deviceId} — this server is not on the monitored network` };
     }
 
     const success = Math.random() > 0.2;
@@ -1276,8 +1279,8 @@ class MockApiService {
   async bulkClearWirelessAlerts() {
     return { success: false as const, error: 'No disponible en modo mock' };
   }
-  async triggerWirelessPoll() {
-    return { success: false as const, error: 'No disponible en modo mock' };
+  async triggerWirelessPoll(): Promise<ApiResponse<WirelessPollResult>> {
+    return { success: false, error: 'No disponible en modo mock' };
   }
   async rebootWirelessDevice() {
     return { success: false as const, error: 'No disponible en modo mock' };

@@ -43,7 +43,7 @@ import { DeviceResponseDTO } from '@/types/device.types';
 import { useQueryClient, matchQuery } from '@tanstack/react-query';
 import { AGENTS_QUERY_KEY, useAgent } from '@/hooks/useAgents';
 import { AgentDTO } from '@/types/agent.types';
-import { AGENT_CONDITION_LABELS, agentCondition, formatAgentDate } from '@/constants/agent.constants';
+import { AGENT_CONDITION_LABELS, agentCondition, agentPollFailure, formatAgentDate } from '@/constants/agent.constants';
 
 function RefreshIcon() {
   return (
@@ -136,16 +136,18 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
 
   // ── Agent ─────────────────────────────────────────────────
   // A device behind an on-site agent is polled by that agent alone (MON-022):
-  // the server refuses to poll it on demand, and while the agent is not
-  // reporting the status reads UNKNOWN with the agent's last reading behind it.
+  // a manual poll asks the agent, and while the agent is not reporting the
+  // status reads UNKNOWN with the agent's last reading behind it.
   const behindAgent = device.agentId !== null;
   const { data: agent } = useAgent(device.agentId);
+  const queryClient = useQueryClient();
   const agentState = agent ? agentCondition(agent) : null;
   const agentSilent = agentState !== null && agentState !== 'ONLINE';
   // MON-023: a server off the monitored network pings nothing, so it refuses
-  // every manual poll, and a device with no agent stays UNKNOWN with no down
-  // alert until an agent takes it over.
+  // a manual poll of a device with no agent, and such a device stays UNKNOWN
+  // with no down alert until an agent takes it over.
   const { serverOnSite } = useInstallation();
+  const canPollNow = (behindAgent || serverOnSite) && permissions.canWrite;
 
   /** The last ping on record, whether or not one is still scheduled. */
   const lastPolledAt = pollingStatus?.lastPolled ?? pollingStatus?.lastResult?.timestamp ?? null;
@@ -215,9 +217,14 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     setIsPolling(true);
     setPollResult(null);
     const result = await apiService.triggerPoll(deviceId);
+    const agentFailure = result.success ? null : agentPollFailure(result.status, result.error);
     if (result.success && result.data) {
       setPollResult(result.data);
       fetchPollingStatus();
+    } else if (agentFailure) {
+      // The agent gave no reading and nothing was recorded; the card stands.
+      showError(agentFailure);
+      if (device.agentId) queryClient.invalidateQueries({ queryKey: [...AGENTS_QUERY_KEY, device.agentId] });
     } else if (result.status === 409) {
       // A device nobody is watching cannot be polled on demand: the reading
       // would sit there with nothing scheduled to correct it. Neither can one
@@ -346,7 +353,6 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       if (historyShown) fetchHistory(historyQuery.offset);
     };
   });
-  const queryClient = useQueryClient();
   useEffect(() => {
     if (!device.agentId) return;
     const key = [...AGENTS_QUERY_KEY, device.agentId];
@@ -449,7 +455,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
               {!monitoringOff && !showConfig && (
                 <>
                   <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchPollingStatus} disabled={statusLoading} />
-                  {!behindAgent && serverOnSite && permissions.canWrite && (
+                  {canPollNow && (
                     <IconButton
                       icon={<PollIcon />}
                       label="Sondear ahora"
@@ -612,7 +618,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                       ) : (
                         'asignado'
                       )}
-                      , instalado en su red. El sondeo manual todavía no está disponible para estos equipos.
+                      , instalado en su red. «Sondear ahora» se lo pide a ese agente.
                     </>
                   )}
                 </p>
