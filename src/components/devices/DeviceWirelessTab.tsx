@@ -14,7 +14,7 @@ import {
   WirelessIdentitySuggestion,
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
-import { Card, Input, Select, Combobox, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle } from '@/components/ui';
+import { Card, Input, Select, Combobox, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle, PlusIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useInstallation } from '@/hooks/useInstallation';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -844,13 +844,24 @@ export function DeviceWirelessTab({
             </SectionTitle>
             {!configLoading && !configError && (noConfig || config) && (
               <div className="flex gap-2">
-                <EditToggleButton
-                  isEditing={showConfigForm}
-                  onEdit={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
-                  onCancel={() => setShowConfigForm(false)}
-                  editLabel={noConfig ? 'Crear configuración' : 'Editar'}
-                  disabled={noConfig && !showConfigForm && hasCollectorCreds !== true}
-                />
+                {noConfig && !showConfigForm ? (
+                  // Creating is offered only once the credentials its collector
+                  // logs in with are saved; until then the body says what's missing.
+                  hasCollectorCreds === true && !unsupportedVendorReason && permissions.canWrite && (
+                    <IconButton
+                      icon={<PlusIcon />}
+                      label="Crear sondeo inalámbrico"
+                      variant="primary"
+                      onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
+                    />
+                  )
+                ) : (
+                  <EditToggleButton
+                    isEditing={showConfigForm}
+                    onEdit={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
+                    onCancel={() => setShowConfigForm(false)}
+                  />
+                )}
                 {!noConfig && !showConfigForm && permissions.isAdmin && (
                   <IconButton icon={<TrashIcon />} label="Eliminar configuración" variant="danger" onClick={handleDeleteConfig} />
                 )}
