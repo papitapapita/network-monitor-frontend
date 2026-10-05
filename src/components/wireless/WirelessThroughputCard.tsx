@@ -11,6 +11,7 @@ import {
   utilisationBarClass,
   utilisationVariant,
 } from '@/constants/wireless.constants';
+import { fmtInterval } from '@/constants/polling.constants';
 
 interface Props {
   deviceId: string;
@@ -38,7 +39,7 @@ export function WirelessThroughputCard({ deviceId, intervalSecs }: Props) {
       <Card.Header>
         <div className="flex items-center justify-between gap-3">
           <SectionTitle
-            info={intervalSecs != null ? `Nueva lectura cada ${intervalSecs}s, cuando el sondeo la guarda.` : undefined}
+            info={intervalSecs != null ? `Nueva lectura cada ${fmtInterval(intervalSecs)}, cuando el sondeo la guarda.` : undefined}
           >
             Tráfico en vivo
           </SectionTitle>

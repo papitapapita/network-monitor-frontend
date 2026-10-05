@@ -22,7 +22,9 @@ import {
   WIRELESS_INTERVAL_MIN_SECONDS,
   INTERVAL_MAX_SECONDS,
   validateIntervalSeconds,
+  fmtInterval,
 } from '@/constants/polling.constants';
+import { IntervalInput } from './IntervalInput';
 import {
   fmtBps,
   fmtKbps,
@@ -900,7 +902,7 @@ export function DeviceWirelessTab({
               </div>
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Intervalo</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.intervalSecs}s</dd>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtInterval(config.intervalSecs)}</dd>
               </div>
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">IP de sondeo</dt>
@@ -955,18 +957,14 @@ export function DeviceWirelessTab({
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Intervalo (segundos)"
-                  type="number"
-                  min={WIRELESS_INTERVAL_MIN_SECONDS}
-                  max={INTERVAL_MAX_SECONDS}
+                <IntervalInput
+                  label="Intervalo"
                   value={configForm.intervalSecs}
-                  onChange={(e) => {
-                    setConfigForm((p) => ({ ...p, intervalSecs: e.target.value }));
+                  onChange={(seconds) => {
+                    setConfigForm((p) => ({ ...p, intervalSecs: seconds }));
                     setConfigFormErrors((p) => { const n = { ...p }; delete n.intervalSecs; return n; });
                   }}
                   error={configFormErrors.intervalSecs}
-                  fullWidth
                 />
                 {/* "Sí" is not offered where the backend would answer 400 — a
                     retired or replaced unit cannot be polled — but the rest of

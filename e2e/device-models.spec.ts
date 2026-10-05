@@ -794,7 +794,7 @@ test.describe('device model wireless flag', () => {
 
     // Before: the device has a wireless tab, and a config on it.
     await openWirelessTab(page, device.id);
-    await expect(detailValue(page, 'Intervalo')).toHaveText('3600s');
+    await expect(detailValue(page, 'Intervalo')).toHaveText('1 h');
 
     await setWirelessFlag(page, model.id, false);
 
@@ -812,7 +812,7 @@ test.describe('device model wireless flag', () => {
 
     // And the device keeps both its tab and its config.
     await openWirelessTab(page, device.id);
-    await expect(detailValue(page, 'Intervalo')).toHaveText('3600s');
+    await expect(detailValue(page, 'Intervalo')).toHaveText('1 h');
   });
 
   test('DEV-027: deleting the config clears the way, and the tab goes with the flag', async ({ page, api }) => {

@@ -32,7 +32,9 @@ import {
   FAILURES_BEFORE_DOWN_MAX,
   validateIntervalSeconds,
   validateFailuresBeforeDown,
+  fmtInterval,
 } from '@/constants/polling.constants';
+import { IntervalInput } from './IntervalInput';
 import {
   canEnableMonitoring,
   monitoringBlockedReason,
@@ -512,18 +514,14 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 </>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Intervalo (segundos)"
-                    type="number"
-                    min={POLLING_INTERVAL_MIN_SECONDS}
-                    max={INTERVAL_MAX_SECONDS}
+                  <IntervalInput
+                    label="Intervalo"
                     value={configForm.intervalSeconds}
-                    onChange={(e) => {
-                      setConfigForm((p) => ({ ...p, intervalSeconds: e.target.value }));
+                    onChange={(seconds) => {
+                      setConfigForm((p) => ({ ...p, intervalSeconds: seconds }));
                       setConfigErrors((p) => { const n = { ...p }; delete n.intervalSeconds; return n; });
                     }}
                     error={configErrors.intervalSeconds}
-                    fullWidth
                   />
                   <Input
                     label="Fallos Antes de Caída"
@@ -646,7 +644,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 </div>
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Intervalo</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{pollingStatus.intervalSeconds}s</dd>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtInterval(pollingStatus.intervalSeconds)}</dd>
                 </div>
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos Antes de Caída</dt>

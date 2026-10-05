@@ -1216,7 +1216,7 @@ test.describe('device conventions', () => {
 
     // The flag and the schedule are two writes; the tab only offers the
     // interval form once both landed.
-    await expect(page.getByText('Intervalo (segundos)')).toBeVisible();
+    await expect(page.getByLabel('Intervalo', { exact: true })).toBeVisible();
 
     await page.reload();
     await expect(detailValue(page, 'Monitoreo')).toHaveText('Habilitado');
