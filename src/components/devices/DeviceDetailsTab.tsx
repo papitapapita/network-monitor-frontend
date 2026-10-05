@@ -31,6 +31,7 @@ import { AgentPicker, agentIdFromPicker, agentPickerValue } from '@/components/a
 import { SERVER_POLLER_LABEL } from '@/constants/agent.constants';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
+import { IpLink } from './IpLink';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -489,7 +490,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   },
                   { label: 'Categoría', value: deviceCategoryLabel(device.category) },
                   { label: 'Tipo de Propietario', value: deviceOwnerLabel(device.ownerType) },
-                  { label: 'Dirección IP', value: device.ipAddress || '—', mono: true },
+                  { label: 'Dirección IP', value: device.ipAddress ? <IpLink ip={device.ipAddress} className="" /> : '—', mono: true },
                   { label: 'Dirección MAC', value: device.macAddress || '—', mono: true },
                   { label: 'Número de Serie', value: device.serialNumber || '—' },
                   {

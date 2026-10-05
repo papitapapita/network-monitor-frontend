@@ -10,6 +10,7 @@ import {
   deviceCategoryLabel,
 } from '@/constants/device.constants';
 import type { DeviceLookups } from '@/hooks/useCatalogs';
+import { IpLink } from './IpLink';
 
 const CONNECTIVITY_LABELS: Record<ConnectivityStatus, string> = {
   UP: 'En línea',
@@ -128,15 +129,7 @@ function deviceColumnCatalog({
       sortable: true,
       cell: (device) =>
         device.ipAddress ? (
-          <a
-            href={`http://${device.ipAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {device.ipAddress}
-          </a>
+          <IpLink ip={device.ipAddress} className="text-sm" />
         ) : (
           <span className="text-gray-400 dark:text-gray-500">—</span>
         ),

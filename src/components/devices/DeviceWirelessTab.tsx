@@ -25,6 +25,7 @@ import {
   fmtInterval,
 } from '@/constants/polling.constants';
 import { IntervalInput } from './IntervalInput';
+import { IpLink } from './IpLink';
 import {
   fmtBps,
   fmtKbps,
@@ -221,9 +222,11 @@ function ClientRow({ client }: { client: WirelessClientDTO }) {
         </td>
         {/* IP */}
         <td className="py-2 pr-3">
-          <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
-            {client.ipAddress ?? '—'}
-          </span>
+          {client.ipAddress ? (
+            <IpLink ip={client.ipAddress} />
+          ) : (
+            <span className="font-mono text-xs text-gray-600 dark:text-gray-400">—</span>
+          )}
         </td>
         {/* Signal AP receives from CPE */}
         <td className="py-2 pr-3">
@@ -416,9 +419,9 @@ export function DeviceWirelessTab({
   // once the edit form for a STATION is actually opened.
   const [apDevices, setApDevices] = useState<{ id: string; name: string; ipAddress: string | null }[]>([]);
   const [apDevicesLoading, setApDevicesLoading] = useState(false);
-  // The declared parent AP's name, resolved for display in the read-only view
-  // (the config only carries the id).
-  const [parentApName, setParentApName] = useState<string | null>(null);
+  // The declared parent AP's name and IP, resolved for display in the
+  // read-only view (the config only carries the id).
+  const [parentAp, setParentAp] = useState<{ name: string; ipAddress: string | null } | null>(null);
 
   const [expectedClients, setExpectedClients] = useState<WirelessExpectedClientsResponse | null>(null);
   const [expectedClientsLoading, setExpectedClientsLoading] = useState(false);
@@ -577,12 +580,12 @@ export function DeviceWirelessTab({
   // for the read-only view instead of asking the operator to recognise a UUID.
   useEffect(() => {
     if (!config?.parentApDeviceId) {
-      setParentApName(null);
+      setParentAp(null);
       return;
     }
     let cancelled = false;
     apiService.getDevice(config.parentApDeviceId).then((r) => {
-      if (!cancelled) setParentApName(r.success && r.data ? r.data.name : null);
+      if (!cancelled) setParentAp(r.success && r.data ? { name: r.data.name, ipAddress: r.data.ipAddress } : null);
     });
     return () => { cancelled = true; };
   }, [config?.parentApDeviceId]);
@@ -721,7 +724,7 @@ export function DeviceWirelessTab({
       setNoConfig(true);
       setExpectedClients(null);
       setIdentitySuggestions([]);
-      setParentApName(null);
+      setParentAp(null);
     } else {
       showError(result.error || 'No se pudo eliminar la configuración inalámbrica');
     }
@@ -906,7 +909,9 @@ export function DeviceWirelessTab({
               </div>
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">IP de sondeo</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{config.ipAddress ?? '—'}</dd>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">
+                  {config.ipAddress || deviceIpAddress ? <IpLink ip={config.ipAddress || deviceIpAddress || ''} /> : '—'}
+                </dd>
               </div>
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Último sondeo</dt>
@@ -935,8 +940,16 @@ export function DeviceWirelessTab({
               {!isAP && config.parentApDeviceId && (
                 <div>
                   <dt className="font-medium text-gray-500 dark:text-gray-400">AP declarado</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                    {parentApName ?? config.parentApDeviceId}
+                  <dd className="mt-1">
+                    <Link
+                      href={`/devices/${config.parentApDeviceId}`}
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {parentAp?.name ?? config.parentApDeviceId}
+                    </Link>
+                    {parentAp?.ipAddress && (
+                      <span className="block"><IpLink ip={parentAp.ipAddress} /></span>
+                    )}
                   </dd>
                 </div>
               )}
