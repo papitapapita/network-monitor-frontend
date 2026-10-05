@@ -1030,7 +1030,7 @@ export function DeviceWirelessTab({
                     value={configForm.parentApDeviceId}
                     onChange={(id) => setConfigForm((p) => ({ ...p, parentApDeviceId: id }))}
                     options={apDevices.map((d) => ({ value: d.id, label: d.name, sublabel: d.ipAddress ?? undefined }))}
-                    placeholder={apDevicesLoading ? 'Cargando...' : 'Sin declarar · escribir para buscar'}
+                    placeholder={apDevicesLoading ? 'Cargando...' : 'Automático'}
                     disabled={apDevicesLoading}
                     info="El AP donde esta estación debería estar conectada. Alimenta la vista de «Estaciones Esperadas» en ese AP."
                     fullWidth

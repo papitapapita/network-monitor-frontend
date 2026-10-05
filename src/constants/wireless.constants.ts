@@ -201,7 +201,7 @@ export const isValidLanSpeed = (value: string): boolean =>
 /** Options for the LAN-speed select, keeping a stored off-list value visible. */
 export function lanSpeedOptions(current: string): { value: string; label: string }[] {
   const options = [
-    { value: '', label: 'Sin fijar — se toma del primer sondeo' },
+    { value: '', label: 'Automático' },
     ...LAN_SPEED_OPTIONS_MBPS.map((v) => ({ value: String(v), label: v >= 1000 ? `${v / 1000} Gbps` : `${v} Mbps` })),
   ];
   if (current && !LAN_SPEED_OPTIONS_MBPS.some((v) => String(v) === current)) {
