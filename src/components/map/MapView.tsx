@@ -2,8 +2,9 @@
 
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { useEffect } from 'react';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useState } from 'react';
+import { BaseTiles, MAP_CONTROL_BUTTON_CLASS } from './BaseTiles';
 import { MapPin } from '@/types/map.types';
 import { LOCATION_TYPE_COLORS, LOCATION_TYPE_LABELS } from '@/constants/location.constants';
 import { DEVICE_STATUS_COLORS as STATUS_COLORS, DEVICE_STATUS_LABELS as STATUS_LABELS } from '@/constants/device.constants';
@@ -142,19 +143,21 @@ export default function MapView({ pins, className = 'h-full w-full' }: MapViewPr
   const center = pins.length > 0
     ? ([pins[0].latitude, pins[0].longitude] as [number, number])
     : ([-23.55, -46.63] as [number, number]);
+  const [satellite, setSatellite] = useState(false);
 
   return (
-    <MapContainer
-      center={center}
-      zoom={5}
-      className={className}
-      style={{ zIndex: 0 }}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
-      />
-      <MapLayers pins={pins} />
-    </MapContainer>
+    <div className={`relative ${className}`}>
+      <MapContainer center={center} zoom={5} className="h-full w-full" style={{ zIndex: 0 }}>
+        <BaseTiles satellite={satellite} />
+        <MapLayers pins={pins} />
+      </MapContainer>
+      <button
+        type="button"
+        onClick={() => setSatellite((s) => !s)}
+        className={`absolute bottom-6 right-2 z-[400] ${MAP_CONTROL_BUTTON_CLASS}`}
+      >
+        {satellite ? 'Ver calles' : 'Ver satélite'}
+      </button>
+    </div>
   );
 }

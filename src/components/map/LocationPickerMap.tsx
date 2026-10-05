@@ -2,23 +2,16 @@
 
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Tooltip, CollapseIcon, ExpandIcon, LocateIcon } from '@/components/ui';
+import { BaseTiles, MAP_CONTROL_BUTTON_CLASS } from './BaseTiles';
 
 // São Paulo, matching MapView's fallback — used only until the operator clicks
 // and the browser's own geolocation (if granted) hasn't resolved yet either.
 const DEFAULT_CENTER: [number, number] = [-23.55, -46.63];
 
-const STREET_TILES = {
-  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
-};
-const SATELLITE_TILES = {
-  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  attribution: '&copy; Esri, Maxar, Earthstar Geographics',
-};
 
 const markerIcon = L.divIcon({
   className: '',
@@ -67,8 +60,7 @@ function ViewTracker({ viewRef }: { viewRef: React.MutableRefObject<{ center: [n
   return null;
 }
 
-const controlButtonClass =
-  'rounded-md bg-white dark:bg-gray-800 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 shadow-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-wait';
+const controlButtonClass = MAP_CONTROL_BUTTON_CLASS;
 
 /** Resolves once via the browser's geolocation API; null if denied, unsupported, or still pending. */
 function useGeolocatedCenter(skip: boolean): [number, number] | null {
@@ -110,7 +102,6 @@ export default function LocationPickerMap({
   const lon = parseFloat(longitude);
   const position: [number, number] | null = !isNaN(lat) && !isNaN(lon) ? [lat, lon] : null;
   const geoCenter = useGeolocatedCenter(position !== null);
-  const tiles = satellite ? SATELLITE_TILES : STREET_TILES;
 
   useEffect(() => {
     if (!expanded) return;
@@ -167,7 +158,7 @@ export default function LocationPickerMap({
       }
     >
       <MapContainer center={initialCenter} zoom={initialZoom} className="h-full w-full" style={{ zIndex: 0 }}>
-        <TileLayer url={tiles.url} attribution={tiles.attribution} />
+        <BaseTiles satellite={satellite} />
         <ClickHandler onPick={onPick} />
         <ViewTracker viewRef={viewRef} />
         <Recenter position={position} geoCenter={geoCenter} />
