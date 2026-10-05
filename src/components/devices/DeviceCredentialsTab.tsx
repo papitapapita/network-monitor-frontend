@@ -6,9 +6,12 @@ import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/d
 import { Card, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions, EditToggleButton, ConfirmModal, InfoTip, SectionTitle } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
+import { wirelessCollectorFor } from '@/constants/wireless.constants';
 
 interface Props {
   deviceId: string;
+  /** Of the device's model. Decides which credentials the wireless poller reads, and so which the form asks for first. */
+  vendorSlug: string | null;
 }
 
 function TrashIcon() {
@@ -59,12 +62,16 @@ function invalidPort(value: string): boolean {
   return !Number.isInteger(port) || port < 1 || port > 65535;
 }
 
-export function DeviceCredentialsTab({ deviceId }: Props) {
+export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   // These endpoints carry device passwords and SNMP keys, so writing them is its
   // own permission — an operator who may edit the device still cannot touch
   // them. Reading stays open to everyone: the response is masked.
   const permissions = usePermissions();
   const canManage = permissions.isAdmin;
+  // Mimosa radios are polled over SNMP only, so SNMP leads the form and is
+  // required there. HTTP stays required too: the backend demands the pair on
+  // every save whatever the vendor.
+  const snmpFirst = wirelessCollectorFor(vendorSlug ?? '')?.credentials === 'snmp';
 
   const [creds, setCreds] = useState<DeviceCredentialsResponseDTO | null>(null);
   const [noCreds, setNoCreds] = useState(false);
@@ -109,7 +116,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
       httpUsername: creds?.httpUsername ?? '',
       httpPassword: '',
       httpPort: String(creds?.httpPort ?? 443),
-      snmpEnabled: creds?.hasSnmpCredentials ?? false,
+      snmpEnabled: snmpFirst || (creds?.hasSnmpCredentials ?? false),
       snmpVersion: String(creds?.snmpVersion ?? 2) as '1' | '2' | '3',
       snmpCommunity: '',
       snmpV3AuthUser: creds?.snmpV3AuthUser ?? '',
@@ -127,13 +134,16 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
   const field = (key: keyof FormState, value: string | boolean) =>
     setForm((p) => ({ ...p, [key]: value }));
 
-  const validate = (): string | null => {
+  const validateHttp = (): string | null => {
     if (!form.httpUsername.trim()) return 'El usuario HTTP es obligatorio.';
     // The backend replaces the HTTP pair on every call and rejects a blank
     // password, so it must be re-entered even when editing.
     if (!form.httpPassword) return 'La contraseña HTTP es obligatoria.';
     if (invalidPort(form.httpPort)) return 'El puerto HTTP debe estar entre 1 y 65535.';
+    return null;
+  };
 
+  const validateSnmp = (): string | null => {
     if (form.snmpEnabled) {
       if (invalidPort(form.snmpPort)) return 'El puerto SNMP debe estar entre 1 y 65535.';
       const isNew = !creds?.hasSnmpCredentials;
@@ -148,9 +158,12 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
         return 'El community string es obligatorio para SNMPv1/v2c.';
       }
     }
-
     return null;
   };
+
+  // Report the first problem in the order the form shows its sections.
+  const validate = (): string | null =>
+    snmpFirst ? validateSnmp() ?? validateHttp() : validateHttp() ?? validateSnmp();
 
   const handleSave = async () => {
     const validationError = validate();
@@ -225,6 +238,216 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
 
   const snmpV = form.snmpVersion;
 
+  const httpSection = (
+  <div>
+    <div className="mb-3">
+      <SectionTitle
+        as="h3"
+        info={
+          snmpFirst
+            ? 'Este equipo no las usa para el sondeo, pero el backend exige el par en cada guardado. Use el acceso a la interfaz web del equipo; la contraseña debe volver a escribirse.'
+            : 'Usadas por el sondeo inalámbrico de equipos Ubiquiti (AirOS) y el reinicio remoto. El backend reemplaza el par completo en cada guardado, por lo que la contraseña debe volver a escribirse.'
+        }
+      >
+        HTTP / API Web <span className="font-normal text-gray-500 dark:text-gray-400">(requerido)</span>
+      </SectionTitle>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Input
+        label="Usuario *"
+        value={form.httpUsername}
+        onChange={(e) => field('httpUsername', e.target.value)}
+        fullWidth
+      />
+      <Input
+        label="Contraseña *"
+        type="password"
+        value={form.httpPassword}
+        onChange={(e) => field('httpPassword', e.target.value)}
+        fullWidth
+      />
+      <Input
+        label="Puerto HTTP"
+        type="number"
+        value={form.httpPort}
+        onChange={(e) => field('httpPort', e.target.value)}
+        fullWidth
+      />
+    </div>
+  </div>
+  );
+
+  const snmpSection = (
+  <div>
+    {snmpFirst ? (
+      <SectionTitle as="h3" info="Los equipos Mimosa se sondean solo por SNMP.">
+        SNMP <span className="font-normal text-gray-500 dark:text-gray-400">(requerido)</span>
+      </SectionTitle>
+    ) : (
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="snmpEnabled"
+          checked={form.snmpEnabled}
+          onChange={(e) => field('snmpEnabled', e.target.checked)}
+          label="Configurar SNMP"
+        />
+        <span className="text-xs text-gray-500 dark:text-gray-400">(opcional)</span>
+        <InfoTip label="Acerca de SNMP">
+          Usado por el sondeo inalámbrico de equipos Mimosa. Los demás equipos no lo necesitan.
+        </InfoTip>
+      </div>
+    )}
+
+    {form.snmpEnabled && (
+      <div className="mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Versión SNMP
+            </label>
+            <select
+              value={snmpV}
+              onChange={(e) => field('snmpVersion', e.target.value as '1' | '2' | '3')}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="1">SNMPv1</option>
+              <option value="2">SNMPv2c</option>
+              <option value="3">SNMPv3</option>
+            </select>
+          </div>
+          <Input
+            label="Puerto SNMP"
+            type="number"
+            value={form.snmpPort}
+            onChange={(e) => field('snmpPort', e.target.value)}
+            fullWidth
+          />
+        </div>
+
+        {(snmpV === '1' || snmpV === '2') && (
+          <div className="mt-4">
+            <Input
+              label="Community string"
+              value={form.snmpCommunity}
+              placeholder={creds?.snmpCommunity ? '(dejar vacío para no cambiar)' : ''}
+              onChange={(e) => field('snmpCommunity', e.target.value)}
+              fullWidth
+            />
+          </div>
+        )}
+
+        {snmpV === '3' && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Usuario auth"
+              value={form.snmpV3AuthUser}
+              onChange={(e) => field('snmpV3AuthUser', e.target.value)}
+              fullWidth
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Protocolo auth
+              </label>
+              <select
+                value={form.snmpV3AuthProto}
+                onChange={(e) => field('snmpV3AuthProto', e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— ninguno —</option>
+                <option value="MD5">MD5</option>
+                <option value="SHA">SHA</option>
+              </select>
+            </div>
+            <Input
+              label="Clave auth"
+              type="password"
+              value={form.snmpV3AuthKey}
+              placeholder={creds?.snmpV3AuthKey ? '(dejar vacío para no cambiar)' : ''}
+              onChange={(e) => field('snmpV3AuthKey', e.target.value)}
+              fullWidth
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Protocolo privacidad
+              </label>
+              <select
+                value={form.snmpV3PrivProto}
+                onChange={(e) => field('snmpV3PrivProto', e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— ninguno —</option>
+                <option value="DES">DES</option>
+                <option value="AES">AES</option>
+              </select>
+            </div>
+            {form.snmpV3PrivProto && (
+              <Input
+                label="Clave privacidad"
+                type="password"
+                value={form.snmpV3PrivKey}
+                placeholder={creds?.snmpV3PrivKey ? '(dejar vacío para no cambiar)' : ''}
+                onChange={(e) => field('snmpV3PrivKey', e.target.value)}
+                fullWidth
+              />
+            )}
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+  );
+
+  const snmpSummary = creds?.hasSnmpCredentials && !showForm && (
+    <Card>
+      <Card.Header>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">SNMP</h2>
+      </Card.Header>
+      <Card.Body>
+        <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <dt className="font-medium text-gray-500 dark:text-gray-400">Estado SNMP</dt>
+            <dd className="mt-1">
+              <Badge variant="success">Configurado</Badge>
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-500 dark:text-gray-400">Versión</dt>
+            <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">
+              {creds.snmpVersion === 1 ? 'SNMPv1' : creds.snmpVersion === 2 ? 'SNMPv2c' : 'SNMPv3'}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-500 dark:text-gray-400">Puerto</dt>
+            <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.snmpPort}</dd>
+          </div>
+          {(creds.snmpVersion === 1 || creds.snmpVersion === 2) && (
+            <div>
+              <dt className="font-medium text-gray-500 dark:text-gray-400">Community</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.snmpCommunity ?? '—'}</dd>
+            </div>
+          )}
+          {creds.snmpVersion === 3 && (
+            <>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Usuario auth</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3AuthUser ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Protocolo auth</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3AuthProto ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Protocolo priv.</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3PrivProto ?? '—'}</dd>
+              </div>
+            </>
+          )}
+        </dl>
+      </Card.Body>
+    </Card>
+  
+  );
+
   return (
     <div className="space-y-6">
       <ConfirmModal
@@ -238,11 +461,15 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
         isLoading={deleting}
       />
 
-      {/* HTTP credentials — the required pair */}
+      {/* SNMP-first vendors read their summary before the HTTP card */}
+      {snmpFirst && snmpSummary}
+
       <Card>
         <Card.Header>
           <div className="flex flex-wrap justify-between items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Credenciales HTTP / API Web</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {snmpFirst ? 'Credenciales SNMP / HTTP' : 'Credenciales HTTP / API Web'}
+            </h2>
             {!loading && canManage && (
               <div className="flex gap-2">
                 <EditToggleButton
@@ -316,151 +543,9 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
                 </div>
               )}
 
-              {/* HTTP section */}
-              <div>
-                <div className="mb-3">
-                  <SectionTitle
-                    as="h3"
-                    info="Usadas por el sondeo inalámbrico de equipos Ubiquiti (AirOS) y el reinicio remoto. El backend reemplaza el par completo en cada guardado, por lo que la contraseña debe volver a escribirse."
-                  >
-                    HTTP / API Web <span className="font-normal text-gray-500 dark:text-gray-400">(requerido)</span>
-                  </SectionTitle>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Usuario *"
-                    value={form.httpUsername}
-                    onChange={(e) => field('httpUsername', e.target.value)}
-                    fullWidth
-                  />
-                  <Input
-                    label="Contraseña *"
-                    type="password"
-                    value={form.httpPassword}
-                    onChange={(e) => field('httpPassword', e.target.value)}
-                    fullWidth
-                  />
-                  <Input
-                    label="Puerto HTTP"
-                    type="number"
-                    value={form.httpPort}
-                    onChange={(e) => field('httpPort', e.target.value)}
-                    fullWidth
-                  />
-                </div>
-              </div>
-
-              {/* SNMP section — optional */}
+              {snmpFirst ? snmpSection : httpSection}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="snmpEnabled"
-                    checked={form.snmpEnabled}
-                    onChange={(e) => field('snmpEnabled', e.target.checked)}
-                    label="Configurar SNMP"
-                  />
-                  <span className="text-xs text-gray-500 dark:text-gray-400">(opcional)</span>
-                  <InfoTip label="Acerca de SNMP">
-                    Usado por el sondeo inalámbrico de equipos Mimosa. Los demás equipos no lo necesitan.
-                  </InfoTip>
-                </div>
-
-                {form.snmpEnabled && (
-                  <div className="mt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Versión SNMP
-                        </label>
-                        <select
-                          value={snmpV}
-                          onChange={(e) => field('snmpVersion', e.target.value as '1' | '2' | '3')}
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="1">SNMPv1</option>
-                          <option value="2">SNMPv2c</option>
-                          <option value="3">SNMPv3</option>
-                        </select>
-                      </div>
-                      <Input
-                        label="Puerto SNMP"
-                        type="number"
-                        value={form.snmpPort}
-                        onChange={(e) => field('snmpPort', e.target.value)}
-                        fullWidth
-                      />
-                    </div>
-
-                    {(snmpV === '1' || snmpV === '2') && (
-                      <div className="mt-4">
-                        <Input
-                          label="Community string"
-                          value={form.snmpCommunity}
-                          placeholder={creds?.snmpCommunity ? '(dejar vacío para no cambiar)' : ''}
-                          onChange={(e) => field('snmpCommunity', e.target.value)}
-                          fullWidth
-                        />
-                      </div>
-                    )}
-
-                    {snmpV === '3' && (
-                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input
-                          label="Usuario auth"
-                          value={form.snmpV3AuthUser}
-                          onChange={(e) => field('snmpV3AuthUser', e.target.value)}
-                          fullWidth
-                        />
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Protocolo auth
-                          </label>
-                          <select
-                            value={form.snmpV3AuthProto}
-                            onChange={(e) => field('snmpV3AuthProto', e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">— ninguno —</option>
-                            <option value="MD5">MD5</option>
-                            <option value="SHA">SHA</option>
-                          </select>
-                        </div>
-                        <Input
-                          label="Clave auth"
-                          type="password"
-                          value={form.snmpV3AuthKey}
-                          placeholder={creds?.snmpV3AuthKey ? '(dejar vacío para no cambiar)' : ''}
-                          onChange={(e) => field('snmpV3AuthKey', e.target.value)}
-                          fullWidth
-                        />
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Protocolo privacidad
-                          </label>
-                          <select
-                            value={form.snmpV3PrivProto}
-                            onChange={(e) => field('snmpV3PrivProto', e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">— ninguno —</option>
-                            <option value="DES">DES</option>
-                            <option value="AES">AES</option>
-                          </select>
-                        </div>
-                        {form.snmpV3PrivProto && (
-                          <Input
-                            label="Clave privacidad"
-                            type="password"
-                            value={form.snmpV3PrivKey}
-                            placeholder={creds?.snmpV3PrivKey ? '(dejar vacío para no cambiar)' : ''}
-                            onChange={(e) => field('snmpV3PrivKey', e.target.value)}
-                            fullWidth
-                          />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {snmpFirst ? httpSection : snmpSection}
               </div>
             </div>
           )}
@@ -484,56 +569,7 @@ export function DeviceCredentialsTab({ deviceId }: Props) {
         )}
       </Card>
 
-      {/* SNMP summary (read-only) */}
-      {creds?.hasSnmpCredentials && !showForm && (
-        <Card>
-          <Card.Header>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">SNMP</h2>
-          </Card.Header>
-          <Card.Body>
-            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Estado SNMP</dt>
-                <dd className="mt-1">
-                  <Badge variant="success">Configurado</Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Versión</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">
-                  {creds.snmpVersion === 1 ? 'SNMPv1' : creds.snmpVersion === 2 ? 'SNMPv2c' : 'SNMPv3'}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Puerto</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.snmpPort}</dd>
-              </div>
-              {(creds.snmpVersion === 1 || creds.snmpVersion === 2) && (
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Community</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.snmpCommunity ?? '—'}</dd>
-                </div>
-              )}
-              {creds.snmpVersion === 3 && (
-                <>
-                  <div>
-                    <dt className="font-medium text-gray-500 dark:text-gray-400">Usuario auth</dt>
-                    <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3AuthUser ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-gray-500 dark:text-gray-400">Protocolo auth</dt>
-                    <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3AuthProto ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-gray-500 dark:text-gray-400">Protocolo priv.</dt>
-                    <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3PrivProto ?? '—'}</dd>
-                  </div>
-                </>
-              )}
-            </dl>
-          </Card.Body>
-        </Card>
-      )}
+      {!snmpFirst && snmpSummary}
     </div>
   );
 }

@@ -510,7 +510,7 @@ export default function DeviceDetailPage() {
       )}
 
       {currentTab === 'credentials' && (
-        <DeviceCredentialsTab deviceId={deviceId} />
+        <DeviceCredentialsTab deviceId={deviceId} vendorSlug={deviceModel?.vendorSlug ?? null} />
       )}
 
       {currentTab === 'history' && (
