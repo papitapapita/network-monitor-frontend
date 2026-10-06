@@ -11,7 +11,7 @@ import { defineConfig, devices } from '@playwright/test';
  *   E2E_BASE_URL   frontend under test   (default http://localhost:3001)
  *   E2E_API_URL    backend API root      (default http://localhost:3000/api)
  *   E2E_EMAIL      login user            (default admin@example.com)
- *   E2E_PASSWORD   login password        (default changeme) — the customer's ADMIN
+ *   E2E_PASSWORD   login password        (default changeme12345) — the customer's ADMIN
  *   E2E_VENDOR_EMAIL / E2E_VENDOR_PASSWORD
  *                  the install's VENDOR account (IDN-011). Optional: without
  *                  them the vendor-only tests skip. Never commit them.
@@ -24,7 +24,7 @@ export const E2E = {
   baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3001',
   apiURL: process.env.E2E_API_URL ?? 'http://localhost:3000/api',
   email: process.env.E2E_EMAIL ?? 'admin@example.com',
-  password: process.env.E2E_PASSWORD ?? 'changeme',
+  password: process.env.E2E_PASSWORD ?? 'changeme12345',
   storageState: 'e2e/.auth/state.json',
   vendorEmail: process.env.E2E_VENDOR_EMAIL ?? null,
   vendorPassword: process.env.E2E_VENDOR_PASSWORD ?? null,
