@@ -222,8 +222,8 @@ let agents: AgentDTO[] = [];
 
 /** 'mock-user' is the signed-in account mock login returns. */
 let mockUsers: UserAccountDTO[] = [
-  { id: 'mock-user', email: 'admin@example.com', role: 'ADMIN', disabled: false, disabledAt: null, createdAt: new Date(Date.now() - 90 * 86_400_000).toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'user-op', email: 'operador@example.com', role: 'OPERATOR', disabled: false, disabledAt: null, createdAt: new Date(Date.now() - 30 * 86_400_000).toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'mock-user', email: 'admin@example.com', role: 'ADMIN', disabled: false, disabledAt: null, twoFactorEnabled: true, createdAt: new Date(Date.now() - 90 * 86_400_000).toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'user-op', email: 'operador@example.com', role: 'OPERATOR', disabled: false, disabledAt: null, twoFactorEnabled: true, createdAt: new Date(Date.now() - 30 * 86_400_000).toISOString(), updatedAt: new Date().toISOString() },
 ];
 /** When each pending agent's current key was issued, for the simulated pairing. */
 const keyIssuedAt: Record<string, number> = {};
@@ -1706,9 +1706,20 @@ class MockApiService {
       return { success: false, status: 409, errorField: 'email', error: 'Ya existe un usuario con ese correo.' };
     }
     const now = new Date().toISOString();
-    const user: UserAccountDTO = { id: `user-${uid()}`, email, role: data.role, disabled: false, disabledAt: null, createdAt: now, updatedAt: now };
+    const user: UserAccountDTO = { id: `user-${uid()}`, email, role: data.role, disabled: false, disabledAt: null, twoFactorEnabled: false, createdAt: now, updatedAt: now };
     mockUsers = [...mockUsers, user];
     return ok(user);
+  }
+
+  async resetUserTwoFactor(id: string): Promise<ApiResponse<UserAccountDTO>> {
+    const idx = mockUsers.findIndex((u) => u.id === id);
+    if (idx === -1) return { success: false, status: 404, error: 'Ese usuario ya no existe.' };
+    if (!mockUsers[idx].twoFactorEnabled) {
+      return { success: false, status: 409, error: 'Esta cuenta ya no tiene la verificación en dos pasos activada.' };
+    }
+    const updated = { ...mockUsers[idx], twoFactorEnabled: false, updatedAt: new Date().toISOString() };
+    mockUsers = mockUsers.map((u) => (u.id === id ? updated : u));
+    return ok(updated);
   }
 
   async updateUser(id: string, data: UpdateUserDTO): Promise<ApiResponse<UserAccountDTO>> {

@@ -1437,6 +1437,28 @@ class ApiService {
     if (result.status === 409) {
       return { ...result, error: 'Ya existe un usuario con ese correo.', errorField: 'email' };
     }
+    // Nothing is created when the invitation cannot go out.
+    if (result.status === 503) {
+      return {
+        ...result,
+        error: 'No se pudo enviar la invitación: el correo del servidor no está configurado o lo rechazó. Intenta de nuevo, o asigna una contraseña.',
+      };
+    }
+    return result;
+  }
+
+  /**
+   * For someone who lost their phone and their recovery codes (IDN-172).
+   * Signs the account out everywhere and forgets its remembered browsers; it
+   * sets two-factor up again at the next sign-in. The install's chat is told.
+   */
+  async resetUserTwoFactor(id: string): Promise<ApiResponse<UserAccountDTO>> {
+    const result = await this.request<UserAccountDTO>(`/users/${id}/two-factor/reset`, { method: 'POST' });
+    if (result.status === 403) {
+      return { ...result, error: 'Solo el proveedor puede restablecer la verificación de un administrador.' };
+    }
+    if (result.status === 404) return { ...result, error: 'Ese usuario ya no existe.' };
+    if (result.status === 409) return { ...result, error: 'Esta cuenta ya no tiene la verificación en dos pasos activada.' };
     return result;
   }
 

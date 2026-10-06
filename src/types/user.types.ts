@@ -7,6 +7,8 @@ export interface UserAccountDTO {
   role: UserRole;
   disabled: boolean;
   disabledAt: string | null;
+  /** false until the person sets it up at their next sign-in (IDN-166). */
+  twoFactorEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,7 +18,8 @@ export type AssignableRole = Exclude<UserRole, 'VENDOR'>;
 
 export interface CreateUserDTO {
   email: string;
-  password: string;
+  /** Left out, the person is emailed a link to choose their own (IDN-184). */
+  password?: string;
   role: AssignableRole;
 }
 

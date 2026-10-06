@@ -11,13 +11,18 @@ interface UserFormModalProps {
   user: UserAccountDTO | null;
   isOpen: boolean;
   onClose: () => void;
-  onSaved: (user: UserAccountDTO) => void;
+  /** `invited` when a new account was sent an email to choose its own password. */
+  onSaved: (user: UserAccountDTO, invited: boolean) => void;
 }
 
 /**
  * Create an account, or change one's role, status or password. Every change
  * signs that person out everywhere (IDN-013, IDN-065) except re-enabling, so
  * only what was actually changed is sent.
+ *
+ * A new account is invited by default: the person gets an email to choose
+ * their own password (IDN-184), so nobody has to type one for them and pass
+ * it on. Setting one here is the fallback for an install without email.
  */
 export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalProps) {
   const isNew = user === null;
@@ -27,6 +32,7 @@ export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalP
   );
   const [disabled, setDisabled] = useState(user?.disabled ?? false);
   const [password, setPassword] = useState('');
+  const [setPasswordNow, setSetPasswordNow] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
@@ -39,7 +45,8 @@ export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalP
   const submit = async () => {
     const next: Record<string, string> = {};
     if (isNew && !/^\S+@\S+\.\S+$/.test(email.trim())) next.email = 'Escribe un correo válido';
-    if ((isNew || password) && (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX)) {
+    const needsPassword = isNew ? setPasswordNow : !!password;
+    if (needsPassword && (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX)) {
       next.password = `Entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres`;
     }
     setErrors(next);
@@ -48,7 +55,11 @@ export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalP
     setIsSaving(true);
     let result;
     if (isNew) {
-      result = await apiService.createUser({ email: email.trim(), password, role });
+      result = await apiService.createUser({
+        email: email.trim(),
+        role,
+        ...(setPasswordNow ? { password } : {}),
+      });
     } else {
       const dto: UpdateUserDTO = {};
       if (role !== user.role) dto.role = role;
@@ -67,7 +78,7 @@ export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalP
       return;
     }
     setPassword('');
-    onSaved(result.data);
+    onSaved(result.data, isNew && !setPasswordNow);
   };
 
   return (
@@ -97,16 +108,26 @@ export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalP
           onChange={(e) => setRole(e.target.value as AssignableRole)}
           fullWidth
         />
-        <Input
-          label={isNew ? 'Contraseña' : 'Nueva contraseña'}
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={errors.password}
-          helperText={isNew ? undefined : 'Déjala vacía para no cambiarla.'}
-          autoComplete="new-password"
-          fullWidth
-        />
+        {isNew && (
+          <Switch
+            label="Asignar una contraseña ahora"
+            info="Si no, le llega un correo con un enlace para elegir su propia contraseña. El enlace vence en siete días."
+            checked={setPasswordNow}
+            onChange={(e) => setSetPasswordNow(e.target.checked)}
+          />
+        )}
+        {(!isNew || setPasswordNow) && (
+          <Input
+            label={isNew ? 'Contraseña' : 'Nueva contraseña'}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={errors.password}
+            helperText={isNew ? `Al menos ${PASSWORD_MIN} caracteres` : 'Déjala vacía para no cambiarla.'}
+            autoComplete="new-password"
+            fullWidth
+          />
+        )}
         {!isNew && (
           <Switch
             label="Cuenta deshabilitada"
@@ -121,7 +142,7 @@ export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalP
           Cancelar
         </Button>
         <Button onClick={submit} isLoading={isSaving}>
-          {isNew ? 'Crear usuario' : 'Guardar'}
+          {isNew ? (setPasswordNow ? 'Crear usuario' : 'Enviar invitación') : 'Guardar'}
         </Button>
       </Modal.Footer>
     </Modal>
