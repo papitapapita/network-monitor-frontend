@@ -1334,8 +1334,7 @@ class MockApiService {
     return () => {};
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  setToken(_token: string | null) {}
+  async logout(): Promise<void> {}
 
   /** Mock sign-in answers as a remembered browser would: straight to the session. */
   async login(email: string, _password: string): Promise<ApiResponse<LoginResponseDTO>> {

@@ -15,15 +15,16 @@ export type Resource =
   | 'technicians';
 
 /**
- * Pulls the JWT out of the session saved by auth.setup.ts, so talking to the
- * backend directly costs no extra login.
+ * Pulls the JWT out of the session cookie auth.setup.ts saved, so talking to
+ * the backend directly costs no extra login. It goes back as a Bearer header:
+ * the backend takes that over the cookie, and a cookie-signed write without a
+ * browser's `Origin` would be refused (IDN-085).
  */
 function tokenFromStorageState(): string {
   const state = JSON.parse(readFileSync(E2E.storageState, 'utf-8'));
-  const origin = state.origins?.find((o: { origin: string }) => o.origin === E2E.baseURL);
-  const token = origin?.localStorage?.find((e: { name: string }) => e.name === 'nms_token')?.value;
+  const token = state.cookies?.find((c: { name: string }) => c.name === 'nms_session')?.value;
   if (!token) {
-    throw new Error(`No nms_token in ${E2E.storageState}. Did the setup project run?`);
+    throw new Error(`No nms_session cookie in ${E2E.storageState}. Did the setup project run?`);
   }
   return token;
 }

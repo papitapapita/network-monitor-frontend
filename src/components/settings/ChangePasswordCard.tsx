@@ -9,12 +9,11 @@ import { STAFF_PASSWORD_MAX, STAFF_PASSWORD_MIN, VENDOR_PASSWORD_MIN } from '@/c
 
 /**
  * Every role changes its own password with the current one (IDN-144). The
- * change signs the account out everywhere, this session included, so the new
- * token that comes back replaces the stored one — otherwise the very next
- * request would answer 401 and bounce the user to the login screen.
+ * change signs the account out everywhere; the answer sets a fresh session
+ * cookie, so this browser stays signed in without doing anything.
  */
 export function ChangePasswordCard() {
-  const { user, replaceToken } = useAuth();
+  const { user } = useAuth();
   const { showSuccess } = useToast();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -36,11 +35,10 @@ export function ChangePasswordCard() {
     setIsSaving(true);
     const result = await apiService.changeMyPassword({ currentPassword: current, newPassword: next });
     setIsSaving(false);
-    if (!result.success || !result.data) {
+    if (!result.success) {
       setErrors({ [result.errorField ?? 'form']: result.error || 'No se pudo cambiar la contraseña' });
       return;
     }
-    replaceToken(result.data.token);
     setCurrent('');
     setNext('');
     setConfirm('');

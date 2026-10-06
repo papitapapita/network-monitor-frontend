@@ -4,8 +4,8 @@ import { signIn } from './fixtures/twoFactor';
 
 /**
  * Logs in through the real login form — password, then the two-factor code —
- * once per run and saves the resulting session (the app keeps its JWT in
- * localStorage under `nms_token`).
+ * once per run and saves the resulting session: the `nms_session` cookie, and
+ * `nms_user` in localStorage.
  *
  * Every other spec starts already authenticated, so no test pays the login
  * cost — and a failure here tells you the auth flow itself is broken.
@@ -13,9 +13,9 @@ import { signIn } from './fixtures/twoFactor';
 setup('authenticate', async ({ page }) => {
   await signIn(page, E2E.email, E2E.password);
 
-  // Confirm the token actually landed, so we never save an empty session.
-  const token = await page.evaluate(() => localStorage.getItem('nms_token'));
-  expect(token, 'login did not store nms_token').toBeTruthy();
+  // Confirm the cookie actually landed, so we never save an empty session.
+  const cookies = await page.context().cookies();
+  expect(cookies.some((c) => c.name === 'nms_session'), 'login did not set the nms_session cookie').toBe(true);
 
   await page.context().storageState({ path: E2E.storageState });
 });

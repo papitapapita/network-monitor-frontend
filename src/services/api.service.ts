@@ -177,7 +177,13 @@ import {
   UpdateTechnicianDTO,
 } from '../types/technician.types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+/**
+ * Same origin by default: `next.config.ts` proxies `/api` to the backend, so
+ * the session cookie is first-party and every request carries it. Pointing
+ * this at another origin needs that origin to share the main domain and be in
+ * the backend's `ALLOWED_ORIGINS` (IDN-085).
+ */
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 /**
  * The backend allows 100 reads and 60 writes per minute per resource, and
@@ -237,21 +243,14 @@ export interface LinkDiagnosisStreamHandlers {
 
 class ApiService {
   private baseUrl: string;
-  private token: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
-  setToken(token: string | null) {
-    this.token = token;
-  }
-
-  /** Drops the session the app is holding and lets the shell route to /login. */
+  /** Forgets who is signed in and lets the shell route to /login. The cookie is the server's to clear. */
   private clearSession() {
-    this.token = null;
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('nms_token');
       localStorage.removeItem('nms_user');
       window.dispatchEvent(new Event('nms:unauthorized'));
     }
@@ -277,6 +276,7 @@ class ApiService {
    */
   private async send(url: string, init: RequestInit): Promise<Response> {
     const isRead = (init.method ?? 'GET').toUpperCase() === 'GET';
+    init = { ...init, credentials: 'include' };
     let response = await fetch(url, init);
 
     for (let attempt = 0; isRead && response.status === 429 && attempt < RATE_LIMIT_RETRIES; attempt++) {
@@ -301,10 +301,6 @@ class ApiService {
         'Content-Type': 'application/json',
         ...(options.headers as Record<string, string>),
       };
-      if (this.token) {
-        headers['Authorization'] = `Bearer ${this.token}`;
-      }
-
       const response = await this.send(`${this.baseUrl}${endpoint}`, { ...options, headers });
 
       if (response.status === 204) {
@@ -391,6 +387,7 @@ class ApiService {
       if (challengeToken) headers['Authorization'] = `Bearer ${challengeToken}`;
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
+        credentials: 'include',
         headers,
         body: body === undefined ? undefined : JSON.stringify(body),
       });
@@ -411,6 +408,19 @@ class ApiService {
       return data as ApiResponse<T>;
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
+  }
+
+  /**
+   * Clears this browser's session cookie (IDN-062). The remembered browser
+   * stays, so the next sign-in here still skips the code. Never fails the
+   * sign-out: the local session goes whatever the server says.
+   */
+  async logout(): Promise<void> {
+    try {
+      await fetch(`${this.baseUrl}/auth/logout`, { method: 'POST', credentials: 'include' });
+    } catch {
+      // Offline or unreachable — the cookie expires on its own in 24 hours.
     }
   }
 
@@ -1250,7 +1260,6 @@ class ApiService {
     handlers: WirelessThroughputStreamHandlers
   ): () => void {
     return openSseStream(`${this.baseUrl}/devices/${deviceId}/wireless/throughput/stream`, {
-      token: this.token,
       onState: this.onStreamState(handlers.onState),
       onEvent: (event, data) => {
         if (event !== 'throughput') return;
@@ -1268,7 +1277,6 @@ class ApiService {
    */
   streamLinkDiagnosis(deviceId: string, handlers: LinkDiagnosisStreamHandlers): () => void {
     const close = openSseStream(`${this.baseUrl}/devices/${deviceId}/wireless/diagnosis/stream`, {
-      token: this.token,
       onState: this.onStreamState(handlers.onState),
       onEvent: (event, data) => {
         switch (event) {
@@ -1312,7 +1320,6 @@ class ApiService {
    */
   streamFleetThroughput(handlers: FleetThroughputStreamHandlers): () => void {
     return openSseStream(`${this.baseUrl}/wireless/throughput/stream`, {
-      token: this.token,
       onState: this.onStreamState(handlers.onState),
       onEvent: (event, data) => {
         if (event === 'throughput-snapshot') {
@@ -1431,8 +1438,8 @@ class ApiService {
   }
 
   /**
-   * Signs this account out everywhere, this session included: the caller has
-   * to swap in the token that comes back or the next request answers 401.
+   * Signs this account out everywhere but here: the answer sets a fresh
+   * session cookie, so this browser carries on (IDN-144).
    */
   async changeMyPassword(data: ChangeMyPasswordDTO): Promise<ApiResponse<{ token: string }>> {
     const result = await this.request<{ token: string }>('/users/me/password', {
@@ -1486,16 +1493,14 @@ class ApiService {
   }
 
   /**
-   * The route needs the Bearer token, so a plain link cannot download it. The
+   * A plain link could download it, but not show how far along it is. The
    * body is read as a stream so a download of tens of megabytes can show how
    * far along it is — `onProgress` gets a fraction, or null when the server
    * sent no length.
    */
   async downloadInstaller(fileName: string, onProgress?: (fraction: number | null) => void): Promise<ApiResponse<Blob>> {
     try {
-      const headers: Record<string, string> = {};
-      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
-      const response = await fetch(`${this.baseUrl}/installation/installers/${encodeURIComponent(fileName)}`, { headers });
+      const response = await fetch(`${this.baseUrl}/installation/installers/${encodeURIComponent(fileName)}`, { credentials: 'include' });
       if (response.status === 401) {
         this.clearSession();
         return { success: false, status: 401, error: 'Sesión expirada. Por favor inicia sesión nuevamente.' };
@@ -1659,12 +1664,10 @@ class ApiService {
   }
 
   // The PDF endpoint returns a binary document, not the JSON envelope, so it
-  // bypasses request() and carries the Bearer token on a raw fetch → blob.
+  // bypasses request() and carries the session cookie on a raw fetch → blob.
   async downloadBillPdf(id: string): Promise<ApiResponse<Blob>> {
     try {
-      const headers: Record<string, string> = {};
-      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
-      const response = await fetch(`${this.baseUrl}/bills/${id}/pdf`, { headers });
+      const response = await fetch(`${this.baseUrl}/bills/${id}/pdf`, { credentials: 'include' });
       if (!response.ok) {
         let error = `HTTP ${response.status}: ${response.statusText}`;
         try {
@@ -1739,12 +1742,10 @@ class ApiService {
   }
 
   // The PDF endpoint returns a binary document, not the JSON envelope, so it
-  // bypasses request() and carries the Bearer token on a raw fetch → blob.
+  // bypasses request() and carries the session cookie on a raw fetch → blob.
   async downloadQuotationPdf(id: string): Promise<ApiResponse<Blob>> {
     try {
-      const headers: Record<string, string> = {};
-      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
-      const response = await fetch(`${this.baseUrl}/quotations/${id}/pdf`, { headers });
+      const response = await fetch(`${this.baseUrl}/quotations/${id}/pdf`, { credentials: 'include' });
       if (!response.ok) {
         let error = `HTTP ${response.status}: ${response.statusText}`;
         try {
@@ -1792,12 +1793,10 @@ class ApiService {
     return this.request<CollectionAccountDTO>(`/collection-accounts/${id}/cancel`, { method: 'POST' });
   }
 
-  // Binary PDF like the quotation's — raw fetch → blob with the Bearer token.
+  // Binary PDF like the quotation's — raw fetch → blob with the session cookie.
   async downloadCollectionAccountPdf(id: string): Promise<ApiResponse<Blob>> {
     try {
-      const headers: Record<string, string> = {};
-      if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
-      const response = await fetch(`${this.baseUrl}/collection-accounts/${id}/pdf`, { headers });
+      const response = await fetch(`${this.baseUrl}/collection-accounts/${id}/pdf`, { credentials: 'include' });
       if (!response.ok) {
         let error = `HTTP ${response.status}: ${response.statusText}`;
         try {

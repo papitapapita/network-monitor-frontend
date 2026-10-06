@@ -1,15 +1,12 @@
 /**
  * Minimal Server-Sent Events client built on `fetch`.
  *
- * `BACKEND_API.md` documents the throughput streams as `EventSource` endpoints
- * that take the JWT in the query string, because `EventSource` cannot set
- * headers. We read them with `fetch` instead, for two reasons:
- *
- *  - the token stays in the `Authorization` header, out of URLs, proxy logs and
- *    browser history;
- *  - the caller gets the status code behind a refusal. `EventSource` collapses
- *    "this device has never been polled" (404) and "you already hold 5 streams"
- *    (429) into one anonymous `onerror`, and those need different words.
+ * `BACKEND_API.md` documents the throughput streams as `EventSource`
+ * endpoints, authenticated by the session cookie like everything else. We read
+ * them with `fetch` instead, because the caller then gets the status code
+ * behind a refusal: `EventSource` collapses "this device has never been
+ * polled" (404) and "you already hold 5 streams" (429) into one anonymous
+ * `onerror`, and those need different words.
  *
  * What we give up is `EventSource`'s built-in reconnect, so it is reimplemented
  * here — including honouring the server's `retry:` field.
@@ -25,8 +22,6 @@ export type SseState =
   | { status: 'error'; error: string; httpStatus?: number };
 
 export interface SseOptions {
-  /** Sent as `Authorization: Bearer`. Omitted when null, so the 401 path is exercised. */
-  token?: string | null;
   /** `data` is the frame's payload with the `data: ` prefixes stripped and lines rejoined. */
   onEvent: (event: string, data: string) => void;
   onState?: (state: SseState) => void;
@@ -125,10 +120,8 @@ export function openSseStream(url: string, options: SseOptions): () => void {
     let response: Response;
     try {
       response = await fetch(url, {
-        headers: {
-          Accept: 'text/event-stream',
-          ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
-        },
+        headers: { Accept: 'text/event-stream' },
+        credentials: 'include',
         cache: 'no-store',
         signal: controller.signal,
       });

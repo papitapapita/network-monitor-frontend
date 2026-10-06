@@ -57,7 +57,7 @@ test('an administrator lists and creates accounts, but not their own or the vend
   expect(seen.some((s) => s.startsWith('POST /api/users ') && s.includes('"role":"OPERATOR"'))).toBe(true);
 });
 
-test('changing my password keeps this session on the token that comes back', async ({ page }) => {
+test('changing my password keeps this session signed in', async ({ page }) => {
   await answerUserWrites(page, []);
   await page.goto('/settings');
 
@@ -70,7 +70,9 @@ test('changing my password keeps this session on the token that comes back', asy
   await field(page, 'Contraseña actual').fill(E2E.password);
   await page.getByRole('button', { name: 'Cambiar contraseña' }).click();
   await expect(page.getByText(/Contraseña cambiada/)).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('nms_token'))).toBe('e2e-new-token');
+  // The answer resets the session cookie; nothing on this side has to change.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Cambiar mi contraseña' })).toBeVisible();
 });
 
 test('the data purge is the vendor’s only', async ({ page }) => {

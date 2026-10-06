@@ -133,10 +133,14 @@ a schedule), not a push channel.
    cp .env.example .env.local
    ```
    ```bash
-   NEXT_PUBLIC_API_URL=http://localhost:3000/api
+   NEXT_PUBLIC_API_URL=/api                 # same origin, proxied to the backend — the session cookie needs it
    NEXT_PUBLIC_WS_URL=ws://localhost:3000   # unused by current code, kept for parity with backend config
    # NEXT_PUBLIC_USE_MOCK=true              # optional: run against mock-api.service.ts, no backend needed
    ```
+   The session is the backend's `nms_session` cookie, and a cookie-signed write
+   must come from an origin in the backend's `ALLOWED_ORIGINS` — add the
+   dashboard's (`http://localhost:3001` in dev) or every change answers
+   `403 Cross-site request refused`.
 3. Start the backend + database (see the [root README](../README.md)), or set
    `NEXT_PUBLIC_USE_MOCK=true` to run the UI standalone.
 4. Run the dev server:
