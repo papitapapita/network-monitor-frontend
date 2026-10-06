@@ -2,11 +2,13 @@
 
 import React, { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { useAuth } from '@/contexts/auth.context';
 import { Button, Input } from '@/components/ui';
 import { AuthCard, AuthError } from '@/components/auth/AuthCard';
 import { PASSWORD_MAX, PASSWORD_MIN } from '@/constants/user.constants';
+import { leaveLoginNotice } from '@/components/auth/loginNotice';
 
 const LINK_EXPIRED = 'Reset link expired or already used';
 
@@ -29,15 +31,27 @@ const COPY = {
   },
 } as const;
 
-const subscribeHash = (onChange: () => void) => {
-  window.addEventListener('hashchange', onChange);
-  return () => window.removeEventListener('hashchange', onChange);
-};
+/** undefined until read; read once per page load. */
+let linkToken: string | null | undefined;
 
-/** The link's token rides in the fragment, which never reaches a server log. */
-function useHashToken(): string | null {
-  const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => '');
-  return new URLSearchParams(hash.replace(/^#/, '')).get('token');
+/**
+ * The link's token rides in the fragment, which never reaches a server log or
+ * a Referer. Read once and wiped from the address bar straight away, so it is
+ * not left in the browser's history, a bookmark or a shared screen while the
+ * link is still good (an hour for a reset, seven days for an invitation).
+ */
+function readLinkToken(): string | null {
+  if (linkToken === undefined) {
+    linkToken = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token');
+    if (linkToken) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+  }
+  return linkToken;
+}
+
+const noSubscription = () => () => {};
+
+function useLinkToken(): string | null {
+  return useSyncExternalStore(noSubscription, readLinkToken, () => null);
 }
 
 /**
@@ -47,14 +61,14 @@ function useHashToken(): string | null {
  */
 export function SetPasswordPage({ mode }: { mode: 'reset' | 'invitation' }) {
   const copy = COPY[mode];
-  const token = useHashToken();
-  const { isAuthenticated, logout } = useAuth();
+  const token = useLinkToken();
+  const router = useRouter();
+  const { logout } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [fieldError, setFieldError] = useState<{ password?: string; confirm?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
-  const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,10 +87,13 @@ export function SetPasswordPage({ mode }: { mode: 'reset' | 'invitation' }) {
     const result = await apiService.resetPassword(token, password);
     setSubmitting(false);
     if (result.success) {
-      // Whoever was signed in on this browser is not the person the link was
-      // for: end that session, or "Iniciar sesión" lands back in it.
-      if (isAuthenticated) logout();
-      setDone(true);
+      linkToken = null;
+      // Nobody is signed in by this: whatever session the browser holds
+      // belongs to someone else (or is from before the change) and ends here,
+      // and the person signs in from scratch with the password just chosen.
+      await logout();
+      leaveLoginNotice(copy.done);
+      router.replace('/login');
       return;
     }
     if (result.error === LINK_EXPIRED) setExpired(true);
@@ -91,19 +108,6 @@ export function SetPasswordPage({ mode }: { mode: 'reset' | 'invitation' }) {
       Ir a iniciar sesión
     </Link>
   );
-
-  if (done) {
-    return (
-      <AuthCard title={copy.title}>
-        <div className="space-y-4">
-          <p role="status" className="text-sm text-gray-700 dark:text-gray-300">{copy.done}</p>
-          <Link href="/login" className="block">
-            <Button type="button" fullWidth>Iniciar sesión</Button>
-          </Link>
-        </div>
-      </AuthCard>
-    );
-  }
 
   if (!token || expired) {
     return (

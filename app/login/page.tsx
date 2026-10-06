@@ -9,6 +9,7 @@ import { Button, Checkbox, Input } from '@/components/ui';
 import { AuthCard, AuthError } from '@/components/auth/AuthCard';
 import { RecoveryCodes } from '@/components/auth/RecoveryCodes';
 import { signInError, STEP_EXPIRED } from '@/components/auth/signInErrors';
+import { clearLoginNotice, readLoginNotice } from '@/components/auth/loginNotice';
 import type { SessionDTO, TwoFactorSetupDTO } from '@/types/auth.types';
 import type { ApiResponse } from '@/types/common.types';
 
@@ -39,6 +40,12 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   // Up here so going back from a code screen keeps what was typed.
   const [email, setEmail] = useState('');
+  // Left by /reset-password or /accept-invitation; shown once, on this visit.
+  const [notice] = useState(() => (typeof window === 'undefined' ? null : readLoginNotice()));
+
+  useEffect(() => {
+    if (notice) clearLoginNotice();
+  }, [notice]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -67,6 +74,15 @@ export default function LoginPage() {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Cuenta: <strong className="text-gray-900 dark:text-gray-100 wrap-anywhere">{email}</strong>
           </p>
+        )}
+
+        {notice && step.kind === 'password' && !error && (
+          <div
+            role="status"
+            className="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-800 dark:text-green-300"
+          >
+            {notice}
+          </div>
         )}
 
         {error && <AuthError>{error}</AuthError>}
