@@ -2134,7 +2134,8 @@ class ApiService {
 
 import { mockApiService } from './mock-api.service';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+// Never in a production build: the mock signs anyone in with any password.
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true' && process.env.NODE_ENV !== 'production';
 
 export const apiService = USE_MOCK ? mockApiService : new ApiService();
 export default apiService;
