@@ -23,7 +23,6 @@ export const ASSIGNABLE_ROLE_OPTIONS: { value: AssignableRole; label: string }[]
   { value: 'VIEWER', label: 'Lector — solo consulta' },
 ];
 
-/** IDN-142 / IDN-012: staff passwords 8–200 characters, the vendor's at least 12. */
-export const STAFF_PASSWORD_MIN = 8;
-export const VENDOR_PASSWORD_MIN = 12;
-export const STAFF_PASSWORD_MAX = 200;
+/** Every account's password is 12–200 characters (8 for staff before 2026-10-05). */
+export const PASSWORD_MIN = 12;
+export const PASSWORD_MAX = 200;

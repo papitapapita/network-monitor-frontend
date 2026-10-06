@@ -19,12 +19,14 @@ import type { ApiResponse } from '@/types/common.types';
  */
 type Step =
   | { kind: 'password' }
+  | { kind: 'forgot' }
   | { kind: 'setup'; challengeToken: string; setup: TwoFactorSetupDTO | null }
   | { kind: 'verify'; challengeToken: string; recovery: boolean }
   | { kind: 'codes'; session: SessionDTO; codes: string[] };
 
 const TITLES: Record<Step['kind'], string> = {
   password: 'Iniciar sesión',
+  forgot: 'Recuperar contraseña',
   setup: 'Configura la verificación en dos pasos',
   verify: 'Verificación en dos pasos',
   codes: 'Códigos de recuperación',
@@ -69,6 +71,10 @@ export default function LoginPage() {
             onEmailChange={setEmail}
             onError={setError}
             onSession={finish}
+            onForgot={() => {
+              setError(null);
+              setStep({ kind: 'forgot' });
+            }}
             onChallenge={(twoFactor, challengeToken) => {
               setError(null);
               setStep(
@@ -107,6 +113,8 @@ export default function LoginPage() {
           />
         )}
 
+        {step.kind === 'forgot' && <ForgotStep email={email} onEmailChange={setEmail} onError={setError} />}
+
         {step.kind === 'codes' && <RecoveryCodes codes={step.codes} onDone={() => finish(step.session)} />}
 
         {step.kind !== 'password' && step.kind !== 'codes' && (
@@ -131,12 +139,14 @@ function PasswordStep({
   onEmailChange,
   onError,
   onSession,
+  onForgot,
   onChallenge,
 }: {
   email: string;
   onEmailChange: (email: string) => void;
   onError: (message: string | null) => void;
   onSession: (session: SessionDTO) => void;
+  onForgot: () => void;
   onChallenge: (twoFactor: 'setup' | 'verify', challengeToken: string) => void;
 }) {
   const [password, setPassword] = useState('');
@@ -181,6 +191,80 @@ function PasswordStep({
 
       <Button type="submit" isLoading={submitting} fullWidth className="mt-2">
         Ingresar
+      </Button>
+
+      <button
+        type="button"
+        onClick={onForgot}
+        className="block w-full text-center text-sm text-blue-600 hover:underline dark:text-blue-400"
+      >
+        ¿Olvidaste tu contraseña?
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Asks for a reset link. The answer is the same whether or not the address
+ * has an account (IDN-182), and so is what this says.
+ */
+function ForgotStep({
+  email,
+  onEmailChange,
+  onError,
+}: {
+  email: string;
+  onEmailChange: (email: string) => void;
+  onError: (message: string | null) => void;
+}) {
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    onError(null);
+    setSubmitting(true);
+    const result = await apiService.forgotPassword(email);
+    setSubmitting(false);
+    if (result.status === 429) {
+      onError('Demasiadas solicitudes. Intenta de nuevo en unos minutos.');
+      return;
+    }
+    if (result.status === 400) {
+      onError('Escribe un correo válido.');
+      return;
+    }
+    // Anything else reads the same as a sent link: saying otherwise would
+    // tell a stranger which addresses have an account.
+    setSent(true);
+  };
+
+  if (sent) {
+    return (
+      <p role="status" className="text-sm text-gray-700 dark:text-gray-300">
+        Si <strong>{email}</strong> tiene una cuenta, le enviamos un enlace para elegir una contraseña nueva. Vence
+        en una hora y sirve una sola vez.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Escribe el correo de tu cuenta y te enviaremos un enlace para elegir una contraseña nueva.
+      </p>
+      <Input
+        label="Correo electrónico"
+        type="email"
+        value={email}
+        onChange={(e) => onEmailChange(e.target.value)}
+        autoComplete="email"
+        autoFocus
+        required
+        fullWidth
+      />
+      <Button type="submit" isLoading={submitting} fullWidth>
+        Enviar enlace
       </Button>
     </form>
   );

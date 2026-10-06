@@ -30,6 +30,8 @@ function UnavailableIcon() {
   );
 }
 
+const SIGNED_OUT_PATHS = new Set(['/login', '/reset-password', '/accept-invitation']);
+
 /** Sidebar collapse preference, kept in localStorage so it survives reloads. */
 const COLLAPSED_KEY = 'nms:sidebar-collapsed';
 const collapsedListeners = new Set<() => void>();
@@ -56,7 +58,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const installation = useInstallation();
   const subscription = useSubscription();
 
-  const isLoginPage = pathname === '/login';
+  // Reached signed out: the login itself and the two links that come by email.
+  const isLoginPage = SIGNED_OUT_PATHS.has(pathname);
   // The vendor's settings answer on a locked install too (INS-030): that is
   // where the payment is recorded.
   const isVendor = isVendorRole(user?.role);
@@ -79,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('nms:unauthorized', handleUnauthorized);
   }, [logout, router]);
 
-  // Login page: render without shell
+  // Signed-out pages: render without shell
   if (isLoginPage) {
     return <>{children}</>;
   }

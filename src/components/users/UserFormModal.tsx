@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { apiService } from '@/services/api.service';
 import { AssignableRole, UpdateUserDTO, UserAccountDTO } from '@/types/user.types';
 import { Button, Input, Modal, Select, Switch } from '@/components/ui';
-import { ASSIGNABLE_ROLE_OPTIONS, STAFF_PASSWORD_MIN, STAFF_PASSWORD_MAX } from '@/constants/user.constants';
+import { ASSIGNABLE_ROLE_OPTIONS, PASSWORD_MIN, PASSWORD_MAX } from '@/constants/user.constants';
 
 interface UserFormModalProps {
   /** null creates a new account. */
@@ -39,8 +39,8 @@ export function UserFormModal({ user, isOpen, onClose, onSaved }: UserFormModalP
   const submit = async () => {
     const next: Record<string, string> = {};
     if (isNew && !/^\S+@\S+\.\S+$/.test(email.trim())) next.email = 'Escribe un correo válido';
-    if ((isNew || password) && (password.length < STAFF_PASSWORD_MIN || password.length > STAFF_PASSWORD_MAX)) {
-      next.password = `Entre ${STAFF_PASSWORD_MIN} y ${STAFF_PASSWORD_MAX} caracteres`;
+    if ((isNew || password) && (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX)) {
+      next.password = `Entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres`;
     }
     setErrors(next);
     if (Object.keys(next).length > 0) return;

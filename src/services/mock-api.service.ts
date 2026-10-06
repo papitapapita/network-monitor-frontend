@@ -1341,6 +1341,14 @@ class MockApiService {
     return ok({ token: 'mock-token', user: { id: 'mock-user', email, role: 'ADMIN' } });
   }
 
+  async forgotPassword(_email: string): Promise<ApiResponse<null>> {
+    return ok(null);
+  }
+
+  async resetPassword(_token: string, _password: string): Promise<ApiResponse<null>> {
+    return ok(null);
+  }
+
   async startTwoFactorSetup(_challengeToken: string): Promise<ApiResponse<TwoFactorSetupDTO>> {
     const secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
     return ok({ secret, otpauthUri: `otpauth://totp/NMS:admin@example.com?secret=${secret}&issuer=NMS` });

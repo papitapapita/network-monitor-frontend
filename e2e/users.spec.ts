@@ -49,7 +49,7 @@ test('an administrator lists and creates accounts, but not their own or the vend
   await field(dialog, 'Correo').fill('e2e-tecnico@example.com');
   await field(dialog, 'Contraseña').fill('corta');
   await dialog.getByRole('button', { name: 'Crear usuario' }).click();
-  await expect(dialog.getByText(/Entre 8 y 200/)).toBeVisible();
+  await expect(dialog.getByText(/Entre 12 y 200/)).toBeVisible();
 
   await field(dialog, 'Contraseña').fill('una-clave-larga');
   await dialog.getByRole('button', { name: 'Crear usuario' }).click();

@@ -428,6 +428,22 @@ class ApiService {
     return this.signInStep<LoginResponseDTO>('/auth/login', { email, password });
   }
 
+  /**
+   * Emails a reset link when the address has an active account; the answer is
+   * the same either way, so it says nothing about who has one (IDN-182).
+   */
+  async forgotPassword(email: string): Promise<ApiResponse<null>> {
+    return this.signInStep<null>('/auth/password/forgot', { email });
+  }
+
+  /**
+   * Sets the password from an emailed link — a reset or an invitation, same
+   * route (IDN-184). Signs nobody in, and ends every session of the account.
+   */
+  async resetPassword(token: string, password: string): Promise<ApiResponse<null>> {
+    return this.signInStep<null>('/auth/password/reset', { token, password });
+  }
+
   /** Again before confirming gives a new secret; the old QR code stops working. */
   async startTwoFactorSetup(challengeToken: string): Promise<ApiResponse<TwoFactorSetupDTO>> {
     return this.signInStep<TwoFactorSetupDTO>('/auth/two-factor/setup', undefined, challengeToken);

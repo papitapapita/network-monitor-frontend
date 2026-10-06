@@ -2,10 +2,9 @@
 
 import React, { useState } from 'react';
 import { apiService } from '@/services/api.service';
-import { useAuth } from '@/contexts/auth.context';
 import { useToast } from '@/contexts/toast.context';
 import { Button, Input } from '@/components/ui';
-import { STAFF_PASSWORD_MAX, STAFF_PASSWORD_MIN, VENDOR_PASSWORD_MIN } from '@/constants/user.constants';
+import { PASSWORD_MAX, PASSWORD_MIN } from '@/constants/user.constants';
 
 /**
  * Every role changes its own password with the current one (IDN-144). The
@@ -13,7 +12,6 @@ import { STAFF_PASSWORD_MAX, STAFF_PASSWORD_MIN, VENDOR_PASSWORD_MIN } from '@/c
  * cookie, so this browser stays signed in without doing anything.
  */
 export function ChangePasswordCard() {
-  const { user } = useAuth();
   const { showSuccess } = useToast();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -21,13 +19,12 @@ export function ChangePasswordCard() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  const min = user?.role === 'VENDOR' ? VENDOR_PASSWORD_MIN : STAFF_PASSWORD_MIN;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const found: Record<string, string> = {};
     if (!current) found.currentPassword = 'Escribe tu contraseña actual';
-    if (next.length < min || next.length > STAFF_PASSWORD_MAX) found.newPassword = `Entre ${min} y ${STAFF_PASSWORD_MAX} caracteres`;
+    if (next.length < PASSWORD_MIN || next.length > PASSWORD_MAX) found.newPassword = `Entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres`;
     else if (next !== confirm) found.confirm = 'No coincide con la nueva contraseña';
     setErrors(found);
     if (Object.keys(found).length > 0) return;
@@ -67,7 +64,7 @@ export function ChangePasswordCard() {
             value={next}
             onChange={(e) => setNext(e.target.value)}
             error={errors.newPassword}
-            helperText={errors.newPassword ? undefined : `Al menos ${min} caracteres`}
+            helperText={errors.newPassword ? undefined : `Al menos ${PASSWORD_MIN} caracteres`}
             autoComplete="new-password"
             fullWidth
           />
