@@ -15,6 +15,10 @@ import { defineConfig, devices } from '@playwright/test';
  *   E2E_VENDOR_EMAIL / E2E_VENDOR_PASSWORD
  *                  the install's VENDOR account (IDN-011). Optional: without
  *                  them the vendor-only tests skip. Never commit them.
+ *   E2E_TOTP_SECRET / E2E_VENDOR_TOTP_SECRET
+ *                  the accounts' two-factor secrets. Optional: the first run
+ *                  sets two-factor up itself and keeps the secret in
+ *                  e2e/.auth/totp.json (see e2e/fixtures/twoFactor.ts).
  */
 export const E2E = {
   baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3001',

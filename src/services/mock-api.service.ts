@@ -4,6 +4,7 @@
  * Enabled via NEXT_PUBLIC_USE_MOCK=true in .env.local.
  */
 
+import type { LoginResponseDTO, SessionDTO, TwoFactorConfirmDTO, TwoFactorSetupDTO, TwoFactorVerifyDTO } from '../types/auth.types';
 import {
   DeviceResponseDTO,
   DeviceListResponse,
@@ -1336,14 +1337,26 @@ class MockApiService {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setToken(_token: string | null) {}
 
-  async login(email: string, _password: string): Promise<ApiResponse<{ token: string; user: { id: string; email: string; role: 'ADMIN' | 'OPERATOR' | 'VIEWER' } }>> {
-    return {
-      success: true,
-      data: {
-        token: 'mock-token',
-        user: { id: 'mock-user', email, role: 'ADMIN' },
-      },
-    };
+  /** Mock sign-in answers as a remembered browser would: straight to the session. */
+  async login(email: string, _password: string): Promise<ApiResponse<LoginResponseDTO>> {
+    return ok({ token: 'mock-token', user: { id: 'mock-user', email, role: 'ADMIN' } });
+  }
+
+  async startTwoFactorSetup(_challengeToken: string): Promise<ApiResponse<TwoFactorSetupDTO>> {
+    const secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+    return ok({ secret, otpauthUri: `otpauth://totp/NMS:admin@example.com?secret=${secret}&issuer=NMS` });
+  }
+
+  async confirmTwoFactorSetup(_challengeToken: string, _code: string, _rememberBrowser: boolean): Promise<ApiResponse<TwoFactorConfirmDTO>> {
+    return ok({
+      token: 'mock-token',
+      user: { id: 'mock-user', email: 'admin@example.com', role: 'ADMIN' },
+      recoveryCodes: Array.from({ length: 10 }, (_, i) => `MOCK${i}-CODE${i}`),
+    });
+  }
+
+  async verifyTwoFactor(_challengeToken: string, _data: TwoFactorVerifyDTO): Promise<ApiResponse<SessionDTO>> {
+    return ok({ token: 'mock-token', user: { id: 'mock-user', email: 'admin@example.com', role: 'ADMIN' } });
   }
 
   // ── Customers ──────────────────────────────────────────────

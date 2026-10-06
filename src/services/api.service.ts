@@ -110,7 +110,13 @@ import {
   liveDeviceModelMessage,
   binnedDeviceModelMessage,
 } from '../constants/device.constants';
-import { LoginResponseDTO } from '../types/auth.types';
+import {
+  LoginResponseDTO,
+  TwoFactorSetupDTO,
+  TwoFactorConfirmDTO,
+  TwoFactorVerifyDTO,
+  SessionDTO,
+} from '../types/auth.types';
 import {
   CustomerDTO,
   CustomerListResponse,
@@ -371,11 +377,62 @@ class ApiService {
     }
   }
 
+  /**
+   * The sign-in steps answer 401 and 429 with errors that mean something —
+   * a wrong password, a wrong code, an expired step, an account that has to
+   * wait — and none of them is "your session ended". So they skip
+   * `request()`'s generic handling, which would replace the message and sign
+   * out a session that does not exist yet. The error comes back as the backend
+   * wrote it, for the login page to put into words.
+   */
+  private async signInStep<T>(endpoint: string, body?: unknown, challengeToken?: string): Promise<ApiResponse<T>> {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (challengeToken) headers['Authorization'] = `Bearer ${challengeToken}`;
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        return {
+          success: false,
+          status: response.status,
+          error: `El servidor no respondió correctamente (HTTP ${response.status}). Inténtalo de nuevo.`,
+        };
+      }
+      if (!response.ok) {
+        const detail = Array.isArray(data?.details) && data.details.length > 0 ? data.details[0]?.message : null;
+        return { success: false, status: response.status, error: detail || data?.error || `HTTP ${response.status}` };
+      }
+      return data as ApiResponse<T>;
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
+  }
+
   async login(email: string, password: string): Promise<ApiResponse<LoginResponseDTO>> {
-    return this.request<LoginResponseDTO>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
+    return this.signInStep<LoginResponseDTO>('/auth/login', { email, password });
+  }
+
+  /** Again before confirming gives a new secret; the old QR code stops working. */
+  async startTwoFactorSetup(challengeToken: string): Promise<ApiResponse<TwoFactorSetupDTO>> {
+    return this.signInStep<TwoFactorSetupDTO>('/auth/two-factor/setup', undefined, challengeToken);
+  }
+
+  async confirmTwoFactorSetup(
+    challengeToken: string,
+    code: string,
+    rememberBrowser: boolean,
+  ): Promise<ApiResponse<TwoFactorConfirmDTO>> {
+    return this.signInStep<TwoFactorConfirmDTO>('/auth/two-factor/setup/confirm', { code, rememberBrowser }, challengeToken);
+  }
+
+  async verifyTwoFactor(challengeToken: string, data: TwoFactorVerifyDTO): Promise<ApiResponse<SessionDTO>> {
+    return this.signInStep<SessionDTO>('/auth/two-factor/verify', data, challengeToken);
   }
 
   private buildQuery(params: Record<string, string | number | boolean | undefined>): string {

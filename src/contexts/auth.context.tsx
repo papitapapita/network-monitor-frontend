@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { AuthUser } from '@/types/auth.types';
+import { AuthUser, SessionDTO } from '@/types/auth.types';
 import { apiService } from '@/services/api.service';
 import { clearSavedListQueries } from '@/hooks/listState';
 
@@ -12,7 +12,12 @@ interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<string | null>;
+  /**
+   * Starts the session a finished sign-in handed back. The login page drives
+   * the password and two-factor steps itself, and calls this only once the
+   * person is through them — after the recovery codes, on a first sign-in.
+   */
+  beginSession: (session: SessionDTO) => void;
   logout: () => void;
   /**
    * Keeps the session going after a change that revoked it — a password
@@ -44,17 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<string | null> => {
-    const result = await apiService.login(email, password);
-    if (!result.success || !result.data) {
-      return result.error ?? 'Error de autenticación';
-    }
-    const { token, user: authUser } = result.data;
+  const beginSession = useCallback(({ token, user: authUser }: SessionDTO) => {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(authUser));
     apiService.setToken(token);
     setUser(authUser);
-    return null;
   }, []);
 
   const logout = useCallback(() => {
@@ -71,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, replaceToken }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, beginSession, logout, replaceToken }}>
       {children}
     </AuthContext.Provider>
   );
