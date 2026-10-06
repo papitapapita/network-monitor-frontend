@@ -63,6 +63,12 @@ export default function LoginPage() {
   return (
     <AuthCard title={TITLES[step.kind]}>
       <div className="space-y-4">
+        {(step.kind === 'setup' || step.kind === 'verify') && (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Cuenta: <strong className="text-gray-900 dark:text-gray-100 wrap-anywhere">{email}</strong>
+          </p>
+        )}
+
         {error && <AuthError>{error}</AuthError>}
 
         {step.kind === 'password' && (
