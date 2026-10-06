@@ -3,6 +3,7 @@
 import React, { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { apiService } from '@/services/api.service';
+import { useAuth } from '@/contexts/auth.context';
 import { Button, Input } from '@/components/ui';
 import { AuthCard, AuthError } from '@/components/auth/AuthCard';
 import { PASSWORD_MAX, PASSWORD_MIN } from '@/constants/user.constants';
@@ -47,6 +48,7 @@ function useHashToken(): string | null {
 export function SetPasswordPage({ mode }: { mode: 'reset' | 'invitation' }) {
   const copy = COPY[mode];
   const token = useHashToken();
+  const { isAuthenticated, logout } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [fieldError, setFieldError] = useState<{ password?: string; confirm?: string }>({});
@@ -71,6 +73,9 @@ export function SetPasswordPage({ mode }: { mode: 'reset' | 'invitation' }) {
     const result = await apiService.resetPassword(token, password);
     setSubmitting(false);
     if (result.success) {
+      // Whoever was signed in on this browser is not the person the link was
+      // for: end that session, or "Iniciar sesión" lands back in it.
+      if (isAuthenticated) logout();
       setDone(true);
       return;
     }

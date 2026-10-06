@@ -72,15 +72,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, isLoginPage, router]);
 
-  // Handle token expiry from API service
+  // Handle token expiry from API service. A signed-out page stays put: an
+  // emailed link opened in a browser whose session just expired is still
+  // the page the person came for.
   useEffect(() => {
     const handleUnauthorized = () => {
       logout();
-      router.replace('/login');
+      if (!isLoginPage) router.replace('/login');
     };
     window.addEventListener('nms:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('nms:unauthorized', handleUnauthorized);
-  }, [logout, router]);
+  }, [logout, router, isLoginPage]);
 
   // Signed-out pages: render without shell
   if (isLoginPage) {
