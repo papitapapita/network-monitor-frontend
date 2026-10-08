@@ -20,6 +20,7 @@ import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
 import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab';
 import { DeviceHistoryTab } from '@/components/devices/DeviceHistoryTab';
+import { DeviceBackupsTab } from '@/components/devices/DeviceBackupsTab';
 import { DeviceNotificationPolicyTab } from '@/components/devices/DeviceNotificationPolicyTab';
 import { ReplaceDeviceModal } from '@/components/devices/ReplaceDeviceModal';
 import { SwapHardwareModal } from '@/components/devices/SwapHardwareModal';
@@ -29,9 +30,10 @@ import {
   RESTORE_SUCCESS_MESSAGE,
   isWirelessCategory,
 } from '@/constants/device.constants';
+import { isBackupTarget } from '@/constants/backup.constants';
 import { useGoBack } from '@/hooks/useGoBack';
 
-type Tab = 'details' | 'polling' | 'wireless' | 'notifications' | 'credentials' | 'history';
+type Tab = 'details' | 'polling' | 'wireless' | 'notifications' | 'credentials' | 'backups' | 'history';
 
 const TAB_LABELS: Record<Tab, string> = {
   details: 'Detalles',
@@ -39,6 +41,7 @@ const TAB_LABELS: Record<Tab, string> = {
   wireless: 'Inalámbrico',
   notifications: 'Notificaciones',
   credentials: 'Credenciales',
+  backups: 'Respaldos',
   history: 'Historial',
 };
 
@@ -176,9 +179,13 @@ export default function DeviceDetailPage() {
   // under a non-wireless model is inert, not an error: it just loses the tab.
   const showWireless = isWirelessCategory(device?.category) && deviceModel?.isWireless === true;
 
-  // Falls back to details if the wireless tab disappears while open — the model
-  // can lose its wireless flag, or the device its category, mid-visit.
-  const currentTab: Tab = activeTab === 'wireless' && !showWireless ? 'details' : activeTab;
+  // Only access points, routers, routerboards and switches are backed up (BKP-010).
+  const showBackups = isBackupTarget(device?.category, deviceModel?.deviceType);
+
+  // Falls back to details if the wireless or backups tab disappears while open —
+  // the model can lose its wireless flag, or the device its category, mid-visit.
+  const currentTab: Tab =
+    (activeTab === 'wireless' && !showWireless) || (activeTab === 'backups' && !showBackups) ? 'details' : activeTab;
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -461,7 +468,7 @@ export default function DeviceDetailPage() {
           stretching the page, same as the table's own horizontal scroll. */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto table-scroll-x">
         <nav className="flex gap-6 w-max min-w-full">
-          {(['details', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'notifications', 'credentials', 'history'] as Tab[]).map((tab) => (
+          {(['details', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'notifications', 'credentials', ...(showBackups ? ['backups' as Tab] : []), 'history'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -511,6 +518,10 @@ export default function DeviceDetailPage() {
 
       {currentTab === 'credentials' && (
         <DeviceCredentialsTab deviceId={deviceId} vendorSlug={deviceModel?.vendorSlug ?? null} />
+      )}
+
+      {currentTab === 'backups' && (
+        <DeviceBackupsTab device={device} />
       )}
 
       {currentTab === 'history' && (

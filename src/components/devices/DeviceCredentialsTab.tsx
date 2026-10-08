@@ -31,6 +31,7 @@ const EMPTY_FORM = {
   httpUsername: '',
   httpPassword: '',
   httpPort: '443',
+  sshPort: '22',
   // SNMP is optional: when the toggle is off we send no snmp* key at all, which
   // tells the backend to keep whatever is stored.
   snmpEnabled: false,
@@ -116,6 +117,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
       httpUsername: creds?.httpUsername ?? '',
       httpPassword: '',
       httpPort: String(creds?.httpPort ?? 443),
+      sshPort: String(creds?.sshPort ?? 22),
       snmpEnabled: snmpFirst || (creds?.hasSnmpCredentials ?? false),
       snmpVersion: String(creds?.snmpVersion ?? 2) as '1' | '2' | '3',
       snmpCommunity: '',
@@ -140,6 +142,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     // password, so it must be re-entered even when editing.
     if (!form.httpPassword) return 'La contraseña HTTP es obligatoria.';
     if (invalidPort(form.httpPort)) return 'El puerto HTTP debe estar entre 1 y 65535.';
+    if (invalidPort(form.sshPort)) return 'El puerto SSH debe estar entre 1 y 65535.';
     return null;
   };
 
@@ -183,6 +186,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
       httpUsername: form.httpUsername.trim(),
       httpPassword: form.httpPassword,
       httpPort: form.httpPort ? parseInt(form.httpPort) : undefined,
+      sshPort: form.sshPort ? parseInt(form.sshPort) : undefined,
     };
 
     if (form.snmpEnabled) {
@@ -271,6 +275,14 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
         type="number"
         value={form.httpPort}
         onChange={(e) => field('httpPort', e.target.value)}
+        fullWidth
+      />
+      <Input
+        label="Puerto SSH"
+        type="number"
+        value={form.sshPort}
+        onChange={(e) => field('sshPort', e.target.value)}
+        info="Los respaldos de MikroTik entran por SSH en este puerto, con el mismo usuario y contraseña."
         fullWidth
       />
     </div>
@@ -531,6 +543,10 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Puerto HTTP</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.httpPort}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Puerto SSH</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.sshPort}</dd>
               </div>
             </dl>
           ) : null}

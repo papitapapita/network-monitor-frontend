@@ -145,6 +145,7 @@ import {
   PayBillDTO,
 } from '../types/bill.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
+import { BackUpNowResultDTO, BackupDiffDTO, BackupFile, DeviceBackupsDTO } from '../types/backup.types';
 import {
   QuotationDTO,
   QuotationListResponse,
@@ -651,6 +652,53 @@ class ApiService {
 
   async deleteDeviceCredentials(deviceId: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/devices/${deviceId}/credentials`, { method: 'DELETE' });
+  }
+
+  // ============================================================
+  // Device Backups
+  // ============================================================
+
+  /** The backup state and the stored versions, newest first, without the files. */
+  async listDeviceBackups(deviceId: string): Promise<ApiResponse<DeviceBackupsDTO>> {
+    return this.request<DeviceBackupsDTO>(`/devices/${deviceId}/backups`);
+  }
+
+  /** 409: the device was not asked; 502: it was asked and did not answer. Either way the attempt is recorded. */
+  async backUpDevice(deviceId: string): Promise<ApiResponse<BackUpNowResultDTO>> {
+    return this.request<BackUpNowResultDTO>(`/devices/${deviceId}/backups`, { method: 'POST' });
+  }
+
+  /** ADMIN only (`manage-credentials`): the compared files hold the device's secrets, masked here. */
+  async diffDeviceBackups(deviceId: string, from: string, to: string): Promise<ApiResponse<BackupDiffDTO>> {
+    const query = new URLSearchParams({ from, to });
+    return this.request<BackupDiffDTO>(`/devices/${deviceId}/backups/diff?${query}`);
+  }
+
+  // The file as the device sent it, passwords included — plain text, not the
+  // JSON envelope, so a raw fetch → blob like the bill PDF. ADMIN only.
+  async downloadDeviceBackup(deviceId: string, backupId: string): Promise<ApiResponse<BackupFile>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/devices/${deviceId}/backups/${backupId}/download`, { credentials: 'include' });
+      if (!response.ok) {
+        if (response.status === 403) {
+          return { success: false, status: 403, error: 'Solo un administrador puede descargar un respaldo.' };
+        }
+        let error = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const data = await response.json();
+          error = data.error || data.message || error;
+        } catch {
+          /* non-JSON error body */
+        }
+        return { success: false, status: response.status, error };
+      }
+      // Readable only when the backend exposes the header across origins; the caller falls back to its own name.
+      const disposition = response.headers.get('content-disposition') ?? '';
+      const fileName = /filename="([^"]+)"/.exec(disposition)?.[1] ?? '';
+      return { success: true, data: { blob: await response.blob(), fileName } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
   }
 
   // ============================================================

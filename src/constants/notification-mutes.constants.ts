@@ -12,7 +12,8 @@ export function validateMetricKey(raw: string): string | null {
 
 /**
  * Known wireless-evaluator metrics (business-rules/wireless-monitoring.md,
- * WLS-081/WLS-082) plus the ICMP down/recovery type — labelled for the mute
+ * WLS-081/WLS-082), the ICMP down/recovery type and the two backup
+ * notifications (BKP-060, BKP-061) — labelled for the mute
  * picker. Not exhaustive and not enforced: the backend accepts any
  * well-formed key, matched or not (NOT-193), so the picker also takes free
  * text for anything missing here.
@@ -36,6 +37,8 @@ export const KNOWN_MUTABLE_METRICS: Array<{ key: string; label: string }> = [
   { key: 'mac_address_changed', label: 'Cambio de dirección MAC' },
   { key: 'device_model_changed', label: 'Cambio de modelo de dispositivo' },
   { key: 'remote_ap_mac_changed', label: 'Cambio de AP remoto' },
+  { key: 'config_changed', label: 'Cambio de configuración (respaldo nocturno)' },
+  { key: 'backup_failing', label: 'Respaldo de configuración fallando' },
 ];
 
 export function metricLabel(key: string): string {

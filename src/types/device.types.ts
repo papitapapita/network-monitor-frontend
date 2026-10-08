@@ -310,6 +310,8 @@ export interface DeviceCredentialsResponseDTO {
   httpUsername: string | null;
   httpPassword: '***' | null;
   httpPort: number;
+  /** Default 22. RouterOS backups log in here with the HTTP login (BKP-054). */
+  sshPort: number;
   hasSnmpCredentials: boolean;
   hasHttpCredentials: boolean;
 }
@@ -319,6 +321,7 @@ export interface SetDeviceCredentialsDTO {
   httpUsername: string;
   httpPassword: string;
   httpPort?: number; // 1–65535; default 443
+  sshPort?: number; // 1–65535; omit to keep the stored value (default 22)
 
   // SNMP — optional, not consumed by any collector yet. Omit a field to keep the
   // stored value; send null to clear it. snmpVersion becomes required as soon as
