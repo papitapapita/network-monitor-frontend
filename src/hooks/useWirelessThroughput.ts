@@ -43,34 +43,6 @@ interface StreamResult {
   retry: () => void;
 }
 
-export interface UseWirelessThroughputResult extends StreamResult {
-  entry: LiveReading | null;
-}
-
-/**
- * Live throughput for one device. The stream's first frame carries the current
- * reading, so there is nothing to fetch up front.
- */
-export function useWirelessThroughput(deviceId: string, enabled = true): UseWirelessThroughputResult {
-  const [entry, setEntry] = useState<LiveReading | null>(null);
-  const [state, setState] = useState<SseState>({ status: 'connecting' });
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    if (!enabled) return;
-    return apiService.streamWirelessThroughput(deviceId, {
-      onThroughput: (reading) => setEntry({ reading, receivedAt: Date.now() }),
-      onState: setState,
-    });
-  }, [deviceId, enabled, attempt]);
-
-  const retry = useCallback(() => {
-    setState({ status: 'connecting' });
-    setAttempt((n) => n + 1);
-  }, []);
-  return { entry, state, retry };
-}
-
 export interface UseFleetThroughputResult extends StreamResult {
   /** Keyed by device id — the deltas that follow the snapshot are upserts. */
   entries: Map<string, LiveReading>;

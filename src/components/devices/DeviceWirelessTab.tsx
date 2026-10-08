@@ -38,7 +38,6 @@ import {
   wirelessCollectorFor,
   COLLECTION_METHOD_LABELS,
 } from '@/constants/wireless.constants';
-import { WirelessThroughputCard } from '@/components/wireless/WirelessThroughputCard';
 import { LinkDiagnosisCard } from '@/components/wireless/LinkDiagnosisCard';
 import { agentPollFailure } from '@/constants/agent.constants';
 
@@ -1164,10 +1163,6 @@ export function DeviceWirelessTab({
               </Card.Body>
             </Card>
           )}
-
-          {/* Live throughput — pushed by the poller over SSE, so it moves on
-              its own while the snapshot below stays where "Actualizar" left it. */}
-          <WirelessThroughputCard deviceId={deviceId} intervalSecs={config.intervalSecs} />
 
           {/* On-demand check for a failing link. The backend refuses a vendor
               it cannot read, so there is nothing to offer for one. */}

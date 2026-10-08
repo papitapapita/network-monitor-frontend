@@ -1330,29 +1330,6 @@ class ApiService {
   }
 
   /**
-   * Live throughput for one device, over SSE. Returns the closer — call it on
-   * unmount: a user may hold only 5 concurrent streams, and a leaked one keeps
-   * its slot until the socket dies.
-   *
-   * The first `throughput` event carries the current reading, so there is no
-   * separate fetch to seed the view. 404 means the device has never been
-   * polled, which is a state to render, not a fault.
-   */
-  streamWirelessThroughput(
-    deviceId: string,
-    handlers: WirelessThroughputStreamHandlers
-  ): () => void {
-    return openSseStream(`${this.baseUrl}/devices/${deviceId}/wireless/throughput/stream`, {
-      onState: this.onStreamState(handlers.onState),
-      onEvent: (event, data) => {
-        if (event !== 'throughput') return;
-        const dto = parseStreamJson<WirelessThroughputDTO>(data);
-        if (dto) handlers.onThroughput(dto);
-      },
-    });
-  }
-
-  /**
    * Watches a diagnosis session. Opening it never starts one — start first;
    * 404 means there is nothing to watch. The server keeps the connection open
    * after `end`, and a client that stays connected reconnects into the

@@ -1388,14 +1388,6 @@ class MockApiService {
   // The streams have no mock either: there is no poller behind them to invent
   // readings from. Report the same unavailability the rest of this section
   // does, through the state channel the consumers already render.
-  streamWirelessThroughput(
-    _deviceId: string,
-    handlers: { onState?: (state: SseState) => void }
-  ): () => void {
-    handlers.onState?.({ status: 'error', error: 'No disponible en modo mock' });
-    return () => {};
-  }
-
   streamFleetThroughput(handlers: { onState?: (state: SseState) => void }): () => void {
     handlers.onState?.({ status: 'error', error: 'No disponible en modo mock' });
     return () => {};
