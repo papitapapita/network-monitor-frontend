@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { DeviceModelResponseDTO, DeviceResponseDTO } from '@/types/device.types';
+import { DeviceListItemDTO, DeviceModelResponseDTO } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
 import { CustomerDTO } from '@/types/customer.types';
 import { TechnicianDTO } from '@/types/technician.types';
@@ -53,23 +53,23 @@ export async function fetchAllTechnicians(): Promise<TechnicianDTO[]> {
 }
 
 /**
- * Devices for the ticket form's picker. The device list caps `limit` at 300 and
- * is the one catalog that can grow past a few hundred rows, so this is the only
- * fetch-all here that could get expensive — it stays behind `enabled` on the
- * pages that need it.
+ * Every live device — for the ticket form's picker and the dashboard. The device
+ * list caps `limit` at 300 and is the one catalog that can grow past a few
+ * hundred rows, so this is the only fetch-all here that could get expensive —
+ * it stays behind `enabled` on the pages that need it.
+ *
+ * Paging follows `total` and the rows actually returned, not `hasMore` and the
+ * limit asked for: a server that clamps the page lower than 300 can still work
+ * `hasMore` out from the requested limit and stop us at the first page.
  */
-export async function fetchAllDevices(): Promise<DeviceResponseDTO[]> {
-  const all: DeviceResponseDTO[] = [];
-  let offset = 0;
-  let hasMore = true;
-  while (hasMore) {
-    const r = await apiService.listDevices({ limit: 300, offset, sortBy: 'name', sortOrder: 'ASC' });
+export async function fetchAllDevices(): Promise<DeviceListItemDTO[]> {
+  const all: DeviceListItemDTO[] = [];
+  for (;;) {
+    const r = await apiService.listDevices({ limit: 300, offset: all.length, sortBy: 'name', sortOrder: 'ASC' });
     if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar dispositivos');
     all.push(...r.data.devices);
-    hasMore = r.data.hasMore;
-    offset += 300;
+    if (r.data.devices.length === 0 || all.length >= r.data.total) return all;
   }
-  return all;
 }
 
 export async function fetchAllLocations(): Promise<LocationResponseDTO[]> {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { fetchPollingStatuses, invalidatePollingStatuses } from '@/hooks/pollingStatusQuery';
+import { fetchAllDevices } from '@/hooks/useCatalogs';
 import { useFleetThroughput } from '@/hooks/useWirelessThroughput';
 
 /** Every panel refreshes on this cadence; the throughput stream is live on its own. */
@@ -31,11 +32,12 @@ export function useDashboardData() {
 
   const devicesQuery = useQuery({
     queryKey: ['dashboard', 'devices'],
-    queryFn: async () => unwrap(await apiService.listDevices({ limit: 300 }), 'Error al cargar dispositivos'),
+    // Every page: the counts are fleet-wide, and one page silently capped them.
+    queryFn: fetchAllDevices,
     refetchInterval: REFRESH_MS,
   });
 
-  const devices = useMemo(() => devicesQuery.data?.devices ?? [], [devicesQuery.data]);
+  const devices = useMemo(() => devicesQuery.data ?? [], [devicesQuery.data]);
   const monitoredIds = devices.filter((d) => d.monitoringEnabled).map((d) => d.id).join(',');
 
   const statusQuery = useQuery({
