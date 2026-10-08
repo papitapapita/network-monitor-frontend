@@ -198,6 +198,26 @@ function inferDeviceType(category: DeviceCategory | null): WirelessDeviceType {
 // mute the "no snapshot" errors for this long instead of showing them as faults.
 const REBOOT_WINDOW_MS = 120_000;
 
+// A station that declares this AP as its parent but is missing from the AP's
+// live list. Same columns as ClientRow so it sits in the same table, but
+// dimmed, flagged and linked to the station's own device page.
+function DisconnectedStationRow({ station }: { station: WirelessExpectedClientsResponse['expected'][number] }) {
+  return (
+    <tr className="border-b border-gray-100 dark:border-gray-700 bg-red-50/60 dark:bg-red-900/10">
+      <td className="py-2 pr-3 border-l-2 border-red-500 pl-2">
+        <Link href={`/devices/${station.deviceId}`} className="font-mono text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+          {station.deviceName}
+        </Link>
+        <div className="font-mono text-xs text-gray-400 dark:text-gray-500">{station.macAddress ?? 'Sin MAC registrada'}</div>
+      </td>
+      <td className="py-2 pr-3" colSpan={6}>
+        <Badge variant="danger">Desconectada</Badge>
+      </td>
+      <td className="py-2" />
+    </tr>
+  );
+}
+
 function ClientRow({ client }: { client: WirelessClientDTO }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -1436,112 +1456,73 @@ export function DeviceWirelessTab({
             </Card.Body>
           </Card>
 
-          {/* Connected stations (AP only) — the raw live list, which already
-              covers both declared and undeclared clients: it's whatever the
-              AP's last poll actually saw. */}
-          {isAP && status && (
-            <Card>
-              <Card.Header>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <SectionTitle info={status.clients.length > 0 ? 'Haz clic en una fila para ver los detalles del CPE remoto.' : undefined}>
-                    Estaciones Conectadas
-                    {status.clients.length > 0 && (
-                      <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-                        ({status.clients.length})
-                      </span>
-                    )}
-                  </SectionTitle>
-                  {expectedClients && expectedClients.missingCount > 0 && (
-                    <Badge variant="danger">
-                      {expectedClients.missingCount} desconectada{expectedClients.missingCount === 1 ? '' : 's'}
-                    </Badge>
-                  )}
-                </div>
-              </Card.Header>
-              <Card.Body>
-                {status.clients.length === 0 ? (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Sin estaciones conectadas.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[700px]">
-                      <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400">
-                          <th className="pb-2 pr-3 font-medium">CPE</th>
-                          <th className="pb-2 pr-3 font-medium">IP</th>
-                          <th className="pb-2 pr-3 font-medium">Señal → AP</th>
-                          <th className="pb-2 pr-3 font-medium">Señal AP →</th>
-                          <th className="pb-2 pr-3 font-medium">Distancia</th>
-                          <th className="pb-2 pr-3 font-medium">Score DL/UL</th>
-                          <th className="pb-2 pr-3 font-medium">Uptime</th>
-                          <th className="pb-2 font-medium"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {status.clients.map((client: WirelessClientDTO) => (
-                          <ClientRow key={client.macAddress} client={client} />
-                        ))}
-                      </tbody>
-                    </table>
+          {/* Stations (AP only) — the live list from the AP's last poll,
+              which covers both declared and undeclared clients, followed by
+              the declared stations (parentApDeviceId on the STATION side)
+              that are missing from it, dimmed and flagged. */}
+          {isAP && (status || (expectedClients && expectedClients.missingCount > 0)) && (() => {
+            const connected = status?.clients ?? [];
+            const disconnected = expectedClients?.expected.filter((e) => !e.connected) ?? [];
+            return (
+              <Card>
+                <Card.Header>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <SectionTitle info={connected.length > 0 ? 'Haz clic en una fila para ver los detalles del CPE remoto.' : undefined}>
+                      Estaciones
+                      {connected.length > 0 && (
+                        <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                          ({connected.length} conectada{connected.length === 1 ? '' : 's'})
+                        </span>
+                      )}
+                    </SectionTitle>
+                    <div className="flex items-center gap-2">
+                      {disconnected.length > 0 && (
+                        <Badge variant="danger">
+                          {disconnected.length} desconectada{disconnected.length === 1 ? '' : 's'}
+                        </Badge>
+                      )}
+                      {expectedClients && expectedClients.expected.length > 0 && (
+                        <IconButton icon={<RefreshIcon />} label="Actualizar estaciones desconectadas" onClick={fetchExpectedClients} disabled={expectedClientsLoading} />
+                      )}
+                    </div>
                   </div>
-                )}
-              </Card.Body>
-            </Card>
-          )}
-
-          {/* Disconnected stations (AP only) — declared via parentApDeviceId
-              on the STATION side, but missing from the live list above. Only
-              shown once at least one station declares this AP as its parent. */}
-          {isAP && expectedClients && expectedClients.expected.length > 0 && (
-            <Card>
-              <Card.Header>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Estaciones Desconectadas
-                    {expectedClients.missingCount > 0 && (
-                      <span className="ml-2 text-sm font-normal text-red-600 dark:text-red-400">
-                        ({expectedClients.missingCount})
-                      </span>
-                    )}
-                  </h2>
-                  <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchExpectedClients} disabled={expectedClientsLoading} />
-                </div>
-              </Card.Header>
-              <Card.Body>
-                {expectedClientsError ? (
-                  <p className="text-red-600 dark:text-red-400 text-sm">{expectedClientsError}</p>
-                ) : expectedClients.missingCount === 0 ? (
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Todas las estaciones que declaran este AP están conectadas.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[400px]">
-                      <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400">
-                          <th className="pb-2 pr-3 font-medium">Estación</th>
-                          <th className="pb-2 font-medium">MAC</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {expectedClients.expected.filter((e) => !e.connected).map((e) => (
-                          <tr key={e.deviceId} className="border-b border-gray-100 dark:border-gray-700">
-                            <td className="py-2 pr-3">
-                              <Link href={`/devices/${e.deviceId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                                {e.deviceName}
-                              </Link>
-                            </td>
-                            <td className="py-2 font-mono text-xs text-gray-600 dark:text-gray-400">
-                              {e.macAddress ?? '—'}
-                            </td>
+                </Card.Header>
+                <Card.Body>
+                  {connected.length === 0 && disconnected.length === 0 ? (
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">Sin estaciones conectadas.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm min-w-[700px]">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400">
+                            <th className="pb-2 pr-3 font-medium">CPE</th>
+                            <th className="pb-2 pr-3 font-medium">IP</th>
+                            <th className="pb-2 pr-3 font-medium">Señal → AP</th>
+                            <th className="pb-2 pr-3 font-medium">Señal AP →</th>
+                            <th className="pb-2 pr-3 font-medium">Distancia</th>
+                            <th className="pb-2 pr-3 font-medium">Score DL/UL</th>
+                            <th className="pb-2 pr-3 font-medium">Uptime</th>
+                            <th className="pb-2 font-medium"></th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          )}
+                        </thead>
+                        <tbody>
+                          {connected.map((client: WirelessClientDTO) => (
+                            <ClientRow key={client.macAddress} client={client} />
+                          ))}
+                          {disconnected.map((e) => (
+                            <DisconnectedStationRow key={e.deviceId} station={e} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {expectedClientsError && (
+                    <p className="mt-3 text-red-600 dark:text-red-400 text-sm">{expectedClientsError}</p>
+                  )}
+                </Card.Body>
+              </Card>
+            );
+          })()}
         </>
       )}
     </div>
