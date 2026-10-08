@@ -121,6 +121,14 @@ _Frontend work that cannot start until a backend endpoint exists. The parent ite
 
 ## Done
 
+- [x] **Configuration backups, and bills sent by WhatsApp** — the backend's 2026-10-07 API update — **done 2026-10-07**
+  - **BKP-010…072:** a «Respaldos» tab on access points (by category) and on routers, routerboards and switches (by model type). It shows the last attempt, any failing streak with its reason in Spanish, and the versions kept. «Respaldar ahora» is for OPERATOR and up; «Descargar» and «Ver cambios» (compared with the previous version of the same format) are ADMIN only (`manage-credentials`). Off site, a device behind no agent says why it is not backed up. `e2e/device-backups.spec.ts` (every backup route is stubbed, so no real device is logged into)
+  - **BKP-054:** «Puerto SSH» on the credentials tab, where RouterOS backups log in
+  - **BKP-060/061:** `config_changed` and `backup_failing` are listed in the mute picker
+  - **BIL-324:** «Plantilla de WhatsApp para facturas» on the billing card, the seventh field. `e2e/billing-settings.spec.ts`
+  - `e2e/fixtures/agents.ts` matched `localhost:3000/api`, which the browser stopped calling when it moved behind the `/api` proxy (9fc4614), so `stubAgents` and `patchInstallation` had silently stubbed nothing since then. They now match `/api` on any origin
+  - Not covered: a device that wireless monitoring polls as an AP without the `ACCESS_POINT` category is backed up by the backend, but gets no tab. The download's filename comes from `Content-Disposition` only if the backend exposes that header across origins; otherwise the frontend builds the same name itself
+
 - [x] **Polling through the agent, and self-updating agents** — the backend's 2026-10-01 API update — **done 2026-10-02**
   - **MON-022:** «Sondear ahora» is back for devices behind an agent, on- or off-site, and the bulk «Sondear» polls them too. Off site, only devices with no agent are set aside. The agent's no-reading answers (offline, older than 0.3.0, 25 s timeout, the agent's own error) are shown in Spanish by `agentPollFailure`. `e2e/devices.spec.ts` (MON-022)
   - **WLS-029:** off site, the wireless poll is offered for a radio behind an agent, while reboot and diagnosis stay hidden for every device. `e2e/installation.spec.ts`
