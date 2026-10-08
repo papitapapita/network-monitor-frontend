@@ -33,6 +33,9 @@ async function stubSettings(page: Page, test: (body: { telegramChatId?: string }
   return writes;
 }
 
+/** The card's own controls: the billing card on the same page has a «Guardar» too. */
+const notifications = (page: Page) => page.getByRole('region', { name: 'Notificaciones' });
+
 async function withSubscription(page: Page, state: object) {
   await page.route(/\/api\/subscription$/, (route) => route.fulfill(ok(state)));
 }
@@ -45,7 +48,7 @@ test('an administrator saves all three settings at once', async ({ page }) => {
   await expect(delay).toHaveValue('15');
   await delay.fill('30');
   await page.getByRole('checkbox', { name: 'Enviar alertas inalámbricas' }).uncheck();
-  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await notifications(page).getByRole('button', { name: 'Guardar', exact: true }).click();
 
   await expect(page.getByText(/Configuración de notificaciones guardada/)).toBeVisible();
   expect(writes.saves).toEqual([{ telegramChatId: '-1001234567890', downAlertDelayMinutes: 30, wirelessAlertsEnabled: false }]);
@@ -57,7 +60,7 @@ test('a bad chat id or delay is caught before it is sent', async ({ page }) => {
 
   await field(page, 'Chat de Telegram').fill('mi grupo');
   await field(page, 'Retraso de alerta de caída (minutos)').fill('2000');
-  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await notifications(page).getByRole('button', { name: 'Guardar', exact: true }).click();
 
   await expect(page.getByText(/id numérico de chat/)).toBeVisible();
   await expect(page.getByText(/entre 0 y 1440/)).toBeVisible();
@@ -70,7 +73,7 @@ test('clearing the chat asks first, because alerts stop reaching anyone', async 
 
   await field(page, 'Chat de Telegram').fill('');
   await expect(page.getByText('Sin chat configurado: las alertas no le llegan a nadie.')).toBeVisible();
-  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await notifications(page).getByRole('button', { name: 'Guardar', exact: true }).click();
   await page.getByRole('button', { name: 'Guardar sin chat' }).click();
 
   await expect(page.getByText(/Configuración de notificaciones guardada/)).toBeVisible();

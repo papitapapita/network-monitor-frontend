@@ -1,5 +1,5 @@
 import type { BadgeVariant } from '@/components/ui';
-import type { BillStatus } from '@/types/bill.types';
+import type { BillLineItemDTO, BillStatus, PaymentMethod } from '@/types/bill.types';
 
 export const BILL_STATUS_LABELS: Record<BillStatus, string> = {
   PENDING: 'Pendiente',
@@ -23,6 +23,22 @@ export const BILL_STATUS_OPTIONS = [
   { value: 'CANCELLED', label: 'Cancelada' },
 ];
 
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: 'Efectivo',
+  BANK_TRANSFER: 'Transferencia bancaria',
+  NEQUI: 'Nequi',
+  DAVIPLATA: 'Daviplata',
+  BRE_B: 'Bre-B',
+  OTHER: 'Otro',
+};
+
+export const PAYMENT_METHOD_OPTIONS = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((value) => ({
+  value,
+  label: PAYMENT_METHOD_LABELS[value],
+}));
+
+export const PAYMENT_REFERENCE_MAX_LENGTH = 100;
+
 export const MONTH_LABELS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -39,6 +55,19 @@ export const formatPeriod = (period: string): string => {
   const label = MONTH_LABELS[Number(month) - 1];
   return label ? `${label} ${year}` : period;
 };
+
+/** 'YYYY-MM-DD' as a local date, without the UTC shift `new Date('YYYY-MM-DD')` brings. */
+export const formatDay = (day: string): string => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('es');
+};
+
+/** The days a line charges, or null on lines from before the days were recorded. */
+export const formatServiceDays = (li: BillLineItemDTO): string | null =>
+  li.serviceFrom && li.serviceTo ? `${formatDay(li.serviceFrom)} – ${formatDay(li.serviceTo)}` : null;
+
+/** A line charges less than its monthly price only when the automatic run prorated it. */
+export const isProrated = (li: BillLineItemDTO): boolean => li.amount !== li.monthlyPrice;
 
 export const formatCurrency = (value: number): string =>
   value.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });

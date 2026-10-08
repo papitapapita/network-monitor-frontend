@@ -142,7 +142,9 @@ import {
   GenerateBillDTO,
   GenerateBulkBillsDTO,
   BulkGenerateResult,
+  PayBillDTO,
 } from '../types/bill.types';
+import { BillingSettingsDTO } from '../types/billing-settings.types';
 import {
   QuotationDTO,
   QuotationListResponse,
@@ -985,6 +987,23 @@ class ApiService {
   }
 
   // ============================================================
+  // Billing Settings
+  // ============================================================
+
+  /** The defaults until the first save, so it always answers (BIL-281). Billing module only. */
+  async getBillingSettings(): Promise<ApiResponse<BillingSettingsDTO>> {
+    return this.request<BillingSettingsDTO>('/billing-settings');
+  }
+
+  /** All seven fields, nothing else. ADMIN only (`manage-settings`). */
+  async saveBillingSettings(data: BillingSettingsDTO): Promise<ApiResponse<BillingSettingsDTO>> {
+    return this.request<BillingSettingsDTO>('/billing-settings', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // ============================================================
   // Notification Settings
   // ============================================================
 
@@ -1689,8 +1708,9 @@ class ApiService {
     return this.request<BillDTO>(`/bills/${id}`);
   }
 
-  async payBill(id: string): Promise<ApiResponse<BillDTO>> {
-    return this.request<BillDTO>(`/bills/${id}/pay`, { method: 'POST' });
+  /** Records the one payment the bill takes; the signed-in user is recorded as who entered it (BIL-300…303). */
+  async payBill(id: string, data: PayBillDTO): Promise<ApiResponse<BillDTO>> {
+    return this.request<BillDTO>(`/bills/${id}/pay`, { method: 'POST', body: JSON.stringify(data) });
   }
 
   async markBillOverdue(id: string): Promise<ApiResponse<BillDTO>> {

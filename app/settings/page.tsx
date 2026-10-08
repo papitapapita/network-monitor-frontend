@@ -7,6 +7,8 @@ import { isVendorRole } from '@/constants/roles';
 import { useSettings } from '@/contexts/settings.context';
 import { NotificationMutesCard } from '@/components/settings/NotificationMutesCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
+import { BillingSettingsCard } from '@/components/settings/BillingSettingsCard';
+import { useInstallation } from '@/hooks/useInstallation';
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard';
 import { DataPurgeCard } from '@/components/settings/DataPurgeCard';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -14,6 +16,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 export default function SettingsPage() {
   const { theme, setTheme } = useSettings();
   const permissions = usePermissions();
+  const { modules } = useInstallation();
   // The role alone: the vendor's settings answer even on a lapsed install.
   const { user } = useAuth();
 
@@ -101,6 +104,12 @@ export default function SettingsPage() {
       <div className="mt-6">
         <NotificationSettingsCard />
       </div>
+
+      {modules.billing && (
+        <div className="mt-6">
+          <BillingSettingsCard />
+        </div>
+      )}
 
       <div className="mt-6">
         <NotificationMutesCard />

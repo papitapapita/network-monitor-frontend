@@ -217,9 +217,9 @@ export const MOCK_POLLING_HISTORY: Record<string, PollingResultDTO[]> = {
 };
 
 export const MOCK_CUSTOMERS: CustomerDTO[] = [
-  { id: 'cust-1', fullName: 'Juan Pérez', phone: '3001234567', email: 'juan@example.com', cedula: '1234567890', createdAt: daysAgo(30), updatedAt: daysAgo(30) },
-  { id: 'cust-2', fullName: 'María García', phone: '3109876543', email: null, cedula: null, createdAt: daysAgo(20), updatedAt: daysAgo(20) },
-  { id: 'cust-3', fullName: 'Carlos Rodríguez', phone: '3205551234', email: 'carlos.r@mail.com', cedula: '9876543210', createdAt: daysAgo(10), updatedAt: daysAgo(10) },
+  { id: 'cust-1', fullName: 'Juan Pérez', phone: '3001234567', email: 'juan@example.com', cedula: '1234567890', paymentDay: 30, createdAt: daysAgo(30), updatedAt: daysAgo(30) },
+  { id: 'cust-2', fullName: 'María García', phone: '3109876543', email: null, cedula: null, paymentDay: 15, createdAt: daysAgo(20), updatedAt: daysAgo(20) },
+  { id: 'cust-3', fullName: 'Carlos Rodríguez', phone: '3205551234', email: 'carlos.r@mail.com', cedula: '9876543210', paymentDay: 30, createdAt: daysAgo(10), updatedAt: daysAgo(10) },
 ];
 
 export const MOCK_SERVICE_PLANS: ServicePlanDTO[] = [

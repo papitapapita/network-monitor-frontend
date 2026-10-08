@@ -125,7 +125,7 @@ export function NotificationSettingsCard() {
   };
 
   return (
-    <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <section aria-label="Notificaciones" className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
       <ConfirmModal
         isOpen={confirmNoChat}
         onClose={() => setConfirmNoChat(false)}

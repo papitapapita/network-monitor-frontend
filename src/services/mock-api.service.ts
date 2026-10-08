@@ -59,6 +59,7 @@ import {
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
+import { BillingSettingsDTO } from '../types/billing-settings.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AgentDTO,
@@ -182,6 +183,7 @@ let vendorSettings: VendorSettingsDTO = {
   whatsApp: null,
   enforcementRouter: null,
 };
+let billingSettings: BillingSettingsDTO = { automaticBillingEnabled: false, billingMode: 'ADVANCE', issueLeadDays: 5, graceDays: 3, automaticCutEnabled: false, reminderWhatsAppTemplate: null, billWhatsAppTemplate: null };
 let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true };
 
 function uid(): string {
@@ -1137,6 +1139,15 @@ class MockApiService {
   // Notification Mutes
   // ============================================================
 
+  async getBillingSettings(): Promise<ApiResponse<BillingSettingsDTO>> {
+    return ok({ ...billingSettings });
+  }
+
+  async saveBillingSettings(data: BillingSettingsDTO): Promise<ApiResponse<BillingSettingsDTO>> {
+    billingSettings = { ...data, reminderWhatsAppTemplate: data.reminderWhatsAppTemplate?.trim() || null, billWhatsAppTemplate: data.billWhatsAppTemplate?.trim() || null };
+    return ok({ ...billingSettings });
+  }
+
   async getNotificationSettings(): Promise<ApiResponse<NotificationSettingsDTO>> {
     return ok({ ...notificationSettings });
   }
@@ -1382,7 +1393,7 @@ class MockApiService {
 
   async createCustomer(data: CreateCustomerDTO): Promise<ApiResponse<CustomerDTO>> {
     const now = new Date().toISOString();
-    const c: CustomerDTO = { id: `cust-${uid()}`, fullName: data.fullName, phone: data.phone, email: data.email ?? null, cedula: data.cedula ?? null, createdAt: now, updatedAt: now };
+    const c: CustomerDTO = { id: `cust-${uid()}`, fullName: data.fullName, phone: data.phone, email: data.email ?? null, cedula: data.cedula ?? null, paymentDay: data.paymentDay ?? 30, createdAt: now, updatedAt: now };
     customers = [c, ...customers];
     return ok(c);
   }

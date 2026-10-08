@@ -5,12 +5,13 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
-  CustomerDTO, UpdateCustomerDTO,
+  CustomerDTO, UpdateCustomerDTO, PaymentDay,
   ServicePlanDTO, ContractedServiceDTO,
   ContractedServiceStatus, ContractedServiceTargetStatus,
   CreateContractedServiceDTO, UpdateContractedServiceDTO,
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
+import { PAYMENT_DAY_OPTIONS, formatPaymentDay } from '@/constants/billing-settings.constants';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
 import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnterCancelOnEscape, isCancelEscape, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
@@ -18,6 +19,7 @@ import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useInstallation } from '@/hooks/useInstallation';
 
 const CONTRACT_STATUS_LABELS: Record<ContractedServiceStatus, string> = {
   PENDING: 'Pendiente',
@@ -57,9 +59,9 @@ export default function CustomerDetailPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [form, setForm] = useState({ fullName: '', phone: '', email: '', cedula: '' });
+  const [form, setForm] = useState({ fullName: '', phone: '', email: '', cedula: '', paymentDay: '30' });
 
-  const makeForm = (c: CustomerDTO) => ({ fullName: c.fullName, phone: c.phone, email: c.email ?? '', cedula: c.cedula ?? '' });
+  const makeForm = (c: CustomerDTO) => ({ fullName: c.fullName, phone: c.phone, email: c.email ?? '', cedula: c.cedula ?? '', paymentDay: String(c.paymentDay) });
 
   const fetchCustomer = useCallback(async () => {
     setIsLoading(true);
@@ -87,7 +89,7 @@ export default function CustomerDetailPage() {
 
     setIsSaving(true);
     setSaveError(null);
-    const dto: UpdateCustomerDTO = { fullName: form.fullName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, cedula: form.cedula.trim() || null };
+    const dto: UpdateCustomerDTO = { fullName: form.fullName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, cedula: form.cedula.trim() || null, paymentDay: Number(form.paymentDay) as PaymentDay };
     const r = await apiService.updateCustomer(customerId, dto);
     if (r.success && r.data) {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -137,6 +139,7 @@ export default function CustomerDetailPage() {
   const [isChangingStatus, setIsChangingStatus] = useState(false);
   const [statusActionError, setStatusActionError] = useState<string | null>(null);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const { serverOnSite } = useInstallation();
 
   // Whether each suspended service is really throttled on the router. A missing
   // entry means "unknown" (router unreachable / enforcement not configured) —
@@ -195,7 +198,9 @@ export default function CustomerDetailPage() {
     } else {
       // Drop the entry rather than showing a stale answer as current.
       setEnforcement((p) => { const n = { ...p }; delete n[id]; return n; });
-      setStatusNotice(r.error || 'No se pudo consultar el router; el estado de la limitación es desconocido.');
+      const reason = r.error || 'No se pudo consultar el router; el estado de la limitación es desconocido.';
+      // Off site the router is reached through its agent (SVC-070, AGT-110).
+      setStatusNotice(serverOnSite ? reason : `${reason} Con el servidor fuera del sitio, el router se consulta a través del agente de su dispositivo, que debe estar en línea y en la versión 0.4.0 o posterior.`);
     }
   };
 
@@ -423,6 +428,14 @@ export default function CustomerDetailPage() {
                 <Input label="Teléfono" name="phone" value={form.phone} onChange={handleChange} error={formErrors.phone} required fullWidth />
                 <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} fullWidth />
                 <Input label="Cédula" name="cedula" value={form.cedula} onChange={handleChange} fullWidth />
+                <Select
+                  label="Día de pago"
+                  value={form.paymentDay}
+                  onChange={(e) => setForm((p) => ({ ...p, paymentDay: e.target.value }))}
+                  options={PAYMENT_DAY_OPTIONS}
+                  info="El día del mes en que vence su factura."
+                  fullWidth
+                />
               </div>
             ) : (
               <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -431,6 +444,7 @@ export default function CustomerDetailPage() {
                   { label: 'Teléfono', value: customer.phone, mono: true },
                   { label: 'Email', value: customer.email ?? '—' },
                   { label: 'Cédula', value: customer.cedula ?? '—', mono: true },
+                  { label: 'Día de pago', value: formatPaymentDay(customer.paymentDay) },
                   { label: 'Registrado', value: new Date(customer.createdAt).toLocaleDateString('es') },
                 ].map(({ label, value, mono }) => (
                   <div key={label}>

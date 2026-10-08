@@ -1,9 +1,13 @@
+export type PaymentDay = 15 | 30;
+
 export interface CustomerDTO {
   id: string;
   fullName: string;
   phone: string;
   email: string | null;
   cedula: string | null;
+  /** The day of the month the bill is due; the 30th is February's last day (CUS-024). */
+  paymentDay: PaymentDay;
   createdAt: string;
   updatedAt: string;
 }
@@ -13,6 +17,8 @@ export interface CreateCustomerDTO {
   phone: string;
   email?: string | null;
   cedula?: string | null;
+  /** Default 30. */
+  paymentDay?: PaymentDay;
 }
 
 export interface UpdateCustomerDTO {
@@ -20,6 +26,7 @@ export interface UpdateCustomerDTO {
   phone?: string;
   email?: string | null;
   cedula?: string | null;
+  paymentDay?: PaymentDay;
 }
 
 export interface CustomerListResponse {

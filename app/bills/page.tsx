@@ -361,8 +361,9 @@ function GenerateBillModal({
       title="Generar Factura"
       info={
         <>
-          Se incluye una línea por cada servicio contratado <strong>activo</strong> del cliente. Por
-          defecto vence 15 días después de la emisión.
+          Se incluye una línea por cada servicio contratado <strong>activo</strong> del cliente, por
+          el mes completo y el precio mensual, sin prorratear. Por defecto vence 15 días después de
+          la emisión.
         </>
       }
     >

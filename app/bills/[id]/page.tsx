@@ -14,17 +14,20 @@ import {
   canPay,
   canCancel,
   canMarkOverdue,
+  PAYMENT_METHOD_LABELS,
+  formatServiceDays,
+  isProrated,
 } from '@/constants/bill.constants';
 import { Card, Button, LoadingSpinner, Badge, Table, BackLink, SectionTitle } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { PayBillModal } from '@/components/bills/PayBillModal';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
 import { usePermissions } from '@/hooks/usePermissions';
 
-type PendingAction = 'pay' | 'overdue' | 'cancel' | null;
+type PendingAction = 'overdue' | 'cancel' | null;
 
 const ACTION_COPY: Record<Exclude<PendingAction, null>, { title: string; message: string; confirm: string; variant: 'danger' | 'primary' }> = {
-  pay: { title: 'Marcar como pagada', message: '¿Confirmas que esta factura fue pagada? La acción no se puede deshacer.', confirm: 'Marcar Pagada', variant: 'primary' },
   overdue: { title: 'Marcar como vencida', message: '¿Marcar esta factura como vencida?', confirm: 'Marcar Vencida', variant: 'danger' },
   cancel: { title: 'Cancelar factura', message: '¿Cancelar esta factura? Quedará anulada y el periodo podrá volver a facturarse.', confirm: 'Cancelar Factura', variant: 'danger' },
 };
@@ -44,6 +47,7 @@ export default function BillDetailPage() {
   const { showError } = useToast();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [isActing, setIsActing] = useState(false);
+  const [showPay, setShowPay] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const fetchBill = useCallback(async () => {
@@ -67,8 +71,7 @@ export default function BillDetailPage() {
     setIsActing(true);
     setActionError(null);
     const call =
-      pendingAction === 'pay' ? apiService.payBill(billId)
-      : pendingAction === 'overdue' ? apiService.markBillOverdue(billId)
+      pendingAction === 'overdue' ? apiService.markBillOverdue(billId)
       : apiService.cancelBill(billId);
     const r = await call;
     setIsActing(false);
@@ -81,6 +84,13 @@ export default function BillDetailPage() {
       setActionError(message);
       showError(message);
     }
+  };
+
+  const handlePaid = (paid: BillDTO) => {
+    setShowPay(false);
+    setActionError(null);
+    setBill(paid);
+    queryClient.invalidateQueries({ queryKey: ['bills'] });
   };
 
   const handleDownloadPdf = async () => {
@@ -137,6 +147,8 @@ export default function BillDetailPage() {
         />
       )}
 
+      {showPay && <PayBillModal onClose={() => setShowPay(false)} bill={bill} onPaid={handlePaid} />}
+
       <div className="mb-2">
         <BackLink onClick={() => goBack()} />
       </div>
@@ -152,7 +164,7 @@ export default function BillDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} isLoading={isDownloading}>Descargar PDF</Button>
-          {permissions.canWrite && canPay(bill.status) && <Button size="sm" onClick={() => setPendingAction('pay')}>Marcar Pagada</Button>}
+          {permissions.canWrite && canPay(bill.status) && <Button size="sm" onClick={() => setShowPay(true)}>Registrar Pago</Button>}
           {permissions.canWrite && canMarkOverdue(bill.status, bill.dueDate) && (
             <Button size="sm" variant="outline" onClick={() => setPendingAction('overdue')}>Marcar Vencida</Button>
           )}
@@ -188,6 +200,27 @@ export default function BillDetailPage() {
         </Card.Body>
       </Card>
 
+      {bill.payment && (
+        <Card>
+          <Card.Header><h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pago</h2></Card.Header>
+          <Card.Body>
+            <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              {[
+                { label: 'Medio de pago', value: PAYMENT_METHOD_LABELS[bill.payment.method] },
+                { label: 'Referencia', value: bill.payment.reference ?? '—', mono: !!bill.payment.reference },
+                { label: 'Monto', value: formatCurrency(bill.payment.amount) },
+                { label: 'Fecha de pago', value: new Date(bill.payment.paidAt).toLocaleString('es') },
+              ].map(({ label, value, mono }) => (
+                <div key={label}>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">{label}</dt>
+                  <dd className={`mt-1 text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''}`}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Card.Body>
+        </Card>
+      )}
+
       {/* Customer */}
       {customer && (
         <Card>
@@ -218,7 +251,7 @@ export default function BillDetailPage() {
       {/* Line items */}
       <Card>
         <Card.Header>
-          <SectionTitle info="Los precios quedaron fijados al generar la factura; cambios posteriores en los planes no la afectan.">
+          <SectionTitle info="Los precios quedaron fijados al generar la factura; cambios posteriores en los planes no la afectan. Las facturas automáticas cobran proporcional a los días de un servicio que empezó dentro del mes.">
             Conceptos
             <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({bill.lineItems.length})</span>
           </SectionTitle>
@@ -228,7 +261,9 @@ export default function BillDetailPage() {
             <Table.Header>
               <Table.Head>Plan</Table.Head>
               <Table.Head>Servicio contratado</Table.Head>
+              <Table.Head>Días cobrados</Table.Head>
               <Table.Head>Precio mensual</Table.Head>
+              <Table.Head>Valor</Table.Head>
             </Table.Header>
             <Table.Body>
               {bill.lineItems.map((li) => (
@@ -240,7 +275,14 @@ export default function BillDetailPage() {
                     <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{li.contractedServiceId}</span>
                   </Table.Cell>
                   <Table.Cell>
-                    <span className="text-gray-900 dark:text-gray-100">{formatCurrency(li.monthlyPrice)}</span>
+                    <span className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{formatServiceDays(li) ?? '—'}</span>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <span className="text-gray-500 dark:text-gray-400">{formatCurrency(li.monthlyPrice)}</span>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(li.amount)}</span>
+                    {isProrated(li) && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">proporcional</span>}
                   </Table.Cell>
                 </Table.Row>
               ))}
