@@ -1,5 +1,4 @@
 import type { Page, Route } from '@playwright/test';
-import { E2E } from '../../playwright.config';
 
 /**
  * Probe agents cannot be deleted, a revoked agent's name is never free again,
@@ -35,7 +34,9 @@ export function fakeAgent(over: Partial<FakeAgent> & { id: string; name: string 
 const json = (route: Route, data: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 
-const api = (path: string) => new RegExp(`${E2E.apiURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${path}`);
+// The browser reaches the API through the dev server's `/api` proxy, not at
+// E2E.apiURL, so match the path on any origin.
+const api = (path: string) => new RegExp(`/api${path}`);
 
 /**
  * Answers every agent route from `agents` (mutated in place, so a test can
