@@ -68,7 +68,8 @@ export default function DashboardPage() {
   const devicesLoading = data.devicesQuery.isPending;
   // Connectivity arrives with the device list; only latency waits on the per-device reads.
   const latencyLoading = devicesLoading || data.statusQuery.isPending;
-  const alertsLoading = data.alertsQuery.isPending;
+  // Alerts are filtered against the live devices, so they wait for both.
+  const alertsLoading = data.alertsQuery.isPending || devicesLoading;
 
   const connectivity = useMemo(
     () => summarizeConnectivity(devices),
@@ -99,8 +100,12 @@ export default function DashboardPage() {
   const alertsInWindow = days.reduce((s, d) => s + d.critical + d.warning, 0);
   // Newest-first and capped at 300: if the oldest one fetched is still inside
   // the window, older days may be undercounted.
+  // Judged on the unfiltered page, since removed devices' alerts used up rows too.
+  const fetchedAlerts = data.alertsQuery.data?.alerts ?? [];
   const alertsTruncated =
-    !!data.alertsQuery.data?.hasMore && alerts.length > 0 && new Date(alerts[alerts.length - 1].startedAt) > new Date(days[0].day);
+    !!data.alertsQuery.data?.hasMore &&
+    fetchedAlerts.length > 0 &&
+    new Date(fetchedAlerts[fetchedAlerts.length - 1].startedAt) > new Date(days[0].day);
 
   const deviceNames = useMemo(() => new Map(devices.map((d) => [d.id, d.name])), [devices]);
   const fleetReadings = [...fleet.entries.values()].map((e) => e.reading);

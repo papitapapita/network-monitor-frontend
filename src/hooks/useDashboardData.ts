@@ -67,6 +67,15 @@ export function useDashboardData() {
     staleTime: 5 * 60_000,
   });
 
+  // Alerts outlive their device; one whose device was removed is nothing to act
+  // on. Held back until the device list is in, since that is what says which
+  // devices are live.
+  const alerts = useMemo(() => {
+    if (!devicesQuery.isSuccess) return [];
+    const live = new Set(devices.map((d) => d.id));
+    return (alertsQuery.data?.alerts ?? []).filter((a) => live.has(a.deviceId));
+  }, [devicesQuery.isSuccess, devices, alertsQuery.data]);
+
   const locationNames = useMemo(
     () => Object.fromEntries((locationsQuery.data?.locations ?? []).map((l) => [l.id, l.name])),
     [locationsQuery.data]
@@ -93,7 +102,7 @@ export function useDashboardData() {
     statusQuery,
     statuses: statusQuery.data?.byId ?? {},
     alertsQuery,
-    alerts: alertsQuery.data?.alerts ?? [],
+    alerts,
     ticketsQuery,
     tickets: ticketsQuery.data?.tickets ?? [],
     locationNames,
