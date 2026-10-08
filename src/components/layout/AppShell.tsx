@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui';
 import { StatusPage } from './StatusPage';
 import { useInstallation } from '@/hooks/useInstallation';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 import { SubscriptionBanner } from './SubscriptionBanner';
 import { isRouteAvailable } from '@/constants/installation.constants';
 import { isVendorRole } from '@/constants/roles';
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, logout, user } = useAuth();
   const installation = useInstallation();
   const subscription = useSubscription();
+  useScrollRestoration();
 
   // Reached signed out: the login itself and the two links that come by email.
   const isLoginPage = SIGNED_OUT_PATHS.has(pathname);
