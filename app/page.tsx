@@ -127,6 +127,7 @@ export default function DashboardPage() {
         onRefresh={data.refresh}
         isRefreshing={data.isRefreshing}
         lastRefreshed={data.lastRefreshed}
+        inline
       />
 
       {/* Headline numbers */}

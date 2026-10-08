@@ -15,6 +15,8 @@ interface PageHeaderProps {
   lastRefreshed?: Date | null;
   /** Primary actions, rendered to the right of "Actualizar". */
   actions?: React.ReactNode;
+  /** Keeps the controls across from the title at every width, instead of below it from `sm` up. */
+  inline?: boolean;
 }
 
 function RefreshIcon() {
@@ -45,10 +47,17 @@ export function PageHeader({
   isRefreshing = false,
   lastRefreshed,
   actions,
+  inline = false,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-row sm:flex-col items-start justify-between sm:justify-start gap-4 sm:gap-2 mb-6">
-      <div className="w-1/2 sm:w-full min-w-0">
+    <div
+      className={
+        inline
+          ? 'flex flex-row items-start justify-between gap-4 mb-6'
+          : 'flex flex-row sm:flex-col items-start justify-between sm:justify-start gap-4 sm:gap-2 mb-6'
+      }
+    >
+      <div className={inline ? 'min-w-0 flex-1' : 'w-1/2 sm:w-full min-w-0'}>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
           {info && <InfoTip label={`Acerca de «${title}»`}>{info}</InfoTip>}
@@ -56,8 +65,8 @@ export function PageHeader({
         {subtitle && <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">{subtitle}</p>}
       </div>
 
-      <div className="w-1/2 sm:w-full flex flex-col items-end sm:items-start gap-1">
-        <div className="flex flex-wrap justify-end sm:justify-start gap-2">
+      <div className={inline ? 'shrink-0 flex flex-col items-end gap-1' : 'w-1/2 sm:w-full flex flex-col items-end sm:items-start gap-1'}>
+        <div className={inline ? 'flex flex-wrap justify-end gap-2' : 'flex flex-wrap justify-end sm:justify-start gap-2'}>
           {onRefresh && (
             <IconButton
               icon={isRefreshing ? null : <RefreshIcon />}
