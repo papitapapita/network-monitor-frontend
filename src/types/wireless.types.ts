@@ -202,18 +202,22 @@ export interface WirelessExpectedClientsResponse {
 }
 
 export interface WirelessIdentitySuggestion {
-  field: 'name' | 'macAddress';
-  /** From device-inventory. */
+  field: 'name' | 'macAddress' | 'parentApDeviceId';
+  /** From device-inventory, or the wireless config for `parentApDeviceId`. */
   currentValue: string | null;
   /** From the latest AirOS poll. */
   suggestedValue: string;
+  /** Device names for `parentApDeviceId`, whose values are ids; null otherwise. */
+  currentLabel: string | null;
+  suggestedLabel: string | null;
 }
 
 /**
  * Read-only diff between what AirOS last reported about its own
  * hostname/MAC and what's on file in device-inventory. Never auto-written —
  * accepting a suggestion means calling `updateDevice` with the suggested
- * value. Serial number is never compared; AirOS does not expose one.
+ * value, or `updateWirelessConfig` for `parentApDeviceId`. Serial number is
+ * never compared; AirOS does not expose one.
  */
 export interface WirelessIdentitySuggestionsResponse {
   deviceId: string;

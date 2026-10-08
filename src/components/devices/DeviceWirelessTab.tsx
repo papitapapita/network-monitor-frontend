@@ -198,6 +198,12 @@ function inferDeviceType(category: DeviceCategory | null): WirelessDeviceType {
 // mute the "no snapshot" errors for this long instead of showing them as faults.
 const REBOOT_WINDOW_MS = 120_000;
 
+const SUGGESTION_FIELD_LABELS: Record<WirelessIdentitySuggestion['field'], string> = {
+  name: 'Nombre',
+  macAddress: 'Dirección MAC',
+  parentApDeviceId: 'AP declarado',
+};
+
 // A station that declares this AP as its parent but is missing from the AP's
 // live list. Same columns as ClientRow so it sits in the same table, but
 // dimmed, flagged and linked to the station's own device page.
@@ -756,6 +762,19 @@ export function DeviceWirelessTab({
   const handleAcceptSuggestion = async (s: WirelessIdentitySuggestion) => {
     const key = suggestionKey(s);
     setAcceptingSuggestionKey(key);
+    if (s.field === 'parentApDeviceId') {
+      const result = await apiService.updateWirelessConfig(deviceId, { parentApDeviceId: s.suggestedValue });
+      setAcceptingSuggestionKey(null);
+      if (result.success) {
+        // Reload rather than setConfig: the edit form is seeded from the
+        // fetch, and a stale parentApDeviceId there would undo this on the
+        // next save. The new config re-runs the suggestions fetch.
+        fetchConfig();
+      } else {
+        showError(result.error || 'No se pudo aplicar la sugerencia');
+      }
+      return;
+    }
     const result = await apiService.updateDevice(
       deviceId,
       s.field === 'name' ? { name: s.suggestedValue } : { macAddress: s.suggestedValue }
@@ -1097,12 +1116,12 @@ export function DeviceWirelessTab({
       {config && (
         <>
           {/* Identity suggestions — a read-only diff between what AirOS last
-              reported about its own hostname/MAC and what's on file here.
-              Never auto-written; each row is its own accept/dismiss. */}
+              reported about its own hostname/MAC, or the AP it's talking to,
+              and what's on file here. Each row is its own accept/dismiss. */}
           {!identitySuggestionsLoading && visibleSuggestions.length > 0 && (
             <Card>
               <Card.Header>
-                <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados en el inventario. Nada se cambia solo: acepta o descarta cada sugerencia.">
+                <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo el AP declarado vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
                   Sugerencias de Identidad
                   <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
                     ({visibleSuggestions.length})
@@ -1120,14 +1139,14 @@ export function DeviceWirelessTab({
                       >
                         <div className="min-w-0 text-sm">
                           <span className="font-medium text-gray-700 dark:text-gray-300">
-                            {s.field === 'name' ? 'Nombre' : 'Dirección MAC'}:
+                            {SUGGESTION_FIELD_LABELS[s.field]}:
                           </span>{' '}
                           <span className="text-gray-500 dark:text-gray-400 line-through wrap-anywhere">
-                            {s.currentValue ?? '—'}
+                            {s.currentLabel ?? s.currentValue ?? '—'}
                           </span>{' '}
                           <span className="text-gray-400 dark:text-gray-500">→</span>{' '}
                           <span className="text-gray-900 dark:text-gray-100 font-medium wrap-anywhere">
-                            {s.suggestedValue}
+                            {s.suggestedLabel ?? s.suggestedValue}
                           </span>
                         </div>
                         {canWrite && (
