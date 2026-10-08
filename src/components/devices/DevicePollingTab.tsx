@@ -12,6 +12,7 @@ import {
   Card,
   Button,
   Input,
+  Switch,
   Select,
   LoadingSpinner,
   Badge,
@@ -121,7 +122,6 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const [noConfig, setNoConfig] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollResult, setPollResult] = useState<ManualPollResultDTO | null>(null);
-  const [isEnabling, setIsEnabling] = useState(false);
 
   /**
    * Nothing is being polled — the device flag is off, there is no polling config
@@ -160,7 +160,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const [showConfig, setShowConfig] = useState(false);
   const [configForm, setConfigForm] = useState({
     intervalSeconds: '60',
-    failuresBeforeDown: '3'
+    failuresBeforeDown: '3',
+    /** Seeded from `monitoringOff` each time the form opens. */
+    enabled: false
   });
   const [configSaving, setConfigSaving] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
@@ -193,10 +195,11 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     if (result.success && result.data) {
       const s = result.data;
       setPollingStatus(s);
-      setConfigForm({
+      setConfigForm((p) => ({
+        ...p,
         intervalSeconds: String(s.intervalSeconds),
         failuresBeforeDown: String(s.failuresBeforeDown)
-      });
+      }));
     } else {
       const isNotFound =
         result.error?.toLowerCase().includes('no polling configuration') ||
@@ -251,45 +254,53 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     setIsPolling(false);
   };
 
-  /**
-   * Turning monitoring on takes two writes: the device flag the rest of the UI
-   * reads, and the polling config the scheduler reads. `POST .../polling/config`
-   * upserts, so this both creates a missing config and re-enables a disabled
-   * one, leaving any interval already stored untouched.
-   */
-  const handleEnableMonitoring = async () => {
-    setIsEnabling(true);
+  const openConfig = () => {
+    setConfigForm((p) => ({ ...p, enabled: !monitoringOff }));
+    setConfigErrors({});
     setConfigError(null);
+    setShowConfig(true);
+  };
 
-    const updated = await apiService.updateDevice(deviceId, { monitoringEnabled: true });
-    if (!updated.success || !updated.data) {
-      const message = updated.error || 'Error al habilitar el monitoreo';
-      setConfigError(message);
-      showError(message);
-      setIsEnabling(false);
+  const failConfig = (message: string) => {
+    setConfigError(message);
+    showError(message);
+  };
+
+  /**
+   * One save for the whole form, toggle included. Turning monitoring on takes
+   * two writes: the device flag the rest of the UI reads, and the polling
+   * config the scheduler reads. `POST .../polling/config` upserts, so it both
+   * creates a missing config and re-enables a disabled one, with the interval
+   * and threshold from the form. Turning it off is the device flag alone: it
+   * runs the same stop-monitoring transition and keeps the config.
+   */
+  const handleSaveConfig = async () => {
+    const wasOn = !monitoringOff;
+    const { enabled } = configForm;
+
+    if (!enabled && !wasOn) {
+      setShowConfig(false);
       return;
     }
 
-    const config = await apiService.createPollingConfig(deviceId, {
-      enabled: true,
-      ipAddress: device.ipAddress,
-    });
-    if (!config.success) {
-      const message = config.error || 'Error al crear la configuración de sondeo';
-      setConfigError(message);
-      showError(message);
+    if (!enabled) {
+      setConfigSaving(true);
+      setConfigError(null);
+      const updated = await apiService.updateDevice(deviceId, { monitoringEnabled: false });
+      if (updated.success && updated.data) {
+        showSuccess('Monitoreo deshabilitado.');
+        onDeviceUpdated(updated.data);
+        setShowConfig(false);
+        fetchPollingStatus();
+      } else {
+        failConfig(updated.error || 'Error al deshabilitar el monitoreo');
+      }
+      setConfigSaving(false);
+      return;
     }
 
-    onDeviceUpdated(updated.data);
-    await fetchPollingStatus();
-    setIsEnabling(false);
-  };
-
-  const handleSaveConfig = async () => {
     if (!hasIp) {
-      const message = 'El dispositivo necesita una dirección IP para configurar el sondeo.';
-      setConfigError(message);
-      showError(message);
+      failConfig('El dispositivo necesita una dirección IP para configurar el sondeo.');
       return;
     }
     const errors = validatePollingConfigForm(configForm);
@@ -302,8 +313,33 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     const intervalSeconds = configForm.intervalSeconds ? parseInt(configForm.intervalSeconds) : undefined;
     const failuresBeforeDown = configForm.failuresBeforeDown ? parseInt(configForm.failuresBeforeDown) : undefined;
 
-    // The form is only reachable once monitoring is on, which implies a config
-    // exists — creating one is "Habilitar Monitoreo"'s job.
+    if (!wasOn) {
+      if (!device.monitoringEnabled) {
+        const updated = await apiService.updateDevice(deviceId, { monitoringEnabled: true });
+        if (!updated.success || !updated.data) {
+          failConfig(updated.error || 'Error al habilitar el monitoreo');
+          setConfigSaving(false);
+          return;
+        }
+        onDeviceUpdated(updated.data);
+      }
+      const created = await apiService.createPollingConfig(deviceId, {
+        enabled: true,
+        ipAddress: device.ipAddress,
+        intervalSeconds,
+        failuresBeforeDown
+      });
+      if (created.success) {
+        showSuccess('Monitoreo habilitado.');
+        setShowConfig(false);
+      } else {
+        failConfig(created.error || 'Error al crear la configuración de sondeo');
+      }
+      await fetchPollingStatus();
+      setConfigSaving(false);
+      return;
+    }
+
     const result = await apiService.updatePollingConfig(deviceId, {
       intervalSeconds,
       failuresBeforeDown
@@ -315,9 +351,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
       setNoConfig(false);
       fetchPollingStatus();
     } else {
-      const message = result.error || 'Error al guardar la configuración';
-      setConfigError(message);
-      showError(message);
+      failConfig(result.error || 'Error al guardar la configuración');
     }
     setConfigSaving(false);
   };
@@ -471,7 +505,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
               )}
               <EditToggleButton
                 isEditing={showConfig}
-                onEdit={() => setShowConfig(true)}
+                onEdit={openConfig}
                 onCancel={() => setShowConfig(false)}
                 editLabel="Editar configuración"
               />
@@ -481,7 +515,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
         <Card.Body>
           {showConfig ? (
             <>
-              {!hasIp && !monitoringOff && (
+              {!hasIp && configForm.enabled && (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-4 text-sm text-yellow-800 dark:text-yellow-400">
                   Este dispositivo no tiene dirección IP. Asigne una en la pestaña «Detalles» para habilitar el sondeo.
                 </div>
@@ -491,28 +525,26 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                   {configError}
                 </div>
               )}
-              {monitoringOff ? (
-                <>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    El monitoreo está deshabilitado, así que no hay configuración de sondeo que
-                    ajustar.
-                  </p>
-                  {permissions.canWrite && (
-                    <div className="mt-4">
-                      <Button
-                        onClick={handleEnableMonitoring}
-                        isLoading={isEnabling}
-                        disabled={!canEnableMonitoring(device.status, device.ipAddress)}
-                      >
-                        Habilitar Monitoreo
-                      </Button>
-                    </div>
-                  )}
-                  {blockedReason && (
-                    <p className="mt-3 text-sm text-yellow-700 dark:text-yellow-500">{blockedReason}</p>
-                  )}
-                </>
-              ) : (
+              {/* Turning it on is offered only where the details form would
+                  allow it too; turning it off is always allowed. */}
+              <div className="mb-4">
+                <Switch
+                  id="polling-enabled"
+                  label="Monitoreo habilitado"
+                  description={
+                    configForm.enabled
+                      ? undefined
+                      : 'Apagado, el equipo no se sondea y su estado queda «Desconocido». El intervalo y el umbral se conservan.'
+                  }
+                  checked={configForm.enabled}
+                  onChange={(e) => setConfigForm((p) => ({ ...p, enabled: e.target.checked }))}
+                  disabled={!permissions.canWrite || (monitoringOff && !canEnableMonitoring(device.status, device.ipAddress))}
+                />
+                {monitoringOff && blockedReason && (
+                  <p className="mt-2 text-sm text-yellow-700 dark:text-yellow-500">{blockedReason}</p>
+                )}
+              </div>
+              {configForm.enabled && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <IntervalInput
                     label="Intervalo"
@@ -687,13 +719,13 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
             <p className="text-gray-500 dark:text-gray-400 text-sm">Sin estado de sondeo disponible.</p>
           )}
         </Card.Body>
-        {showConfig && !monitoringOff && (
+        {showConfig && (
           <Card.Footer>
             <EditFormActions
               onCancel={() => setShowConfig(false)}
               onSave={handleSaveConfig}
               isSaving={configSaving}
-              saveDisabled={!hasIp}
+              saveDisabled={configForm.enabled && !hasIp}
               hideCancel
             />
           </Card.Footer>

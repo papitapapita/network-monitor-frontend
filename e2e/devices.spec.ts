@@ -1178,8 +1178,9 @@ test.describe('device conventions', () => {
 
     await page.goto(`/devices/${device.id}`);
     await page.getByRole('button', { name: 'Sondeo' }).click();
+    await page.getByRole('button', { name: 'Editar configuración' }).click();
 
-    await expect(page.getByRole('button', { name: 'Habilitar Monitoreo' })).toBeDisabled();
+    await expect(page.getByLabel('Monitoreo habilitado')).toBeDisabled();
     await expect(
       page.getByText(/El monitoreo solo puede habilitarse en dispositivos activos o en comisionamiento; este está en «Inventario»/)
     ).toBeVisible();
@@ -1190,8 +1191,9 @@ test.describe('device conventions', () => {
 
     await page.goto(`/devices/${device.id}`);
     await page.getByRole('button', { name: 'Sondeo' }).click();
+    await page.getByRole('button', { name: 'Editar configuración' }).click();
 
-    await expect(page.getByRole('button', { name: 'Habilitar Monitoreo' })).toBeDisabled();
+    await expect(page.getByLabel('Monitoreo habilitado')).toBeDisabled();
     await expect(
       page.getByText('Este dispositivo no tiene dirección IP. Asigne una en la pestaña «Detalles» para habilitar el monitoreo.')
     ).toBeVisible();
@@ -1210,13 +1212,15 @@ test.describe('device conventions', () => {
     await page.goto(`/devices/${device.id}`);
     await page.getByRole('button', { name: 'Sondeo' }).click();
 
-    const enable = page.getByRole('button', { name: 'Habilitar Monitoreo' });
+    await page.getByRole('button', { name: 'Editar configuración' }).click();
+    const enable = page.getByLabel('Monitoreo habilitado');
     await expect(enable).toBeEnabled();
-    await enable.click();
-
-    // The flag and the schedule are two writes; the tab only offers the
-    // interval form once both landed.
+    await enable.check();
     await expect(page.getByLabel('Intervalo', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+
+    // The flag and the schedule are two writes; the form closes once both landed.
+    await expect(page.getByText('Monitoreo habilitado.')).toBeVisible();
 
     await page.reload();
     await expect(detailValue(page, 'Monitoreo')).toHaveText('Habilitado');

@@ -14,7 +14,7 @@ import {
   WirelessIdentitySuggestion,
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
-import { Card, Input, Select, Combobox, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle, PlusIcon } from '@/components/ui';
+import { Card, Input, Select, Switch, Combobox, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle, PlusIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useInstallation } from '@/hooks/useInstallation';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -1029,28 +1029,18 @@ export function DeviceWirelessTab({
                   }}
                   error={configFormErrors.intervalSecs}
                 />
-                {/* "Sí" is not offered where the backend would answer 400 — a
-                    retired or replaced unit cannot be polled — but the rest of
-                    the form stays editable, so its settings can still be fixed. */}
-                <div>
-                  <Select
-                    label="Habilitado"
-                    value={canEnablePolling ? configForm.enabled : 'false'}
-                    onChange={(e) => setConfigForm((p) => ({ ...p, enabled: e.target.value }))}
-                    options={
-                      canEnablePolling
-                        ? [
-                            { value: 'true', label: 'Sí' },
-                            { value: 'false', label: 'No' },
-                          ]
-                        : [{ value: 'false', label: 'No' }]
-                    }
+                {/* Locked off where the backend would answer 400 — a retired
+                    or replaced unit cannot be polled — but the rest of the form
+                    stays editable, so its settings can still be fixed. */}
+                <div className="flex items-center md:pt-6">
+                  <Switch
+                    id="wireless-polling-enabled"
+                    label="Sondeo inalámbrico habilitado"
+                    description={enableBlockedReason ?? undefined}
+                    checked={canEnablePolling && configForm.enabled === 'true'}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, enabled: String(e.target.checked) }))}
                     disabled={!canEnablePolling}
-                    fullWidth
                   />
-                  {enableBlockedReason && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{enableBlockedReason}</p>
-                  )}
                 </div>
                 {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
                   // WLS-166: a live contract's plan overrides this value, so it
