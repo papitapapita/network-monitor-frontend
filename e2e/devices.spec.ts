@@ -308,6 +308,28 @@ test.describe('device credentials', () => {
     await expect(page.getByText('8080')).toBeVisible();
   });
 
+  test('keeps the stored password when an edit leaves it blank', async ({ page, api }) => {
+    const { device } = await arrangeDevice(api, { ipAddress: '192.168.77.14' });
+
+    await api.put(`/devices/${device.id}/credentials`, {
+      httpUsername: 'e2e-keeper',
+      httpPassword: 'e2e-secret',
+      httpPort: 8080,
+    });
+
+    await openCredentials(page, device.id);
+    await page.getByTestId('credentials-edit').click();
+    await field(page, 'Puerto HTTP').fill('8443');
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+
+    await expect(page.getByText('8443')).toBeVisible();
+    await expect(page.getByText('Configuradas')).toBeVisible();
+    const saved = await api.get<{ httpUsername: string; hasHttpCredentials: boolean }>(
+      `/devices/${device.id}/credentials`
+    );
+    expect(saved).toMatchObject({ httpUsername: 'e2e-keeper', hasHttpCredentials: true });
+  });
+
   test('deletes credentials', async ({ page, api }) => {
     const { device } = await arrangeDevice(api, { ipAddress: '192.168.77.13' });
 

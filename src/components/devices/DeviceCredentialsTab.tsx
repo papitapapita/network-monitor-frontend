@@ -27,7 +27,8 @@ function TrashIcon() {
 }
 
 const EMPTY_FORM = {
-  // HTTP is the required pair — the backend replaces it on every call.
+  // The backend keeps an omitted HTTP pair, so the password only needs typing
+  // when it changes.
   httpUsername: '',
   httpPassword: '',
   httpPort: '443',
@@ -57,6 +58,12 @@ const forbidden = (result: { status?: number; error?: string }): string | null =
     ? 'Solo un administrador puede modificar las credenciales de un dispositivo.'
     : null;
 
+/** The backend's credential refusals (DEV-133), in the dashboard's language. */
+const SAVE_ERRORS: Record<string, string> = {
+  'An HTTP login or SNMP access is required': 'El dispositivo necesita un usuario HTTP, acceso SNMP o ambos.',
+  'httpUsername and httpPassword must be set together': 'El usuario y la contraseña HTTP van juntos.',
+};
+
 function invalidPort(value: string): boolean {
   if (!value) return false;
   const port = Number(value);
@@ -70,8 +77,8 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   const permissions = usePermissions();
   const canManage = permissions.isAdmin;
   // Mimosa radios are polled over SNMP only, so SNMP leads the form and is
-  // required there. HTTP stays required too: the backend demands the pair on
-  // every save whatever the vendor.
+  // required there, and HTTP is optional. Every other device needs the HTTP
+  // login: AirOS polling, reboots and MikroTik backups all log in with it.
   const snmpFirst = wirelessCollectorFor(vendorSlug ?? '')?.credentials === 'snmp';
 
   const [creds, setCreds] = useState<DeviceCredentialsResponseDTO | null>(null);
@@ -136,11 +143,22 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   const field = (key: keyof FormState, value: string | boolean) =>
     setForm((p) => ({ ...p, [key]: value }));
 
+  const hadHttp = creds?.hasHttpCredentials ?? false;
+  const httpUsername = form.httpUsername.trim();
+  // A stored login under the same username is kept when the password is blank.
+  const keepsHttp = hadHttp && httpUsername === creds?.httpUsername && !form.httpPassword;
+
   const validateHttp = (): string | null => {
-    if (!form.httpUsername.trim()) return 'El usuario HTTP es obligatorio.';
-    // The backend replaces the HTTP pair on every call and rejects a blank
-    // password, so it must be re-entered even when editing.
-    if (!form.httpPassword) return 'La contraseña HTTP es obligatoria.';
+    const optional = snmpFirst && !httpUsername && !form.httpPassword;
+    if (!optional) {
+      if (!httpUsername) return 'El usuario HTTP es obligatorio.';
+      if (!form.httpPassword && !keepsHttp) {
+        // The backend takes the pair together, so a new username needs the password again.
+        return hadHttp
+          ? 'Para cambiar el usuario HTTP vuelve a escribir la contraseña.'
+          : 'La contraseña HTTP es obligatoria.';
+      }
+    }
     if (invalidPort(form.httpPort)) return 'El puerto HTTP debe estar entre 1 y 65535.';
     if (invalidPort(form.sshPort)) return 'El puerto SSH debe estar entre 1 y 65535.';
     return null;
@@ -183,11 +201,17 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     setSaveSuccess(false);
 
     const body: SetDeviceCredentialsDTO = {
-      httpUsername: form.httpUsername.trim(),
-      httpPassword: form.httpPassword,
       httpPort: form.httpPort ? parseInt(form.httpPort) : undefined,
       sshPort: form.sshPort ? parseInt(form.sshPort) : undefined,
     };
+    // Omitting the pair keeps the stored login; both blank clears it.
+    if (httpUsername && form.httpPassword) {
+      body.httpUsername = httpUsername;
+      body.httpPassword = form.httpPassword;
+    } else if (!httpUsername && !form.httpPassword && (creds?.httpUsername != null || hadHttp)) {
+      body.httpUsername = null;
+      body.httpPassword = null;
+    }
 
     if (form.snmpEnabled) {
       // Omit a secret left blank so the backend keeps the stored one; only send
@@ -217,7 +241,9 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
       setSaveSuccess(true);
       setShowForm(false);
     } else {
-      const message = forbidden(result) ?? result.error ?? 'Error al guardar credenciales';
+      const message =
+        forbidden(result) ??
+        (result.error ? SAVE_ERRORS[result.error] ?? result.error : 'Error al guardar credenciales');
       setSaveError(message);
       showError(message);
     }
@@ -249,24 +275,28 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
         as="h3"
         info={
           snmpFirst
-            ? 'Este equipo no las usa para el sondeo, pero el backend exige el par en cada guardado. Use el acceso a la interfaz web del equipo; la contraseña debe volver a escribirse.'
-            : 'Usadas por el sondeo inalámbrico de equipos Ubiquiti (AirOS) y el reinicio remoto. El backend reemplaza el par completo en cada guardado, por lo que la contraseña debe volver a escribirse.'
+            ? 'Este equipo se sondea por SNMP y no las necesita. Deje usuario y contraseña vacíos para no guardar ninguna, o para borrar las que ya tenga.'
+            : 'Usadas por el sondeo inalámbrico de equipos Ubiquiti (AirOS), el reinicio remoto y los respaldos de MikroTik. Deje la contraseña vacía para conservar la guardada.'
         }
       >
-        HTTP / API Web <span className="font-normal text-gray-500 dark:text-gray-400">(requerido)</span>
+        HTTP / API Web{' '}
+        <span className="font-normal text-gray-500 dark:text-gray-400">
+          {snmpFirst ? '(opcional)' : '(requerido)'}
+        </span>
       </SectionTitle>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Input
-        label="Usuario *"
+        label={snmpFirst ? 'Usuario' : 'Usuario *'}
         value={form.httpUsername}
         onChange={(e) => field('httpUsername', e.target.value)}
         fullWidth
       />
       <Input
-        label="Contraseña *"
+        label={snmpFirst || hadHttp ? 'Contraseña' : 'Contraseña *'}
         type="password"
         value={form.httpPassword}
+        placeholder={hadHttp ? '(dejar vacío para no cambiar)' : ''}
         onChange={(e) => field('httpPassword', e.target.value)}
         fullWidth
       />
@@ -526,7 +556,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Estado HTTP</dt>
                 <dd className="mt-1">
                   <Badge variant={creds.hasHttpCredentials ? 'success' : 'neutral'}>
-                    {creds.hasHttpCredentials ? 'Configuradas' : 'Sin contraseña'}
+                    {creds.hasHttpCredentials ? 'Configuradas' : 'Sin configurar'}
                   </Badge>
                 </dd>
               </div>

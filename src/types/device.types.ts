@@ -317,15 +317,17 @@ export interface DeviceCredentialsResponseDTO {
 }
 
 export interface SetDeviceCredentialsDTO {
-  // HTTP / web-UI credentials — the required pair, replaced on every call.
-  httpUsername: string;
-  httpPassword: string;
-  httpPort?: number; // 1–65535; default 443
+  // A device needs an HTTP login, SNMP access, or both (DEV-133). Every field
+  // is optional: omit it to keep the stored value, send null to clear it.
+
+  // HTTP / web-UI login — send both, null both to clear, or omit both to keep.
+  httpUsername?: string | null;
+  httpPassword?: string | null;
+  httpPort?: number; // 1–65535; omit to keep the stored value (default 443)
   sshPort?: number; // 1–65535; omit to keep the stored value (default 22)
 
-  // SNMP — optional, not consumed by any collector yet. Omit a field to keep the
-  // stored value; send null to clear it. snmpVersion becomes required as soon as
-  // any other SNMP field is sent.
+  // SNMP — Mimosa is polled with these. snmpVersion becomes required as soon
+  // as any other SNMP field is sent.
   snmpVersion?: 1 | 2 | 3;
   snmpCommunity?: string | null;
   snmpV3AuthUser?: string | null;
