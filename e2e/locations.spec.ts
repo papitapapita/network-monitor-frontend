@@ -77,7 +77,6 @@ test.describe('locations', () => {
 
     await field(page, 'Nombre').fill(name);
     await selectDropdown(page, 'Tipo', 'Torre');
-    // The backend rejects a partial address, so all three parts go together.
     await field(page, 'Dirección').fill('Calle 1 # 2-3');
     await field(page, 'Municipio').fill('Villavicencio');
     await field(page, 'Barrio').fill('Centro');
@@ -96,7 +95,6 @@ test.describe('locations', () => {
     const loc = await api.create<{ id: string; name: string }>('locations', {
       name: uniqueName('loc'),
       type: 'DATACENTER',
-      // The backend requires street + municipality + neighborhood together.
       address: 'Calle 1 # 2-3',
       municipality: 'Villavicencio',
       neighborhood: 'Centro',
@@ -182,5 +180,55 @@ test.describe('locations', () => {
     // The map endpoint must include what we just created.
     const map = await api.get<{ total: number; pins: Array<{ id: string }> }>('/locations/map');
     expect(map.pins.some((p) => p.id === loc.id)).toBe(true);
+  });
+  // ── DEV-094 / DEV-096 — address parts stand alone, except at a customer's premises ──
+  test('DEV-094: a tower is saved with only its neighborhood', async ({ page, api }) => {
+    const name = uniqueName('location');
+    await page.goto('/locations/create');
+    await field(page, 'Nombre').fill(name);
+    await selectDropdown(page, 'Tipo', 'Torre');
+    await field(page, 'Barrio').fill('La Esperanza');
+    await page.getByRole('button', { name: 'Crear Ubicación' }).click();
+
+    await page.waitForURL(/\/locations\/[0-9a-f-]{36}$/);
+    const id = idFromUrl(page.url());
+    api.track('locations', id);
+    const saved = await api.get<{ address: string | null; municipality: string | null; neighborhood: string | null }>(`/locations/${id}`);
+    expect(saved).toMatchObject({ address: null, municipality: null, neighborhood: 'La Esperanza' });
+  });
+
+  test('DEV-094: clearing one part on edit clears only that part', async ({ page, api }) => {
+    const loc = await api.create<{ id: string }>('locations', {
+      name: uniqueName('loc'),
+      type: 'TOWER',
+      address: 'Calle 1 # 2-3',
+      municipality: 'Villavicencio',
+      neighborhood: 'Centro',
+    });
+
+    await page.goto(`/locations/${loc.id}`);
+    await page.getByRole('button', { name: 'Editar' }).click();
+    await field(page, 'Dirección').fill('');
+    await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+    await expect(page.getByText('Editar Ubicación')).toHaveCount(0);
+
+    const saved = await api.get<{ address: string | null; municipality: string | null; neighborhood: string | null }>(`/locations/${loc.id}`);
+    expect(saved).toMatchObject({ address: null, municipality: 'Villavicencio', neighborhood: 'Centro' });
+  });
+
+  test('DEV-096: a customer premises needs coordinates or the whole address', async ({ page }) => {
+    let posts = 0;
+    await page.route(/\/api\/locations$/, (route) => {
+      if (route.request().method() === 'POST') posts++;
+      return route.continue();
+    });
+    await page.goto('/locations/create');
+    await field(page, 'Nombre').fill(uniqueName('location'));
+    await selectDropdown(page, 'Tipo', 'Instalación de cliente');
+    await field(page, 'Barrio').fill('Centro');
+    await page.getByRole('button', { name: 'Crear Ubicación' }).click();
+
+    await expect(page.getByText(/requiere la dirección completa/).first()).toBeVisible();
+    expect(posts).toBe(0);
   });
 });

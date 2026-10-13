@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FieldLabel, Input, Select } from '@/components/ui';
-import type { LocationType, LocationResponseDTO, CreateLocationDTO } from '@/types/location.types';
+import type { LocationType, LocationResponseDTO, CreateLocationDTO, UpdateLocationDTO } from '@/types/location.types';
 import { LOCATION_TYPE_OPTIONS } from '@/constants/location.constants';
 import { reverseGeocode } from '@/services/geocoding.service';
 
@@ -109,17 +109,14 @@ export function validateLocationForm(formData: LocationFormData): Record<string,
     errors.altitude = 'La altitud requiere latitud y longitud';
   }
 
-  const hasAddress = !!formData.address.trim();
-  const hasMunicipality = !!formData.municipality.trim();
-  const hasNeighborhood = !!formData.neighborhood.trim();
-  if ((hasAddress || hasMunicipality || hasNeighborhood) && !(hasAddress && hasMunicipality && hasNeighborhood)) {
-    if (!errors.address && !hasAddress) errors.address = 'La dirección es requerida junto con el municipio y el barrio';
-    if (!errors.municipality && !hasMunicipality) errors.municipality = 'El municipio es requerido junto con la dirección y el barrio';
-    if (!errors.neighborhood && !hasNeighborhood) errors.neighborhood = 'El barrio es requerido junto con la dirección y el municipio';
-  }
+  // Each address part stands alone (DEV-094), but a customer's premises must be
+  // findable: coordinates, or all three parts (DEV-096).
   const hasCoords = !!(formData.latitude.trim() && formData.longitude.trim());
-  if (!errors.address && formData.type === 'CUSTOMER_PREMISES' && !formData.address.trim() && !hasCoords) {
-    errors.address = 'Una instalación de cliente requiere dirección o coordenadas';
+  if (formData.type === 'CUSTOMER_PREMISES' && !hasCoords) {
+    const missing = 'Sin coordenadas, una instalación de cliente requiere la dirección completa';
+    if (!errors.address && !formData.address.trim()) errors.address = missing;
+    if (!errors.municipality && !formData.municipality.trim()) errors.municipality = missing;
+    if (!errors.neighborhood && !formData.neighborhood.trim()) errors.neighborhood = missing;
   }
 
   return errors;
@@ -137,6 +134,26 @@ export function buildLocationDTO(formData: LocationFormData): CreateLocationDTO 
   if (formData.longitude) dto.longitude = parseFloat(formData.longitude);
   if (formData.altitude) dto.altitude = parseFloat(formData.altitude);
   return dto;
+}
+
+/**
+ * The same body for an edit, where an omitted field keeps what is stored: a
+ * part or coordinate left blank is sent as `null` so clearing it takes.
+ */
+export function buildUpdateLocationDTO(formData: LocationFormData): UpdateLocationDTO {
+  const blank = (v: string) => v.trim() || null;
+  const num = (v: string) => (v.trim() ? parseFloat(v) : null);
+  return {
+    name: formData.name.trim(),
+    type: formData.type as LocationType,
+    municipality: blank(formData.municipality),
+    neighborhood: blank(formData.neighborhood),
+    address: blank(formData.address),
+    latitude: num(formData.latitude),
+    longitude: num(formData.longitude),
+    // The update refuses a null altitude; clearing the coordinates clears it too.
+    ...(formData.altitude.trim() ? { altitude: parseFloat(formData.altitude) } : {}),
+  };
 }
 
 export function locationToForm(loc: LocationResponseDTO): LocationFormData {
@@ -234,8 +251,8 @@ export function LocationForm({ formData, formErrors, onChange, onLocationPick, i
         maxLength={255}
         info={
           formData.type === 'CUSTOMER_PREMISES'
-            ? 'Una instalación de cliente requiere dirección o coordenadas. Dirección, municipio y barrio van juntos.'
-            : 'Dirección, municipio y barrio van juntos: si completa uno, debe completar los tres.'
+            ? 'Una instalación de cliente requiere coordenadas o la dirección completa: dirección, municipio y barrio.'
+            : 'Dirección, municipio y barrio son independientes: complete los que conozca.'
         }
         fullWidth
       />

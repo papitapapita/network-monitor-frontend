@@ -14,7 +14,7 @@ import {
   LocationFormData,
   EMPTY_LOCATION_FORM,
   validateLocationForm,
-  buildLocationDTO,
+  buildUpdateLocationDTO,
   locationToForm,
   useLocationCoordsGeocoding,
 } from '@/components/locations/LocationForm';
@@ -120,7 +120,7 @@ export default function LocationDetailPage() {
     setIsSaving(true);
     setError(null);
 
-    const dto: UpdateLocationDTO = buildLocationDTO(formData);
+    const dto: UpdateLocationDTO = buildUpdateLocationDTO(formData);
     const result = await apiService.updateLocation(locationId, dto);
     if (result.success && result.data) {
       setLocation(result.data);
