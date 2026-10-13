@@ -1,5 +1,5 @@
 import { test, expect, uniqueName } from './fixtures/test';
-import { confirmDialog, field, idFromUrl, searchFor } from './fixtures/helpers';
+import { confirmDialog, field, idFromUrl, searchFor, selectDropdown } from './fixtures/helpers';
 
 /** Villavicencio-ish, so created pins land somewhere plausible on the map. */
 const LAT = 4.132689;
@@ -63,7 +63,8 @@ test.describe('locations', () => {
     await dialog.getByRole('button', { name: 'Eliminar', exact: true }).click();
 
     // The whole point of the fix: the failure is reported instead of vanishing.
-    await expect(page.getByRole('alert').filter({ hasText: /Cannot delete|No se puede/ })).toBeVisible();
+    // It arrives as a toast, which announces through a live region rather than role="alert".
+    await expect(page.getByText(/No se puede eliminar la ubicación|Cannot delete location/)).toBeVisible();
     await expect(page.getByRole('row').filter({ hasText: loc.name })).toBeVisible();
   });
 
@@ -75,7 +76,7 @@ test.describe('locations', () => {
     await page.waitForURL('**/locations/create');
 
     await field(page, 'Nombre').fill(name);
-    await field(page, 'Tipo').selectOption({ label: 'Torre' });
+    await selectDropdown(page, 'Tipo', 'Torre');
     // The backend rejects a partial address, so all three parts go together.
     await field(page, 'Dirección').fill('Calle 1 # 2-3');
     await field(page, 'Municipio').fill('Villavicencio');
@@ -137,7 +138,7 @@ test.describe('locations', () => {
 
     await expect(page.getByText('Editar Ubicación')).toBeVisible();
     await field(page, 'Nombre').fill(newName);
-    await field(page, 'Tipo').selectOption({ label: 'Torre' });
+    await selectDropdown(page, 'Tipo', 'Torre');
     await page.getByRole('button', { name: 'Guardar Cambios' }).click();
 
     await expect(page.getByRole('heading', { name: newName })).toBeVisible();

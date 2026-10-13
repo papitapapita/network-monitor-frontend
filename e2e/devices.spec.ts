@@ -288,7 +288,7 @@ test.describe('device credentials', () => {
     // Saved values are shown back, and the actions switch to Editar/Eliminar.
     // Test ids here because the page header carries its own "Eliminar".
     await expect(page.getByText('e2e-admin')).toBeVisible();
-    await expect(page.getByTestId('credentials-edit')).toHaveText('Editar');
+    await expect(page.getByTestId('credentials-edit')).toHaveAccessibleName('Editar');
     await expect(page.getByTestId('credentials-delete')).toBeVisible();
   });
 
@@ -348,7 +348,7 @@ test.describe('device credentials', () => {
     await dialog.getByRole('button', { name: 'Eliminar', exact: true }).click();
 
     await expect(page.getByText('e2e-doomed')).toHaveCount(0);
-    await expect(page.getByTestId('credentials-edit')).toHaveText('Configurar');
+    await expect(page.getByTestId('credentials-edit')).toHaveAccessibleName('Configurar');
   });
 });
 
