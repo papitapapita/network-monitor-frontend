@@ -84,11 +84,11 @@ export function InlineModelForm({ vendors, lockedVendorId, initialModelName = ''
 
   return (
     <div
-      className="mt-3 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3"
+      className="mt-3 p-4 border border-brand-200 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 rounded-lg space-y-3"
       // Rendered inside the device form, so a bare Enter would submit that one — save this model instead, and Escape cancels it.
       onKeyDown={submitOnEnterCancelOnEscape(handleSubmit, onCancel, isLoading)}
     >
-      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo modelo</p>
+      <p className="text-sm font-medium text-brand-800 dark:text-brand-300">Nuevo modelo</p>
 
       <div className={`grid grid-cols-1 gap-3 ${lockedVendorId ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
         {!lockedVendorId && (

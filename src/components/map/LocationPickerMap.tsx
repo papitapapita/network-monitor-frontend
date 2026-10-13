@@ -17,7 +17,7 @@ const markerIcon = L.divIcon({
   className: '',
   html: `<div style="
     width:22px;height:22px;border-radius:50% 50% 50% 0;
-    background:#2563eb;border:2.5px solid white;
+    background:#0a7468;border:2.5px solid white;
     box-shadow:0 2px 6px rgba(0,0,0,0.35);
     transform:rotate(-45deg);
   "></div>`,

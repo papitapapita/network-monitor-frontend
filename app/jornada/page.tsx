@@ -66,7 +66,7 @@ function DayTicketCard({
           <div className="flex-1 min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               {ticket.startTime && (
-                <span className="font-mono text-sm font-semibold text-blue-700 dark:text-blue-400">
+                <span className="font-mono text-sm font-semibold text-brand-700 dark:text-brand-400">
                   {ticket.startTime}–{ticket.endTime}
                 </span>
               )}
@@ -105,7 +105,7 @@ function DayTicketCard({
                     {/* The number to ring before driving out. */}
                     <a
                       href={`tel:${ticket.customer.phone}`}
-                      className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                      className="font-mono text-brand-600 dark:text-brand-400 hover:underline"
                     >
                       {ticket.customer.phone}
                     </a>
@@ -122,7 +122,7 @@ function DayTicketCard({
                         {' · '}
                         <a
                           href={`tel:${ticket.contact.phone}`}
-                          className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                          className="font-mono text-brand-600 dark:text-brand-400 hover:underline"
                         >
                           {ticket.contact.phone}
                         </a>
@@ -167,7 +167,7 @@ function DayTicketCard({
                         href={mapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 hover:underline print:hidden"
+                        className="text-brand-600 dark:text-brand-400 hover:underline print:hidden"
                       >
                         Abrir en Google Maps
                       </a>
@@ -306,7 +306,7 @@ function JornadaPageContent() {
                   </h2>
                   <a
                     href={`tel:${sheet.technician.phone}`}
-                    className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    className="font-mono text-sm text-brand-600 dark:text-brand-400 hover:underline"
                   >
                     {sheet.technician.phone}
                   </a>

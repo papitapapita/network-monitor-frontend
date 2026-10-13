@@ -104,7 +104,7 @@ export function SetPasswordPage({ mode }: { mode: 'reset' | 'invitation' }) {
   };
 
   const toLogin = (
-    <Link href="/login" className="block text-center text-sm text-blue-600 hover:underline dark:text-blue-400">
+    <Link href="/login" className="block text-center text-sm text-brand-600 hover:underline dark:text-brand-400">
       Ir a iniciar sesión
     </Link>
   );

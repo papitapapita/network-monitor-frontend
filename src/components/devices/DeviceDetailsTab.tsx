@@ -440,7 +440,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                       label="Habilitar monitoreo"
                     />
                     {suggestOn && !noIp && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400">(recomendado en comisionamiento, opcional)</span>
+                      <span className="text-xs text-brand-600 dark:text-brand-400">(recomendado en comisionamiento, opcional)</span>
                     )}
                     {noIp ? (
                       <span className="text-xs text-gray-500 dark:text-gray-400">(requiere una dirección IP)</span>
@@ -513,7 +513,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                           return (
                             <Link
                               href={`/locations/${device.locationId}`}
-                              className="text-blue-600 dark:text-blue-400 hover:underline"
+                              className="text-brand-600 dark:text-brand-400 hover:underline"
                             >
                               {loc ? loc.name : device.locationId}
                             </Link>
@@ -526,7 +526,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                         {
                           label: 'Sondeado por',
                           value: device.agentId ? (
-                            <Link href={`/agents/${device.agentId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                            <Link href={`/agents/${device.agentId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
                               {deviceAgent ? deviceAgent.name : 'Agente'}
                             </Link>
                           ) : (
@@ -540,7 +540,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                     value: (
                       <Link
                         href={`/device-models/${device.deviceModelId}`}
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-brand-600 dark:text-brand-400 hover:underline"
                       >
                         {deviceModel ? `${deviceModel.vendorName} ${deviceModel.model}` : device.deviceModelId}
                       </Link>

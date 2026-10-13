@@ -75,7 +75,7 @@ export function FilterBar({
               aria-expanded={expanded}
             />
             {secondaryFiltersActive && !expanded && (
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-white dark:ring-gray-900" />
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-brand-500 ring-2 ring-white dark:ring-gray-900" />
             )}
           </div>
         )}

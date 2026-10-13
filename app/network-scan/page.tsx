@@ -363,8 +363,8 @@ function AddDeviceModal({
                   </div>
 
                   {form.monitoringEnabled && (
-                    <div className="p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Configuración de Polling</p>
+                    <div className="p-4 border border-brand-200 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 rounded-lg space-y-3">
+                      <p className="text-sm font-medium text-brand-800 dark:text-brand-300">Configuración de Polling</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Select
                           label="Intervalo de polling"
@@ -734,7 +734,7 @@ export default function NetworkScanPage() {
                             return (
                               <Link
                                 href={`/devices/${existing.id}`}
-                                className="text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline"
+                                className="text-xs text-brand-600 dark:text-brand-400 font-medium hover:underline"
                               >
                                 Registrado →
                               </Link>

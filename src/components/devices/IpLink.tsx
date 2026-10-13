@@ -9,7 +9,7 @@ export function IpLink({ ip, className = 'text-xs' }: { ip: string; className?: 
       rel="noopener noreferrer"
       // Rows that are clickable themselves (tables, expandable rows) shouldn't also react.
       onClick={(e) => e.stopPropagation()}
-      className={`font-mono text-blue-600 dark:text-blue-400 hover:underline ${className}`}
+      className={`font-mono text-brand-600 dark:text-brand-400 hover:underline ${className}`}
     >
       {ip}
     </a>

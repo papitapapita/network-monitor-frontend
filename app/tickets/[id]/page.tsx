@@ -320,7 +320,7 @@ export default function TicketDetailPage() {
       )}
 
       {isAlertOrigin(ticket.origin) && ticket.originAlertId && (
-        <div className="p-3 rounded-md text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 flex justify-between items-center gap-3">
+        <div className="p-3 rounded-md text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-300 flex justify-between items-center gap-3">
           <span>El monitoreo abrió este ticket a partir de una alerta.</span>
           <Button
             variant="outline"
@@ -533,14 +533,14 @@ export default function TicketDetailPage() {
                 </p>
                 <a
                   href={`tel:${ticket.customer.phone}`}
-                  className="block font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                  className="block font-mono text-brand-600 dark:text-brand-400 hover:underline"
                 >
                   {ticket.customer.phone}
                 </a>
                 {ticket.customer.email && (
                   <a
                     href={`mailto:${ticket.customer.email}`}
-                    className="block text-blue-600 dark:text-blue-400 hover:underline"
+                    className="block text-brand-600 dark:text-brand-400 hover:underline"
                   >
                     {ticket.customer.email}
                   </a>
@@ -571,7 +571,7 @@ export default function TicketDetailPage() {
                 {ticket.contact.phone && (
                   <a
                     href={`tel:${ticket.contact.phone}`}
-                    className="block font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                    className="block font-mono text-brand-600 dark:text-brand-400 hover:underline"
                   >
                     {ticket.contact.phone}
                   </a>
@@ -636,7 +636,7 @@ export default function TicketDetailPage() {
                 </div>
                 <a
                   href={`tel:${ticket.technician.phone}`}
-                  className="block font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                  className="block font-mono text-brand-600 dark:text-brand-400 hover:underline"
                 >
                   {ticket.technician.phone}
                 </a>
@@ -688,7 +688,7 @@ export default function TicketDetailPage() {
                     href={mapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block text-blue-600 dark:text-blue-400 hover:underline"
+                    className="inline-block text-brand-600 dark:text-brand-400 hover:underline"
                   >
                     Abrir en Google Maps
                   </a>

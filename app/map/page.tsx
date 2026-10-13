@@ -93,7 +93,7 @@ export default function MapPage() {
               </p>
               <Link
                 href="/locations"
-                className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-sm text-brand-600 dark:text-brand-400 hover:underline"
               >
                 Administrar ubicaciones →
               </Link>

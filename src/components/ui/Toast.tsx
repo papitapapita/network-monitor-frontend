@@ -21,7 +21,7 @@ const variantClasses: Record<ToastVariant, string> = {
   success:
     'bg-emerald-600/90 dark:bg-emerald-900/85 border-emerald-300/50 dark:border-emerald-500/40',
   info:
-    'bg-blue-600/90 dark:bg-blue-900/85 border-blue-300/50 dark:border-blue-500/40',
+    'bg-brand-600/90 dark:bg-brand-900/85 border-brand-300/50 dark:border-brand-500/40',
 };
 
 function VariantIcon({ variant }: { variant: ToastVariant }) {

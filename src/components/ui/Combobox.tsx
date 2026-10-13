@@ -203,7 +203,7 @@ export function Combobox({
                     : ''
                 } ${
                   opt.value === value
-                    ? 'text-blue-600 dark:text-blue-400 font-medium'
+                    ? 'text-brand-600 dark:text-brand-400 font-medium'
                     : 'text-gray-700 dark:text-gray-200'
                 }`}
               >
@@ -224,7 +224,7 @@ export function Combobox({
                     setIsOpen(false);
                     setQuery('');
                   }}
-                  className={`px-2 py-1.5 rounded text-sm cursor-pointer text-blue-600 dark:text-blue-400 ${
+                  className={`px-2 py-1.5 rounded text-sm cursor-pointer text-brand-600 dark:text-brand-400 ${
                     highlightedIndex === filtered.length ? 'bg-gray-100 dark:bg-gray-700' : ''
                   }`}
                 >
@@ -268,7 +268,7 @@ export function Combobox({
           ${
             error
               ? 'border border-red-400 hover:border-red-500 focus:border-red-500 focus:ring-red-500'
-              : 'border border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-500 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400'
+              : 'border border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-500 focus:border-brand-500 dark:focus:border-brand-400 focus:ring-brand-500 dark:focus:ring-brand-400'
           }
         `}
       />

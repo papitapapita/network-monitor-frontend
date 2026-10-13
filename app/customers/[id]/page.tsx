@@ -484,12 +484,12 @@ export default function CustomerDetailPage() {
         </Card.Header>
         <Card.Body>
           {statusNotice && (
-            <div className="mb-4 p-3 rounded-md text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 flex justify-between items-start gap-3">
+            <div className="mb-4 p-3 rounded-md text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-300 flex justify-between items-start gap-3">
               <span>{statusNotice}</span>
               <button
                 type="button"
                 onClick={() => setStatusNotice(null)}
-                className="text-blue-800 dark:text-blue-300 font-medium shrink-0"
+                className="text-brand-800 dark:text-brand-300 font-medium shrink-0"
                 aria-label="Cerrar aviso"
               >
                 ×
@@ -497,8 +497,8 @@ export default function CustomerDetailPage() {
             </div>
           )}
           {showAddForm && (
-            <form onSubmit={handleAddContract} onKeyDown={(e) => { if (isCancelEscape(e)) { setShowAddForm(false); setAddError(null); setAddFormErrors({}); } }} className="mb-6 p-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
-              <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo Servicio Contratado</p>
+            <form onSubmit={handleAddContract} onKeyDown={(e) => { if (isCancelEscape(e)) { setShowAddForm(false); setAddError(null); setAddFormErrors({}); } }} className="mb-6 p-4 border border-brand-200 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 rounded-lg space-y-3">
+              <p className="text-sm font-medium text-brand-800 dark:text-brand-300">Nuevo Servicio Contratado</p>
               {addError && <p className="text-sm text-red-600 dark:text-red-400">{addError}</p>}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Select
@@ -602,7 +602,7 @@ export default function CustomerDetailPage() {
                               type="button"
                               onClick={() => handleVerifyEnforcement(cs.id)}
                               disabled={verifyingId === cs.id}
-                              className="text-blue-600 dark:text-blue-400 underline disabled:opacity-50"
+                              className="text-brand-600 dark:text-brand-400 underline disabled:opacity-50"
                             >
                               {verifyingId === cs.id ? 'Verificando…' : 'Verificar'}
                             </button>

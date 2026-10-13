@@ -23,7 +23,7 @@ const variantClasses: Record<BadgeVariant, string> = {
   danger:
     'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-400 border-red-200 dark:border-red-800',
   info:
-    'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+    'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-400 border-brand-200 dark:border-brand-800',
   neutral:
     'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-600',
   draft:

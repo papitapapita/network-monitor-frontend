@@ -99,7 +99,7 @@ function CheckMark({ checked }: { checked: boolean }) {
       className={`
         w-[18px] h-[18px] rounded border-2 flex items-center justify-center shrink-0
         ${checked
-          ? 'bg-blue-600 border-blue-600'
+          ? 'bg-brand-600 border-brand-600'
           : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
         }
       `}
@@ -229,7 +229,7 @@ export function ColumnPicker({
                 role="menuitem"
                 onClick={onReset}
                 disabled={isDefault}
-                className="w-full px-2 py-1.5 rounded text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                className="w-full px-2 py-1.5 rounded text-left text-sm text-brand-600 dark:text-brand-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               >
                 Restablecer
               </button>

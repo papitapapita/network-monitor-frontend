@@ -61,7 +61,7 @@ function EntryDot({ variant }: { variant: BadgeVariant }) {
     success: 'bg-green-500',
     warning: 'bg-yellow-500',
     danger: 'bg-red-500',
-    info: 'bg-blue-500',
+    info: 'bg-brand-500',
     neutral: 'bg-gray-400 dark:bg-gray-500',
     draft: 'bg-amber-500',
     active: 'bg-emerald-500',
@@ -106,7 +106,7 @@ export function DeviceHistoryTab({ device }: Props) {
       title: (
         <>
           Sustituyó a{' '}
-          <Link href={`/devices/${device.replacesDeviceId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+          <Link href={`/devices/${device.replacesDeviceId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
             la unidad anterior
           </Link>
         </>
@@ -122,7 +122,7 @@ export function DeviceHistoryTab({ device }: Props) {
       title: (
         <>
           Esta unidad fue reemplazada por{' '}
-          <Link href={`/devices/${device.replacedByDeviceId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+          <Link href={`/devices/${device.replacedByDeviceId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
             el equipo actual
           </Link>
         </>

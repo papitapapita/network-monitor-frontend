@@ -2,6 +2,26 @@
 
 @custom-variant dark (&:is(.dark, .dark *));
 
+/*
+ * Mi Red Control's accent (miredcontrol.com): Tailwind's teal, pinned to the
+ * website's three named shades — #2DD4BF bright (400, dark-mode text),
+ * #0E9F8E brand (500) and #0A7468 ink (600, white text on it holds 5.5:1
+ * where the brand shade itself would not).
+ */
+@theme {
+  --color-brand-50: var(--color-teal-50);
+  --color-brand-100: var(--color-teal-100);
+  --color-brand-200: var(--color-teal-200);
+  --color-brand-300: var(--color-teal-300);
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #0e9f8e;
+  --color-brand-600: #0a7468;
+  --color-brand-700: #085e55;
+  --color-brand-800: var(--color-teal-800);
+  --color-brand-900: var(--color-teal-900);
+  --color-brand-950: var(--color-teal-950);
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

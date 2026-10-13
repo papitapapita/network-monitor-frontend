@@ -642,7 +642,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                     <>
                       Lo sondea el agente{' '}
                       {agent ? (
-                        <Link href={`/agents/${agent.id}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                        <Link href={`/agents/${agent.id}`} className="font-medium text-brand-600 dark:text-brand-400 hover:underline">
                           {agent.name}
                         </Link>
                       ) : (

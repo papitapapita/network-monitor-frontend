@@ -323,7 +323,7 @@ function CalendarPageContent() {
           <button
             type="button"
             onClick={showAll}
-            className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+            className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
           >
             Mostrar todos
           </button>

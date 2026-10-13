@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { NavItem } from '../ui/NavItem';
+import { BrandMark } from './BrandMark';
 import { useAuth } from '@/contexts/auth.context';
 import { useSavedListHref } from '@/hooks/listState';
 import { useInstallation } from '@/hooks/useInstallation';
@@ -273,12 +274,12 @@ function NavGroupItem({
           isRail ? 'md:justify-center md:px-0' : ''
         } ${
           highlighted
-            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+            ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400'
             : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
         }`}
       >
         <span
-          className={`shrink-0 ${highlighted ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
+          className={`shrink-0 ${highlighted ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'}`}
         >
           {group.icon}
         </span>
@@ -356,17 +357,13 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
       {/* Brand */}
       <div className="h-16 flex items-center gap-2 px-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
         <Link href="/" className="flex items-center gap-2 min-w-0" onClick={onClose}>
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={DEVICE_ICON} />
-            </svg>
-          </div>
+          <BrandMark />
           <span
-            className={`text-base font-bold text-gray-900 dark:text-gray-100 leading-tight whitespace-nowrap ${
+            className={`text-base font-extrabold tracking-tight text-gray-900 dark:text-gray-100 leading-tight whitespace-nowrap ${
               isRail ? 'md:sr-only' : ''
             }`}
           >
-            Network<br />Monitor
+            Mi Red<br />Control
           </span>
         </Link>
 

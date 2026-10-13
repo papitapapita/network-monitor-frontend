@@ -344,7 +344,7 @@ export function WeekCalendar({
                   <div key={day} className="py-2 text-center border-l border-gray-200 dark:border-gray-700">
                     <div
                       className={`text-xs uppercase ${
-                        isToday ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 dark:text-gray-400'
+                        isToday ? 'text-brand-600 dark:text-brand-400 font-semibold' : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {weekday}
@@ -352,7 +352,7 @@ export function WeekCalendar({
                     <div
                       className={`mx-auto mt-0.5 w-8 h-8 flex items-center justify-center rounded-full text-lg ${
                         isToday
-                          ? 'bg-blue-600 text-white font-semibold'
+                          ? 'bg-brand-600 text-white font-semibold'
                           : 'text-gray-900 dark:text-gray-100'
                       }`}
                     >
@@ -382,9 +382,9 @@ export function WeekCalendar({
                     }}
                     className={`min-h-10 p-1 space-y-1 border-l border-gray-200 dark:border-gray-700 ${
                       canWrite ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40' : ''
-                    } ${isTarget ? 'bg-blue-50 dark:bg-blue-900/30' : ''} ${
+                    } ${isTarget ? 'bg-brand-50 dark:bg-brand-900/30' : ''} ${
                       pendingSlot && !pendingSlot.startTime && pendingSlot.day === day
-                        ? 'ring-2 ring-inset ring-blue-500'
+                        ? 'ring-2 ring-inset ring-brand-500'
                         : ''
                     }`}
                   >
@@ -405,7 +405,7 @@ export function WeekCalendar({
                       </div>
                     ))}
                     {isTarget && drag?.kind === 'move' && (
-                      <div className="truncate rounded border-2 border-dashed border-blue-500 px-1.5 py-0.5 text-xs text-blue-700 dark:text-blue-300">
+                      <div className="truncate rounded border-2 border-dashed border-brand-500 px-1.5 py-0.5 text-xs text-brand-700 dark:text-brand-300">
                         {ticketLabel(drag.ticket)}
                       </div>
                     )}
@@ -451,7 +451,7 @@ export function WeekCalendar({
                   onPointerDown={(e) => beginCreate(dayIdx, e)}
                   className={`relative border-l border-gray-200 dark:border-gray-700 ${
                     canWrite ? 'cursor-cell' : ''
-                  } ${dayIdx === todayIdx ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}
+                  } ${dayIdx === todayIdx ? 'bg-brand-50/40 dark:bg-brand-900/10' : ''}`}
                 >
                   {timedByDay[dayIdx].map(({ ticket: t, start, end, col, cols }) => {
                     const isResizing = resizing?.ticket.id === t.id;
@@ -472,7 +472,7 @@ export function WeekCalendar({
                         className={`absolute rounded-md border-l-4 px-1.5 py-0.5 text-xs overflow-hidden cursor-pointer select-none touch-none shadow-sm ${
                           colorFor(t).block
                         } ${stateClasses(t)} ${movingId === t.id ? 'opacity-40' : ''} ${
-                          isResizing ? 'z-20 ring-2 ring-blue-500' : 'z-10'
+                          isResizing ? 'z-20 ring-2 ring-brand-500' : 'z-10'
                         }`}
                         style={{
                           top,
@@ -510,7 +510,7 @@ export function WeekCalendar({
                     !drag.target.allDay &&
                     drag.target.dayIdx === dayIdx && (
                       <div
-                        className={`absolute inset-x-0.5 z-30 rounded-md border-2 border-dashed border-blue-500 px-1.5 py-0.5 text-xs pointer-events-none ${
+                        className={`absolute inset-x-0.5 z-30 rounded-md border-2 border-dashed border-brand-500 px-1.5 py-0.5 text-xs pointer-events-none ${
                           colorFor(drag.ticket).block
                         }`}
                         style={{
@@ -528,7 +528,7 @@ export function WeekCalendar({
                   {/* New-ticket selection */}
                   {selection?.dayIdx === dayIdx && (
                     <div
-                      className="absolute inset-x-0.5 z-30 rounded-md bg-blue-600/80 text-white px-1.5 py-0.5 text-xs pointer-events-none shadow"
+                      className="absolute inset-x-0.5 z-30 rounded-md bg-brand-600/80 text-white px-1.5 py-0.5 text-xs pointer-events-none shadow"
                       style={{
                         top: minutesToPx(selection.start),
                         height: minutesToPx(selection.end) - minutesToPx(selection.start),

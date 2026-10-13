@@ -53,7 +53,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             ${
               error
                 ? 'border border-red-400 hover:border-red-500 hover:bg-red-50/40 dark:hover:bg-red-900/10 focus:border-red-500 focus:ring-red-500 focus:bg-red-50/40 dark:focus:bg-red-900/10'
-                : 'border border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/40 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 focus:bg-blue-50/40 dark:focus:bg-blue-900/10'
+                : 'border border-gray-400 dark:border-gray-600 hover:border-gray-500 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/40 focus:border-brand-500 dark:focus:border-brand-400 focus:ring-brand-500 dark:focus:ring-brand-400 focus:bg-brand-50/40 dark:focus:bg-brand-900/10'
             }
             ${className}
           `}

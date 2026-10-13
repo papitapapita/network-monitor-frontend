@@ -119,7 +119,7 @@ export function InfoTip({ children, label = 'Más información', className = '' 
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        className={`inline-flex shrink-0 items-center justify-center rounded-full align-middle text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer ${
+        className={`inline-flex shrink-0 items-center justify-center rounded-full align-middle text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 cursor-pointer ${
           pinned ? 'text-gray-600 dark:text-gray-300' : ''
         } ${className}`}
       >

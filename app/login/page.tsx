@@ -218,7 +218,7 @@ function PasswordStep({
       <button
         type="button"
         onClick={onForgot}
-        className="block w-full text-center text-sm text-blue-600 hover:underline dark:text-blue-400"
+        className="block w-full text-center text-sm text-brand-600 hover:underline dark:text-brand-400"
       >
         ¿Olvidaste tu contraseña?
       </button>
@@ -445,7 +445,7 @@ function SetupStep({
             <button
               type="button"
               onClick={() => setShowSecret(true)}
-              className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+              className="text-sm text-brand-600 hover:underline dark:text-brand-400"
             >
               ¿No puedes escanear? Escribe la clave
             </button>
@@ -549,7 +549,7 @@ function VerifyStep({
       <button
         type="button"
         onClick={onToggleRecovery}
-        className="block w-full text-center text-sm text-blue-600 hover:underline dark:text-blue-400"
+        className="block w-full text-center text-sm text-brand-600 hover:underline dark:text-brand-400"
       >
         {step.recovery ? 'Usar el código de la aplicación' : 'Perdí mi teléfono'}
       </button>

@@ -205,7 +205,7 @@ export default function WirelessThroughputPage() {
                           <td className="py-2 pr-3">
                             <Link
                               href={`/devices/${r.deviceId}`}
-                              className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                              className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                             >
                               {name}
                             </Link>

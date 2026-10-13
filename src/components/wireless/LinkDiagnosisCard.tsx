@@ -285,7 +285,7 @@ function SessionLine({ diagnosis, now }: { diagnosis: LinkDiagnosisDTO; now: num
           <span className="tabular-nums">Quedan {Math.ceil(remaining)} s</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
-          <div className="h-1.5 rounded-full bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
+          <div className="h-1.5 rounded-full bg-brand-500 transition-all" style={{ width: `${pct}%` }} />
         </div>
       </div>
     );

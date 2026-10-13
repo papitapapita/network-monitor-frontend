@@ -1,4 +1,6 @@
 import React from 'react';
+import { BrandMark } from '@/components/layout/BrandMark';
+import { BRAND } from '@/constants/brand.constants';
 
 /** The signed-out frame: the logo over one card. Shared by every sign-in screen. */
 export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -7,13 +9,8 @@ export function AuthCard({ title, children }: { title: string; children: React.R
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">Network Monitor</span>
+            <BrandMark className="w-10 h-10" />
+            <span className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{BRAND.name}</span>
           </div>
         </div>
 

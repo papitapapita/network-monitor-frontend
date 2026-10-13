@@ -120,7 +120,7 @@ function alertColumnCatalog(deviceNames: Record<string, string>): AlertColumn[] 
       cell: (a) => (
         <Link
           href={`/devices/${a.deviceId}`}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className="text-sm text-brand-600 dark:text-brand-400 hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
           {deviceNames[a.deviceId] ?? a.deviceId}

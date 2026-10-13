@@ -350,7 +350,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
             <select
               value={snmpV}
               onChange={(e) => field('snmpVersion', e.target.value as '1' | '2' | '3')}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="1">SNMPv1</option>
               <option value="2">SNMPv2c</option>
@@ -393,7 +393,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
               <select
                 value={form.snmpV3AuthProto}
                 onChange={(e) => field('snmpV3AuthProto', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">— ninguno —</option>
                 <option value="MD5">MD5</option>
@@ -415,7 +415,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
               <select
                 value={form.snmpV3PrivProto}
                 onChange={(e) => field('snmpV3PrivProto', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">— ninguno —</option>
                 <option value="DES">DES</option>

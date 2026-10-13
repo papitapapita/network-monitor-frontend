@@ -194,7 +194,7 @@ function DevicesPageContent() {
           <button
             type="button"
             onClick={() => setLocationFilter('')}
-            className="text-blue-600 dark:text-blue-400 hover:underline"
+            className="text-brand-600 dark:text-brand-400 hover:underline"
           >
             Quitar filtro
           </button>

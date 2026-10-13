@@ -10,6 +10,8 @@ import { useInstallation } from '@/hooks/useInstallation';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 import { SubscriptionBanner } from './SubscriptionBanner';
+import { BrandMark } from './BrandMark';
+import { BRAND } from '@/constants/brand.constants';
 import { isRouteAvailable } from '@/constants/installation.constants';
 import { isVendorRole } from '@/constants/roles';
 
@@ -202,7 +204,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="ml-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Network Monitor</span>
+          <BrandMark className="ml-2 w-7 h-7" />
+          <span className="ml-2 text-sm font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{BRAND.name}</span>
         </header>
 
         {/* x hidden: an edge-positioned IconButton's tooltip label stays in

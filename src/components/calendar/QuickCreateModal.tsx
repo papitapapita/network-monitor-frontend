@@ -318,7 +318,7 @@ export function QuickCreateModal({
       <Modal.Footer className="justify-between">
         <Link
           href={moreOptionsHref}
-          className="mr-auto text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+          className="mr-auto text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline"
         >
           Más opciones
         </Link>

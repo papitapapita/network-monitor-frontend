@@ -807,7 +807,7 @@ export function DataTable<T>({
                       <Table.Row
                         key={id}
                         onClick={onRowClick ? () => onRowClick(row) : undefined}
-                        className={isSelected ? 'bg-blue-50 dark:bg-blue-900/10' : ''}
+                        className={isSelected ? 'bg-brand-50 dark:bg-brand-900/10' : ''}
                       >
                         {selectionEnabled && (
                           <Table.Cell className="w-10 pl-4 pr-0 select-none">
@@ -871,7 +871,7 @@ export function DataTable<T>({
                           onClick={() => setIsSortMenuOpen((open) => !open)}
                           aria-haspopup="true"
                           aria-expanded={isSortMenuOpen}
-                          className="flex items-center gap-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 py-1 pl-2 pr-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex items-center gap-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 py-1 pl-2 pr-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         >
                           <span>
                             {activeSortColumn
@@ -911,7 +911,7 @@ export function DataTable<T>({
                                   }}
                                   className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
                                     active
-                                      ? 'text-blue-600 dark:text-blue-400 font-medium'
+                                      ? 'text-brand-600 dark:text-brand-400 font-medium'
                                       : 'text-gray-700 dark:text-gray-200'
                                   }`}
                                 >
@@ -993,7 +993,7 @@ export function DataTable<T>({
                           onRowClick || (mobileSelectMode && rowSelectable)
                             ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700'
                             : ''
-                        } ${isSelected ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                        } ${isSelected ? 'bg-brand-50 dark:bg-brand-900/10' : ''}`}
                       >
                         <div className="flex items-start gap-3">
                           {mobileSelectMode && (
@@ -1058,7 +1058,7 @@ export function DataTable<T>({
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
           <div className="pointer-events-auto flex items-center gap-3 bg-gray-900 dark:bg-gray-950 text-white rounded-2xl shadow-2xl px-5 py-3 border border-gray-700 dark:border-gray-600">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+              <div className="w-5 h-5 rounded-full bg-brand-600 flex items-center justify-center shrink-0">
                 <span className="text-[10px] font-bold text-white leading-none">{selectedCount}</span>
               </div>
               <span className="text-sm font-medium">
@@ -1070,7 +1070,7 @@ export function DataTable<T>({
                 <div className="h-4 w-px bg-gray-600" />
                 <button
                   onClick={() => setPendingAction(action)}
-                  className="text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
+                  className="text-sm font-medium text-brand-400 transition-colors hover:text-brand-300"
                 >
                   {action.label}
                 </button>

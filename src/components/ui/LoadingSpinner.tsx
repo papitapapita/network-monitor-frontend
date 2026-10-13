@@ -20,7 +20,7 @@ export function LoadingSpinner({
   const spinner = (
     <div className="flex flex-col items-center justify-center gap-3">
       <svg
-        className={`animate-spin text-blue-600 dark:text-blue-400 ${sizeClasses[size]}`}
+        className={`animate-spin text-brand-600 dark:text-brand-400 ${sizeClasses[size]}`}
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"

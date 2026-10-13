@@ -213,7 +213,7 @@ function DisconnectedStationRow({ station }: { station: WirelessExpectedClientsR
   return (
     <tr className="border-b border-gray-100 dark:border-gray-700 bg-red-50/60 dark:bg-red-900/10">
       <td className="py-2 pr-3 border-l-2 border-red-500 pl-2">
-        <Link href={`/devices/${station.deviceId}`} className="font-mono text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href={`/devices/${station.deviceId}`} className="font-mono text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline">
           {station.deviceName}
         </Link>
         <div className="font-mono text-xs text-gray-400 dark:text-gray-500">{station.macAddress ?? 'Sin MAC registrada'}</div>
@@ -1004,7 +1004,7 @@ export function DeviceWirelessTab({
                   <dd className="mt-1">
                     <Link
                       href={`/devices/${config.parentApDeviceId}`}
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-brand-600 dark:text-brand-400 hover:underline"
                     >
                       {parentAp?.name ?? config.parentApDeviceId}
                     </Link>
@@ -1247,7 +1247,7 @@ export function DeviceWirelessTab({
               ) : metrics ? (
                 <>
                   {pollMsg && (
-                    <div className="mb-4 p-3 rounded-md text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
+                    <div className="mb-4 p-3 rounded-md text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-300">
                       {pollMsg}
                     </div>
                   )}
@@ -1468,7 +1468,7 @@ export function DeviceWirelessTab({
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {alert.lastValue} sondeos seguidos con otro AP.{' '}
                           {showSuggestions ? (
-                            <a href={`#${IDENTITY_SUGGESTIONS_ANCHOR}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                            <a href={`#${IDENTITY_SUGGESTIONS_ANCHOR}`} className="text-brand-600 dark:text-brand-400 hover:underline">
                               Acepta la sugerencia de AP
                             </a>
                           ) : (

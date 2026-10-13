@@ -86,7 +86,7 @@ export function Pagination({
                   className={`
                     inline-flex items-center justify-center h-8 min-w-8 px-1.5 rounded-md text-xs font-medium shrink-0
                     ${page === currentPage
-                      ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-500 dark:border-blue-600 text-blue-600 dark:text-blue-400'
+                      ? 'bg-brand-50 dark:bg-brand-900/30 border border-brand-500 dark:border-brand-600 text-brand-600 dark:text-brand-400'
                       : 'border border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}
                   `}
                 >
@@ -136,7 +136,7 @@ export function Pagination({
             <select
               value={itemsPerPage}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               {pageSizeOptions.map((size) => (
                 <option key={size} value={size}>{size}</option>
@@ -157,7 +157,7 @@ export function Pagination({
               <select
                 value={itemsPerPage}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                className="text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 {pageSizeOptions.map((size) => (
                   <option key={size} value={size}>{size}</option>
@@ -220,7 +220,7 @@ export function Pagination({
                     className={`
                       relative inline-flex items-center px-4 py-2 border text-sm font-medium
                       ${page === currentPage
-                        ? 'z-10 bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-600 text-blue-600 dark:text-blue-400'
+                        ? 'z-10 bg-brand-50 dark:bg-brand-900/30 border-brand-500 dark:border-brand-600 text-brand-600 dark:text-brand-400'
                         : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}
                     `}
                   >

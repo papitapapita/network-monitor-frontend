@@ -28,15 +28,15 @@ export function SelectCheckbox({
       onClick={(e) => { e.stopPropagation(); onChange(e.shiftKey); }}
       className={`
         w-[18px] h-[18px] rounded border-2 flex items-center justify-center shrink-0
-        transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+        transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1
         dark:focus:ring-offset-gray-800
         ${disabled ? 'opacity-40 cursor-not-allowed border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700' : ''}
         ${!disabled && (checked || indeterminate)
-          ? 'bg-blue-600 border-blue-600 shadow-sm'
+          ? 'bg-brand-600 border-brand-600 shadow-sm'
           : ''
         }
         ${!disabled && !checked && !indeterminate
-          ? 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-gray-800'
+          ? 'border-gray-300 dark:border-gray-600 hover:border-brand-400 dark:hover:border-brand-500 bg-white dark:bg-gray-800'
           : ''
         }
       `}

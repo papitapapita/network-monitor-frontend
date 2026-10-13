@@ -342,13 +342,13 @@ export default function DeviceDetailPage() {
 
       {/* What the swap moved — wireless first, since nothing re-creates a config. */}
       {replaceResult && (
-        <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="mb-6 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
+              <p className="text-sm font-medium text-brand-900 dark:text-brand-300">
                 Equipo reemplazado
               </p>
-              <p className="mt-1 text-sm text-blue-800 dark:text-blue-400">
+              <p className="mt-1 text-sm text-brand-800 dark:text-brand-400">
                 Esta unidad quedó en «{STATUS_LABELS[replaceResult.retiredDevice.status] ?? replaceResult.retiredDevice.status}»
                 y conserva todo su historial.{' '}
                 <Link
@@ -359,7 +359,7 @@ export default function DeviceDetailPage() {
                 </Link>
                 .
               </p>
-              <ul className="mt-2 text-sm text-blue-800 dark:text-blue-400 list-disc list-inside space-y-0.5">
+              <ul className="mt-2 text-sm text-brand-800 dark:text-brand-400 list-disc list-inside space-y-0.5">
                 {replaceResult.credentialsTransferred && <li>Se trasladaron las credenciales.</li>}
                 {replaceResult.contractedServiceTransferred && (
                   <li>El servicio contratado del cliente ahora apunta al equipo nuevo.</li>
@@ -375,7 +375,7 @@ export default function DeviceDetailPage() {
             <button
               type="button"
               onClick={() => setReplaceResult(null)}
-              className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 shrink-0"
+              className="text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 shrink-0"
             >
               <span className="sr-only">Descartar</span>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -389,11 +389,11 @@ export default function DeviceDetailPage() {
       {/* The capacity figures were set for the antenna that used to be there,
           and the swap does not touch them — so ask for a review on both sides. */}
       {swapResult && (
-        <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="mb-6 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Hardware intercambiado</p>
-              <p className="mt-1 text-sm text-blue-800 dark:text-blue-400">
+              <p className="text-sm font-medium text-brand-900 dark:text-brand-300">Hardware intercambiado</p>
+              <p className="mt-1 text-sm text-brand-800 dark:text-brand-400">
                 Este registro ahora describe el equipo que estaba en «{swapResult.otherDevice.name}», y
                 ese registro describe el que estaba aquí. Cada sitio conserva su IP, ubicación e historial.
               </p>
@@ -409,7 +409,7 @@ export default function DeviceDetailPage() {
                       <button
                         type="button"
                         onClick={() => setActiveTab('wireless')}
-                        className="font-medium text-blue-700 dark:text-blue-300 underline"
+                        className="font-medium text-brand-700 dark:text-brand-300 underline"
                       >
                         Revisar este equipo
                       </button>
@@ -417,7 +417,7 @@ export default function DeviceDetailPage() {
                     {isWirelessCategory(swapResult.otherDevice.category) && (
                       <Link
                         href={`/devices/${swapResult.otherDevice.id}?tab=wireless`}
-                        className="font-medium text-blue-700 dark:text-blue-300 underline"
+                        className="font-medium text-brand-700 dark:text-brand-300 underline"
                       >
                         Revisar «{swapResult.otherDevice.name}»
                       </Link>
@@ -429,7 +429,7 @@ export default function DeviceDetailPage() {
             <button
               type="button"
               onClick={() => setSwapResult(null)}
-              className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 shrink-0"
+              className="text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 shrink-0"
             >
               <span className="sr-only">Descartar</span>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -474,7 +474,7 @@ export default function DeviceDetailPage() {
               onClick={() => setActiveTab(tab)}
               className={`shrink-0 pb-3 text-sm font-medium border-b-2 transition-colors ${
                 currentTab === tab
-                  ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                  ? 'border-brand-600 dark:border-brand-400 text-brand-600 dark:text-brand-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >

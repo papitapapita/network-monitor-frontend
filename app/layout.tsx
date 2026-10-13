@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { SettingsProvider } from "@/contexts/settings.context";
 import { QueryProvider } from "@/components/layout/QueryProvider";
 import { AuthProvider } from "@/contexts/auth.context";
 import { ToastProvider } from "@/contexts/toast.context";
+import { BRAND } from "@/constants/brand.constants";
 
-const inter = Inter({
+// The typeface of miredcontrol.com.
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Monitor de Red",
-  description: "Administra y monitorea tu infraestructura de red",
+  title: BRAND.name,
+  description: BRAND.description,
 };
 
 export default function RootLayout({
@@ -23,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={jakarta.className} suppressHydrationWarning>
         <QueryProvider>
           <AuthProvider>
             <SettingsProvider>

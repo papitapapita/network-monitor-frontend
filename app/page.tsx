@@ -368,11 +368,11 @@ export default function DashboardPage() {
           <div className="mb-4 flex flex-wrap gap-x-8 gap-y-3">
             {PRIORITY_ORDER.map((p) => (
               <Link key={p} href={`/tickets?status=${OPEN_ONLY_VALUE}&priority=${p}`} className="group">
-                <Figure label={ticketPriorityLabel(p)} value={<span className="group-hover:text-blue-600 dark:group-hover:text-blue-400">{ticketSummary.byPriority[p]}</span>} />
+                <Figure label={ticketPriorityLabel(p)} value={<span className="group-hover:text-brand-600 dark:group-hover:text-brand-400">{ticketSummary.byPriority[p]}</span>} />
               </Link>
             ))}
             <Link href={`/tickets?status=${OPEN_ONLY_VALUE}&technicianId=${UNASSIGNED_VALUE}`} className="group">
-              <Figure label="Sin asignar" value={<span className="group-hover:text-blue-600 dark:group-hover:text-blue-400">{ticketSummary.unassigned}</span>} />
+              <Figure label="Sin asignar" value={<span className="group-hover:text-brand-600 dark:group-hover:text-brand-400">{ticketSummary.unassigned}</span>} />
             </Link>
             {ticketSummary.overdue > 0 && <Figure label="Atrasados" value={ticketSummary.overdue} />}
           </div>

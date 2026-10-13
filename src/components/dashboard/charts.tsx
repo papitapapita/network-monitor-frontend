@@ -477,7 +477,7 @@ export function BarList({ rows, max }: { rows: BarRow[]; max?: number }) {
       {rows.map((r) => {
         const pct = r.value === null ? 0 : Math.max(1.5, (r.value / top) * 100);
         const label = r.href ? (
-          <Link href={r.href} className="truncate text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+          <Link href={r.href} className="truncate text-gray-700 hover:text-brand-600 dark:text-gray-300 dark:hover:text-brand-400">
             {r.label}
           </Link>
         ) : (

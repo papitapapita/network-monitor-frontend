@@ -32,8 +32,8 @@ export const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
             className="
               pointer-events-none absolute inset-0 rounded-full transition-colors duration-150
               bg-gray-300 dark:bg-gray-600
-              peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500
-              peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2 dark:peer-focus-visible:ring-offset-gray-800
+              peer-checked:bg-brand-600 dark:peer-checked:bg-brand-500
+              peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-2 dark:peer-focus-visible:ring-offset-gray-800
               peer-disabled:opacity-40
             "
           />

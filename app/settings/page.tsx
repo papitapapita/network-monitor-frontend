@@ -31,7 +31,7 @@ export default function SettingsPage() {
       {isVendorRole(user?.role) && (
         <Link
           href="/settings/installation"
-          className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-6 py-4 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-900/20 px-6 py-4 hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors"
         >
           <span>
             <span className="block text-base font-semibold text-gray-900 dark:text-gray-100">Configuración del proveedor</span>
@@ -39,7 +39,7 @@ export default function SettingsPage() {
               Suscripción y pagos, retención de datos, emisor, WhatsApp y router de cumplimiento.
             </span>
           </span>
-          <span aria-hidden="true" className="text-blue-600 dark:text-blue-400">→</span>
+          <span aria-hidden="true" className="text-brand-600 dark:text-brand-400">→</span>
         </Link>
       )}
 
@@ -58,17 +58,17 @@ export default function SettingsPage() {
               className={`
                 rounded-lg border-2 p-3 text-left transition-all
                 ${theme === 'light'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}
               `}
             >
               <div className="w-full h-16 bg-white border border-gray-200 rounded-md mb-2 flex flex-col gap-1 p-2">
                 <div className="h-2 bg-gray-200 rounded w-3/4" />
                 <div className="h-2 bg-gray-100 rounded w-1/2" />
-                <div className="h-2 bg-blue-200 rounded w-2/3" />
+                <div className="h-2 bg-brand-200 rounded w-2/3" />
               </div>
               <p className={`text-xs font-medium ${
-                theme === 'light' ? 'text-blue-600' : 'text-gray-600 dark:text-gray-400'
+                theme === 'light' ? 'text-brand-600' : 'text-gray-600 dark:text-gray-400'
               }`}>
                 Claro
               </p>
@@ -79,17 +79,17 @@ export default function SettingsPage() {
               className={`
                 rounded-lg border-2 p-3 text-left transition-all
                 ${theme === 'dark'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}
               `}
             >
               <div className="w-full h-16 bg-gray-900 border border-gray-700 rounded-md mb-2 flex flex-col gap-1 p-2">
                 <div className="h-2 bg-gray-700 rounded w-3/4" />
                 <div className="h-2 bg-gray-800 rounded w-1/2" />
-                <div className="h-2 bg-blue-800 rounded w-2/3" />
+                <div className="h-2 bg-brand-800 rounded w-2/3" />
               </div>
               <p className={`text-xs font-medium ${
-                theme === 'dark' ? 'text-blue-400' : 'text-gray-600 dark:text-gray-400'
+                theme === 'dark' ? 'text-brand-400' : 'text-gray-600 dark:text-gray-400'
               }`}>
                 Oscuro
               </p>

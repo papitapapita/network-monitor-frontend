@@ -35,7 +35,7 @@ export function AgentDevicesCard({ agent }: { agent: AgentDTO }) {
             Dispositivos <span className="text-gray-500 dark:text-gray-400 font-normal">({agent.deviceCount})</span>
           </h2>
           {agent.deviceCount > 0 && (
-            <Link href={listHref} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+            <Link href={listHref} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
               Ver en la lista de dispositivos
             </Link>
           )}
@@ -55,7 +55,7 @@ export function AgentDevicesCard({ agent }: { agent: AgentDTO }) {
             <ul className="divide-y divide-gray-100 dark:divide-gray-700">
               {data.devices.map((d) => (
                 <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <Link href={`/devices/${d.id}`} className="min-w-0 font-medium text-blue-600 dark:text-blue-400 hover:underline wrap-anywhere">
+                  <Link href={`/devices/${d.id}`} className="min-w-0 font-medium text-brand-600 dark:text-brand-400 hover:underline wrap-anywhere">
                     {d.name}
                   </Link>
                   <span className="flex items-center gap-3">
@@ -68,7 +68,7 @@ export function AgentDevicesCard({ agent }: { agent: AgentDTO }) {
             {data.total > data.devices.length && (
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
                 Y {data.total - data.devices.length} más.{' '}
-                <Link href={listHref} className="text-blue-600 dark:text-blue-400 hover:underline">
+                <Link href={listHref} className="text-brand-600 dark:text-brand-400 hover:underline">
                   Ver todos
                 </Link>
               </p>

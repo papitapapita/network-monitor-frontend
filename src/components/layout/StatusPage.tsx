@@ -10,7 +10,7 @@ interface StatusPageAction {
 interface StatusPageProps {
   code?: string;
   icon: React.ReactNode;
-  iconTone?: 'blue' | 'amber' | 'red';
+  iconTone?: 'brand' | 'amber' | 'red';
   title: string;
   description: string;
   primaryAction?: StatusPageAction;
@@ -20,7 +20,7 @@ interface StatusPageProps {
 }
 
 const toneClasses: Record<NonNullable<StatusPageProps['iconTone']>, string> = {
-  blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+  brand: 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400',
   amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400',
   red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
 };
@@ -28,7 +28,7 @@ const toneClasses: Record<NonNullable<StatusPageProps['iconTone']>, string> = {
 function ActionButton({ action, variant }: { action: StatusPageAction; variant: 'primary' | 'outline' }) {
   const variantClasses =
     variant === 'primary'
-      ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+      ? 'bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500'
       : 'bg-transparent border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:ring-gray-500';
 
   const className = `inline-flex items-center justify-center rounded-md font-medium px-5 py-2.5 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${variantClasses}`;
@@ -52,7 +52,7 @@ function ActionButton({ action, variant }: { action: StatusPageAction; variant: 
 export function StatusPage({
   code,
   icon,
-  iconTone = 'blue',
+  iconTone = 'brand',
   title,
   description,
   primaryAction,
@@ -70,7 +70,7 @@ export function StatusPage({
           {icon}
         </div>
         {code && (
-          <p className="text-sm font-semibold tracking-wide text-blue-600 dark:text-blue-400 mb-2">
+          <p className="text-sm font-semibold tracking-wide text-brand-600 dark:text-brand-400 mb-2">
             {code}
           </p>
         )}

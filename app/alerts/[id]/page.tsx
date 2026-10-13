@@ -279,7 +279,7 @@ export default function AlertDetailPage() {
           <DetailField
             label="Dispositivo"
             value={
-              <Link href={`/devices/${alert.deviceId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+              <Link href={`/devices/${alert.deviceId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
                 {deviceName ?? alert.deviceId}
               </Link>
             }
@@ -348,7 +348,7 @@ export default function AlertDetailPage() {
                 El equipo reporta otro AP que el declarado.{' '}
                 <Link
                   href={`/devices/${alert.deviceId}?tab=wireless#${IDENTITY_SUGGESTIONS_ANCHOR}`}
-                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-brand-600 dark:text-brand-400 hover:underline"
                 >
                   Revisa la sugerencia de AP
                 </Link>{' '}

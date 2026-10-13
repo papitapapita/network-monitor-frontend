@@ -30,7 +30,7 @@ function Notice({ tone, children }: { tone: 'danger' | 'warning' | 'info'; child
   const tones = {
     danger: 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300',
     warning: 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300',
-    info: 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300',
+    info: 'border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-300',
   };
   return <div className={`rounded-lg border p-4 text-sm ${tones[tone]}`}>{children}</div>;
 }

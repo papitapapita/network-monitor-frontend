@@ -32,9 +32,9 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             className="
               pointer-events-none absolute inset-0 rounded border-2 transition-all duration-150
               border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800
-              peer-hover:border-blue-400 dark:peer-hover:border-blue-500
-              peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-checked:shadow-sm
-              peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-1 dark:peer-focus-visible:ring-offset-gray-800
+              peer-hover:border-brand-400 dark:peer-hover:border-brand-500
+              peer-checked:bg-brand-600 peer-checked:border-brand-600 peer-checked:shadow-sm
+              peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-1 dark:peer-focus-visible:ring-offset-gray-800
               peer-disabled:opacity-40 peer-disabled:cursor-not-allowed
               peer-disabled:border-gray-300 dark:peer-disabled:border-gray-600
             "

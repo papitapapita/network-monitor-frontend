@@ -88,7 +88,7 @@ export function Panel({
         <div className="flex shrink-0 items-center gap-3">
           {aside}
           {action && (
-            <Link href={action.href} className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+            <Link href={action.href} className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
               {action.label} →
             </Link>
           )}
