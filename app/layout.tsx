@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
@@ -16,6 +16,12 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: BRAND.name,
   description: BRAND.description,
+  // Opened from the home-screen icon on an iPhone (NOT-220).
+  appleWebApp: { capable: true, title: BRAND.name, statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: BRAND.ink,
 };
 
 export default function RootLayout({

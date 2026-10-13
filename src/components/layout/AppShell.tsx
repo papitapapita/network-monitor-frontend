@@ -11,6 +11,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 import { SubscriptionBanner } from './SubscriptionBanner';
 import { BrandMark } from './BrandMark';
+import { syncPushSubscription } from '@/services/push';
 import { BRAND } from '@/constants/brand.constants';
 import { isRouteAvailable } from '@/constants/installation.constants';
 import { isVendorRole } from '@/constants/roles';
@@ -75,6 +76,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading, isLoginPage, router]);
+
+  // Phone notifications: register the worker and re-send this phone's
+  // subscription for whoever is signed in now. Failing here costs only the
+  // pushes, never the page.
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    syncPushSubscription().catch(() => undefined);
+  }, [isAuthenticated, user?.id]);
 
   // Handle token expiry from API service. A signed-out page stays put: an
   // emailed link opened in a browser whose session just expired is still

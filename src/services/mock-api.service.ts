@@ -59,6 +59,7 @@ import {
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
+import { PushPublicKeyDTO, PushSubscriptionDTO, PushTestResultDTO } from '../types/push.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import { BackUpNowResultDTO, BackupDiffDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
@@ -1197,6 +1198,20 @@ class MockApiService {
     const chat = telegramChatId || notificationSettings.telegramChatId;
     if (!chat) return { success: false, error: 'No Telegram chat is configured for this install' };
     return ok({ telegramChatId: chat });
+  }
+
+  // No VAPID keys in mock mode: the phone-notifications switch stays hidden.
+  async getPushPublicKey(): Promise<ApiResponse<PushPublicKeyDTO>> {
+    return ok({ enabled: false, publicKey: null });
+  }
+  async subscribePush(): Promise<ApiResponse<PushSubscriptionDTO>> {
+    return { success: false, error: 'Phone notifications are not configured on this server' };
+  }
+  async unsubscribePush(): Promise<ApiResponse<null>> {
+    return ok(null);
+  }
+  async sendTestPush(): Promise<ApiResponse<PushTestResultDTO>> {
+    return { success: false, error: 'Phone notifications are not configured on this server' };
   }
 
   async getNotificationMutes(): Promise<ApiResponse<NotificationMutesDTO>> {

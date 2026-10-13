@@ -7,6 +7,7 @@ import { isVendorRole } from '@/constants/roles';
 import { useSettings } from '@/contexts/settings.context';
 import { NotificationMutesCard } from '@/components/settings/NotificationMutesCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
+import { PhoneNotificationsCard } from '@/components/settings/PhoneNotificationsCard';
 import { BillingSettingsCard } from '@/components/settings/BillingSettingsCard';
 import { AlertThresholdsCard } from '@/components/settings/AlertThresholdsCard';
 import { useInstallation } from '@/hooks/useInstallation';
@@ -101,6 +102,10 @@ export default function SettingsPage() {
       <div className="mt-6">
         <ChangePasswordCard />
       </div>
+
+      {/* Renders nothing until the server says push is on, so it carries its
+          own margin instead of leaving an empty wrapper's gap. */}
+      <PhoneNotificationsCard className="mt-6" />
 
       <div className="mt-6">
         <NotificationSettingsCard />

@@ -45,6 +45,7 @@ import {
 } from '../types/notification-policy.types';
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
+import { PushPublicKeyDTO, PushSubscriptionBody, PushSubscriptionDTO, PushTestResultDTO } from '../types/push.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AlertDTO,
@@ -1075,6 +1076,35 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(telegramChatId ? { telegramChatId } : {})
     });
+  }
+
+  // ============================================================
+  // Phone notifications (Web Push) — always the signed-in user's own phones
+  // ============================================================
+
+  async getPushPublicKey(): Promise<ApiResponse<PushPublicKeyDTO>> {
+    return this.request<PushPublicKeyDTO>('/push/public-key');
+  }
+
+  /** Idempotent per endpoint: re-sending refreshes the keys, or moves the phone to whoever is signed in now. */
+  async subscribePush(subscription: PushSubscriptionBody): Promise<ApiResponse<PushSubscriptionDTO>> {
+    return this.request<PushSubscriptionDTO>('/push/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify(subscription)
+    });
+  }
+
+  /** Succeeds also when nothing was subscribed at that endpoint. */
+  async unsubscribePush(endpoint: string): Promise<ApiResponse<null>> {
+    return this.request<null>('/push/subscriptions', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint })
+    });
+  }
+
+  /** 409 when the caller has no phone subscribed, 502 when none took it. */
+  async sendTestPush(): Promise<ApiResponse<PushTestResultDTO>> {
+    return this.request<PushTestResultDTO>('/push/test', { method: 'POST' });
   }
 
   // ============================================================
