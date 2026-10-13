@@ -9,6 +9,17 @@ import {
 } from '@/constants/device.constants';
 
 /**
+ * A STATION that reported an AP other than its declared parent for three polls
+ * in a row (WLS-013). Its `lastValue` is that poll count and `threshold` the 3;
+ * the fix is accepting the `parentApDeviceId` identity suggestion, so it opens
+ * no ticket.
+ */
+export const PARENT_AP_MISMATCH_METRIC = 'parent_ap_mismatch';
+
+/** Anchor of the identity-suggestions card on the device's wireless tab. */
+export const IDENTITY_SUGGESTIONS_ANCHOR = 'identity-suggestions';
+
+/**
  * Whether the backend will accept `enabled: true` on this device's wireless
  * config. It refuses for a device that cannot be polled at all — retired,
  * deleted, replaced, or in a category that holds no radio — while `enabled:

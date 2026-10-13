@@ -17,6 +17,7 @@ import { ConfirmModal } from '@/components/ui/Modal';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
+import { PARENT_AP_MISMATCH_METRIC, IDENTITY_SUGGESTIONS_ANCHOR } from '@/constants/wireless.constants';
 
 const SEVERITY_LABELS: Record<AlertSeverity, string> = {
   WARNING: 'Advertencia',
@@ -313,32 +314,48 @@ export default function AlertDetailPage() {
             </div>
           </dl>
         ) : isWirelessAlert(alert) ? (
-          <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <dt className="font-medium text-gray-500 dark:text-gray-400">Métrica</dt>
-              <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
-                {formatDetailValue(alert.details.metric)}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-gray-500 dark:text-gray-400">Severidad</dt>
-              <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
-                {formatDetailValue(alert.details.severity)}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-gray-500 dark:text-gray-400">Umbral</dt>
-              <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
-                {formatDetailValue(alert.details.threshold)}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-gray-500 dark:text-gray-400">Valor actual</dt>
-              <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
-                {formatDetailValue(alert.details.currentValue)}
-              </dd>
-            </div>
-          </dl>
+          <>
+            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Métrica</dt>
+                <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
+                  {formatDetailValue(alert.details.metric)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Severidad</dt>
+                <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
+                  {formatDetailValue(alert.details.severity)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Umbral</dt>
+                <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
+                  {formatDetailValue(alert.details.threshold)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Valor actual</dt>
+                <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
+                  {formatDetailValue(alert.details.currentValue)}
+                </dd>
+              </div>
+            </dl>
+            {alert.details.metric === PARENT_AP_MISMATCH_METRIC && (
+              // WLS-013: an inventory correction, not a site visit — no ticket
+              // was opened; accepting the suggested AP closes it on the next poll.
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
+                El equipo reporta otro AP que el declarado.{' '}
+                <Link
+                  href={`/devices/${alert.deviceId}?tab=wireless#${IDENTITY_SUGGESTIONS_ANCHOR}`}
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Revisa la sugerencia de AP
+                </Link>{' '}
+                en su pestaña inalámbrica: aceptarla corrige el registro y cierra la alerta en el siguiente sondeo.
+              </p>
+            )}
+          </>
         ) : (
           // Unknown producer — `details` is a free-form bag, so fall back to key/value.
           <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">

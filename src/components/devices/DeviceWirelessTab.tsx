@@ -38,6 +38,8 @@ import {
   isValidLanSpeed,
   wirelessCollectorFor,
   COLLECTION_METHOD_LABELS,
+  PARENT_AP_MISMATCH_METRIC,
+  IDENTITY_SUGGESTIONS_ANCHOR,
 } from '@/constants/wireless.constants';
 import { LinkDiagnosisCard } from '@/components/wireless/LinkDiagnosisCard';
 import { agentPollFailure } from '@/constants/agent.constants';
@@ -793,6 +795,15 @@ export function DeviceWirelessTab({
   };
 
   const visibleSuggestions = identitySuggestions.filter((s) => !dismissedSuggestionKeys.has(suggestionKey(s)));
+  const showSuggestions = !identitySuggestionsLoading && visibleSuggestions.length > 0;
+
+  // The parent-AP alert (here and on /alerts/:id) links to this card by hash,
+  // but the card only mounts once the suggestions fetch lands, after the
+  // browser's own anchor jump has come and gone.
+  useEffect(() => {
+    if (!showSuggestions || window.location.hash !== `#${IDENTITY_SUGGESTIONS_ANCHOR}`) return;
+    document.getElementById(IDENTITY_SUGGESTIONS_ANCHOR)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [showSuggestions]);
 
   const metrics = status?.metrics;
   const isAP = config?.deviceType === 'ACCESS_POINT' || category === 'ACCESS_POINT';
@@ -1108,61 +1119,63 @@ export function DeviceWirelessTab({
           {/* Identity suggestions — a read-only diff between what AirOS last
               reported about its own hostname/MAC, or the AP it's talking to,
               and what's on file here. Each row is its own accept/dismiss. */}
-          {!identitySuggestionsLoading && visibleSuggestions.length > 0 && (
-            <Card>
-              <Card.Header>
-                <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo el AP declarado vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
-                  Sugerencias de Identidad
-                  <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
-                    ({visibleSuggestions.length})
-                  </span>
-                </SectionTitle>
-              </Card.Header>
-              <Card.Body>
-                <div className="space-y-2">
-                  {visibleSuggestions.map((s) => {
-                    const key = suggestionKey(s);
-                    return (
-                      <div
-                        key={key}
-                        className="flex flex-wrap items-center justify-between gap-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3"
-                      >
-                        <div className="min-w-0 text-sm">
-                          <span className="font-medium text-gray-700 dark:text-gray-300">
-                            {SUGGESTION_FIELD_LABELS[s.field]}:
-                          </span>{' '}
-                          <span className="text-gray-500 dark:text-gray-400 line-through wrap-anywhere">
-                            {s.currentLabel ?? s.currentValue ?? '—'}
-                          </span>{' '}
-                          <span className="text-gray-400 dark:text-gray-500">→</span>{' '}
-                          <span className="text-gray-900 dark:text-gray-100 font-medium wrap-anywhere">
-                            {s.suggestedLabel ?? s.suggestedValue}
-                          </span>
-                        </div>
-                        {canWrite && (
-                          <div className="flex items-center gap-2 shrink-0">
-                            <IconButton
-                              icon={<CheckIcon />}
-                              label="Aplicar"
-                              variant="primary"
-                              onClick={() => handleAcceptSuggestion(s)}
-                              isLoading={acceptingSuggestionKey === key}
-                              disabled={acceptingSuggestionKey !== null}
-                            />
-                            <IconButton
-                              icon={<CloseIcon />}
-                              label="Descartar"
-                              onClick={() => handleDismissSuggestion(s)}
-                              disabled={acceptingSuggestionKey !== null}
-                            />
+          {showSuggestions && (
+            <div id={IDENTITY_SUGGESTIONS_ANCHOR} className="scroll-mt-4">
+              <Card>
+                <Card.Header>
+                  <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo el AP declarado vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
+                    Sugerencias de Identidad
+                    <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                      ({visibleSuggestions.length})
+                    </span>
+                  </SectionTitle>
+                </Card.Header>
+                <Card.Body>
+                  <div className="space-y-2">
+                    {visibleSuggestions.map((s) => {
+                      const key = suggestionKey(s);
+                      return (
+                        <div
+                          key={key}
+                          className="flex flex-wrap items-center justify-between gap-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3"
+                        >
+                          <div className="min-w-0 text-sm">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              {SUGGESTION_FIELD_LABELS[s.field]}:
+                            </span>{' '}
+                            <span className="text-gray-500 dark:text-gray-400 line-through wrap-anywhere">
+                              {s.currentLabel ?? s.currentValue ?? '—'}
+                            </span>{' '}
+                            <span className="text-gray-400 dark:text-gray-500">→</span>{' '}
+                            <span className="text-gray-900 dark:text-gray-100 font-medium wrap-anywhere">
+                              {s.suggestedLabel ?? s.suggestedValue}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card.Body>
-            </Card>
+                          {canWrite && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <IconButton
+                                icon={<CheckIcon />}
+                                label="Aplicar"
+                                variant="primary"
+                                onClick={() => handleAcceptSuggestion(s)}
+                                isLoading={acceptingSuggestionKey === key}
+                                disabled={acceptingSuggestionKey !== null}
+                              />
+                              <IconButton
+                                icon={<CloseIcon />}
+                                label="Descartar"
+                                onClick={() => handleDismissSuggestion(s)}
+                                disabled={acceptingSuggestionKey !== null}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card.Body>
+              </Card>
+            </div>
           )}
 
           {/* On-demand check for a failing link. The backend refuses a vendor
@@ -1451,9 +1464,23 @@ export function DeviceWirelessTab({
                           )}
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Métrica: <code className="font-mono">{alert.metric}</code> — valor: {alert.lastValue}, umbral: {alert.threshold}
-                      </p>
+                      {alert.metric === PARENT_AP_MISMATCH_METRIC ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {alert.lastValue} sondeos seguidos con otro AP.{' '}
+                          {showSuggestions ? (
+                            <a href={`#${IDENTITY_SUGGESTIONS_ANCHOR}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                              Acepta la sugerencia de AP
+                            </a>
+                          ) : (
+                            'Acepta la sugerencia de AP'
+                          )}{' '}
+                          para corregir el registro; la alerta se cierra en el siguiente sondeo.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Métrica: <code className="font-mono">{alert.metric}</code> — valor: {alert.lastValue}, umbral: {alert.threshold}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

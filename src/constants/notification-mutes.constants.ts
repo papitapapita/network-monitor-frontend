@@ -37,6 +37,7 @@ export const KNOWN_MUTABLE_METRICS: Array<{ key: string; label: string }> = [
   { key: 'mac_address_changed', label: 'Cambio de dirección MAC' },
   { key: 'device_model_changed', label: 'Cambio de modelo de dispositivo' },
   { key: 'remote_ap_mac_changed', label: 'Cambio de AP remoto' },
+  { key: 'parent_ap_mismatch', label: 'Conectado a otro AP que el declarado' },
   { key: 'config_changed', label: 'Cambio de configuración (respaldo nocturno)' },
   { key: 'backup_failing', label: 'Respaldo de configuración fallando' },
 ];
