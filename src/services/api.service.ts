@@ -78,6 +78,7 @@ import {
   RadioSampleDTO,
   StartLinkDiagnosisResult,
 } from '../types/wireless.types';
+import { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import {
   AgentDTO,
   AgentListResponse,
@@ -1257,6 +1258,35 @@ class ApiService {
   async rebootWirelessDevice(deviceId: string): Promise<ApiResponse<WirelessRebootResult>> {
     return this.request<WirelessRebootResult>(`/devices/${deviceId}/wireless/reboot`, {
       method: 'POST'
+    });
+  }
+
+  // Wireless alert thresholds (WLS-200..202) — the install's set, read by every
+  // role and saved by an administrator, and one device's overrides on top of it.
+
+  async getAlertThresholds(): Promise<ApiResponse<InstallAlertThresholdsDTO>> {
+    return this.request<InstallAlertThresholdsDTO>('/wireless/alert-thresholds');
+  }
+
+  async saveAlertThresholds(data: AlertThresholdsDTO): Promise<ApiResponse<InstallAlertThresholdsDTO>> {
+    return this.request<InstallAlertThresholdsDTO>('/wireless/alert-thresholds', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getDeviceAlertThresholds(deviceId: string): Promise<ApiResponse<DeviceAlertThresholdsDTO>> {
+    return this.request<DeviceAlertThresholdsDTO>(`/devices/${deviceId}/wireless/alert-thresholds`);
+  }
+
+  /** Replaces the device's overrides whole; `{}` returns it to the install's set. */
+  async saveDeviceAlertThresholds(
+    deviceId: string,
+    overrides: Partial<AlertThresholdsDTO>,
+  ): Promise<ApiResponse<DeviceAlertThresholdsDTO>> {
+    return this.request<DeviceAlertThresholdsDTO>(`/devices/${deviceId}/wireless/alert-thresholds`, {
+      method: 'PUT',
+      body: JSON.stringify({ overrides }),
     });
   }
 

@@ -60,6 +60,7 @@ import {
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
+import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import { BackUpNowResultDTO, BackupDiffDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
@@ -184,6 +185,20 @@ let vendorSettings: VendorSettingsDTO = {
   whatsApp: null,
   enforcementRouter: null,
 };
+const DEFAULT_ALERT_THRESHOLDS: AlertThresholdsDTO = {
+  signalDbm: { warning: -70, critical: -80 },
+  snrDb: { warning: 15, critical: 10 },
+  ccqPercent: { warning: 75, critical: 50 },
+  latencyMs: { warning: 50, critical: 150 },
+  cpuPercent: 80,
+  memoryPercent: 85,
+  clockDriftSeconds: 300,
+  saturationPercent: 80,
+  clientDropPercent: 50,
+  minCapacityMbps: { '20': 50, '40': 100, '80': 200 },
+  maxDistanceKm: { '20': 15, '40': 10, '80': 5 },
+};
+let alertThresholds: AlertThresholdsDTO = structuredClone(DEFAULT_ALERT_THRESHOLDS);
 let billingSettings: BillingSettingsDTO = { automaticBillingEnabled: false, billingMode: 'ADVANCE', issueLeadDays: 5, graceDays: 3, automaticCutEnabled: false, reminderWhatsAppTemplate: null, billWhatsAppTemplate: null };
 let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true };
 
@@ -1360,6 +1375,19 @@ class MockApiService {
   }
   async rebootWirelessDevice() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getAlertThresholds(): Promise<ApiResponse<InstallAlertThresholdsDTO>> {
+    return ok({ thresholds: structuredClone(alertThresholds), defaults: structuredClone(DEFAULT_ALERT_THRESHOLDS) });
+  }
+  async saveAlertThresholds(data: AlertThresholdsDTO): Promise<ApiResponse<InstallAlertThresholdsDTO>> {
+    alertThresholds = structuredClone(data);
+    return this.getAlertThresholds();
+  }
+  async getDeviceAlertThresholds(): Promise<ApiResponse<DeviceAlertThresholdsDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async saveDeviceAlertThresholds(): Promise<ApiResponse<DeviceAlertThresholdsDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
   }
   async getWirelessHistory() {
     return { success: false as const, error: 'No disponible en modo mock' };

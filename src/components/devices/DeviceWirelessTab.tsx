@@ -14,6 +14,7 @@ import {
   WirelessIdentitySuggestion,
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
+import { DeviceAlertThresholdsCard } from '@/components/wireless/DeviceAlertThresholdsCard';
 import { Card, Input, Select, Switch, Combobox, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle, PlusIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useInstallation } from '@/hooks/useInstallation';
@@ -1527,6 +1528,8 @@ export function DeviceWirelessTab({
               </Card>
             );
           })()}
+
+          <DeviceAlertThresholdsCard deviceId={deviceId} canWrite={canWrite} />
         </>
       )}
     </div>
