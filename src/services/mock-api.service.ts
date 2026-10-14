@@ -1607,6 +1607,15 @@ class MockApiService {
     const idx = contractedServices.findIndex((x) => x.id === id);
     if (idx === -1) return err('Contracted service not found');
     const updated = { ...contractedServices[idx], ...data, updatedAt: new Date().toISOString() };
+    // Cancelling releases the device and retires it by owner (CUS-106, DEV-173).
+    if (data.status === 'CANCELLED' && updated.deviceId) {
+      const released = updated.deviceId;
+      updated.deviceId = null;
+      devices = devices.map((d) => {
+        if (d.id !== released || !d.ownerType || d.status === 'DAMAGED' || d.status === 'DECOMMISSIONED') return d;
+        return { ...d, status: d.ownerType === 'COMPANY' ? 'INVENTORY' : 'DECOMMISSIONED', monitoringEnabled: false, ipAddress: null };
+      });
+    }
     contractedServices[idx] = updated;
     return ok(updated);
   }

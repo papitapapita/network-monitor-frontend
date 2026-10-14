@@ -226,17 +226,21 @@ export default function CustomerDetailPage() {
     }
     setIsSavingContract(true);
     setEditError(null);
-    const dto: UpdateContractedServiceDTO = {
-      status: editStatus,
-      servicePlanId: editPlanId || undefined,
-      deviceId: editDeviceId || null,
-    };
+    // Cancelling releases the device itself (CUS-106); sending `deviceId: null`
+    // alongside would 409 on an ACTIVE service, since the release runs first.
+    const cancelling = editStatus === 'CANCELLED';
+    const dto: UpdateContractedServiceDTO = cancelling
+      ? { status: 'CANCELLED' }
+      : { status: editStatus, servicePlanId: editPlanId || undefined, deviceId: editDeviceId || null };
     const r = await apiService.updateContractedService(id, dto);
     setIsSavingContract(false);
     if (r.success) {
       setEditingContractId(null);
-      showSuccess('Servicio guardado.');
+      showSuccess(cancelling ? 'Servicio cancelado. Su dispositivo queda libre.' : 'Servicio guardado.');
       fetchContracts();
+      // The server retires a released device by owner a moment later (DEV-173).
+      queryClient.invalidateQueries({ queryKey: ['contractedServices'] });
+      if (cancelling) setTimeout(() => queryClient.invalidateQueries({ queryKey: ['devices'] }), 2_000);
     } else {
       const message = r.error || 'No se pudo actualizar el servicio';
       setEditError(message);
@@ -531,6 +535,13 @@ export default function CustomerDetailPage() {
                       {cs.status === 'PENDING' && (
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Estado actual: <strong>Pendiente</strong>. Elige el nuevo estado; para activarlo debe tener un dispositivo asignado.
+                        </p>
+                      )}
+                      {editStatus === 'CANCELLED' && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Cancelar es definitivo. El dispositivo se libera y se retira según su propietario: uno de la
+                          empresa vuelve a <strong>Inventario</strong>; uno del cliente pasa a <strong>Dado de baja</strong>.
+                          En ambos casos se apaga su monitoreo y se libera su IP.
                         </p>
                       )}
                       {editError && (

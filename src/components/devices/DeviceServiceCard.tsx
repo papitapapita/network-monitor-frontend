@@ -16,8 +16,8 @@ const linkClass = 'text-brand-600 dark:text-brand-400 hover:underline';
 
 /**
  * Which customer this unit serves. The only link is the contracted service, and
- * a device backs at most one service row ever — a cancelled one keeps it until
- * that service is deleted — so `?deviceId=` answers 0 or 1 items.
+ * a device backs at most one live service — cancelling releases it — so
+ * `?deviceId=` answers 0 or 1 items, never a cancelled one.
  */
 export function DeviceServiceCard({ device }: { device: DeviceResponseDTO }) {
   const { modules } = useInstallation();
@@ -89,12 +89,6 @@ export function DeviceServiceCard({ device }: { device: DeviceResponseDTO }) {
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(data.startDate).toLocaleDateString('es')}</dd>
               </div>
             </dl>
-            {data.status === 'CANCELLED' && (
-              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                El servicio está cancelado, pero sigue vinculado a este dispositivo: para asignarlo a otro
-                servicio, elimina primero este desde la ficha del cliente.
-              </p>
-            )}
             {data.status === 'SUSPENDED' && (
               <p className="mt-4 text-sm text-yellow-800 dark:text-yellow-400">
                 Servicio suspendido: la conexión de este dispositivo se limita en el router.

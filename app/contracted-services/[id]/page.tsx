@@ -141,7 +141,10 @@ export default function ContractedServiceDetailPage() {
         <Card.Body>
           {!device ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Sin dispositivo asignado.{service.status === 'PENDING' && ' Asigna uno desde la ficha del cliente para poder activar el servicio.'}
+              {service.status === 'CANCELLED'
+                ? 'El dispositivo se liberó al cancelar el servicio.'
+                : 'Sin dispositivo asignado.'}
+              {service.status === 'PENDING' && ' Asigna uno desde la ficha del cliente para poder activar el servicio.'}
             </p>
           ) : (
             <>
