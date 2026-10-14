@@ -33,15 +33,14 @@ import {
 import { isBackupTarget } from '@/constants/backup.constants';
 import { useGoBack } from '@/hooks/useGoBack';
 
-type Tab = 'details' | 'history' | 'polling' | 'wireless' | 'notifications' | 'credentials' | 'backups';
+type Tab = 'details' | 'history' | 'polling' | 'wireless' | 'settings' | 'backups';
 
 const TAB_LABELS: Record<Tab, string> = {
   details: 'Detalles',
   history: 'Historial',
   polling: 'Sondeo',
   wireless: 'Inalámbrico',
-  notifications: 'Notificaciones',
-  credentials: 'Credenciales',
+  settings: 'Configuración',
   backups: 'Respaldos',
 };
 
@@ -468,7 +467,7 @@ export default function DeviceDetailPage() {
           stretching the page, same as the table's own horizontal scroll. */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto table-scroll-x">
         <nav className="flex gap-6 w-max min-w-full">
-          {(['details', 'history', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'notifications', 'credentials', ...(showBackups ? ['backups' as Tab] : [])] as Tab[]).map((tab) => (
+          {(['details', 'history', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'settings', ...(showBackups ? ['backups' as Tab] : [])] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -516,12 +515,14 @@ export default function DeviceDetailPage() {
         />
       )}
 
-      {currentTab === 'notifications' && (
-        <DeviceNotificationPolicyTab deviceId={deviceId} />
-      )}
-
-      {currentTab === 'credentials' && (
-        <DeviceCredentialsTab deviceId={deviceId} vendorSlug={deviceModel?.vendorSlug ?? null} />
+      {/* Set-once settings that rarely change: quiet hours, then the logins
+          polling and backups use. Off Detalles so secrets never load on the
+          tab every visit opens. */}
+      {currentTab === 'settings' && (
+        <div className="space-y-6">
+          <DeviceNotificationPolicyTab deviceId={deviceId} />
+          <DeviceCredentialsTab deviceId={deviceId} vendorSlug={deviceModel?.vendorSlug ?? null} />
+        </div>
       )}
 
       {currentTab === 'backups' && (

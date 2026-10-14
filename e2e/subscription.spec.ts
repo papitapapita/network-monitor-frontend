@@ -56,7 +56,7 @@ test('read-only: a device’s page offers no edit, delete or poll on any tab', a
   await expect(page.getByRole('heading', { name: devices[0].name })).toBeVisible();
 
   const writes = /^(Editar|Eliminar|Reemplazar|Intercambiar|Sondear ahora|Configurar|Crear configuración|Restablecer|Reiniciar)/;
-  for (const tab of ['Detalles', 'Sondeo', 'Notificaciones', 'Credenciales']) {
+  for (const tab of ['Detalles', 'Sondeo', 'Configuración']) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main').getByRole('button', { name: writes })).toHaveCount(0);

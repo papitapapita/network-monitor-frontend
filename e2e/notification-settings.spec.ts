@@ -120,6 +120,6 @@ test('a device with no delay of its own shows the install’s', async ({ page, a
     route.fulfill(ok({ deviceId: devices[0].id, quietHoursStart: null, quietHoursEnd: null, alertDelayMinutes: null, updatedAt: null })));
 
   await page.goto(`/devices/${devices[0].id}`);
-  await page.getByRole('button', { name: 'Notificaciones', exact: true }).click();
+  await page.getByRole('button', { name: 'Configuración', exact: true }).click();
   await expect(page.getByText('15 min (de la instalación)')).toBeVisible();
 });

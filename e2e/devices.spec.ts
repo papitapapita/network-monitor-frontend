@@ -265,10 +265,10 @@ test.describe('devices table columns', () => {
 });
 
 test.describe('device credentials', () => {
-  /** Opens a device's Credenciales tab. */
+  /** Opens a device's Configuración tab. */
   async function openCredentials(page: import('@playwright/test').Page, deviceId: string) {
     await page.goto(`/devices/${deviceId}`);
-    await page.getByRole('button', { name: 'Credenciales' }).click();
+    await page.getByRole('button', { name: 'Configuración' }).click();
     await expect(page.getByText('Credenciales HTTP / API Web')).toBeVisible();
   }
 

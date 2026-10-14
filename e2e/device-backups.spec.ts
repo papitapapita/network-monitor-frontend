@@ -154,6 +154,6 @@ test('off site, a router behind no agent cannot be backed up from here', async (
 test('a customer CPE has no backups tab', async ({ page, api }) => {
   const device = await arrangeDevice(api, 'ANTENNA', 'CPE');
   await page.goto(`/devices/${device.id}`);
-  await expect(page.getByRole('button', { name: 'Credenciales' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Configuración' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Respaldos' })).toHaveCount(0);
 });
