@@ -118,6 +118,7 @@ import {
   CreateServicePlanDTO,
   UpdateServicePlanDTO,
   ContractedServiceDTO,
+  ContractedServiceDetailDTO,
   ContractedServiceListResponse,
   CreateContractedServiceDTO,
   UpdateContractedServiceDTO,
@@ -225,6 +226,19 @@ function conflict(c: DeviceConflict): ApiResponse<never> {
  * and 404s on GET, exactly as it does on the real API.
  */
 const liveDevices = (): DeviceResponseDTO[] => devices.filter((d) => !d.deletedAt);
+
+/** The read-only summaries the backend embeds on every contracted-service read. */
+const withSummaries = (cs: ContractedServiceDTO): ContractedServiceDetailDTO => {
+  const c = customers.find((x) => x.id === cs.customerId);
+  const p = servicePlans.find((x) => x.id === cs.servicePlanId);
+  const d = cs.deviceId ? devices.find((x) => x.id === cs.deviceId) : undefined;
+  return {
+    ...cs,
+    customer: { id: cs.customerId, fullName: c?.fullName ?? '', phone: c?.phone ?? '', email: c?.email ?? null, cedula: c?.cedula ?? null },
+    servicePlan: { id: cs.servicePlanId, name: p?.name ?? '', downloadMbps: p?.downloadMbps ?? 0, uploadMbps: p?.uploadMbps ?? 0, monthlyPrice: p?.monthlyPrice ?? 0, isActive: p?.isActive ?? false },
+    device: d ? { id: d.id, name: d.name, ipAddress: d.ipAddress, macAddress: d.macAddress, status: d.status, category: d.category, deletedAt: d.deletedAt } : null,
+  };
+};
 
 const findLiveDevice = (id: string): DeviceResponseDTO | undefined =>
   devices.find((d) => d.id === id && !d.deletedAt);
@@ -1550,17 +1564,24 @@ class MockApiService {
 
   // ── Contracted Services ────────────────────────────────────
 
-  async listContractedServices(query?: { customerId?: string; limit?: number; offset?: number }): Promise<ApiResponse<ContractedServiceListResponse>> {
+  async listContractedServices(query?: { customerId?: string; deviceId?: string; limit?: number; offset?: number }): Promise<ApiResponse<ContractedServiceListResponse>> {
+    // Filtered, the backend returns the whole set newest-first and ignores paging.
+    if (query?.customerId || query?.deviceId) {
+      const matched = contractedServices
+        .filter((x) => (!query.customerId || x.customerId === query.customerId) && (!query.deviceId || x.deviceId === query.deviceId))
+        .sort((a, b) => b.startDate.localeCompare(a.startDate))
+        .map(withSummaries);
+      return ok({ contractedServices: matched, total: matched.length, hasMore: false, limit: matched.length, offset: 0 });
+    }
     const limit = query?.limit ?? 20;
     const offset = query?.offset ?? 0;
-    const filtered = query?.customerId ? contractedServices.filter((x) => x.customerId === query.customerId) : contractedServices;
-    const { items, total } = paginate(filtered, limit, offset);
-    return ok({ contractedServices: items, total, hasMore: offset + items.length < total, limit, offset });
+    const { items, total } = paginate(contractedServices, limit, offset);
+    return ok({ contractedServices: items.map(withSummaries), total, hasMore: offset + items.length < total, limit, offset });
   }
 
-  async getContractedService(id: string): Promise<ApiResponse<ContractedServiceDTO>> {
+  async getContractedService(id: string): Promise<ApiResponse<ContractedServiceDetailDTO>> {
     const cs = contractedServices.find((x) => x.id === id);
-    return cs ? ok(cs) : err('Contracted service not found');
+    return cs ? ok(withSummaries(cs)) : err('Contracted service not found');
   }
 
   async createContractedService(data: CreateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {

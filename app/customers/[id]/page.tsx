@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   CustomerDTO, UpdateCustomerDTO, PaymentDay,
   ServicePlanDTO, ContractedServiceDTO,
-  ContractedServiceStatus, ContractedServiceTargetStatus,
+  ContractedServiceTargetStatus,
   CreateContractedServiceDTO, UpdateContractedServiceDTO,
 } from '@/types/customer.types';
 import { DeviceResponseDTO } from '@/types/device.types';
@@ -15,31 +16,11 @@ import { PAYMENT_DAY_OPTIONS, formatPaymentDay } from '@/constants/billing-setti
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
 import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnterCancelOnEscape, isCancelEscape, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
-import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useInstallation } from '@/hooks/useInstallation';
-
-const CONTRACT_STATUS_LABELS: Record<ContractedServiceStatus, string> = {
-  PENDING: 'Pendiente',
-  ACTIVE: 'Activo',
-  SUSPENDED: 'Suspendido',
-  CANCELLED: 'Cancelado',
-};
-const CONTRACT_STATUS_VARIANTS: Record<ContractedServiceStatus, BadgeVariant> = {
-  PENDING: 'draft',
-  ACTIVE: 'success',
-  SUSPENDED: 'warning',
-  CANCELLED: 'danger',
-};
-
-// The backend only accepts these as update targets; PENDING is a start state.
-const CONTRACT_TARGET_STATUS_OPTIONS = [
-  { value: 'ACTIVE', label: 'Activo' },
-  { value: 'SUSPENDED', label: 'Suspendido' },
-  { value: 'CANCELLED', label: 'Cancelado' },
-];
+import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VARIANTS, CONTRACT_TARGET_STATUS_OPTIONS } from '@/constants/contracted-service.constants';
 
 export default function CustomerDetailPage() {
   const permissions = usePermissions();
@@ -587,7 +568,7 @@ export default function CustomerDetailPage() {
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-gray-900 dark:text-gray-100">{planName(cs.servicePlanId)}</span>
+                          <Link href={`/contracted-services/${cs.id}`} className="font-medium text-brand-600 dark:text-brand-400 hover:underline">{planName(cs.servicePlanId)}</Link>
                           <Badge variant={CONTRACT_STATUS_VARIANTS[cs.status]}>{CONTRACT_STATUS_LABELS[cs.status]}</Badge>
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">

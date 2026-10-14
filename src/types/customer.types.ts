@@ -1,3 +1,5 @@
+import type { DeviceResponseDTO } from './device.types';
+
 export type PaymentDay = 15 | 30;
 
 export interface CustomerDTO {
@@ -93,6 +95,18 @@ export interface ContractedServiceDTO {
   updatedAt: string;
 }
 
+/**
+ * What `GET /contracted-services` and `GET /:id` return: the plain record plus
+ * read-only summaries of what it points at. `POST` and `PUT` still answer with
+ * the plain `ContractedServiceDTO`.
+ */
+export interface ContractedServiceDetailDTO extends ContractedServiceDTO {
+  customer: Pick<CustomerDTO, 'id' | 'fullName' | 'phone' | 'email' | 'cedula'>;
+  servicePlan: Pick<ServicePlanDTO, 'id' | 'name' | 'downloadMbps' | 'uploadMbps' | 'monthlyPrice' | 'isActive'>;
+  /** Null exactly when `deviceId` is. `deletedAt` is set while the device sits in the trash. */
+  device: Pick<DeviceResponseDTO, 'id' | 'name' | 'ipAddress' | 'macAddress' | 'status' | 'category' | 'deletedAt'> | null;
+}
+
 export interface CreateContractedServiceDTO {
   customerId: string;
   servicePlanId: string;
@@ -107,7 +121,7 @@ export interface UpdateContractedServiceDTO {
 }
 
 export interface ContractedServiceListResponse {
-  contractedServices: ContractedServiceDTO[];
+  contractedServices: ContractedServiceDetailDTO[];
   total: number;
   hasMore: boolean;
   limit: number;

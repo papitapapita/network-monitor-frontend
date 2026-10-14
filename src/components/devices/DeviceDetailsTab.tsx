@@ -32,6 +32,7 @@ import { SERVER_POLLER_LABEL } from '@/constants/agent.constants';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 import { IpLink } from './IpLink';
+import { DeviceServiceCard } from './DeviceServiceCard';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -575,6 +576,8 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
             </Card.Footer>
           </Card>
       )}
+
+      {!isEditing && <DeviceServiceCard device={device} />}
 
       <LocationCreateModal
         isOpen={showLocationModal}

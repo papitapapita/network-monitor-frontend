@@ -129,6 +129,7 @@ import {
   CreateServicePlanDTO,
   UpdateServicePlanDTO,
   ContractedServiceDTO,
+  ContractedServiceDetailDTO,
   ContractedServiceListResponse,
   CreateContractedServiceDTO,
   UpdateContractedServiceDTO,
@@ -1734,13 +1735,18 @@ class ApiService {
   // Contracted Services
   // ============================================================
 
-  async listContractedServices(query?: { customerId?: string; limit?: number; offset?: number }): Promise<ApiResponse<ContractedServiceListResponse>> {
-    const qs = this.buildQuery({ customerId: query?.customerId, limit: query?.limit, offset: query?.offset });
+  /**
+   * Filtered by customer and/or device, the whole matching set comes back,
+   * newest first, and `limit`/`offset` are ignored. A device has at most one
+   * service row ever, so `{ deviceId }` answers 0 or 1 items.
+   */
+  async listContractedServices(query?: { customerId?: string; deviceId?: string; limit?: number; offset?: number }): Promise<ApiResponse<ContractedServiceListResponse>> {
+    const qs = this.buildQuery({ customerId: query?.customerId, deviceId: query?.deviceId, limit: query?.limit, offset: query?.offset });
     return this.request<ContractedServiceListResponse>(`/contracted-services${qs}`);
   }
 
-  async getContractedService(id: string): Promise<ApiResponse<ContractedServiceDTO>> {
-    return this.request<ContractedServiceDTO>(`/contracted-services/${id}`);
+  async getContractedService(id: string): Promise<ApiResponse<ContractedServiceDetailDTO>> {
+    return this.request<ContractedServiceDetailDTO>(`/contracted-services/${id}`);
   }
 
   async createContractedService(data: CreateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {
