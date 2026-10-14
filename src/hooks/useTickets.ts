@@ -28,6 +28,8 @@ interface TicketFilters {
   categoryFilter: string;
   scheduledFrom: string;
   scheduledTo: string;
+  /** Set only by deep links (a device page's "Ver todos") — there is no control for it. */
+  deviceId: string;
 }
 
 /**
@@ -57,6 +59,7 @@ function buildTicketQuery(filters: TicketFilters, page: number, limit: number): 
   if (filters.categoryFilter) query.category = filters.categoryFilter as TicketCategory;
   if (filters.scheduledFrom) query.scheduledFrom = filters.scheduledFrom;
   if (filters.scheduledTo) query.scheduledTo = filters.scheduledTo;
+  if (filters.deviceId) query.deviceId = filters.deviceId;
 
   return query;
 }
@@ -98,6 +101,7 @@ export function useTickets() {
   const categoryFilter = get('category', '');
   const scheduledFrom = get('scheduledFrom', '');
   const scheduledTo = get('scheduledTo', '');
+  const deviceIdFilter = get('deviceId', '');
   const sortField = get('sort', '') || null;
   const sortDirection = get('dir', 'asc') as 'asc' | 'desc';
 
@@ -118,6 +122,7 @@ export function useTickets() {
     categoryFilter,
     scheduledFrom,
     scheduledTo,
+    deviceId: deviceIdFilter,
   };
 
   // A reversed range is a 400, so hold the request back and say so instead. The
@@ -139,6 +144,7 @@ export function useTickets() {
       categoryFilter,
       scheduledFrom,
       scheduledTo,
+      deviceIdFilter,
     ],
     queryFn: () => fetchTicketsPage(filters, currentPage, limit),
     enabled: !dateRangeError,
@@ -171,6 +177,7 @@ export function useTickets() {
   const setCategoryFilter = (v: string) => set({ category: v || null, page: null });
   const setScheduledFrom = (v: string) => set({ scheduledFrom: v || null, page: null });
   const setScheduledTo = (v: string) => set({ scheduledTo: v || null, page: null });
+  const clearDeviceFilter = () => set({ deviceId: null, page: null });
   const setSearch = (v: string) => setSearchState(v);
 
   const clearFilters = () => {
@@ -182,6 +189,7 @@ export function useTickets() {
       category: null,
       scheduledFrom: null,
       scheduledTo: null,
+      deviceId: null,
       search: null,
       page: null,
     });
@@ -210,6 +218,7 @@ export function useTickets() {
     categoryFilter,
     scheduledFrom,
     scheduledTo,
+    deviceIdFilter,
     search,
     sortField,
     sortDirection,
@@ -220,6 +229,7 @@ export function useTickets() {
       categoryFilter ||
       scheduledFrom ||
       scheduledTo ||
+      deviceIdFilter ||
       search
     ),
     setStatusFilter,
@@ -228,6 +238,7 @@ export function useTickets() {
     setCategoryFilter,
     setScheduledFrom,
     setScheduledTo,
+    clearDeviceFilter,
     setSearch,
     setCurrentPage,
     handleSort,

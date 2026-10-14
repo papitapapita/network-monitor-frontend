@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
@@ -52,6 +53,17 @@ function TicketsPageContent() {
   const { data: technicians = [] } = useQuery({
     queryKey: ['technicians'],
     queryFn: fetchAllTechnicians,
+  });
+
+  // The device filter arrives only from a device page's link, so it has no
+  // select to show it — the notice above the table names the device instead.
+  const { data: filteredDevice } = useQuery({
+    queryKey: ['devices', 'name', t.deviceIdFilter],
+    queryFn: async () => {
+      const r = await apiService.getDevice(t.deviceIdFilter);
+      return r.success && r.data ? r.data : null;
+    },
+    enabled: !!t.deviceIdFilter,
   });
 
   const technicianName = useMemo(() => {
@@ -196,6 +208,20 @@ function TicketsPageContent() {
         />
       </FilterBar>
 
+      {t.deviceIdFilter && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800 dark:border-brand-800 dark:bg-brand-900/20 dark:text-brand-300">
+          <span>
+            Solo tickets de{' '}
+            <Link href={`/devices/${t.deviceIdFilter}`} className="font-medium underline">
+              «{filteredDevice?.name ?? 'este dispositivo'}»
+            </Link>
+          </span>
+          <Button variant="outline" size="sm" onClick={t.clearDeviceFilter}>
+            Ver todos los dispositivos
+          </Button>
+        </div>
+      )}
+
       {t.error && <ErrorBanner message={t.error} onRetry={() => t.fetchTickets()} />}
 
       <DataTable
@@ -212,7 +238,7 @@ function TicketsPageContent() {
             : 'Sin tickets. Crea el primero, o espera a que el monitoreo abra uno.'
         }
         sort={{ field: t.sortField, direction: t.sortDirection, onSort: t.handleSort }}
-        selectionResetKey={`${t.currentPage}|${t.statusFilter}|${t.technicianFilter}|${t.priorityFilter}|${t.categoryFilter}`}
+        selectionResetKey={`${t.currentPage}|${t.statusFilter}|${t.technicianFilter}|${t.priorityFilter}|${t.categoryFilter}|${t.deviceIdFilter}`}
         bulkDelete={
           canWrite
             ? {
