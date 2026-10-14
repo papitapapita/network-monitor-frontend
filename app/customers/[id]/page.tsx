@@ -55,7 +55,7 @@ export default function CustomerDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -95,6 +95,7 @@ export default function CustomerDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       setCustomer(r.data);
       setIsEditing(false);
+      showSuccess('Cliente guardado.');
     } else {
       const message = r.error || 'Error al actualizar el cliente';
       setSaveError(message);
@@ -109,6 +110,7 @@ export default function CustomerDetailPage() {
     setIsDeleting(false);
     if (r.success) {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      showSuccess('Cliente eliminado.');
       router.push('/customers');
     } else {
       setShowDeleteModal(false);
@@ -223,6 +225,7 @@ export default function CustomerDetailPage() {
     if (r.success) {
       setShowAddForm(false);
       setAddForm({ servicePlanId: '', deviceId: '', startDate: '' });
+      showSuccess('Servicio contratado creado.');
       fetchContracts();
     } else {
       const message = r.error || 'Error al crear el servicio';
@@ -251,6 +254,7 @@ export default function CustomerDetailPage() {
     setIsSavingContract(false);
     if (r.success) {
       setEditingContractId(null);
+      showSuccess('Servicio guardado.');
       fetchContracts();
     } else {
       const message = r.error || 'No se pudo actualizar el servicio';
@@ -261,8 +265,10 @@ export default function CustomerDetailPage() {
 
   const handleDeleteContract = async (id: string) => {
     setDeletingContractId(id);
-    await apiService.deleteContractedService(id);
+    const r = await apiService.deleteContractedService(id);
     setDeletingContractId(null);
+    if (r.success) showSuccess('Servicio eliminado.');
+    else showError(r.error || 'No se pudo eliminar el servicio');
     fetchContracts();
   };
 

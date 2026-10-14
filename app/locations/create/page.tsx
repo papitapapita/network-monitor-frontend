@@ -22,7 +22,7 @@ export default function CreateLocationPage() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
   const { isGeocoding, onLocationPick } = useLocationCoordsGeocoding(setFormData);
 
@@ -45,6 +45,7 @@ export default function CreateLocationPage() {
     const result = await apiService.createLocation(buildLocationDTO(formData));
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
+      showSuccess('Ubicación creada.');
       router.replace(`/locations/${result.data.id}`);
     } else {
       showError(result.error || 'Error al crear la ubicación');

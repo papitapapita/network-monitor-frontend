@@ -20,7 +20,7 @@ export function AssignDeviceModal({ isOpen, onClose, locationId, onAssigned }: A
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [assigningId, setAssigningId] = useState<string | null>(null);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const { data: allDevices = [], isLoading } = useQuery({
     queryKey: ['devicesCatalog'],
@@ -46,6 +46,7 @@ export function AssignDeviceModal({ isOpen, onClose, locationId, onAssigned }: A
     if (result.success && result.data) {
       onAssigned(result.data);
       queryClient.invalidateQueries({ queryKey: ['devicesCatalog'] });
+      showSuccess(`«${result.data.name}» agregado a la ubicación.`);
     } else {
       showError(result.error || 'Error al asignar el dispositivo');
     }

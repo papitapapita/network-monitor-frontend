@@ -35,7 +35,7 @@ export function InlineModelForm({ vendors, lockedVendorId, initialModelName = ''
   const [form, setForm] = useState({ vendorId: lockedVendorId ?? '', model: initialModelName, deviceType: '' as DeviceType | '', isWireless: defaultIsWireless });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -72,6 +72,7 @@ export function InlineModelForm({ vendors, lockedVendorId, initialModelName = ''
       };
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
       onCreated(newModel);
+      showSuccess('Modelo creado.');
     } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
       setErrors((prev) => ({ ...prev, model: result.error! }));
       showError(result.error!);

@@ -39,7 +39,7 @@ export default function TechnicianDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -125,6 +125,7 @@ export default function TechnicianDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['technicians'] });
       setTechnician(r.data);
       setIsEditing(false);
+      showSuccess('Técnico guardado.');
     } else {
       const message = r.error || 'Error al actualizar el técnico';
       if (r.errorField) setFormErrors((prev) => ({ ...prev, [r.errorField!]: message }));
@@ -144,6 +145,7 @@ export default function TechnicianDetailPage() {
     if (r.success && r.data) {
       queryClient.invalidateQueries({ queryKey: ['technicians'] });
       setTechnician(r.data);
+      showSuccess(r.data.isActive ? 'Técnico activado.' : 'Técnico desactivado.');
     } else {
       const message = r.error || 'Error al cambiar el estado del técnico';
       setSaveError(message);
@@ -157,6 +159,7 @@ export default function TechnicianDetailPage() {
     setIsDeleting(false);
     if (r.success) {
       queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      showSuccess('Técnico eliminado.');
       router.push('/technicians');
     } else {
       setShowDeleteModal(false);

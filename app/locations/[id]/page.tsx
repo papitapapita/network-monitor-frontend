@@ -60,7 +60,7 @@ export default function LocationDetailPage() {
   const [devices, setDevices] = useState<DeviceResponseDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const [showAssignModal, setShowAssignModal] = useState(false);
 
@@ -126,6 +126,7 @@ export default function LocationDetailPage() {
       setLocation(result.data);
       setFormData(locationToForm(result.data));
       setIsEditing(false);
+      showSuccess('Ubicación guardada.');
     } else {
       showError(result.error || 'Error al actualizar la ubicación');
     }
@@ -137,6 +138,7 @@ export default function LocationDetailPage() {
     const result = await apiService.deleteLocation(locationId);
     setIsDeleting(false);
     if (result.success) {
+      showSuccess('Ubicación eliminada.');
       router.push('/locations');
     } else {
       showError(result.error || 'Error al eliminar la ubicación');

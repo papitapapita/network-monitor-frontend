@@ -40,7 +40,7 @@ export default function CreateQuotationPage() {
   const router = useRouter();
   const goBack = useGoBack('/quotations');
   const queryClient = useQueryClient();
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -159,6 +159,7 @@ export default function CreateQuotationPage() {
     const result = await apiService.createQuotation(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      showSuccess('Cotización creada.');
       router.replace(`/quotations/${result.data.id}`);
     } else {
       showError(result.error || 'Error al crear la cotización');

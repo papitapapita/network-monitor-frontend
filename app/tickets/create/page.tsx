@@ -38,7 +38,7 @@ function CreateTicketPageContent() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   // Prefilled from the query string so the customer, device and alert pages —
   // and the calendar's quick-create — can deep-link into a half-written ticket.
@@ -172,6 +172,7 @@ function CreateTicketPageContent() {
     const result = await apiService.createTicket(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      showSuccess(`Ticket #${result.data.code} creado`);
       router.replace(`/tickets/${result.data.id}`);
     } else {
       const message = result.error || 'Error al crear el ticket';

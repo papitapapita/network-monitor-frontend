@@ -31,7 +31,7 @@ export default function VendorDetailPage() {
   const [vendor, setVendor] = useState<VendorDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -116,6 +116,7 @@ export default function VendorDetailPage() {
       setFormData(makeForm(result.data));
       setIsEditing(false);
       setSlugManuallyEdited(false);
+      showSuccess('Fabricante guardado.');
     } else {
       const message = result.error || 'Error al actualizar el fabricante';
       // A taken name or slug belongs on its own input too, not only in the
@@ -141,6 +142,7 @@ export default function VendorDetailPage() {
     setIsDeleting(false);
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      showSuccess('Fabricante eliminado.');
       router.push('/vendors');
     } else {
       setShowDeleteModal(false);

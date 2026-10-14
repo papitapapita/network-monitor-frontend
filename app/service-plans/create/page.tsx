@@ -15,7 +15,7 @@ export default function CreateServicePlanPage() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formData, setFormData] = useState({
     name: '',
     downloadMbps: '',
@@ -59,6 +59,7 @@ export default function CreateServicePlanPage() {
     const result = await apiService.createServicePlan(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['servicePlans'] });
+      showSuccess('Plan creado.');
       router.replace(`/service-plans/${result.data.id}`);
     } else {
       showError(result.error || 'Error al crear el plan');

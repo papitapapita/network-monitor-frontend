@@ -15,7 +15,7 @@ export default function CreateDeviceModelPage() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
   const [loadingVendors, setLoadingVendors] = useState(true);
@@ -68,6 +68,7 @@ export default function CreateDeviceModelPage() {
     const result = await apiService.createDeviceModel(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
+      showSuccess('Modelo creado.');
       router.replace(`/device-models/${result.data.id}`);
     } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
       setFormErrors((prev) => ({ ...prev, model: result.error! }));

@@ -16,7 +16,7 @@ export default function CreateCustomerPage() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formData, setFormData] = useState({ fullName: '', phone: '', email: '', cedula: '', paymentDay: '30' });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +49,7 @@ export default function CreateCustomerPage() {
     const result = await apiService.createCustomer(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      showSuccess('Cliente creado.');
       router.replace(`/customers/${result.data.id}`);
     } else {
       showError(result.error || 'Error al crear el cliente');

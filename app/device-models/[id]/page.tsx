@@ -23,7 +23,7 @@ export default function DeviceModelDetailPage() {
   const [model, setModel] = useState<DeviceModelResponseDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -70,6 +70,7 @@ export default function DeviceModelDetailPage() {
   const finishDelete = (result: { success: boolean; error?: string }) => {
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ['deviceModels'] });
+      showSuccess('Modelo eliminado.');
       router.push('/device-models');
     } else {
       const message = result.error || 'Error al eliminar el modelo';

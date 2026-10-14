@@ -25,7 +25,7 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_LOCATION_FORM);
   const { isGeocoding, onLocationPick } = useLocationCoordsGeocoding(setFormData);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -53,6 +53,7 @@ export function LocationCreateModal({ isOpen, onClose, onCreated }: LocationCrea
     if (result.success && result.data) {
       onCreated(result.data);
       handleClose();
+      showSuccess('Ubicación creada.');
     } else {
       showError(result.error || 'Error al crear la ubicación');
     }

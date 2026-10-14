@@ -15,7 +15,7 @@ export default function CreateTechnicianPage() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formData, setFormData] = useState({ fullName: '', phone: '', email: '' });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +63,7 @@ export default function CreateTechnicianPage() {
     const result = await apiService.createTechnician(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      showSuccess('Técnico creado.');
       router.replace(`/technicians/${result.data.id}`);
     } else {
       const message = result.error || 'Error al crear el técnico';

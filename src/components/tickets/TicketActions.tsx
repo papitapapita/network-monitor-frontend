@@ -61,7 +61,7 @@ export function TicketActions({
   const [endTime, setEndTime] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [cancelReason, setCancelReason] = useState('');
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const notice = terminalNotice(ticket.status);
   if (notice) {
@@ -95,7 +95,10 @@ export function TicketActions({
   };
 
   /** Runs an action, then hands control back to the host to refetch. */
-  const run = async (call: () => Promise<{ success: boolean; error?: string; errorField?: string }>) => {
+  const run = async (
+    call: () => Promise<{ success: boolean; error?: string; errorField?: string }>,
+    successMessage: string
+  ) => {
     setIsActing(true);
     setActionError(null);
     setFieldError(null);
@@ -103,6 +106,7 @@ export function TicketActions({
     setIsActing(false);
     if (result.success) {
       setPending(null);
+      showSuccess(successMessage);
       await onUpdated();
     } else {
       const message = result.error || 'No se pudo completar la acción';
@@ -130,7 +134,8 @@ export function TicketActions({
       apiService.assignTicket(ticket.id, {
         technicianId,
         ...(dayChanged ? { scheduledFor } : {}),
-      })
+      }),
+      'Técnico asignado.'
     );
   };
 
@@ -148,7 +153,8 @@ export function TicketActions({
     // <input type="time"> 'HH:mm'. Passing either through a Date would turn
     // wall-clock values into an instant and shift them.
     return run(() =>
-      apiService.scheduleTicket(ticket.id, scheduledFor, startTime ? { startTime, endTime } : null)
+      apiService.scheduleTicket(ticket.id, scheduledFor, startTime ? { startTime, endTime } : null),
+      'Ticket programado.'
     );
   };
 
@@ -157,7 +163,7 @@ export function TicketActions({
       rejectField('Las notas de resolución son obligatorias');
       return;
     }
-    return run(() => apiService.resolveTicket(ticket.id, resolutionNotes.trim()));
+    return run(() => apiService.resolveTicket(ticket.id, resolutionNotes.trim()), 'Ticket resuelto.');
   };
 
   const submitCancel = () => {
@@ -165,7 +171,7 @@ export function TicketActions({
       rejectField('Indica el motivo de la cancelación');
       return;
     }
-    return run(() => apiService.cancelTicket(ticket.id, cancelReason.trim()));
+    return run(() => apiService.cancelTicket(ticket.id, cancelReason.trim()), 'Ticket cancelado.');
   };
 
   // Only active technicians can hold work; offering an inactive one would set up
@@ -304,7 +310,7 @@ export function TicketActions({
           {ticket.scheduledFor && (
             <Button
               variant="outline"
-              onClick={() => run(() => apiService.scheduleTicket(ticket.id, null))}
+              onClick={() => run(() => apiService.scheduleTicket(ticket.id, null), 'Fecha quitada.')}
               disabled={isActing}
             >
               Quitar fecha
@@ -332,7 +338,7 @@ export function TicketActions({
           <Button variant="outline" onClick={closeAction} disabled={isActing}>
             Cancelar
           </Button>
-          <Button onClick={() => run(() => apiService.startTicket(ticket.id))} isLoading={isActing}>
+          <Button onClick={() => run(() => apiService.startTicket(ticket.id), 'Trabajo iniciado.')} isLoading={isActing}>
             Iniciar
           </Button>
         </Modal.Footer>

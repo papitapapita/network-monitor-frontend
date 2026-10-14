@@ -70,7 +70,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
   const showAgent = agents.length > 0 || device.agentId !== null;
   const deviceAgent = agents.find((a) => a.id === device.agentId);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   // The model may only be corrected while the device has never been polled —
   // any other status and the backend rejects a deviceModelId change with 400.
@@ -253,6 +253,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       }
       onDeviceUpdated(result.data);
       setIsEditing(false);
+      showSuccess('Dispositivo guardado.');
     } else {
       const message = result.error || 'Error al actualizar el dispositivo';
       // A rejected MAC or IP belongs on its own input, not only in the notice.

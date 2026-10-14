@@ -85,7 +85,7 @@ export default function TicketDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -215,6 +215,7 @@ export default function TicketDetailPage() {
     const r = await apiService.updateTicket(ticketId, dto);
     if (r.success) {
       setIsEditing(false);
+      showSuccess('Ticket guardado.');
       await reload();
     } else {
       const message = r.error || 'Error al actualizar el ticket';
@@ -231,6 +232,7 @@ export default function TicketDetailPage() {
     setIsDeleting(false);
     if (r.success) {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      showSuccess('Ticket eliminado.');
       router.push('/tickets');
     } else {
       setShowDeleteModal(false);

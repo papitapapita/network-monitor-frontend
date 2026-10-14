@@ -44,7 +44,7 @@ export default function BillDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [isActing, setIsActing] = useState(false);
   const [showPay, setShowPay] = useState(false);
@@ -79,6 +79,7 @@ export default function BillDetailPage() {
     if (r.success && r.data) {
       setBill(r.data);
       queryClient.invalidateQueries({ queryKey: ['bills'] });
+      showSuccess(pendingAction === 'overdue' ? 'Factura marcada como vencida.' : 'Factura cancelada.');
     } else {
       const message = r.error || 'No se pudo actualizar la factura';
       setActionError(message);
@@ -91,6 +92,7 @@ export default function BillDetailPage() {
     setActionError(null);
     setBill(paid);
     queryClient.invalidateQueries({ queryKey: ['bills'] });
+    showSuccess('Pago registrado.');
   };
 
   const handleDownloadPdf = async () => {

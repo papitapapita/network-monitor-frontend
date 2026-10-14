@@ -105,7 +105,7 @@ export default function AlertDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -156,6 +156,7 @@ export default function AlertDetailPage() {
       // without a second read.
       setAlert(result.data);
       setError(null);
+      showSuccess('Alerta resuelta.');
     } else {
       const message = result.error || 'Error al resolver la alerta';
       setError(message);
@@ -168,6 +169,7 @@ export default function AlertDetailPage() {
     const result = await apiService.deleteAlert(alertId);
     setIsDeleting(false);
     if (result.success) {
+      showSuccess('Alerta eliminada.');
       router.push('/alerts');
     } else {
       const message = result.error || 'Error al eliminar la alerta';

@@ -28,7 +28,7 @@ export default function ServicePlanDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -86,6 +86,7 @@ export default function ServicePlanDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['servicePlans'] });
       setPlan(r.data);
       setIsEditing(false);
+      showSuccess('Plan guardado.');
     } else {
       const message = r.error || 'Error al actualizar el plan';
       setSaveError(message);
@@ -100,6 +101,7 @@ export default function ServicePlanDetailPage() {
     setIsDeleting(false);
     if (r.success) {
       queryClient.invalidateQueries({ queryKey: ['servicePlans'] });
+      showSuccess('Plan eliminado.');
       router.push('/service-plans');
     } else {
       setShowDeleteModal(false);

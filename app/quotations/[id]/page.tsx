@@ -62,7 +62,7 @@ export default function QuotationDetailPage() {
   const goBack = useGoBack('/quotations');
   const queryClient = useQueryClient();
   const { id: quotationId } = useParams() as { id: string };
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const [quotation, setQuotation] = useState<QuotationDTO | null>(null);
   const [customer, setCustomer] = useState<CustomerDTO | null>(null);
@@ -117,6 +117,11 @@ export default function QuotationDetailPage() {
     if (r.success && r.data) {
       setQuotation(r.data);
       invalidate();
+      showSuccess(
+        pendingAction === 'send' ? 'Cotización enviada.'
+        : pendingAction === 'accept' ? 'Cotización aceptada.'
+        : 'Cotización marcada como vencida.'
+      );
     } else {
       const message = r.error || 'No se pudo actualizar la cotización';
       setActionError(message);
@@ -139,6 +144,7 @@ export default function QuotationDetailPage() {
       invalidate();
       setShowRejectModal(false);
       setRejectReason('');
+      showSuccess('Cotización rechazada.');
     } else {
       const message = r.error || 'No se pudo rechazar la cotización';
       setRejectError(message);
@@ -204,6 +210,7 @@ export default function QuotationDetailPage() {
       setQuotation(r.data);
       setIsEditingDetails(false);
       invalidate();
+      showSuccess('Detalles guardados.');
     } else {
       showError(r.error || 'No se pudieron guardar los detalles');
     }
@@ -280,6 +287,7 @@ export default function QuotationDetailPage() {
       setQuotation(r.data);
       setIsEditingItems(false);
       invalidate();
+      showSuccess('Artículos guardados.');
     } else {
       const message = r.error || 'No se pudieron guardar los artículos';
       setItemsError(message);

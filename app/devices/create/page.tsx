@@ -28,7 +28,7 @@ export default function CreateDevicePage() {
   const goBack = useGoBack('/devices');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
   const [allDeviceModels, setAllDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
@@ -206,6 +206,7 @@ export default function CreateDevicePage() {
           failuresBeforeDown: Math.max(1, formData.pollingFailuresBeforeDown || 1),
         });
       }
+      showSuccess('Dispositivo creado.');
       router.replace(`/devices/${result.data.id}`);
     } else {
       const message = result.error || 'Error al crear el dispositivo';

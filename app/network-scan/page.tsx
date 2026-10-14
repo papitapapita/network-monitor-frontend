@@ -137,7 +137,7 @@ function AddDeviceModal({
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const filteredModels = selectedVendorId
     ? localModels.filter((m) => m.vendorId === selectedVendorId)
@@ -222,6 +222,7 @@ function AddDeviceModal({
           failuresBeforeDown: form.pollingFailuresBeforeDown,
         });
       }
+      showSuccess(`Dispositivo «${res.data.name}» creado.`);
       onAdded(host.ipAddress);
     } else {
       const message = res.error || 'Error al crear el dispositivo';

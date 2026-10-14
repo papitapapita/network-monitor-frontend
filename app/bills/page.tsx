@@ -322,7 +322,7 @@ function GenerateBillModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const reset = () => { setCustomerId(''); setDueDate(''); setError(null); setFieldError(null); };
 
@@ -346,6 +346,7 @@ function GenerateBillModal({
       onGenerated();
       reset();
       onClose();
+      showSuccess('Factura generada.');
       router.push(`/bills/${r.data.id}`);
     } else {
       const message = r.error || 'Error al generar la factura';

@@ -45,7 +45,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
 
   const [formData, setFormData] = useState(makeFormData(model));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   useEffect(() => {
     apiService.listVendors({ limit: 100 }).then((r) => {
@@ -104,6 +104,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
       queryClient.invalidateQueries({ queryKey: ['devices'] });
       onModelUpdated(result.data);
       onEditingChange(false);
+      showSuccess('Modelo guardado.');
     } else if (result.error?.startsWith('Ya existe un modelo de dispositivo')) {
       setFormErrors((prev) => ({ ...prev, model: result.error! }));
     } else {

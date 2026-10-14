@@ -24,7 +24,7 @@ export default function CreateVendorPage() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -84,6 +84,7 @@ export default function CreateVendorPage() {
     const result = await apiService.createVendor(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      showSuccess('Fabricante creado.');
       router.replace(`/vendors/${result.data.id}`);
     } else {
       const message = result.error || 'Error al crear el fabricante';

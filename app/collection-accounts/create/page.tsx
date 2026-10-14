@@ -53,7 +53,7 @@ export default function CreateCollectionAccountPage() {
   const router = useRouter();
   const goBack = useGoBack('/collection-accounts');
   const queryClient = useQueryClient();
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -170,6 +170,7 @@ export default function CreateCollectionAccountPage() {
     const result = await apiService.createCollectionAccount(dto);
     if (result.success && result.data) {
       queryClient.invalidateQueries({ queryKey: ['collectionAccounts'] });
+      showSuccess('Cuenta de cobro creada.');
       router.replace(`/collection-accounts/${result.data.id}`);
     } else {
       showError(result.error || 'Error al crear la cuenta de cobro');

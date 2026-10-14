@@ -37,7 +37,7 @@ export default function CollectionAccountDetailPage() {
   const goBack = useGoBack('/collection-accounts');
   const queryClient = useQueryClient();
   const { id: accountId } = useParams() as { id: string };
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
 
   const [actionError, setActionError] = useState<string | null>(null);
   // BIL-232: no PDF until the vendor sets the issuer printed on it.
@@ -69,6 +69,7 @@ export default function CollectionAccountDetailPage() {
     if (r.success && r.data) {
       queryClient.setQueryData(queryKey, r.data);
       queryClient.invalidateQueries({ queryKey: ['collectionAccounts'] });
+      showSuccess(pendingAction === 'pay' ? 'Cuenta de cobro marcada como pagada.' : 'Cuenta de cobro anulada.');
     } else {
       const message = r.error || 'No se pudo actualizar la cuenta de cobro';
       setActionError(message);
