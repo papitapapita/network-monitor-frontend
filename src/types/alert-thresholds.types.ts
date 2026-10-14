@@ -20,6 +20,7 @@ export interface AlertThresholdsDTO {
   clientDropPercent: number; // whole, 10…90 — share of an AP's clients lost between polls
   minCapacityMbps: Record<string, number>; // channel width (MHz) → floor; whole, 1…10000
   maxDistanceKm: Record<string, number>; // channel width (MHz) → maximum; 0.1…200, decimals allowed
+  confirmBeforeAlerting: boolean; // re-read the radio before opening a flicker-prone alert (WLS-203)
 }
 
 /** `GET`/`PUT /api/wireless/alert-thresholds`. */

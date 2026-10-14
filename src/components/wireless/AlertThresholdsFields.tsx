@@ -1,14 +1,16 @@
 'use client';
 
 import React from 'react';
-import { Checkbox, IconButton, Input, SectionTitle } from '@/components/ui';
+import { Checkbox, IconButton, Input, SectionTitle, Switch } from '@/components/ui';
 import {
   CHANNEL_WIDTHS,
   SEVERITY_GROUPS,
   SINGLE_GROUPS,
+  SWITCH_GROUPS,
   WIDTH_GROUPS,
   SeverityGroupKey,
   SingleGroupKey,
+  SwitchGroupKey,
   ThresholdErrors,
   ThresholdGroupKey,
   ThresholdsDraft,
@@ -121,6 +123,24 @@ export function AlertThresholdsFields({ draft, onChange, errors, disabled = fals
     );
   };
 
+  const switchField = (key: SwitchGroupKey) => {
+    const meta = SWITCH_GROUPS[key];
+    return (
+      <div key={key} className="flex flex-wrap items-start justify-between gap-2">
+        <Switch
+          id={`threshold-${key}`}
+          label={meta.label}
+          description={meta.description}
+          info={meta.info}
+          checked={shown(key)[key]}
+          onChange={(e) => onChange({ ...draft, [key]: e.target.checked })}
+          disabled={locked(key)}
+        />
+        {toggle(key)}
+      </div>
+    );
+  };
+
   const widthTable = (key: WidthGroupKey) => {
     const meta = WIDTH_GROUPS[key];
     const rows = shown(key)[key];
@@ -188,6 +208,9 @@ export function AlertThresholdsFields({ draft, onChange, errors, disabled = fals
   return (
     <div className="space-y-6">
       <section className="space-y-4">
+        {(Object.keys(SWITCH_GROUPS) as SwitchGroupKey[]).map(switchField)}
+      </section>
+      <section className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Enlace</p>
         {(Object.keys(SEVERITY_GROUPS) as SeverityGroupKey[]).map(severityRow)}
       </section>

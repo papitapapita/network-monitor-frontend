@@ -3,6 +3,7 @@ import { AlertThresholdsDTO } from '@/types/alert-thresholds.types';
 export type SeverityGroupKey = 'signalDbm' | 'snrDb' | 'ccqPercent' | 'latencyMs';
 export type SingleGroupKey = 'cpuPercent' | 'memoryPercent' | 'clockDriftSeconds' | 'saturationPercent' | 'clientDropPercent';
 export type WidthGroupKey = 'minCapacityMbps' | 'maxDistanceKm';
+export type SwitchGroupKey = 'confirmBeforeAlerting';
 export type ThresholdGroupKey = keyof AlertThresholdsDTO;
 
 interface GroupMeta {
@@ -34,6 +35,15 @@ export const WIDTH_GROUPS: Record<WidthGroupKey, GroupMeta & { decimals: boolean
   maxDistanceKm: { label: 'Distancia máxima', unit: 'km', min: 0.1, max: 200, decimals: true, info: 'Distancia del enlace por encima de la cual se alerta, según el ancho de canal. Un ancho sin valor no se revisa.' },
 };
 
+/** On/off switches rather than limits. */
+export const SWITCH_GROUPS: Record<SwitchGroupKey, { label: string; description: string; info: string }> = {
+  confirmBeforeAlerting: {
+    label: 'Confirmar antes de alertar',
+    description: 'Una alerta de CCQ, latencia, señal, SNR o capacidad se abre solo si el radio la confirma en nuevas lecturas.',
+    info: 'El servidor vuelve a leer el radio 5 veces, cada 4 s, y abre la alerta solo si la mayoría de las lecturas también la superan. Un CCQ bajo con el enlace casi sin tráfico (menos de 0,5 Mbps) no cuenta. Una alerta no confirmada no se vuelve a revisar en 10 minutos. Las confirmadas se abren unos 25 s más tarde. Las demás alertas y los cierres no cambian.',
+  },
+};
+
 /** The channel widths (MHz) a width table may carry. */
 export const CHANNEL_WIDTHS = ['5', '10', '20', '30', '40', '50', '60', '80', '160'] as const;
 
@@ -41,10 +51,12 @@ export const GROUP_ORDER: ThresholdGroupKey[] = [
   'signalDbm', 'snrDb', 'ccqPercent', 'latencyMs',
   'cpuPercent', 'memoryPercent', 'clockDriftSeconds', 'saturationPercent', 'clientDropPercent',
   'minCapacityMbps', 'maxDistanceKm',
+  'confirmBeforeAlerting',
 ];
 
 export const isSeverityGroup = (k: ThresholdGroupKey): k is SeverityGroupKey => k in SEVERITY_GROUPS;
 export const isWidthGroup = (k: ThresholdGroupKey): k is WidthGroupKey => k in WIDTH_GROUPS;
+export const isSwitchGroup = (k: ThresholdGroupKey): k is SwitchGroupKey => k in SWITCH_GROUPS;
 
 // ── Draft: every value as the text the input holds ───────────
 
@@ -62,6 +74,7 @@ export interface ThresholdsDraft {
   clientDropPercent: string;
   minCapacityMbps: WidthRow[];
   maxDistanceKm: WidthRow[];
+  confirmBeforeAlerting: boolean;
 }
 
 const byWidth = (a: WidthRow, b: WidthRow) => Number(a.width) - Number(b.width);
@@ -83,6 +96,7 @@ export const toThresholdsDraft = (t: AlertThresholdsDTO): ThresholdsDraft => ({
   clientDropPercent: String(t.clientDropPercent),
   minCapacityMbps: widthRows(t.minCapacityMbps),
   maxDistanceKm: widthRows(t.maxDistanceKm),
+  confirmBeforeAlerting: t.confirmBeforeAlerting,
 });
 
 /** Only valid once `validateThresholdsDraft` found nothing wrong. */
@@ -101,6 +115,7 @@ export const fromThresholdsDraft = (d: ThresholdsDraft): AlertThresholdsDTO => {
     clientDropPercent: Number(d.clientDropPercent),
     minCapacityMbps: table(d.minCapacityMbps),
     maxDistanceKm: table(d.maxDistanceKm),
+    confirmBeforeAlerting: d.confirmBeforeAlerting,
   };
 };
 
@@ -120,6 +135,7 @@ function checkNumber(raw: string, min: number, max: number, decimals: boolean): 
 }
 
 export function validateGroup(key: ThresholdGroupKey, d: ThresholdsDraft, errors: ThresholdErrors): void {
+  if (isSwitchGroup(key)) return;
   if (isSeverityGroup(key)) {
     const meta = SEVERITY_GROUPS[key];
     const { warning, critical } = d[key];

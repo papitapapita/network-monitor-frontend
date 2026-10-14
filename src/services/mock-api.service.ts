@@ -199,6 +199,7 @@ const DEFAULT_ALERT_THRESHOLDS: AlertThresholdsDTO = {
   clientDropPercent: 50,
   minCapacityMbps: { '20': 50, '40': 100, '80': 200 },
   maxDistanceKm: { '20': 15, '40': 10, '80': 5 },
+  confirmBeforeAlerting: true,
 };
 let alertThresholds: AlertThresholdsDTO = structuredClone(DEFAULT_ALERT_THRESHOLDS);
 let billingSettings: BillingSettingsDTO = { automaticBillingEnabled: false, billingMode: 'ADVANCE', issueLeadDays: 5, graceDays: 3, automaticCutEnabled: false, reminderWhatsAppTemplate: null, billWhatsAppTemplate: null };
