@@ -2,8 +2,11 @@
 
 import { TileLayer } from 'react-leaflet';
 
+// OSM refuses tile requests that arrive without a Referer, and the site-wide
+// Referrer-Policy (same-origin) strips it from every cross-origin request. These
+// tiles alone send our origin — never the page path.
 const STREET_TILES = {
-  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
 };
 
@@ -28,7 +31,16 @@ export const MAP_CONTROL_BUTTON_CLASS =
 
 /** The map's background: OpenStreetMap streets, or satellite imagery with streets and place names on top. */
 export function BaseTiles({ satellite }: { satellite: boolean }) {
-  if (!satellite) return <TileLayer key="streets" url={STREET_TILES.url} attribution={STREET_TILES.attribution} />;
+  if (!satellite) {
+    return (
+      <TileLayer
+        key="streets"
+        url={STREET_TILES.url}
+        attribution={STREET_TILES.attribution}
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    );
+  }
   return (
     <>
       <TileLayer key="imagery" url={SATELLITE_TILES.url} attribution={SATELLITE_TILES.attribution} />
