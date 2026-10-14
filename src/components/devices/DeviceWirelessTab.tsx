@@ -402,7 +402,7 @@ export function DeviceWirelessTab({
   const [noConfig, setNoConfig] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
-  const { showError, showFormErrors } = useToast();
+  const { showError, showSuccess, showFormErrors } = useToast();
 
   const [status, setStatus] = useState<WirelessStatusDTO | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -440,7 +440,6 @@ export function DeviceWirelessTab({
   const [configSaving, setConfigSaving] = useState(false);
   const [configFormErrors, setConfigFormErrors] = useState<Record<string, string>>({});
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
-  const [configSaveSuccess, setConfigSaveSuccess] = useState(false);
   const [showConfigForm, setShowConfigForm] = useState(false);
 
   // Candidate parents for a STATION's `parentApDeviceId` — loaded lazily, only
@@ -697,7 +696,6 @@ export function DeviceWirelessTab({
 
     setConfigSaving(true);
     setConfigSaveError(null);
-    setConfigSaveSuccess(false);
 
     const formIsAP = noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP;
     const payload = {
@@ -731,7 +729,7 @@ export function DeviceWirelessTab({
     }
 
     if (result.success) {
-      setConfigSaveSuccess(true);
+      showSuccess('Configuración inalámbrica guardada.');
       setNoConfig(false);
       setShowConfigForm(false);
       fetchConfig();
@@ -753,6 +751,7 @@ export function DeviceWirelessTab({
       setExpectedClients(null);
       setIdentitySuggestions([]);
       setParentAp(null);
+      showSuccess('Configuración inalámbrica eliminada.');
     } else {
       showError(result.error || 'No se pudo eliminar la configuración inalámbrica');
     }
@@ -771,6 +770,7 @@ export function DeviceWirelessTab({
         // Reload rather than setConfig: the edit form is seeded from the
         // fetch, and a stale parentApDeviceId there would undo this on the
         // next save. The new config re-runs the suggestions fetch.
+        showSuccess('Sugerencia aplicada.');
         fetchConfig();
       } else {
         showError(result.error || 'No se pudo aplicar la sugerencia');
@@ -783,6 +783,7 @@ export function DeviceWirelessTab({
     );
     setAcceptingSuggestionKey(null);
     if (result.success && result.data) {
+      showSuccess('Sugerencia aplicada.');
       onDeviceUpdated(result.data);
       fetchIdentitySuggestions();
     } else {
@@ -902,13 +903,13 @@ export function DeviceWirelessTab({
                       icon={<PlusIcon />}
                       label="Crear sondeo inalámbrico"
                       variant="primary"
-                      onClick={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
+                      onClick={() => { setShowConfigForm(true); setConfigSaveError(null); }}
                     />
                   )
                 ) : (
                   <EditToggleButton
                     isEditing={showConfigForm}
-                    onEdit={() => { setShowConfigForm(true); setConfigSaveSuccess(false); setConfigSaveError(null); }}
+                    onEdit={() => { setShowConfigForm(true); setConfigSaveError(null); }}
                     onCancel={() => setShowConfigForm(false)}
                   />
                 )}
@@ -1023,11 +1024,6 @@ export function DeviceWirelessTab({
               {configSaveError && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 text-sm text-red-800 dark:text-red-400">
                   {configSaveError}
-                </div>
-              )}
-              {configSaveSuccess && (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3 text-sm text-green-800 dark:text-green-400">
-                  Configuración guardada.
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

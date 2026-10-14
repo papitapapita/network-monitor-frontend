@@ -44,7 +44,7 @@ type TestOutcome = { ok: true; delivered: number } | { ok: false; message: strin
  * Hidden entirely when the server has no VAPID keys.
  */
 export function PhoneNotificationsCard({ className = '' }: { className?: string }) {
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testOutcome, setTestOutcome] = useState<TestOutcome | null>(null);
@@ -75,6 +75,7 @@ export function PhoneNotificationsCard({ className = '' }: { className?: string 
     const r = on ? await enablePush(key.publicKey) : await disablePush();
     setBusy(false);
     if (!r.ok) showError(r.error);
+    else showSuccess(on ? 'Notificaciones activadas en este teléfono.' : 'Notificaciones desactivadas en este teléfono.');
     refetch();
   };
 

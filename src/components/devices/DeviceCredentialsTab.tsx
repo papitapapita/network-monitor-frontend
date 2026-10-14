@@ -90,8 +90,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { showError } = useToast();
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const { showError, showSuccess } = useToast();
 
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -136,7 +135,6 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
       snmpPort: String(creds?.snmpPort ?? 161),
     });
     setSaveError(null);
-    setSaveSuccess(false);
     setShowForm(true);
   };
 
@@ -198,7 +196,6 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
 
     setSaving(true);
     setSaveError(null);
-    setSaveSuccess(false);
 
     const body: SetDeviceCredentialsDTO = {
       httpPort: form.httpPort ? parseInt(form.httpPort) : undefined,
@@ -238,7 +235,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     if (result.success && result.data) {
       setCreds(result.data);
       setNoCreds(false);
-      setSaveSuccess(true);
+      showSuccess('Credenciales guardadas.');
       setShowForm(false);
     } else {
       const message =
@@ -258,6 +255,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
       setCreds(null);
       setNoCreds(true);
       setConfirmDelete(false);
+      showSuccess('Credenciales eliminadas.');
     } else {
       const message = forbidden(result) ?? result.error ?? 'Error al eliminar credenciales';
       setDeleteError(message);
@@ -596,11 +594,6 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
             </div>
           )}
 
-          {saveSuccess && !showForm && (
-            <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-800 dark:text-green-400">
-              Credenciales guardadas correctamente.
-            </div>
-          )}
         </Card.Body>
         {showForm && (
           <Card.Footer>
