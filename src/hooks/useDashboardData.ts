@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { fetchPollingStatuses, invalidatePollingStatuses } from '@/hooks/pollingStatusQuery';
+import { fetchPollingStatuses } from '@/hooks/pollingStatusQuery';
 import { fetchAllDevices } from '@/hooks/useCatalogs';
 import { useFleetThroughput } from '@/hooks/useWirelessThroughput';
 
@@ -38,12 +38,10 @@ export function useDashboardData() {
   });
 
   const devices = useMemo(() => devicesQuery.data ?? [], [devicesQuery.data]);
-  const monitoredIds = devices.filter((d) => d.monitoringEnabled).map((d) => d.id).join(',');
 
   const statusQuery = useQuery({
-    queryKey: ['dashboard', 'pollingStatuses', monitoredIds],
-    queryFn: () => fetchPollingStatuses(queryClient, devices),
-    enabled: devicesQuery.isSuccess,
+    queryKey: ['dashboard', 'pollingStatuses'],
+    queryFn: fetchPollingStatuses,
     refetchInterval: REFRESH_MS,
   });
 
@@ -85,7 +83,6 @@ export function useDashboardData() {
   const throughputHistory = useThroughputHistory(fleet.entries);
 
   const refresh = async () => {
-    await invalidatePollingStatuses(queryClient);
     await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   };
 
@@ -100,7 +97,7 @@ export function useDashboardData() {
     devicesQuery,
     devices,
     statusQuery,
-    statuses: statusQuery.data?.byId ?? {},
+    statuses: statusQuery.data ?? {},
     alertsQuery,
     alerts,
     ticketsQuery,

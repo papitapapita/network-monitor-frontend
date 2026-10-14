@@ -7,7 +7,7 @@ import { todayISODate } from '@/constants/ticket.constants';
 
 /**
  * Pure derivations for the dashboard. Everything here is computed from four
- * list reads plus the (cached) per-device polling statuses, so the page costs a
+ * list reads plus one read of every device's polling status, so the page costs a
  * bounded number of requests however many widgets it shows. Connectivity comes
  * with the device list; the polling statuses only add latency and failure counts.
  */

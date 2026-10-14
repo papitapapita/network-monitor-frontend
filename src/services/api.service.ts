@@ -940,6 +940,11 @@ class ApiService {
   // Polling
   // ============================================================
 
+  /** Every device with a polling config, in one call; unordered — key by `deviceId`. */
+  async getPollingStatuses(): Promise<ApiResponse<PollingStatusDTO[]>> {
+    return this.request<PollingStatusDTO[]>('/devices/polling/statuses');
+  }
+
   async getPollingStatus(deviceId: string): Promise<ApiResponse<PollingStatusDTO>> {
     return this.request<PollingStatusDTO>(`/devices/${deviceId}/polling/status`);
   }

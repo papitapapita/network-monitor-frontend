@@ -950,6 +950,16 @@ class MockApiService {
 
   // ── Polling ────────────────────────────────────────────────
 
+  async getPollingStatuses(): Promise<ApiResponse<PollingStatusDTO[]>> {
+    const all: PollingStatusDTO[] = [];
+    for (const d of devices) {
+      if (d.deletedAt) continue;
+      const r = await this.getPollingStatus(d.id);
+      if (r.success && r.data) all.push(r.data);
+    }
+    return ok(all);
+  }
+
   async getPollingStatus(deviceId: string): Promise<ApiResponse<PollingStatusDTO>> {
     const device = findLiveDevice(deviceId);
     if (!device) return err('Device not found');

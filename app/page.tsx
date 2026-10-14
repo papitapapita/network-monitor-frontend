@@ -86,7 +86,6 @@ export default function DashboardPage() {
   const ticketSummary = useMemo(() => summarizeTickets(tickets), [tickets]);
   const lifecycle = useMemo(() => countByStatus(devices), [devices]);
 
-  const unread = data.statusQuery.data?.failed ?? 0;
   const openAlerts = alerts.filter((a) => a.status === 'OPEN');
   const criticalOpen = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
   const measured = connectivity.online + connectivity.offline;
@@ -181,10 +180,10 @@ export default function DashboardPage() {
         />
       </div>
 
-      {unread > 0 && (
+      {data.statusQuery.isError && (
         <p className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-          No se pudo leer el último sondeo de {unread} dispositivo{unread === 1 ? '' : 's'} (límite de
-          solicitudes); la latencia está incompleta hasta la próxima actualización.
+          No se pudo leer el estado de sondeo de los dispositivos; la latencia está incompleta hasta la
+          próxima actualización.
         </p>
       )}
 
