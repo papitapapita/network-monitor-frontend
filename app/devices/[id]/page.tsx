@@ -33,16 +33,16 @@ import {
 import { isBackupTarget } from '@/constants/backup.constants';
 import { useGoBack } from '@/hooks/useGoBack';
 
-type Tab = 'details' | 'polling' | 'wireless' | 'notifications' | 'credentials' | 'backups' | 'history';
+type Tab = 'details' | 'history' | 'polling' | 'wireless' | 'notifications' | 'credentials' | 'backups';
 
 const TAB_LABELS: Record<Tab, string> = {
   details: 'Detalles',
+  history: 'Historial',
   polling: 'Sondeo',
   wireless: 'Inalámbrico',
   notifications: 'Notificaciones',
   credentials: 'Credenciales',
   backups: 'Respaldos',
-  history: 'Historial',
 };
 
 function SwapIcon() {
@@ -468,7 +468,7 @@ export default function DeviceDetailPage() {
           stretching the page, same as the table's own horizontal scroll. */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto table-scroll-x">
         <nav className="flex gap-6 w-max min-w-full">
-          {(['details', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'notifications', 'credentials', ...(showBackups ? ['backups' as Tab] : []), 'history'] as Tab[]).map((tab) => (
+          {(['details', 'history', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'notifications', 'credentials', ...(showBackups ? ['backups' as Tab] : [])] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -492,6 +492,10 @@ export default function DeviceDetailPage() {
             if (updated.deviceModelId !== device.deviceModelId) loadModel(updated.deviceModelId);
           }}
         />
+      )}
+
+      {currentTab === 'history' && (
+        <DeviceHistoryTab device={device} />
       )}
 
       {currentTab === 'polling' && (
@@ -522,10 +526,6 @@ export default function DeviceDetailPage() {
 
       {currentTab === 'backups' && (
         <DeviceBackupsTab device={device} />
-      )}
-
-      {currentTab === 'history' && (
-        <DeviceHistoryTab device={device} />
       )}
     </div>
   );
