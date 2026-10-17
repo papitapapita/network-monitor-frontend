@@ -205,7 +205,7 @@ const DEFAULT_ALERT_THRESHOLDS: AlertThresholdsDTO = {
 };
 let alertThresholds: AlertThresholdsDTO = structuredClone(DEFAULT_ALERT_THRESHOLDS);
 let billingSettings: BillingSettingsDTO = { automaticBillingEnabled: false, billingMode: 'ADVANCE', issueLeadDays: 5, graceDays: 3, automaticCutEnabled: false, reminderWhatsAppTemplate: null, billWhatsAppTemplate: null };
-let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true };
+let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true, alertTicketMode: 'SUGGEST' };
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -1990,6 +1990,9 @@ class MockApiService {
     return { success: false, error: 'No disponible en modo mock' };
   }
   async createTicket(): Promise<ApiResponse<TicketDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async createTicketFromAlert(): Promise<ApiResponse<TicketDTO>> {
     return { success: false, error: 'No disponible en modo mock' };
   }
   async updateTicket(): Promise<ApiResponse<TicketDTO>> {

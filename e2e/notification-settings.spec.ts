@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures/test';
 import type { Page, Request } from '@playwright/test';
-import { field } from './fixtures/helpers';
+import { field, selectDropdown } from './fixtures/helpers';
 
 /**
  * The install's notification settings (NOT-200). A save changes where every
@@ -9,7 +9,7 @@ import { field } from './fixtures/helpers';
  * values.
  */
 
-const SAVED = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 15, wirelessAlertsEnabled: true };
+const SAVED = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 15, wirelessAlertsEnabled: true, alertTicketMode: 'SUGGEST' };
 
 const ok = (data: unknown) => ({ contentType: 'application/json', body: JSON.stringify({ success: true, data }) });
 const fail = (status: number, error: string) =>
@@ -40,7 +40,7 @@ async function withSubscription(page: Page, state: object) {
   await page.route(/\/api\/subscription$/, (route) => route.fulfill(ok(state)));
 }
 
-test('an administrator saves all three settings at once', async ({ page }) => {
+test('an administrator saves every setting at once', async ({ page }) => {
   const writes = await stubSettings(page);
   await page.goto('/settings');
 
@@ -48,10 +48,11 @@ test('an administrator saves all three settings at once', async ({ page }) => {
   await expect(delay).toHaveValue('15');
   await delay.fill('30');
   await page.getByRole('checkbox', { name: 'Enviar alertas inalámbricas' }).uncheck();
+  await selectDropdown(page, 'Tickets de alertas', 'Crear tickets automáticamente');
   await notifications(page).getByRole('button', { name: 'Guardar', exact: true }).click();
 
   await expect(page.getByText(/Configuración de notificaciones guardada/)).toBeVisible();
-  expect(writes.saves).toEqual([{ telegramChatId: '-1001234567890', downAlertDelayMinutes: 30, wirelessAlertsEnabled: false }]);
+  expect(writes.saves).toEqual([{ telegramChatId: '-1001234567890', downAlertDelayMinutes: 30, wirelessAlertsEnabled: false, alertTicketMode: 'AUTOMATIC' }]);
 });
 
 test('a bad chat id or delay is caught before it is sent', async ({ page }) => {
@@ -109,7 +110,7 @@ test('read-only: the settings show, but nothing changes them', async ({ page }) 
   await expect(field(page, 'Chat de Telegram')).toHaveValue('-1001234567890');
   await expect(field(page, 'Chat de Telegram')).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Enviar mensaje de prueba' })).toHaveCount(0);
-  await expect(page.getByText('Solo un administrador puede cambiarlos.')).toBeVisible();
+  await expect(notifications(page).getByText('Solo un administrador puede cambiarlos.')).toBeVisible();
 });
 
 test('a device with no delay of its own shows the install’s', async ({ page, api }) => {

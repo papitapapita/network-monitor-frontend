@@ -6,24 +6,31 @@ import { apiService } from '@/services/api.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/toast.context';
 import { NOTIFICATION_SETTINGS_QUERY_KEY, useNotificationSettings } from '@/hooks/useNotificationSettings';
-import { Button, ConfirmModal, Input, LoadingSpinner, SectionTitle, Switch } from '@/components/ui';
+import { Button, ConfirmModal, Input, LoadingSpinner, SectionTitle, Select, Switch } from '@/components/ui';
 import {
   DOWN_ALERT_DELAY_MAX_MINUTES,
   validateDownAlertDelay,
   validateTelegramChatId,
 } from '@/constants/notification-settings.constants';
-import { NotificationSettingsDTO } from '@/types/notification-settings.types';
+import { AlertTicketMode, NotificationSettingsDTO } from '@/types/notification-settings.types';
 
 interface Draft {
   telegramChatId: string;
   downAlertDelayMinutes: string;
   wirelessAlertsEnabled: boolean;
+  alertTicketMode: AlertTicketMode;
 }
+
+const ALERT_TICKET_MODE_OPTIONS: { value: AlertTicketMode; label: string }[] = [
+  { value: 'SUGGEST', label: 'Sugerir tickets' },
+  { value: 'AUTOMATIC', label: 'Crear tickets automáticamente' },
+];
 
 const toDraft = (s: NotificationSettingsDTO): Draft => ({
   telegramChatId: s.telegramChatId ?? '',
   downAlertDelayMinutes: String(s.downAlertDelayMinutes),
   wirelessAlertsEnabled: s.wirelessAlertsEnabled,
+  alertTicketMode: s.alertTicketMode,
 });
 
 type TestOutcome = { ok: true; chat: string } | { ok: false; message: string };
@@ -83,6 +90,7 @@ export function NotificationSettingsCard() {
       telegramChatId: form.telegramChatId.trim() || null,
       downAlertDelayMinutes: Number(form.downAlertDelayMinutes.trim()),
       wirelessAlertsEnabled: form.wirelessAlertsEnabled,
+      alertTicketMode: form.alertTicketMode,
     });
     setSaving(false);
     if (r.success && r.data) {
@@ -213,6 +221,16 @@ export function NotificationSettingsCard() {
               checked={form.wirelessAlertsEnabled}
               onChange={(e) => edit({ wirelessAlertsEnabled: e.target.checked })}
               disabled={!canEdit}
+            />
+
+            <Select
+              label="Tickets de alertas"
+              value={form.alertTicketMode}
+              onChange={(e) => edit({ alertTicketMode: e.target.value as AlertTicketMode })}
+              options={ALERT_TICKET_MODE_OPTIONS}
+              info="Sugerir: una alerta nueva no abre ticket; la lista de alertas ofrece «Crear ticket» para abrirlo a mano. Automático: cada alerta abre un ticket por sí sola, uno por dispositivo."
+              disabled={!canEdit}
+              fullWidth
             />
 
             {canEdit ? (

@@ -11,7 +11,15 @@ export interface NotificationSettingsDTO {
   downAlertDelayMinutes: number;
   /** false: wireless alerts are recorded but not sent (NOT-203). */
   wirelessAlertsEnabled: boolean;
+  /**
+   * What a new alert does about tickets (NOT-205). SUGGEST (the default) opens
+   * none and marks the alert `ticketSuggested`; AUTOMATIC opens one per device
+   * on its own, as before.
+   */
+  alertTicketMode: AlertTicketMode;
 }
+
+export type AlertTicketMode = 'SUGGEST' | 'AUTOMATIC';
 
 export interface NotificationTestResultDTO {
   /** The chat the message was sent to. */

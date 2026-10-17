@@ -1,4 +1,5 @@
 import { BulkReportBuckets } from './common.types';
+import { TicketStatus } from './ticket.types';
 
 export type AlertSeverity = 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'OPEN' | 'RESOLVED';
@@ -67,6 +68,10 @@ export interface BulkDeleteAlertsResult extends BulkReportBuckets {
 export interface AlertListItemDTO extends AlertDTO {
   /** The device's current name, so a renamed device's old alerts show the new one. */
   deviceName: string;
+  /** This alert's own live ticket (OPEN, ASSIGNED or IN_PROGRESS) — not another alert's on the same device. */
+  ticket: { id: string; code: number; status: TicketStatus } | null;
+  /** An open alert with no ticket of its own: offer "Crear ticket" (NOT-206). Always false once resolved. */
+  ticketSuggested: boolean;
 }
 
 export interface AlertListResponse {

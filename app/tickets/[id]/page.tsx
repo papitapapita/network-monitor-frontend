@@ -323,7 +323,13 @@ export default function TicketDetailPage() {
 
       {isAlertOrigin(ticket.origin) && ticket.originAlertId && (
         <div className="p-3 rounded-md text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-300 flex justify-between items-center gap-3">
-          <span>El monitoreo abrió este ticket a partir de una alerta.</span>
+          {/* In SUGGEST mode a person opens it from the alert; only AUTOMATIC
+              leaves `createdBy` empty (NOT-205). */}
+          <span>
+            {ticket.createdBy
+              ? 'Este ticket se abrió a partir de una alerta.'
+              : 'El monitoreo abrió este ticket a partir de una alerta.'}
+          </span>
           <Button
             variant="outline"
             size="sm"

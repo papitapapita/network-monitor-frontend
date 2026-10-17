@@ -235,7 +235,7 @@ function TicketsPageContent() {
         emptyMessage={
           t.hasFilters
             ? 'Ningún ticket coincide con los filtros'
-            : 'Sin tickets. Crea el primero, o espera a que el monitoreo abra uno.'
+            : 'Sin tickets. Crea el primero, o ábrelo desde una alerta.'
         }
         sort={{ field: t.sortField, direction: t.sortDirection, onSort: t.handleSort }}
         selectionResetKey={`${t.currentPage}|${t.statusFilter}|${t.technicianFilter}|${t.priorityFilter}|${t.categoryFilter}|${t.deviceIdFilter}`}

@@ -3,10 +3,11 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { usePermissions } from '@/hooks/usePermissions';
-import { AlertDTO } from '@/types/alert.types';
+import { AlertListItemDTO } from '@/types/alert.types';
+import { AlertTicketAction } from '@/components/alerts/AlertTicketAction';
 import { DeviceResponseDTO } from '@/types/device.types';
 import { TicketDTO } from '@/types/ticket.types';
 import {
@@ -97,13 +98,22 @@ function CountNote({ open, total }: { open: number; total: number }) {
   );
 }
 
-function AlertRow({ alert, ticket }: { alert: AlertDTO; ticket: TicketDTO | undefined }) {
+function AlertRow({
+  alert,
+  closedTicket,
+  onTicketChanged,
+}: {
+  alert: AlertListItemDTO;
+  closedTicket: TicketDTO | undefined;
+  onTicketChanged: () => void;
+}) {
+  const hasAction = !!(alert.ticket || closedTicket || alert.ticketSuggested);
   const isOpen = alert.status === 'OPEN';
   const duration = fmtDuration(alert.durationSecs);
   const severity = alert.severity === 'CRITICAL' ? 'danger' : 'warning';
   return (
     <li className="relative">
-      <Link href={`/alerts/${alert.id}`} className={`${ROW_CLASSES} ${ticket ? 'pr-24' : ''}`}>
+      <Link href={`/alerts/${alert.id}`} className={`${ROW_CLASSES} ${hasAction ? 'pr-32' : ''}`}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{alert.description}</span>
           <Badge variant={isOpen ? severity : 'neutral'}>
@@ -116,15 +126,12 @@ function AlertRow({ alert, ticket }: { alert: AlertDTO; ticket: TicketDTO | unde
           {duration && ` · duró ${duration}`}
         </p>
       </Link>
-      {/* Its own link rather than nested in the row's — an <a> inside an <a>
-          is invalid, and the two go to different places. */}
-      {ticket && (
-        <Link
-          href={`/tickets/${ticket.id}`}
-          className="absolute right-3 top-3 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
-        >
-          Ticket #{ticket.code}
-        </Link>
+      {/* Outside the row's link — a link or button inside an <a> is invalid,
+          and this one goes somewhere else (or opens a ticket). */}
+      {hasAction && (
+        <div className="absolute right-3 top-3">
+          <AlertTicketAction alert={alert} fallbackTicket={closedTicket} onChanged={onTicketChanged} />
+        </div>
       )}
     </li>
   );
@@ -194,6 +201,7 @@ function Lineage({ device }: { device: DeviceResponseDTO }) {
  */
 export function DeviceHistoryTab({ device }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { canWrite } = usePermissions();
 
   const alertsQuery = useQuery({
@@ -254,7 +262,12 @@ export function DeviceHistoryTab({ device }: Props) {
           ) : (
             <ul className="space-y-3">
               {shownAlerts.map((a) => (
-                <AlertRow key={a.id} alert={a} ticket={ticketByAlert.get(a.id)} />
+                <AlertRow
+                  key={a.id}
+                  alert={a}
+                  closedTicket={ticketByAlert.get(a.id)}
+                  onTicketChanged={() => queryClient.invalidateQueries({ queryKey: ['alerts', 'device', device.id] })}
+                />
               ))}
             </ul>
           )}

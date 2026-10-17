@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiService } from '@/services/api.service';
 import { usePermissions } from '@/hooks/usePermissions';
-import { AlertDTO, AlertSeverity, AlertStatus } from '@/types/alert.types';
+import { AlertDTO, AlertListItemDTO, AlertSeverity, AlertStatus } from '@/types/alert.types';
+import { AlertTicketAction } from '@/components/alerts/AlertTicketAction';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import { useUrlState } from '@/hooks/useUrlState';
 import {
@@ -63,7 +64,7 @@ function formatDate(iso: string): string {
 type SortColumn = 'severity' | 'status' | 'source' | 'description' | 'device' | 'startedAt';
 type SortDirection = 'asc' | 'desc';
 
-type AlertColumn = DataTableColumn<AlertDTO> & { label: string; locked?: boolean };
+type AlertColumn = DataTableColumn<AlertListItemDTO> & { label: string; locked?: boolean };
 
 /**
  * The page sorts the rows itself — device names live outside the DTO — so the
@@ -75,7 +76,7 @@ type AlertColumn = DataTableColumn<AlertDTO> & { label: string; locked?: boolean
  * timestamps, producer-specific
  * details) lives on the alert's own detail page.
  */
-function alertColumnCatalog(deviceNames: Record<string, string>): AlertColumn[] {
+function alertColumnCatalog(deviceNames: Record<string, string>, onTicketChanged: () => void = () => {}): AlertColumn[] {
   return [
     {
       key: 'severity',
@@ -128,6 +129,14 @@ function alertColumnCatalog(deviceNames: Record<string, string>): AlertColumn[] 
       ),
     },
     {
+      // The alert's own live ticket, or "Crear ticket" while the install only
+      // suggests them (NOT-206). Not sortable: it is an action as much as a value.
+      key: 'ticket',
+      label: 'Ticket',
+      header: 'Ticket',
+      cell: (a) => <AlertTicketAction alert={a} onChanged={onTicketChanged} />,
+    },
+    {
       key: 'startedAt',
       label: 'Inicio',
       header: 'Inicio',
@@ -148,9 +157,10 @@ const DEFAULT_ALERT_COLUMNS = alertColumnCatalog({}).map((c) => c.key);
 
 function buildAlertColumns(
   deviceNames: Record<string, string>,
-  visibleKeys: string[]
-): DataTableColumn<AlertDTO>[] {
-  return alertColumnCatalog(deviceNames).filter((c) => c.locked || visibleKeys.includes(c.key));
+  visibleKeys: string[],
+  onTicketChanged: () => void
+): DataTableColumn<AlertListItemDTO>[] {
+  return alertColumnCatalog(deviceNames, onTicketChanged).filter((c) => c.locked || visibleKeys.includes(c.key));
 }
 
 const alertCount = (n: number) => `${n} ${n === 1 ? 'alerta' : 'alertas'}`;
@@ -189,7 +199,7 @@ function AlertsPageContent() {
   const isAdmin = permissions.isAdmin;
   const canWrite = permissions.canWrite;
 
-  const [alerts, setAlerts] = useState<AlertDTO[]>([]);
+  const [alerts, setAlerts] = useState<AlertListItemDTO[]>([]);
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -334,8 +344,8 @@ function AlertsPageContent() {
     DEFAULT_ALERT_COLUMNS
   );
   const columns = React.useMemo(
-    () => buildAlertColumns(deviceNames, visibleKeys),
-    [deviceNames, visibleKeys]
+    () => buildAlertColumns(deviceNames, visibleKeys, fetchAlerts),
+    [deviceNames, visibleKeys, fetchAlerts]
   );
 
   const hasFilters =

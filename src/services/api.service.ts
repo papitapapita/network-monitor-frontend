@@ -2064,6 +2064,21 @@ class ApiService {
     return this.translateTicketError(result);
   }
 
+  /**
+   * Any alert, open or resolved, becomes its own ticket (TKT-115). A 409 means
+   * the alert already has a live one; re-fetch the alert list to link it.
+   */
+  async createTicketFromAlert(alertId: string): Promise<ApiResponse<TicketDTO>> {
+    const result = await this.request<TicketDTO>('/tickets/from-alert', {
+      method: 'POST',
+      body: JSON.stringify({ alertId }),
+    });
+    const live = result.error?.match(/^A live ticket already exists for this alert: #(\d+)/);
+    if (live) return { ...result, error: `Esta alerta ya tiene un ticket abierto: #${live[1]}.` };
+    if (result.status === 404) return { ...result, error: 'La alerta ya no existe.' };
+    return this.translateTicketError(result);
+  }
+
   /** Descriptive fields only — status, technician and schedule have their own endpoints. */
   async updateTicket(id: string, data: UpdateTicketDTO): Promise<ApiResponse<TicketDTO>> {
     const result = await this.request<TicketDTO>(`/tickets/${id}`, {
