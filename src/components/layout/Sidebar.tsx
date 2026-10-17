@@ -92,6 +92,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         label: 'Routers principales',
         icon: icon('M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01'),
       },
+      // Every device pinged once, now — what is up after an outage.
+      {
+        href: '/network-sweep',
+        label: 'Barrido de red',
+        icon: icon('M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z'),
+      },
       {
         href: '/network-scan',
         label: 'Escaneo',

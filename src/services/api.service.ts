@@ -101,6 +101,12 @@ import {
   DataPurgeResultDTO,
 } from '../types/user.types';
 import { RouterTrafficDTO, RouterTrafficSnapshotDTO } from '../types/router-traffic.types';
+import {
+  NetworkSweepFilters,
+  NetworkSweepResultDTO,
+  NetworkSweepStartDTO,
+  NetworkSweepSummaryDTO,
+} from '../types/network-sweep.types';
 import { translateAgentError } from '../constants/agent.constants';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
@@ -243,6 +249,15 @@ export interface RouterTrafficStreamHandlers {
   onSnapshot: (snapshot: RouterTrafficSnapshotDTO) => void;
   /** Every later frame: one router, replacing what was shown for it. */
   onRouter: (router: RouterTrafficDTO) => void;
+  onState?: (state: SseState) => void;
+}
+
+export interface NetworkSweepStreamHandlers {
+  onStart: (start: NetworkSweepStartDTO) => void;
+  /** One per device: the skipped ones first, then each answer as it comes. */
+  onResult: (result: NetworkSweepResultDTO) => void;
+  /** The last frame; the stream is already closed when this runs. */
+  onDone: (summary: NetworkSweepSummaryDTO) => void;
   onState?: (state: SseState) => void;
 }
 
@@ -1535,6 +1550,36 @@ class ApiService {
         }
       },
     });
+  }
+
+  /**
+   * Pings every in-service device once, now, and streams the answers. The
+   * stream ends by itself after `sweep-done` and is never reopened: a
+   * reconnect would start a second sweep. The returned closer stops it.
+   */
+  streamNetworkSweep(filters: NetworkSweepFilters, handlers: NetworkSweepStreamHandlers): () => void {
+    const params = new URLSearchParams();
+    if (filters.locationId) params.set('locationId', filters.locationId);
+    if (filters.category) params.set('category', filters.category);
+    const query = params.toString();
+    const close = openSseStream(`${this.baseUrl}/network/sweep/stream${query ? `?${query}` : ''}`, {
+      reconnect: false,
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        if (event === 'sweep-start') {
+          const dto = parseStreamJson<NetworkSweepStartDTO>(data);
+          if (dto) handlers.onStart(dto);
+        } else if (event === 'sweep-result') {
+          const dto = parseStreamJson<NetworkSweepResultDTO>(data);
+          if (dto) handlers.onResult(dto);
+        } else if (event === 'sweep-done') {
+          const dto = parseStreamJson<NetworkSweepSummaryDTO>(data);
+          close();
+          if (dto) handlers.onDone(dto);
+        }
+      },
+    });
+    return close;
   }
 
   // ============================================================
