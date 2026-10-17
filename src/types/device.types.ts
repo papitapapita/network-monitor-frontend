@@ -312,6 +312,8 @@ export interface DeviceCredentialsResponseDTO {
   httpPort: number;
   /** Default 22. RouterOS backups log in here with the HTTP login (BKP-054). */
   sshPort: number;
+  /** Default 8728. Live router traffic reads the RouterOS API here with the HTTP login (MON-060). */
+  apiPort: number;
   hasSnmpCredentials: boolean;
   hasHttpCredentials: boolean;
 }
@@ -331,6 +333,7 @@ export interface RevealedDeviceCredentialsDTO {
   httpPassword: string | null;
   httpPort: number;
   sshPort: number;
+  apiPort: number;
 }
 
 export interface CredentialRevealUnlockDTO {
@@ -348,6 +351,7 @@ export interface SetDeviceCredentialsDTO {
   httpPassword?: string | null;
   httpPort?: number; // 1–65535; omit to keep the stored value (default 443)
   sshPort?: number; // 1–65535; omit to keep the stored value (default 22)
+  apiPort?: number; // 1–65535; omit to keep the stored value (default 8728)
 
   // SNMP — Mimosa is polled with these. snmpVersion becomes required as soon
   // as any other SNMP field is sent.

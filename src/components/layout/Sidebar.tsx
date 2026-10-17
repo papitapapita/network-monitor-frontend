@@ -88,6 +88,11 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         icon: icon('M13 10V3L4 14h7v7l9-11h-7z'),
       },
       {
+        href: '/routers',
+        label: 'Routers principales',
+        icon: icon('M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01'),
+      },
+      {
         href: '/network-scan',
         label: 'Escaneo',
         icon: icon('M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z'),

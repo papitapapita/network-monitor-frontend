@@ -1469,6 +1469,11 @@ class MockApiService {
     return () => {};
   }
 
+  streamRouterTraffic(handlers: { onState?: (state: SseState) => void }): () => void {
+    handlers.onState?.({ status: 'error', error: 'No disponible en modo mock' });
+    return () => {};
+  }
+
   streamLinkDiagnosis(
     _deviceId: string,
     handlers: { onState?: (state: SseState) => void }

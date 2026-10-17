@@ -100,6 +100,7 @@ import {
   ChangeMyPasswordDTO,
   DataPurgeResultDTO,
 } from '../types/user.types';
+import { RouterTrafficDTO, RouterTrafficSnapshotDTO } from '../types/router-traffic.types';
 import { translateAgentError } from '../constants/agent.constants';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
@@ -235,6 +236,14 @@ export interface WirelessThroughputStreamHandlers {
 export interface FleetThroughputStreamHandlers extends WirelessThroughputStreamHandlers {
   /** The opening frame only — the whole fleet at once. */
   onSnapshot: (snapshot: WirelessThroughputSnapshot) => void;
+}
+
+export interface RouterTrafficStreamHandlers {
+  /** The opening frame only — every main router at once. */
+  onSnapshot: (snapshot: RouterTrafficSnapshotDTO) => void;
+  /** Every later frame: one router, replacing what was shown for it. */
+  onRouter: (router: RouterTrafficDTO) => void;
+  onState?: (state: SseState) => void;
 }
 
 export interface LinkDiagnosisStreamHandlers {
@@ -1503,6 +1512,26 @@ class ApiService {
         } else if (event === 'throughput') {
           const dto = parseStreamJson<WirelessThroughputDTO>(data);
           if (dto) handlers.onThroughput(dto);
+        }
+      },
+    });
+  }
+
+  /**
+   * Per-interface rates of every main router, read from the routers every 2 s
+   * while the stream is open. Same shape split as the fleet throughput: seed
+   * from `router-traffic-snapshot`, then replace one router per `router-traffic`.
+   */
+  streamRouterTraffic(handlers: RouterTrafficStreamHandlers): () => void {
+    return openSseStream(`${this.baseUrl}/routers/traffic/stream`, {
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        if (event === 'router-traffic-snapshot') {
+          const snapshot = parseStreamJson<RouterTrafficSnapshotDTO>(data);
+          if (snapshot) handlers.onSnapshot(snapshot);
+        } else if (event === 'router-traffic') {
+          const dto = parseStreamJson<RouterTrafficDTO>(data);
+          if (dto) handlers.onRouter(dto);
         }
       },
     });
