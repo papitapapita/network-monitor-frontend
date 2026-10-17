@@ -19,7 +19,9 @@ test.describe('live throughput', () => {
     // The opening frame arrived and parsed: anything less leaves the indicator
     // on "Conectando…" or drops it to "Sin conexión". Exact, or it also matches
     // the page's own "Tráfico en vivo" title.
-    await expect(page.getByText('En vivo', { exact: true })).toBeVisible({ timeout: 15_000 });
+    // The page also shows the main routers' stream; this one is the radios'.
+    const radios = page.locator('div', { has: page.getByRole('heading', { name: 'Radios' }) }).last();
+    await expect(radios.getByText('En vivo', { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/Sesión expirada|Network error/)).toHaveCount(0);
 
     // Devices that have never been polled are absent from the stream, so an

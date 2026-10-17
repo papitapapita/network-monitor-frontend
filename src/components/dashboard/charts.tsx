@@ -456,6 +456,138 @@ export function AreaTrend({
 }
 
 // ------------------------------------------------------------------
+// Two lines over time (download and upload)
+// ------------------------------------------------------------------
+
+export interface TrendSeries {
+  key: string;
+  label: string;
+  color: string;
+}
+
+/**
+ * AreaTrend's sibling for two series on one scale. Only the first is filled —
+ * two overlapping fills muddy each other, and the first is the one read first.
+ */
+export function DualTrend({
+  points,
+  series,
+  format,
+  height = 180,
+  label,
+}: {
+  points: { t: number; values: Record<string, number> }[];
+  series: [TrendSeries, TrendSeries];
+  format: (v: number) => string;
+  height?: number;
+  label: string;
+}) {
+  const [ref, width] = useWidth<HTMLDivElement>();
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  const margin = { top: 10, right: 8, bottom: 20, left: 72 };
+  const plotW = Math.max(0, width - margin.left - margin.right);
+  const plotH = height - margin.top - margin.bottom;
+  const peak = Math.max(0, ...points.flatMap((p) => series.map((s) => p.values[s.key] ?? 0)));
+  const { max, ticks } = niceAxis(peak);
+  const t0 = points[0]?.t ?? 0;
+  const t1 = points[points.length - 1]?.t ?? 1;
+  const span = Math.max(1, t1 - t0);
+  const x = (t: number) => margin.left + ((t - t0) / span) * plotW;
+  const y = (v: number) => margin.top + plotH - (v / max) * plotH;
+  const line = (key: string) =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.t)},${y(p.values[key] ?? 0)}`).join(' ');
+  const fmtTime = (t: number) =>
+    new Date(t).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const onMove = (e: React.MouseEvent<SVGRectElement>) => {
+    if (points.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const t = t0 + ((e.clientX - rect.left) / rect.width) * span;
+    let nearest = 0;
+    for (let i = 1; i < points.length; i++) {
+      if (Math.abs(points[i].t - t) < Math.abs(points[nearest].t - t)) nearest = i;
+    }
+    setHovered(nearest);
+  };
+
+  const hp = hovered !== null ? points[hovered] : null;
+  const last = points[points.length - 1];
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {width > 0 && (
+        <svg width={width} height={height} role="img" aria-label={label}>
+          {ticks.map((t) => (
+            <g key={t}>
+              <line
+                x1={margin.left}
+                x2={width - margin.right}
+                y1={y(t)}
+                y2={y(t)}
+                stroke={t === 0 ? 'var(--viz-axis)' : 'var(--viz-grid)'}
+                strokeWidth={1}
+              />
+              <text
+                x={margin.left - 8}
+                y={y(t)}
+                dy="0.32em"
+                textAnchor="end"
+                className="fill-gray-400 text-[10px] tabular-nums dark:fill-gray-500"
+              >
+                {format(t)}
+              </text>
+            </g>
+          ))}
+          {points.length > 1 && (
+            <>
+              <path
+                d={`${line(series[0].key)} L${x(t1)},${y(0)} L${x(t0)},${y(0)} Z`}
+                fill={series[0].color}
+                opacity={0.12}
+              />
+              {series.map((s) => (
+                <path key={s.key} d={line(s.key)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+              ))}
+              <text x={margin.left} y={height - 4} className="fill-gray-400 text-[10px] dark:fill-gray-500">
+                {fmtTime(t0)}
+              </text>
+              <text x={width - margin.right} y={height - 4} textAnchor="end" className="fill-gray-400 text-[10px] dark:fill-gray-500">
+                {fmtTime(t1)}
+              </text>
+            </>
+          )}
+          {last &&
+            series.map((s) => (
+              <circle key={s.key} cx={x(last.t)} cy={y(last.values[s.key] ?? 0)} r={4} fill={s.color} stroke="var(--viz-surface)" strokeWidth={2} />
+            ))}
+          {hp && (
+            <line x1={x(hp.t)} x2={x(hp.t)} y1={margin.top} y2={y(0)} stroke="var(--viz-axis)" strokeWidth={1} />
+          )}
+          <rect
+            x={margin.left}
+            y={margin.top}
+            width={plotW}
+            height={plotH}
+            fill="transparent"
+            onMouseMove={onMove}
+            onMouseLeave={() => setHovered(null)}
+          />
+        </svg>
+      )}
+      {hp && (
+        <Tooltip x={x(hp.t)} y={y(Math.max(...series.map((s) => hp.values[s.key] ?? 0)))} containerWidth={width}>
+          <p className="mb-1 text-gray-500 dark:text-gray-400">{fmtTime(hp.t)}</p>
+          {series.map((s) => (
+            <LegendKey key={s.key} color={s.color} label={s.label} value={format(hp.values[s.key] ?? 0)} />
+          ))}
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------
 // Horizontal bar list (ranked, single series)
 // ------------------------------------------------------------------
 

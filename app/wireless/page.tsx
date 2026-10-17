@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, LoadingSpinner, PageHeader } from '@/components/ui';
 import { StreamIndicator, StreamErrorNotice } from '@/components/wireless/StreamStatus';
+import { BarList } from '@/components/dashboard/charts';
+import { RouterTrafficOverview } from '@/components/routers/RouterTrafficOverview';
+import { useRouterTraffic } from '@/hooks/useRouterTraffic';
 import {
   useFleetThroughput,
   useNow,
@@ -29,9 +32,14 @@ interface Row {
   ageSeconds: number;
 }
 
+/** How many radios the "most traffic" chart ranks. */
+const TOP_CONSUMERS = 10;
+
 /**
- * Fleet-wide live throughput. One SSE connection feeds every row: the opening
- * frame carries the whole fleet, and each later frame replaces a single device.
+ * The network's live traffic: the main routers first — read every 2 s, the
+ * truest picture of what the network carries — then every radio, busiest
+ * first. Two streams: the routers', and the radios', whose opening frame
+ * carries the whole fleet and each later frame replaces a single device.
  *
  * Only devices that have been polled at least once appear — the backend leaves
  * the rest out rather than sending a row of nulls that would read as an idle
@@ -39,6 +47,7 @@ interface Row {
  */
 export default function WirelessThroughputPage() {
   const { entries, state, retry } = useFleetThroughput();
+  const routerTraffic = useRouterTraffic();
   const now = useNow(1_000, state.status !== 'error');
 
   // The stream carries ids only, so names come from the device list. One fetch:
@@ -110,6 +119,21 @@ export default function WirelessThroughputPage() {
     return { tx, rx, stale, saturated };
   }, [rows]);
 
+  // Ranked on its own, not by the table's sort: the chart answers "who is
+  // using the network", whatever column the table is sorted on.
+  const topConsumers = useMemo(
+    () =>
+      rows
+        .filter((r) => !r.entry.reading.stale && (r.entry.reading.throughputTotalBps ?? 0) > 0)
+        .sort((a, b) => (b.entry.reading.throughputTotalBps ?? 0) - (a.entry.reading.throughputTotalBps ?? 0))
+        .slice(0, TOP_CONSUMERS),
+    [rows]
+  );
+  const maxTotal = useMemo(
+    () => Math.max(1, ...rows.map((r) => r.entry.reading.throughputTotalBps ?? 0)),
+    [rows]
+  );
+
   const toggleSort = (field: SortField) => {
     if (field === sortField) {
       setAscending((v) => !v);
@@ -126,11 +150,30 @@ export default function WirelessThroughputPage() {
     <div className="p-8">
       <PageHeader
         title="Tráfico en vivo"
-        info="Throughput de cada radio, actualizado cuando el sondeo guarda una lectura nueva. El uso se mide contra el plan contratado de la estación o, si no tiene contrato, contra su capacidad manual."
-        actions={<StreamIndicator state={state} />}
+        info="Arriba, los routers principales, leídos cada 2 s. Abajo, cada radio, actualizado cuando el sondeo guarda una lectura nueva; el uso se mide contra el plan contratado de la estación o, si no tiene contrato, contra su capacidad manual."
       />
 
       <div className="space-y-6">
+        <Card>
+          <Card.Header>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">Routers principales</h2>
+                <StreamIndicator state={routerTraffic.state} />
+              </div>
+              <Link
+                href="/routers"
+                className="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+              >
+                Ver interfaces
+              </Link>
+            </div>
+          </Card.Header>
+          <Card.Body>
+            <RouterTrafficOverview traffic={routerTraffic} chartHeight={220} />
+          </Card.Body>
+        </Card>
+
         <StreamErrorNotice state={state} onRetry={retry} />
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -144,10 +187,33 @@ export default function WirelessThroughputPage() {
           />
         </div>
 
+        {topConsumers.length > 0 && (
+          <Card>
+            <Card.Header>
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Mayor consumo ahora</h2>
+            </Card.Header>
+            <Card.Body>
+              <BarList
+                rows={topConsumers.map(({ entry, name }) => ({
+                  key: entry.reading.deviceId,
+                  label: name,
+                  href: `/devices/${entry.reading.deviceId}`,
+                  value: entry.reading.throughputTotalBps,
+                  display: fmtBps(entry.reading.throughputTotalBps),
+                  color: utilisationColorOrSeries(entry.reading.utilisationPercent),
+                }))}
+              />
+            </Card.Body>
+          </Card>
+        )}
+
         <Card>
           <Card.Header>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Enlaces</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">Radios</h2>
+                <StreamIndicator state={state} />
+              </div>
               {totals.stale > 0 && (
                 <Badge variant="warning">
                   {totals.stale === 1
@@ -226,6 +292,16 @@ export default function WirelessThroughputPage() {
                           </td>
                           <td className="py-2 pr-3 font-medium text-gray-900 dark:text-gray-100">
                             {fmtBps(r.throughputTotalBps)}
+                            {/* Against the busiest radio on the page, so the ranking reads at a glance. */}
+                            <div className="mt-1 h-1 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+                              <div
+                                className="h-1 rounded-full transition-all"
+                                style={{
+                                  width: `${((r.throughputTotalBps ?? 0) / maxTotal) * 100}%`,
+                                  background: 'var(--viz-series)',
+                                }}
+                              />
+                            </div>
                           </td>
                           <td className="py-2 pr-3">
                             {/* An AP never has a capacity, nor does a station with
@@ -316,4 +392,10 @@ function SummaryTile({
       <p className="mt-1 text-xs font-medium leading-tight opacity-75 sm:text-sm">{label}</p>
     </div>
   );
+}
+
+/** A station near its plan is painted by load; anything else in the series color. */
+function utilisationColorOrSeries(pct: number | null): string {
+  if (pct === null) return 'var(--viz-series)';
+  return pct >= 90 ? 'var(--viz-critical)' : pct >= 70 ? 'var(--viz-warning)' : 'var(--viz-series)';
 }

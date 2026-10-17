@@ -3,9 +3,11 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { Badge, PageHeader } from '@/components/ui';
-import { StreamIndicator, StreamErrorNotice } from '@/components/wireless/StreamStatus';
+import { StreamIndicator } from '@/components/wireless/StreamStatus';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useNow } from '@/hooks/useWirelessThroughput';
+import { useRouterTraffic } from '@/hooks/useRouterTraffic';
+import { RouterTrafficOverview } from '@/components/routers/RouterTrafficOverview';
 import { DEVICE_STATUS_LABELS } from '@/constants/device.constants';
 import { fmtBps } from '@/constants/wireless.constants';
 import {
@@ -18,7 +20,7 @@ import {
 import type { DeviceStatus } from '@/types/device.types';
 import type { TicketPriority } from '@/types/ticket.types';
 import { KpiTile, Panel, ProblemList, Figure, StackedStrip } from '@/components/dashboard/panels';
-import { Ring, StackedColumns, AreaTrend, BarList, LegendKey } from '@/components/dashboard/charts';
+import { Ring, StackedColumns, BarList, LegendKey } from '@/components/dashboard/charts';
 import {
   ALERT_WINDOW_DAYS,
   alertsByDay,
@@ -61,6 +63,7 @@ const weekday = (day: string) => {
 
 export default function DashboardPage() {
   const data = useDashboardData();
+  const routerTraffic = useRouterTraffic();
   const { devices, statuses, alerts, tickets, locationNames, fleet } = data;
   // Durations tick once a minute — "caído hace 3 h" does not need seconds.
   const now = useNow(60_000);
@@ -108,8 +111,8 @@ export default function DashboardPage() {
 
   const deviceNames = useMemo(() => new Map(devices.map((d) => [d.id, d.name])), [devices]);
   const fleetReadings = [...fleet.entries.values()].map((e) => e.reading);
-  const liveReadings = fleetReadings.filter((r) => !r.stale);
-  const currentTraffic = data.throughputHistory.at(-1)?.bps ?? null;
+  const currentTraffic = routerTraffic.totalHistory.at(-1) ?? null;
+  const readRouters = routerTraffic.routers.filter((r) => r.router.at !== null && !r.router.error).length;
   const busiestLinks = fleetReadings
     .filter((r) => r.utilisationPercent !== null && !r.stale)
     .sort((a, b) => (b.utilisationPercent ?? 0) - (a.utilisationPercent ?? 0))
@@ -122,7 +125,7 @@ export default function DashboardPage() {
       <PageHeader
         title="Panel"
         subtitle="Estado de la red en este momento"
-        info="Se actualiza solo cada minuto. El tráfico llega en vivo desde los radios."
+        info="Se actualiza solo cada minuto. El tráfico llega en vivo desde los routers principales y los radios."
         onRefresh={data.refresh}
         isRefreshing={data.isRefreshing}
         lastRefreshed={data.lastRefreshed}
@@ -173,10 +176,16 @@ export default function DashboardPage() {
           label="Tráfico ahora"
           href="/wireless"
           tone="neutral"
-          loading={fleet.state.status === 'connecting' && currentTraffic === null}
-          value={currentTraffic === null ? '—' : fmtBps(currentTraffic)}
-          sub={`${liveReadings.length} radio${liveReadings.length === 1 ? '' : 's'} reportando`}
-          adornment={<StreamIndicator state={fleet.state} />}
+          loading={!routerTraffic.loaded}
+          value={currentTraffic === null ? '—' : `↓ ${fmtBps(currentTraffic.downBps)}`}
+          sub={
+            currentTraffic === null
+              ? routerTraffic.routers.length === 0
+                ? 'Sin routers principales'
+                : 'Leyendo los routers…'
+              : `↑ ${fmtBps(currentTraffic.upBps)} · ${readRouters} router${readRouters === 1 ? '' : 'es'}`
+          }
+          adornment={<StreamIndicator state={routerTraffic.state} />}
         />
       </div>
 
@@ -293,27 +302,13 @@ export default function DashboardPage() {
 
         {/* Live traffic */}
         <Panel
-          title="Tráfico inalámbrico"
-          info="Suma del tráfico de los AP (o de las estaciones, si no hay AP sondeados). El historial es solo el de esta sesión: empieza cuando se abre el panel."
-          aside={<StreamIndicator state={fleet.state} />}
-          action={{ href: '/wireless', label: 'Inalámbrico' }}
+          title="Tráfico de los routers"
+          info="Bajada y subida de los clientes a través de los routers principales (categoría Gateway), leídas del router cada 2 s. El historial es solo el de esta sesión: empieza cuando se abre el panel."
+          aside={<StreamIndicator state={routerTraffic.state} />}
+          action={{ href: '/wireless', label: 'Tráfico en vivo' }}
           className="lg:col-span-2"
         >
-          <StreamErrorNotice state={fleet.state} onRetry={fleet.retry} />
-          {fleet.state.status !== 'error' &&
-            (data.throughputHistory.length < 2 ? (
-              <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                {fleetReadings.length === 0 && fleet.state.status === 'live'
-                  ? 'Ningún radio sondeado todavía.'
-                  : 'Reuniendo lecturas…'}
-              </p>
-            ) : (
-              <AreaTrend
-                label="Tráfico total"
-                points={data.throughputHistory.map((p) => ({ t: p.t, v: p.bps }))}
-                format={(v) => fmtBps(v)}
-              />
-            ))}
+          <RouterTrafficOverview traffic={routerTraffic} chartHeight={150} />
           {busiestLinks.length > 0 && (
             <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700">
               <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
