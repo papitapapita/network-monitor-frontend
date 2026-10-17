@@ -25,6 +25,12 @@ export interface SseOptions {
   /** `data` is the frame's payload with the `data: ` prefixes stripped and lines rejoined. */
   onEvent: (event: string, data: string) => void;
   onState?: (state: SseState) => void;
+  /**
+   * False for a stream that does one job and ends, like the network sweep:
+   * reconnecting would start the job over, so any failure (a refusal, a
+   * dropped link, the stream ending early) is final. Defaults to true.
+   */
+  reconnect?: boolean;
 }
 
 /**
@@ -79,8 +85,17 @@ export function openSseStream(url: string, options: SseOptions): () => void {
     if (!closed) options.onState?.(state);
   };
 
+  const fail = (error: string, httpStatus?: number) => {
+    setState({ status: 'error', error, httpStatus });
+    closed = true;
+  };
+
   const reconnect = (error: string, waitMs?: number) => {
     if (closed) return;
+    if (options.reconnect === false) {
+      fail(error);
+      return;
+    }
     // Back off on repeated failures — a server that is down stays down for
     // longer than one retry window, and a tight loop helps nobody.
     const wait = waitMs ?? Math.min(retryMs * 2 ** attempt, MAX_RETRY_MS);
@@ -133,15 +148,13 @@ export function openSseStream(url: string, options: SseOptions): () => void {
 
     if (!response.ok || !response.body) {
       const message = await readErrorMessage(response);
-      if (FATAL_STATUSES.has(response.status)) {
-        setState({ status: 'error', error: message, httpStatus: response.status });
-        closed = true;
+      if (FATAL_STATUSES.has(response.status) || options.reconnect === false) {
+        fail(message, response.status);
         return;
       }
       if (response.status === 429) {
         if (capAttempt >= CAP_RETRIES) {
-          setState({ status: 'error', error: message, httpStatus: 429 });
-          closed = true;
+          fail(message, 429);
           return;
         }
         // Short, fixed waits: the slot we are waiting on is one another view is
