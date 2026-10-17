@@ -43,13 +43,21 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // `fallback`, not a plain list: a plain list is tried before dynamic routes,
+  // and would swallow `app/api/devices/[id]/…/stream`. The event streams have
+  // route handlers of their own (src/server/streamProxy.ts); everything else
+  // under /api lands here.
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${backendUrl}/api/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: "/api/:path*",
+          destination: `${backendUrl}/api/:path*`,
+        },
+      ],
+    };
   },
 };
 
