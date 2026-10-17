@@ -13,6 +13,8 @@ import {
   CreateDeviceModelDTO,
   UpdateDeviceModelDTO,
   DeviceCredentialsResponseDTO,
+  RevealedDeviceCredentialsDTO,
+  CredentialRevealUnlockDTO,
   SetDeviceCredentialsDTO,
   ReplaceDeviceDTO,
   ReplaceDeviceResultDTO,
@@ -326,6 +328,17 @@ class ApiService {
       }
 
       if (response.status === 403) {
+        // The credential reveal's 403 means "unlock again", not "your role
+        // cannot" — the caller re-asks for the password (DEV-134).
+        const body = await response.json().catch(() => null);
+        if (/enter your password/i.test(body?.error ?? '')) {
+          return {
+            success: false,
+            status: 403,
+            error: 'Vuelve a escribir tu contraseña para ver las credenciales.',
+            errorField: 'revealToken',
+          };
+        }
         return { success: false, status: 403, error: 'No tienes permisos suficientes para realizar esta acción.' };
       }
 
@@ -655,6 +668,42 @@ class ApiService {
 
   async deleteDeviceCredentials(deviceId: string): Promise<ApiResponse<void>> {
     return this.request<void>(`/devices/${deviceId}/credentials`, { method: 'DELETE' });
+  }
+
+  /**
+   * The user's own password buys a five-minute token for the reveal endpoint
+   * (IDN-086). Wrong passwords count toward the sign-in pause, so a 429 here
+   * also locks the login screen for a while.
+   */
+  async unlockCredentialReveal(password: string): Promise<ApiResponse<CredentialRevealUnlockDTO>> {
+    const result = await this.request<CredentialRevealUnlockDTO>('/users/me/credential-reveal', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+    if (!result.success && result.error && /password is incorrect/i.test(result.error)) {
+      return { ...result, error: 'La contraseña no es correcta.', errorField: 'password' };
+    }
+    if (result.status === 429) {
+      return { ...result, error: 'Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.' };
+    }
+    return result;
+  }
+
+  /**
+   * Plaintext secrets (DEV-134). Its 403 comes in two kinds: an unlock that is
+   * missing or stale arrives from `request()` with `errorField: 'revealToken'`
+   * (ask for the password again); any other is the role.
+   */
+  async revealDeviceCredentials(deviceId: string, revealToken: string): Promise<ApiResponse<RevealedDeviceCredentialsDTO>> {
+    const result = await this.request<RevealedDeviceCredentialsDTO>(`/devices/${deviceId}/credentials/reveal`, {
+      method: 'POST',
+      headers: { 'X-Credential-Reveal-Token': revealToken },
+      cache: 'no-store',
+    });
+    if (result.status === 403 && result.errorField !== 'revealToken') {
+      return { ...result, error: 'Tu rol no puede ver las credenciales de un dispositivo.' };
+    }
+    return result;
   }
 
   // ============================================================

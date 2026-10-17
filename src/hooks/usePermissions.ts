@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/auth.context';
 import { useSubscription } from './useSubscription';
-import { canWriteRole, isAdminRole, isVendorRole } from '@/constants/roles';
+import { canRevealCredentialsRole, canWriteRole, isAdminRole, isVendorRole } from '@/constants/roles';
 
 /**
  * What the signed-in user may change right now: their role, narrowed by the
@@ -16,5 +16,7 @@ export function usePermissions() {
     canWrite: canWriteRole(role) && !readOnly,
     isAdmin: isAdminRole(role) && !readOnly,
     isVendor: isVendorRole(role) && !readOnly,
+    // Seeing a secret changes nothing, so read-only does not take it away.
+    canRevealCredentials: canRevealCredentialsRole(role),
   };
 }

@@ -2,8 +2,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
-import { DeviceCredentialsResponseDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
-import { Card, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions, EditToggleButton, ConfirmModal, InfoTip, SectionTitle } from '@/components/ui';
+import { DeviceCredentialsResponseDTO, RevealedDeviceCredentialsDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
+import { Card, Input, Checkbox, Badge, Button, LoadingSpinner, IconButton, EditFormActions, EditToggleButton, ConfirmModal, InfoTip, SectionTitle, Modal, EyeIcon, EyeOffIcon } from '@/components/ui';
+import { getRevealUnlock, setRevealUnlock, clearRevealUnlock } from '@/services/credentialReveal';
 import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
 import { wirelessCollectorFor } from '@/constants/wireless.constants';
@@ -76,6 +77,9 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   // them. Reading stays open to everyone: the response is masked.
   const permissions = usePermissions();
   const canManage = permissions.isAdmin;
+  // Seeing them in plaintext is its own permission too (IDN-035): operators
+  // hold it, viewers do not, and it costs a password re-check every 5 minutes.
+  const canReveal = permissions.canRevealCredentials;
   // Mimosa radios are polled over SNMP only, so SNMP leads the form and is
   // required there, and HTTP is optional. Every other device needs the HTTP
   // login: AirOS polling, reboots and MikroTik backups all log in with it.
@@ -95,6 +99,79 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Plaintext secrets, held only while the unlock that bought them lasts.
+  const [revealed, setRevealed] = useState<RevealedDeviceCredentialsDTO | null>(null);
+  const [revealing, setRevealing] = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
+  const [revealedUntil, setRevealedUntil] = useState<number | null>(null);
+
+  const hideSecrets = useCallback(() => {
+    setRevealed(null);
+    setRevealedUntil(null);
+  }, []);
+
+  // Hide them again the moment the unlock runs out, as the API asks.
+  useEffect(() => {
+    if (revealedUntil === null) return;
+    const timer = setTimeout(hideSecrets, Math.max(0, revealedUntil - Date.now()));
+    return () => clearTimeout(timer);
+  }, [revealedUntil, hideSecrets]);
+
+  const askPassword = () => {
+    setUnlockPassword('');
+    setUnlockError(null);
+    setShowUnlock(true);
+  };
+
+  const reveal = async (unlock: { token: string; expiresAt: number }) => {
+    setRevealing(true);
+    const result = await apiService.revealDeviceCredentials(deviceId, unlock.token);
+    setRevealing(false);
+    if (result.success && result.data) {
+      setRevealed(result.data);
+      setRevealedUntil(unlock.expiresAt);
+    } else if (result.errorField === 'revealToken') {
+      // Expired early: a password or role change ended the account's sessions.
+      clearRevealUnlock();
+      askPassword();
+    } else {
+      showError(result.error || 'No se pudieron mostrar las credenciales');
+    }
+  };
+
+  const handleRevealToggle = () => {
+    if (revealed) {
+      hideSecrets();
+      return;
+    }
+    const unlock = getRevealUnlock();
+    if (unlock) reveal(unlock);
+    else askPassword();
+  };
+
+  const handleUnlock = async () => {
+    if (!unlockPassword) {
+      setUnlockError('Escribe tu contraseña.');
+      return;
+    }
+    setUnlocking(true);
+    setUnlockError(null);
+    const result = await apiService.unlockCredentialReveal(unlockPassword);
+    setUnlocking(false);
+    if (result.success && result.data) {
+      setRevealUnlock(result.data.revealToken, result.data.expiresInSeconds);
+      setShowUnlock(false);
+      setUnlockPassword('');
+      const unlock = getRevealUnlock();
+      if (unlock) await reveal(unlock);
+    } else {
+      setUnlockError(result.error || 'No se pudo verificar la contraseña');
+    }
+  };
 
   const fetchCreds = useCallback(async () => {
     setLoading(true);
@@ -235,6 +312,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     if (result.success && result.data) {
       setCreds(result.data);
       setNoCreds(false);
+      hideSecrets();
       showSuccess('Credenciales guardadas.');
       setShowForm(false);
     } else {
@@ -254,6 +332,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     if (result.success) {
       setCreds(null);
       setNoCreds(true);
+      hideSecrets();
       setConfirmDelete(false);
       showSuccess('Credenciales eliminadas.');
     } else {
@@ -463,7 +542,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
           {(creds.snmpVersion === 1 || creds.snmpVersion === 2) && (
             <div>
               <dt className="font-medium text-gray-500 dark:text-gray-400">Community</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.snmpCommunity ?? '—'}</dd>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{revealed?.snmpCommunity ?? creds.snmpCommunity ?? '—'}</dd>
             </div>
           )}
           {creds.snmpVersion === 3 && (
@@ -477,9 +556,19 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3AuthProto ?? '—'}</dd>
               </div>
               <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Clave auth</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{revealed?.snmpV3AuthKey ?? creds.snmpV3AuthKey ?? '—'}</dd>
+              </div>
+              <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Protocolo priv.</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">{creds.snmpV3PrivProto ?? '—'}</dd>
               </div>
+              {creds.snmpV3PrivProto && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Clave priv.</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{revealed?.snmpV3PrivKey ?? creds.snmpV3PrivKey ?? '—'}</dd>
+                </div>
+              )}
             </>
           )}
         </dl>
@@ -501,6 +590,37 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
         isLoading={deleting}
       />
 
+      <Modal
+        isOpen={showUnlock}
+        onClose={() => setShowUnlock(false)}
+        title="Confirma tu contraseña"
+        info="Ver las credenciales en texto plano pide tu contraseña. Vale 5 minutos para cualquier dispositivo, y cada consulta queda registrada."
+        size="sm"
+        onSubmit={handleUnlock}
+      >
+        <Input
+          label="Tu contraseña"
+          type="password"
+          value={unlockPassword}
+          onChange={(e) => {
+            setUnlockPassword(e.target.value);
+            setUnlockError(null);
+          }}
+          error={unlockError ?? undefined}
+          autoComplete="current-password"
+          autoFocus
+          fullWidth
+        />
+        <Modal.Footer>
+          <Button variant="outline" onClick={() => setShowUnlock(false)} disabled={unlocking}>
+            Cancelar
+          </Button>
+          <Button onClick={handleUnlock} isLoading={unlocking}>
+            Ver credenciales
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* SNMP-first vendors read their summary before the HTTP card */}
       {snmpFirst && snmpSummary}
 
@@ -510,8 +630,18 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {snmpFirst ? 'Credenciales SNMP / HTTP' : 'Credenciales HTTP / API Web'}
             </h2>
-            {!loading && canManage && (
+            {!loading && (canManage || (canReveal && creds && !noCreds)) && (
               <div className="flex gap-2">
+                {canReveal && creds && !noCreds && !showForm && (
+                  <IconButton
+                    icon={revealed ? <EyeOffIcon /> : <EyeIcon />}
+                    label={revealed ? 'Ocultar credenciales' : 'Mostrar credenciales'}
+                    onClick={handleRevealToggle}
+                    isLoading={revealing}
+                    data-testid="credentials-reveal"
+                  />
+                )}
+                {canManage && (
                 <EditToggleButton
                   isEditing={showForm}
                   onEdit={openForm}
@@ -519,7 +649,8 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
                   editLabel={noCreds ? 'Configurar' : 'Editar'}
                   data-testid="credentials-edit"
                 />
-                {!noCreds && !showForm && (
+                )}
+                {canManage && !noCreds && !showForm && (
                   <IconButton
                     icon={<TrashIcon />}
                     label="Eliminar credenciales"
@@ -565,7 +696,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Contraseña</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">
-                  {creds.httpPassword ?? '—'}
+                  {revealed?.httpPassword ?? creds.httpPassword ?? '—'}
                 </dd>
               </div>
               <div>
@@ -578,6 +709,13 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
               </div>
             </dl>
           ) : null}
+
+          {revealed && revealedUntil && !showForm && (
+            <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+              Visibles hasta las{' '}
+              {new Date(revealedUntil).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}.
+            </p>
+          )}
 
           {showForm && (
             <div className="space-y-6">

@@ -12,5 +12,8 @@ export const isAdminRole = (role: UserRole | undefined): boolean => role === 'AD
 /** Create, update and activate — everything but VIEWER. */
 export const canWriteRole = (role: UserRole | undefined): boolean => isAdminRole(role) || role === 'OPERATOR';
 
+/** `reveal-credentials` (IDN-035): see a device's secrets after re-typing one's password. Never VIEWER. */
+export const canRevealCredentialsRole = (role: UserRole | undefined): boolean => canWriteRole(role);
+
 /** `manage-installation` (IDN-033): agent create/re-key/revoke and the data purge. The customer's ADMIN gets 403. */
 export const isVendorRole = (role: UserRole | undefined): boolean => role === 'VENDOR';

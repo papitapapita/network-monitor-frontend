@@ -24,6 +24,8 @@ import {
   ReplaceDeviceDTO,
   ReplaceDeviceResultDTO,
   SwapHardwareResultDTO,
+  CredentialRevealUnlockDTO,
+  RevealedDeviceCredentialsDTO,
 } from '../types/device.types';
 import {
   LocationResponseDTO,
@@ -1297,6 +1299,12 @@ class MockApiService {
   }
   async deleteDeviceCredentials() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async unlockCredentialReveal(): Promise<ApiResponse<CredentialRevealUnlockDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async revealDeviceCredentials(): Promise<ApiResponse<RevealedDeviceCredentialsDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
   }
 
   // ── Device Backups ─────────────────────────────────────────

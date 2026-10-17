@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useQueryClient } from '@tanstack/react-query';
 import { AuthUser, SessionDTO } from '@/types/auth.types';
 import { apiService } from '@/services/api.service';
+import { clearRevealUnlock } from '@/services/credentialReveal';
 import { clearSavedListQueries } from '@/hooks/listState';
 
 /**
@@ -73,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(USER_KEY);
     SIGNED_IN_DATA_KEYS.forEach((key) => localStorage.removeItem(key));
     clearSavedListQueries();
+    clearRevealUnlock();
     queryClient.clear();
     setUser(null);
     await apiService.logout();
