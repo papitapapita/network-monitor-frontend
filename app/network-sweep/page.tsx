@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Badge, Button, Card, PageHeader, Select } from '@/components/ui';
+import { Badge, Button, Card, Input, PageHeader, SearchIcon, Select } from '@/components/ui';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useNetworkSweep, type NetworkSweepRun } from '@/hooks/useNetworkSweep';
 import { useNow } from '@/hooks/useWirelessThroughput';
@@ -62,7 +62,7 @@ export default function NetworkSweepPage() {
   return (
     <div className="p-8">
       <PageHeader
-        title="Barrido de red"
+        title="Discovery"
         info="Hace ping una vez, ahora, a cada equipo activo o en instalación: hasta 3 intentos de 1 s. Los equipos detrás de un agente los revisa su agente. Es solo una foto: no cambia el estado de los equipos, su historial ni sus alertas. El último barrido se guarda solo en este navegador."
       />
 
@@ -132,11 +132,19 @@ function SweepResults({
 }) {
   const now = useNow(10_000, run.summary !== null);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
 
   const { counts, groups, rows, skipped } = useMemo(() => {
     const counts = { UP: 0, DOWN: 0, ERROR: 0, SKIPPED: 0 };
     for (const r of run.results) counts[r.outcome] += 1;
-    const { groups, rest } = groupAgentFailures(run.results);
+    // The tiles count the whole sweep; the search narrows only the lists below.
+    const matching = query
+      ? run.results.filter((r) =>
+          [r.deviceName, r.ipAddress, r.locationName, r.agentName].some((v) => v?.toLowerCase().includes(query))
+        )
+      : run.results;
+    const { groups, rest } = groupAgentFailures(matching);
     const rows = rest
       .filter((r) => r.outcome !== 'SKIPPED')
       .sort(
@@ -145,7 +153,7 @@ function SweepResults({
       );
     const skipped = rest.filter((r) => r.outcome === 'SKIPPED');
     return { counts, groups, rows, skipped };
-  }, [run.results]);
+  }, [run.results, query]);
 
   if (!run.start) {
     return running ? (
@@ -164,7 +172,7 @@ function SweepResults({
         <Card.Header>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold text-gray-900 dark:text-gray-100">
-              Barrido {fmtClock(run.start.startedAt)}
+              Discovery {fmtClock(run.start.startedAt)}
             </span>
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {running
@@ -203,6 +211,25 @@ function SweepResults({
           )}
         </Card.Body>
       </Card>
+
+      {run.results.length > 0 && (
+        <div className="w-full sm:w-80">
+          <Input
+            icon={<SearchIcon />}
+            aria-label="Buscar"
+            placeholder="Buscar por nombre, IP, ubicación o agente"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            fullWidth
+          />
+        </div>
+      )}
+
+      {query && groups.length === 0 && rows.length === 0 && skipped.length === 0 && (
+        <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          Ningún equipo coincide con «{search.trim()}».
+        </p>
+      )}
 
       {groups.map((g) => (
         <AgentFailureLine key={g.key} group={g} />
