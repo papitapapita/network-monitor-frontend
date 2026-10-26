@@ -21,7 +21,6 @@ import {
 } from '@/components/ui';
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
 import { usePermissions } from '@/hooks/usePermissions';
-import { formatPaymentDay } from '@/constants/billing-settings.constants';
 
 const LIMIT = 20;
 const COLUMNS_STORAGE_KEY = 'nms:customers-columns';
@@ -60,14 +59,6 @@ const CUSTOMER_COLUMN_CATALOG: CustomerColumn[] = [
     sortValue: (c) => c.cedula,
     className: 'hidden sm:table-cell',
     cell: (c) => <span className="font-mono text-sm text-gray-600 dark:text-gray-400">{c.cedula ?? '—'}</span>,
-  },
-  {
-    key: 'paymentDay',
-    label: 'Día de pago',
-    header: 'Día de pago',
-    sortValue: (c) => c.paymentDay,
-    className: 'hidden md:table-cell',
-    cell: (c) => <span className="text-sm text-gray-600 dark:text-gray-400">{formatPaymentDay(c.paymentDay)}</span>,
   },
 ];
 

@@ -10,6 +10,7 @@ import { useGoBack } from '@/hooks/useGoBack';
 import { useInstallation } from '@/hooks/useInstallation';
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VARIANTS, formatPlanPrice } from '@/constants/contracted-service.constants';
 import { DEVICE_STATUS_LABELS, deviceCategoryLabel } from '@/constants/device.constants';
+import { formatPaymentDay } from '@/constants/billing-settings.constants';
 
 const linkClass = 'text-brand-600 dark:text-brand-400 hover:underline';
 
@@ -132,6 +133,7 @@ export default function ContractedServiceDetailPage() {
             </Field>
             <Field label="Velocidad" mono>{servicePlan.downloadMbps}↓ / {servicePlan.uploadMbps}↑ Mbps</Field>
             <Field label="Precio mensual">{formatPlanPrice(servicePlan.monthlyPrice)}</Field>
+            <Field label="Día de pago">{formatPaymentDay(service.paymentDay)}</Field>
           </dl>
         </Card.Body>
       </Card>

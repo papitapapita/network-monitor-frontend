@@ -989,16 +989,17 @@ class MockApiService {
   ): Promise<ApiResponse<PollingHistoryResponse>> {
     const history = pollingHistory[deviceId] ?? [];
 
-    let filtered = [...history];
-    if (query?.status) filtered = filtered.filter((r) => r.status === query.status);
-    if (query?.fromDate) filtered = filtered.filter((r) => r.timestamp >= query.fromDate!);
-    if (query?.toDate) filtered = filtered.filter((r) => r.timestamp <= query.toDate!);
+    let window = [...history];
+    if (query?.fromDate) window = window.filter((r) => r.timestamp >= query.fromDate!);
+    if (query?.toDate) window = window.filter((r) => r.timestamp <= query.toDate!);
+    const filtered = query?.status ? window.filter((r) => r.status === query.status) : window;
 
     const limit = query?.limit ?? 50;
     const offset = query?.offset ?? 0;
     const { items, total } = paginate(filtered, Number(limit), Number(offset));
 
-    const successes = items.filter((r) => r.status === 'SUCCESS');
+    // Statistics cover the whole date window, not the page, and ignore the status filter (MON-043).
+    const successes = window.filter((r) => r.status === 'SUCCESS');
     const latencies = successes.map((r) => r.metrics?.latencyMs ?? 0).filter((v) => v > 0);
     const avg = latencies.length ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0;
 
@@ -1007,11 +1008,11 @@ class MockApiService {
       results: items,
       totalCount: total,
       statistics: {
-        successRate: total > 0 ? (successes.length / items.length) * 100 : 0,
+        successRate: window.length > 0 ? (successes.length / window.length) * 100 : 0,
         averageResponseTime: Math.round(avg),
         minResponseTime: latencies.length ? Math.min(...latencies) : 0,
         maxResponseTime: latencies.length ? Math.max(...latencies) : 0,
-        uptimePercentage: total > 0 ? (successes.length / items.length) * 100 : 0,
+        uptimePercentage: window.length > 0 ? (successes.length / window.length) * 100 : 0,
       },
     });
   }
@@ -1545,7 +1546,7 @@ class MockApiService {
 
   async createCustomer(data: CreateCustomerDTO): Promise<ApiResponse<CustomerDTO>> {
     const now = new Date().toISOString();
-    const c: CustomerDTO = { id: `cust-${uid()}`, fullName: data.fullName, phone: data.phone, email: data.email ?? null, cedula: data.cedula ?? null, paymentDay: data.paymentDay ?? 30, createdAt: now, updatedAt: now };
+    const c: CustomerDTO = { id: `cust-${uid()}`, fullName: data.fullName, phone: data.phone, email: data.email ?? null, cedula: data.cedula ?? null, createdAt: now, updatedAt: now };
     customers = [c, ...customers];
     return ok(c);
   }
@@ -1626,7 +1627,7 @@ class MockApiService {
   async createContractedService(data: CreateContractedServiceDTO): Promise<ApiResponse<ContractedServiceDTO>> {
     const now = new Date().toISOString();
     // Matches the backend default (schema.prisma: @default(PENDING)).
-    const cs: ContractedServiceDTO = { id: `cs-${uid()}`, customerId: data.customerId, servicePlanId: data.servicePlanId, deviceId: data.deviceId ?? null, status: 'PENDING', startDate: data.startDate ?? now, createdAt: now, updatedAt: now };
+    const cs: ContractedServiceDTO = { id: `cs-${uid()}`, customerId: data.customerId, servicePlanId: data.servicePlanId, deviceId: data.deviceId ?? null, status: 'PENDING', startDate: data.startDate ?? now, paymentDay: data.paymentDay ?? 30, createdAt: now, updatedAt: now };
     contractedServices = [cs, ...contractedServices];
     return ok(cs);
   }

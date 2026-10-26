@@ -127,7 +127,7 @@ export function BillingSettingsCard() {
         onClose={() => setConfirmCut(false)}
         onConfirm={save}
         title="Activar el corte automático"
-        message={`Desde la próxima ejecución diaria, a todo cliente con una factura vencida hace más de ${form?.graceDays ?? '—'} días se le suspenden sus servicios activos. ¿Activar el corte?`}
+        message={`Desde la próxima ejecución diaria, se suspende cada servicio activo con una factura vencida hace más de ${form?.graceDays ?? '—'} días; los demás servicios del cliente siguen activos. ¿Activar el corte?`}
         confirmText="Activar corte"
         cancelText="Cancelar"
         variant="danger"
@@ -155,7 +155,7 @@ export function BillingSettingsCard() {
             <Switch
               id="automatic-billing-enabled"
               label="Facturación automática"
-              description="Cada cliente recibe su factura antes de su día de pago, prorrateada si su servicio empezó dentro del mes, y las facturas sin pagar pasan a vencidas solas. Apagado, todo se hace a mano."
+              description="Cada servicio activo recibe su propia factura antes de su día de pago, prorrateada si empezó dentro del mes, y las facturas sin pagar pasan a vencidas solas. Apagado, todo se hace a mano."
               checked={form.automaticBillingEnabled}
               onChange={(e) => edit({ automaticBillingEnabled: e.target.checked })}
               disabled={!canEdit}
@@ -201,7 +201,7 @@ export function BillingSettingsCard() {
             <Switch
               id="automatic-cut-enabled"
               label="Corte automático"
-              description="El día después del último día de gracia se suspenden los servicios activos de todo cliente con una factura vencida. Al registrar el pago de su última factura vencida, se reactivan todos sus servicios suspendidos, también los suspendidos a mano."
+              description="El día después del último día de gracia se suspende cada servicio activo con una factura vencida, solo ese servicio y no los demás del cliente. Al registrar el pago, se reactiva el servicio de esa factura si no tiene otra vencida, también si se suspendió a mano."
               checked={form.automaticCutEnabled}
               onChange={(e) => edit({ automaticCutEnabled: e.target.checked })}
               disabled={!canEdit || !automatic}

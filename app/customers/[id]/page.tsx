@@ -41,9 +41,9 @@ export default function CustomerDetailPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [form, setForm] = useState({ fullName: '', phone: '', email: '', cedula: '', paymentDay: '30' });
+  const [form, setForm] = useState({ fullName: '', phone: '', email: '', cedula: '' });
 
-  const makeForm = (c: CustomerDTO) => ({ fullName: c.fullName, phone: c.phone, email: c.email ?? '', cedula: c.cedula ?? '', paymentDay: String(c.paymentDay) });
+  const makeForm = (c: CustomerDTO) => ({ fullName: c.fullName, phone: c.phone, email: c.email ?? '', cedula: c.cedula ?? '' });
 
   const fetchCustomer = useCallback(async () => {
     setIsLoading(true);
@@ -71,7 +71,7 @@ export default function CustomerDetailPage() {
 
     setIsSaving(true);
     setSaveError(null);
-    const dto: UpdateCustomerDTO = { fullName: form.fullName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, cedula: form.cedula.trim() || null, paymentDay: Number(form.paymentDay) as PaymentDay };
+    const dto: UpdateCustomerDTO = { fullName: form.fullName.trim(), phone: form.phone.trim(), email: form.email.trim() || null, cedula: form.cedula.trim() || null };
     const r = await apiService.updateCustomer(customerId, dto);
     if (r.success && r.data) {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -116,7 +116,7 @@ export default function CustomerDetailPage() {
     });
   }, []);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ servicePlanId: '', deviceId: '', startDate: '' });
+  const [addForm, setAddForm] = useState({ servicePlanId: '', deviceId: '', startDate: '', paymentDay: '30' });
   const [addError, setAddError] = useState<string | null>(null);
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
   const [isAdding, setIsAdding] = useState(false);
@@ -124,6 +124,7 @@ export default function CustomerDetailPage() {
   const [editStatus, setEditStatus] = useState<ContractedServiceTargetStatus>('ACTIVE');
   const [editPlanId, setEditPlanId] = useState('');
   const [editDeviceId, setEditDeviceId] = useState('');
+  const [editPaymentDay, setEditPaymentDay] = useState('30');
   const [editError, setEditError] = useState<string | null>(null);
   const [isSavingContract, setIsSavingContract] = useState(false);
   const [deletingContractId, setDeletingContractId] = useState<string | null>(null);
@@ -212,11 +213,12 @@ export default function CustomerDetailPage() {
       servicePlanId: addForm.servicePlanId,
       deviceId: addForm.deviceId || null,
       startDate: addForm.startDate ? new Date(addForm.startDate).toISOString() : undefined,
+      paymentDay: Number(addForm.paymentDay) as PaymentDay,
     };
     const r = await apiService.createContractedService(dto);
     if (r.success) {
       setShowAddForm(false);
-      setAddForm({ servicePlanId: '', deviceId: '', startDate: '' });
+      setAddForm({ servicePlanId: '', deviceId: '', startDate: '', paymentDay: '30' });
       showSuccess('Servicio contratado creado.');
       fetchContracts();
     } else {
@@ -242,7 +244,7 @@ export default function CustomerDetailPage() {
     const cancelling = editStatus === 'CANCELLED';
     const dto: UpdateContractedServiceDTO = cancelling
       ? { status: 'CANCELLED' }
-      : { status: editStatus, servicePlanId: editPlanId || undefined, deviceId: editDeviceId || null };
+      : { status: editStatus, servicePlanId: editPlanId || undefined, deviceId: editDeviceId || null, paymentDay: Number(editPaymentDay) as PaymentDay };
     const r = await apiService.updateContractedService(id, dto);
     setIsSavingContract(false);
     if (r.success) {
@@ -430,14 +432,6 @@ export default function CustomerDetailPage() {
                 <Input label="Teléfono" name="phone" value={form.phone} onChange={handleChange} error={formErrors.phone} required fullWidth />
                 <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} fullWidth />
                 <Input label="Cédula" name="cedula" value={form.cedula} onChange={handleChange} fullWidth />
-                <Select
-                  label="Día de pago"
-                  value={form.paymentDay}
-                  onChange={(e) => setForm((p) => ({ ...p, paymentDay: e.target.value }))}
-                  options={PAYMENT_DAY_OPTIONS}
-                  info="El día del mes en que vence su factura."
-                  fullWidth
-                />
               </div>
             ) : (
               <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -446,7 +440,6 @@ export default function CustomerDetailPage() {
                   { label: 'Teléfono', value: customer.phone, mono: true },
                   { label: 'Email', value: customer.email ?? '—' },
                   { label: 'Cédula', value: customer.cedula ?? '—', mono: true },
-                  { label: 'Día de pago', value: formatPaymentDay(customer.paymentDay) },
                   { label: 'Registrado', value: new Date(customer.createdAt).toLocaleDateString('es') },
                 ].map(({ label, value, mono }) => (
                   <div key={label}>
@@ -502,7 +495,7 @@ export default function CustomerDetailPage() {
             <form onSubmit={handleAddContract} onKeyDown={(e) => { if (isCancelEscape(e)) { setShowAddForm(false); setAddError(null); setAddFormErrors({}); } }} className="mb-6 p-4 border border-brand-200 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 rounded-lg space-y-3">
               <p className="text-sm font-medium text-brand-800 dark:text-brand-300">Nuevo Servicio Contratado</p>
               {addError && <p className="text-sm text-red-600 dark:text-red-400">{addError}</p>}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Select
                   label="Plan"
                   value={addForm.servicePlanId}
@@ -524,6 +517,14 @@ export default function CustomerDetailPage() {
                   type="date"
                   value={addForm.startDate}
                   onChange={(e) => setAddForm((p) => ({ ...p, startDate: e.target.value }))}
+                  fullWidth
+                />
+                <Select
+                  label="Día de pago"
+                  value={addForm.paymentDay}
+                  onChange={(e) => setAddForm((p) => ({ ...p, paymentDay: e.target.value }))}
+                  options={PAYMENT_DAY_OPTIONS}
+                  info="El día del mes en que vence la factura de este servicio."
                   fullWidth
                 />
               </div>
@@ -584,6 +585,15 @@ export default function CustomerDetailPage() {
                           options={CONTRACT_TARGET_STATUS_OPTIONS}
                           fullWidth={false}
                         />
+                        {editStatus !== 'CANCELLED' && (
+                          <Select
+                            label="Día de pago"
+                            value={editPaymentDay}
+                            onChange={(e) => setEditPaymentDay(e.target.value)}
+                            options={PAYMENT_DAY_OPTIONS}
+                            fullWidth={false}
+                          />
+                        )}
                         <div className="flex gap-2">
                           <Button size="sm" onClick={() => handleSaveContract(cs.id)} isLoading={isSavingContract}>Guardar</Button>
                           <Button size="sm" variant="outline" onClick={() => { setEditingContractId(null); setEditError(null); }}>Cancelar</Button>
@@ -598,7 +608,7 @@ export default function CustomerDetailPage() {
                           <Badge variant={CONTRACT_STATUS_VARIANTS[cs.status]}>{CONTRACT_STATUS_LABELS[cs.status]}</Badge>
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Dispositivo: {deviceName(cs.deviceId)} · Inicio: {new Date(cs.startDate).toLocaleDateString('es')}
+                          Dispositivo: {deviceName(cs.deviceId)} · Inicio: {new Date(cs.startDate).toLocaleDateString('es')} · Pago: {formatPaymentDay(cs.paymentDay)}
                         </div>
                         {cs.status === 'SUSPENDED' && (
                           <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -656,6 +666,7 @@ export default function CustomerDetailPage() {
                               setEditStatus(cs.status === 'PENDING' ? 'ACTIVE' : cs.status);
                               setEditPlanId(cs.servicePlanId);
                               setEditDeviceId(cs.deviceId ?? '');
+                              setEditPaymentDay(String(cs.paymentDay));
                               setEditError(null);
                             }}
                           >

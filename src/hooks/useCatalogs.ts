@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceListItemDTO, DeviceModelResponseDTO } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
-import { CustomerDTO } from '@/types/customer.types';
+import { ContractedServiceDetailDTO, CustomerDTO } from '@/types/customer.types';
 import { TechnicianDTO } from '@/types/technician.types';
 import { useAgents } from './useAgents';
 
@@ -32,6 +32,20 @@ export async function fetchAllCustomers(): Promise<CustomerDTO[]> {
     const r = await apiService.listCustomers({ limit: PAGE_SIZE, offset });
     if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar clientes');
     all.push(...r.data.customers);
+    hasMore = r.data.hasMore;
+    offset += PAGE_SIZE;
+  }
+  return all;
+}
+
+export async function fetchAllContractedServices(): Promise<ContractedServiceDetailDTO[]> {
+  const all: ContractedServiceDetailDTO[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const r = await apiService.listContractedServices({ limit: PAGE_SIZE, offset });
+    if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar servicios');
+    all.push(...r.data.contractedServices);
     hasMore = r.data.hasMore;
     offset += PAGE_SIZE;
   }

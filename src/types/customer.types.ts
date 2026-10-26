@@ -8,8 +8,6 @@ export interface CustomerDTO {
   phone: string;
   email: string | null;
   cedula: string | null;
-  /** The day of the month the bill is due; the 30th is February's last day (CUS-024). */
-  paymentDay: PaymentDay;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,8 +17,6 @@ export interface CreateCustomerDTO {
   phone: string;
   email?: string | null;
   cedula?: string | null;
-  /** Default 30. */
-  paymentDay?: PaymentDay;
 }
 
 export interface UpdateCustomerDTO {
@@ -28,7 +24,6 @@ export interface UpdateCustomerDTO {
   phone?: string;
   email?: string | null;
   cedula?: string | null;
-  paymentDay?: PaymentDay;
 }
 
 export interface CustomerListResponse {
@@ -91,6 +86,12 @@ export interface ContractedServiceDTO {
   deviceId: string | null;
   status: ContractedServiceStatus;
   startDate: string;
+  /**
+   * The day of the month this service's bill is due; the 30th is February's
+   * last day. Each service has its own, so a customer's services can fall due
+   * on different days and each gets its own bill (CUS-024, BIL-007).
+   */
+  paymentDay: PaymentDay;
   createdAt: string;
   updatedAt: string;
 }
@@ -112,12 +113,16 @@ export interface CreateContractedServiceDTO {
   servicePlanId: string;
   deviceId?: string | null;
   startDate?: string;
+  /** Default 30. */
+  paymentDay?: PaymentDay;
 }
 
 export interface UpdateContractedServiceDTO {
   servicePlanId?: string;
   deviceId?: string | null;
   status?: ContractedServiceTargetStatus;
+  /** A cancelled service refuses it with 409. */
+  paymentDay?: PaymentDay;
 }
 
 export interface ContractedServiceListResponse {

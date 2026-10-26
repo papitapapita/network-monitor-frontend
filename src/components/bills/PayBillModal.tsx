@@ -65,7 +65,7 @@ export function PayBillModal({ onClose, bill, onPaid }: Props) {
       isOpen
       onClose={isSaving ? () => {} : onClose}
       title="Registrar pago"
-      info="Una factura admite un solo pago, por su total, y no se puede editar después. Si el cliente tenía servicios suspendidos por mora y esta era su última factura vencida, se reactivan al registrarlo."
+      info="Una factura admite un solo pago, por su total, y no se puede editar después. Si el servicio de esta factura estaba suspendido por mora y no tiene otra factura vencida, se reactiva al registrarlo. Los demás servicios del cliente no cambian."
       onSubmit={handleSubmit}
     >
       <div className="space-y-4">

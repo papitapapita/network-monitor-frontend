@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { BillDTO, BulkGenerateResult } from '@/types/bill.types';
 import { CustomerDTO } from '@/types/customer.types';
-import { fetchAllCustomers } from '@/hooks/useCatalogs';
+import { fetchAllContractedServices, fetchAllCustomers } from '@/hooks/useCatalogs';
 import { useToast } from '@/contexts/toast.context';
 import {
   BILL_STATUS_LABELS,
@@ -16,6 +16,7 @@ import {
   formatPeriod,
   formatCurrency,
 } from '@/constants/bill.constants';
+import { formatPaymentDay } from '@/constants/billing-settings.constants';
 import { useUrlState, useUrlTableSort } from '@/hooks/useUrlState';
 import {
   Badge,
@@ -62,6 +63,16 @@ const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => {
 
 type BillColumn = DataTableColumn<BillDTO> & { label: string; locked?: boolean };
 
+/**
+ * Bills are per service since 2026-10-26 (BIL-007), so one customer can have
+ * several in a period: the plan tells them apart. Older bills may hold several lines.
+ */
+function billServiceLabel(b: BillDTO): string {
+  if (b.lineItems.length === 0) return '—';
+  if (b.lineItems.length === 1) return b.lineItems[0].planName;
+  return `${b.lineItems.length} servicios`;
+}
+
 function billColumnCatalog(customerName: (id: string) => string): BillColumn[] {
   return [
     {
@@ -74,6 +85,14 @@ function billColumnCatalog(customerName: (id: string) => string): BillColumn[] {
       cell: (b) => (
         <span className="font-medium text-gray-900 dark:text-gray-100">{customerName(b.customerId)}</span>
       ),
+    },
+    {
+      key: 'service',
+      label: 'Servicio',
+      header: 'Servicio',
+      sortValue: (b) => billServiceLabel(b),
+      className: 'hidden md:table-cell',
+      cell: (b) => <span className="text-sm text-gray-600 dark:text-gray-400">{billServiceLabel(b)}</span>,
     },
     {
       key: 'period',
@@ -168,7 +187,11 @@ function BillsPageContent() {
       if (monthFilter && b.period.split('-')[1] !== String(monthFilter).padStart(2, '0')) return false;
       if (search) {
         const q = search.toLowerCase();
-        if (!customerName(b.customerId).toLowerCase().includes(q) && !b.period.includes(q)) return false;
+        if (
+          !customerName(b.customerId).toLowerCase().includes(q) &&
+          !b.period.includes(q) &&
+          !b.lineItems.some((l) => l.planName.toLowerCase().includes(q))
+        ) return false;
       }
       return true;
     });
@@ -209,7 +232,6 @@ function BillsPageContent() {
       <GenerateBulkModal
         isOpen={showBulk}
         onClose={() => setShowBulk(false)}
-        customerName={customerName}
         onGenerated={onGenerated}
       />
 
@@ -250,7 +272,7 @@ function BillsPageContent() {
         search={{
           value: search,
           onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Cliente o periodo...',
+          placeholder: 'Cliente, plan o periodo...',
           maxLength: 150,
         }}
       >
@@ -305,7 +327,7 @@ function BillsPageContent() {
   );
 }
 
-// ── Generate a bill for one customer ─────────────────────────
+// ── Generate a bill for one contracted service ───────────────
 function GenerateBillModal({
   isOpen, onClose, customers, onGenerated,
 }: {
@@ -316,6 +338,7 @@ function GenerateBillModal({
 }) {
   const router = useRouter();
   const [customerId, setCustomerId] = useState('');
+  const [serviceId, setServiceId] = useState('');
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [dueDate, setDueDate] = useState('');
@@ -324,19 +347,41 @@ function GenerateBillModal({
   const [fieldError, setFieldError] = useState<string | null>(null);
   const { showError, showSuccess } = useToast();
 
-  const reset = () => { setCustomerId(''); setDueDate(''); setError(null); setFieldError(null); };
+  // Only ACTIVE services can be billed (BIL-081); the list endpoint has no
+  // status filter, so the rest are dropped here.
+  const { data: activeServices = [], isFetching: servicesLoading } = useQuery({
+    queryKey: ['contractedServices', 'customer', customerId],
+    queryFn: async () => {
+      const r = await apiService.listContractedServices({ customerId });
+      if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar los servicios');
+      return r.data.contractedServices.filter((cs) => cs.status === 'ACTIVE');
+    },
+    enabled: isOpen && !!customerId,
+  });
+
+  const selectCustomer = (id: string) => {
+    setCustomerId(id);
+    setServiceId('');
+    setFieldError(null);
+  };
+
+  // A customer with one active service needs no second pick.
+  const effectiveServiceId = serviceId || (activeServices.length === 1 ? activeServices[0].id : '');
+
+  const reset = () => { setCustomerId(''); setServiceId(''); setDueDate(''); setError(null); setFieldError(null); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerId) {
-      setFieldError('Selecciona un cliente');
-      showError('Selecciona un cliente');
+    const missing = !customerId ? 'Selecciona un cliente' : !effectiveServiceId ? 'Selecciona un servicio activo' : null;
+    if (missing) {
+      setFieldError(missing);
+      showError(missing);
       return;
     }
     setIsSubmitting(true);
     setError(null);
     const r = await apiService.generateBill({
-      customerId,
+      contractedServiceId: effectiveServiceId,
       year: Number(year),
       month: Number(month),
       dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
@@ -362,9 +407,9 @@ function GenerateBillModal({
       title="Generar Factura"
       info={
         <>
-          Se incluye una línea por cada servicio contratado <strong>activo</strong> del cliente, por
-          el mes completo y el precio mensual, sin prorratear. Por defecto vence 15 días después de
-          la emisión.
+          Cada servicio contratado <strong>activo</strong> se factura por separado: la factura
+          cobra el mes completo a su precio mensual, sin prorratear. Por defecto vence 15 días
+          después de la emisión.
         </>
       }
     >
@@ -377,12 +422,36 @@ function GenerateBillModal({
         <Select
           label="Cliente"
           value={customerId}
-          onChange={(e) => { setCustomerId(e.target.value); setFieldError(null); }}
+          onChange={(e) => selectCustomer(e.target.value)}
           options={[{ value: '', label: 'Seleccionar cliente' }, ...customers.map((c) => ({ value: c.id, label: c.fullName }))]}
-          error={fieldError ?? undefined}
+          error={!customerId ? fieldError ?? undefined : undefined}
           required
           fullWidth
         />
+        {customerId && (
+          <Select
+            label="Servicio"
+            value={effectiveServiceId}
+            onChange={(e) => { setServiceId(e.target.value); setFieldError(null); }}
+            options={
+              servicesLoading
+                ? [{ value: '', label: 'Cargando servicios...' }]
+                : activeServices.length === 0
+                  ? [{ value: '', label: 'Sin servicios activos' }]
+                  : [
+                      ...(activeServices.length > 1 ? [{ value: '', label: 'Seleccionar servicio' }] : []),
+                      ...activeServices.map((cs) => ({
+                        value: cs.id,
+                        label: `${cs.servicePlan.name} · ${formatPaymentDay(cs.paymentDay)}`,
+                      })),
+                    ]
+            }
+            disabled={servicesLoading || activeServices.length === 0}
+            error={fieldError ?? undefined}
+            required
+            fullWidth
+          />
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Select label="Año" value={year} onChange={(e) => setYear(e.target.value)} options={YEAR_OPTIONS} fullWidth />
           <Select label="Mes" value={month} onChange={(e) => setMonth(e.target.value)} options={MONTH_OPTIONS} fullWidth />
@@ -403,13 +472,12 @@ function GenerateBillModal({
   );
 }
 
-// ── Generate bills for every customer with active services ───
+// ── Generate one bill per active service ─────────────────────
 function GenerateBulkModal({
-  isOpen, onClose, customerName, onGenerated,
+  isOpen, onClose, onGenerated,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  customerName: (id: string) => string;
   onGenerated: () => void;
 }) {
   const [year, setYear] = useState(String(now.getFullYear()));
@@ -419,6 +487,19 @@ function GenerateBulkModal({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BulkGenerateResult | null>(null);
   const { showError } = useToast();
+
+  // Skipped and failed entries name a service, not a customer; load the
+  // services only when there is one to name.
+  const hasUnbilled = !!result && (result.skipped.length > 0 || result.failed.length > 0);
+  const { data: services = [] } = useQuery({
+    queryKey: ['contractedServices', 'all'],
+    queryFn: fetchAllContractedServices,
+    enabled: hasUnbilled,
+  });
+  const serviceLabel = useMemo(() => {
+    const map = new Map(services.map((cs) => [cs.id, `${cs.customer.fullName} — ${cs.servicePlan.name}`]));
+    return (id: string) => map.get(id) ?? id;
+  }, [services]);
 
   const handleClose = () => { setResult(null); setError(null); onClose(); };
 
@@ -449,9 +530,9 @@ function GenerateBulkModal({
       title="Generación Masiva"
       info={
         <>
-          Genera una factura para <strong>cada cliente</strong> con al menos un servicio contratado
-          activo. Los clientes que ya tienen factura del periodo se omiten. Esta operación está
-          limitada a 5 ejecuciones por hora.
+          Genera una factura para <strong>cada servicio contratado activo</strong>: un cliente con
+          dos servicios recibe dos facturas. Los servicios que ya tienen factura del periodo se
+          omiten. Esta operación está limitada a 5 ejecuciones por hora.
         </>
       }
       size="lg"
@@ -481,7 +562,7 @@ function GenerateBulkModal({
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Omitidas</h3>
               <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 max-h-32 overflow-y-auto">
                 {result.skipped.map((s) => (
-                  <li key={s.customerId}>{customerName(s.customerId)} — {s.reason}</li>
+                  <li key={s.contractedServiceId}>{serviceLabel(s.contractedServiceId)} — {s.reason}</li>
                 ))}
               </ul>
             </div>
@@ -491,7 +572,7 @@ function GenerateBulkModal({
               <h3 className="text-sm font-medium text-red-800 dark:text-red-400 mb-1">Fallidas</h3>
               <ul className="text-xs text-red-600 dark:text-red-400 space-y-1 max-h-32 overflow-y-auto">
                 {result.failed.map((f) => (
-                  <li key={f.customerId}>{customerName(f.customerId)} — {f.error}</li>
+                  <li key={f.contractedServiceId}>{serviceLabel(f.contractedServiceId)} — {f.error}</li>
                 ))}
               </ul>
             </div>

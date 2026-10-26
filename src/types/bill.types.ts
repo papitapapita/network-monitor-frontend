@@ -51,8 +51,9 @@ export interface BillDTO {
   updatedAt: string;
 }
 
+/** One bill per contracted service and period (BIL-007). */
 export interface GenerateBillDTO {
-  customerId: string;
+  contractedServiceId: string;
   year: number;
   month: number;
   issueDate?: string;
@@ -69,8 +70,8 @@ export interface GenerateBulkBillsDTO {
 export interface BulkGenerateResult {
   period: string;
   generated: BillDTO[];
-  skipped: Array<{ customerId: string; reason: string }>;
-  failed: Array<{ customerId: string; error: string }>;
+  skipped: Array<{ contractedServiceId: string; reason: string }>;
+  failed: Array<{ contractedServiceId: string; error: string }>;
 }
 
 export interface ListBillsQuery {

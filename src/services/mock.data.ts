@@ -217,9 +217,9 @@ export const MOCK_POLLING_HISTORY: Record<string, PollingResultDTO[]> = {
 };
 
 export const MOCK_CUSTOMERS: CustomerDTO[] = [
-  { id: 'cust-1', fullName: 'Juan Pérez', phone: '3001234567', email: 'juan@example.com', cedula: '1234567890', paymentDay: 30, createdAt: daysAgo(30), updatedAt: daysAgo(30) },
-  { id: 'cust-2', fullName: 'María García', phone: '3109876543', email: null, cedula: null, paymentDay: 15, createdAt: daysAgo(20), updatedAt: daysAgo(20) },
-  { id: 'cust-3', fullName: 'Carlos Rodríguez', phone: '3205551234', email: 'carlos.r@mail.com', cedula: '9876543210', paymentDay: 30, createdAt: daysAgo(10), updatedAt: daysAgo(10) },
+  { id: 'cust-1', fullName: 'Juan Pérez', phone: '3001234567', email: 'juan@example.com', cedula: '1234567890', createdAt: daysAgo(30), updatedAt: daysAgo(30) },
+  { id: 'cust-2', fullName: 'María García', phone: '3109876543', email: null, cedula: null, createdAt: daysAgo(20), updatedAt: daysAgo(20) },
+  { id: 'cust-3', fullName: 'Carlos Rodríguez', phone: '3205551234', email: 'carlos.r@mail.com', cedula: '9876543210', createdAt: daysAgo(10), updatedAt: daysAgo(10) },
 ];
 
 export const MOCK_SERVICE_PLANS: ServicePlanDTO[] = [
@@ -230,9 +230,9 @@ export const MOCK_SERVICE_PLANS: ServicePlanDTO[] = [
 ];
 
 export const MOCK_CONTRACTED_SERVICES: ContractedServiceDTO[] = [
-  { id: 'cs-1', customerId: 'cust-1', servicePlanId: 'plan-2', deviceId: 'dev-6', status: 'ACTIVE', startDate: daysAgo(25), createdAt: daysAgo(25), updatedAt: daysAgo(25) },
-  { id: 'cs-2', customerId: 'cust-2', servicePlanId: 'plan-1', deviceId: null, status: 'ACTIVE', startDate: daysAgo(15), createdAt: daysAgo(15), updatedAt: daysAgo(15) },
-  { id: 'cs-3', customerId: 'cust-3', servicePlanId: 'plan-3', deviceId: null, status: 'SUSPENDED', startDate: daysAgo(8), createdAt: daysAgo(8), updatedAt: daysAgo(2) },
+  { id: 'cs-1', customerId: 'cust-1', servicePlanId: 'plan-2', deviceId: 'dev-6', status: 'ACTIVE', startDate: daysAgo(25), paymentDay: 30, createdAt: daysAgo(25), updatedAt: daysAgo(25) },
+  { id: 'cs-2', customerId: 'cust-2', servicePlanId: 'plan-1', deviceId: null, status: 'ACTIVE', startDate: daysAgo(15), paymentDay: 15, createdAt: daysAgo(15), updatedAt: daysAgo(15) },
+  { id: 'cs-3', customerId: 'cust-3', servicePlanId: 'plan-3', deviceId: null, status: 'SUSPENDED', startDate: daysAgo(8), paymentDay: 30, createdAt: daysAgo(8), updatedAt: daysAgo(2) },
 ];
 
 export { now };

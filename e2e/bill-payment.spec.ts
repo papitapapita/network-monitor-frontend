@@ -10,7 +10,7 @@ import { field, selectDropdown } from './fixtures/helpers';
 
 const CUSTOMER = {
   id: 'cust-e2e', fullName: 'Cliente de Prueba', phone: '3001234567', email: null, cedula: null,
-  paymentDay: 15, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z',
+  createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z',
 };
 
 const BILL = {

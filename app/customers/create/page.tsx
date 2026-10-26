@@ -4,9 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { CreateCustomerDTO, PaymentDay } from '@/types/customer.types';
-import { PAYMENT_DAY_OPTIONS } from '@/constants/billing-settings.constants';
-import { Card, Button, Input, Select, BackLink } from '@/components/ui';
+import { CreateCustomerDTO } from '@/types/customer.types';
+import { Card, Button, Input, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
 
@@ -17,7 +16,7 @@ export default function CreateCustomerPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { showError, showSuccess, showFormErrors } = useToast();
-  const [formData, setFormData] = useState({ fullName: '', phone: '', email: '', cedula: '', paymentDay: '30' });
+  const [formData, setFormData] = useState({ fullName: '', phone: '', email: '', cedula: '' });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -43,7 +42,6 @@ export default function CreateCustomerPage() {
       phone: formData.phone.trim(),
       email: formData.email.trim() || null,
       cedula: formData.cedula.trim() || null,
-      paymentDay: Number(formData.paymentDay) as PaymentDay,
     };
 
     const result = await apiService.createCustomer(dto);
@@ -78,14 +76,6 @@ export default function CreateCustomerPage() {
               <Input label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} error={formErrors.phone} placeholder="3001234567" required fullWidth />
               <Input label="Email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="opcional" fullWidth />
               <Input label="Cédula" name="cedula" value={formData.cedula} onChange={handleChange} placeholder="opcional" fullWidth />
-              <Select
-                label="Día de pago"
-                value={formData.paymentDay}
-                onChange={(e) => setFormData((p) => ({ ...p, paymentDay: e.target.value }))}
-                options={PAYMENT_DAY_OPTIONS}
-                info="El día del mes en que vence su factura."
-                fullWidth
-              />
             </div>
           </Card.Body>
         </Card>
