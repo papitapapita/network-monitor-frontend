@@ -878,306 +878,9 @@ export function DeviceWirelessTab({
         isLoading={clearingAll}
       />
 
-      {/* Config card */}
-      <Card>
-        <Card.Header>
-          <div className="flex flex-wrap justify-between items-center gap-2">
-            <SectionTitle
-              info={
-                <>
-                  El tipo se deduce de la categoría del dispositivo: un punto de acceso se registra como
-                  Access Point y cualquier otro como Estación (CPE); para cambiarlo, ajusta la categoría en la
-                  pestaña Detalles. {WIRELESS_INDEPENDENT_OF_ICMP_NOTE}
-                </>
-              }
-            >
-              Configuración Inalámbrica
-            </SectionTitle>
-            {!configLoading && !configError && (noConfig || config) && (
-              <div className="flex gap-2">
-                {noConfig && !showConfigForm ? (
-                  // Creating is offered only once the credentials its collector
-                  // logs in with are saved; until then the body says what's missing.
-                  hasCollectorCreds === true && !unsupportedVendorReason && permissions.canWrite && (
-                    <IconButton
-                      icon={<PlusIcon />}
-                      label="Crear sondeo inalámbrico"
-                      variant="primary"
-                      onClick={() => { setShowConfigForm(true); setConfigSaveError(null); }}
-                    />
-                  )
-                ) : (
-                  <EditToggleButton
-                    isEditing={showConfigForm}
-                    onEdit={() => { setShowConfigForm(true); setConfigSaveError(null); }}
-                    onCancel={() => setShowConfigForm(false)}
-                  />
-                )}
-                {!noConfig && !showConfigForm && permissions.isAdmin && (
-                  <IconButton icon={<TrashIcon />} label="Eliminar configuración" variant="danger" onClick={handleDeleteConfig} />
-                )}
-              </div>
-            )}
-          </div>
-        </Card.Header>
-        <Card.Body>
-          {configLoading ? (
-            <div className="flex justify-center py-4">
-              <LoadingSpinner message="Cargando configuración..." />
-            </div>
-          ) : configError ? (
-            <p className="text-red-600 dark:text-red-400 text-sm">{configError}</p>
-          ) : noConfig ? (
-            <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">
-                Este dispositivo no tiene configuración de monitoreo inalámbrico.
-              </p>
-              <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
-                Se registrará como{' '}
-                <span className="font-medium">
-                  {inferDeviceType(category) === 'ACCESS_POINT' ? 'Access Point' : 'Estación (CPE)'}
-                </span>
-                .
-              </p>
-              {credentialsBlockedReason && (
-                <p className="mb-4 text-xs text-amber-700 dark:text-amber-400">{credentialsBlockedReason}</p>
-              )}
-            </div>
-          ) : config && !showConfigForm ? (
-            <>
-            {disabledByStatus && (
-              <p className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
-                {WIRELESS_DISABLED_BY_STATUS_NOTE}
-              </p>
-            )}
-            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Tipo</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {effectiveDeviceType === 'ACCESS_POINT' ? 'Access Point' : 'Estación (CPE)'}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Habilitado</dt>
-                <dd className="mt-1">
-                  <Badge variant={config.enabled ? 'success' : 'neutral'}>
-                    {config.enabled ? 'Sí' : 'No'}
-                  </Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Intervalo</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtInterval(config.intervalSecs)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">IP de sondeo</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">
-                  {config.ipAddress || deviceIpAddress ? <IpLink ip={config.ipAddress || deviceIpAddress || ''} /> : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Último sondeo</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {config.lastPolledAt ? new Date(config.lastPolledAt).toLocaleString('es') : '—'}
-                </dd>
-              </div>
-              {!isAP && config.linkCapacityKbps != null && (
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Cap. manual (respaldo)</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtKbps(config.linkCapacityKbps)}</dd>
-                </div>
-              )}
-              {isAP && config.clientsProvisionedLimit !== null && (
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Límite clientes</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.clientsProvisionedLimit}</dd>
-                </div>
-              )}
-              {config.provisionedLanSpeedMbps !== null && (
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Velocidad LAN provisionada</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.provisionedLanSpeedMbps} Mbps</dd>
-                </div>
-              )}
-              {!isAP && config.parentApDeviceId && (
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">AP declarado</dt>
-                  <dd className="mt-1">
-                    <Link
-                      href={`/devices/${config.parentApDeviceId}`}
-                      className="text-brand-600 dark:text-brand-400 hover:underline"
-                    >
-                      {parentAp?.name ?? config.parentApDeviceId}
-                    </Link>
-                    {parentAp?.ipAddress && (
-                      <span className="block"><IpLink ip={parentAp.ipAddress} /></span>
-                    )}
-                  </dd>
-                </div>
-              )}
-            </dl>
-            </>
-          ) : null}
-
-          {showConfigForm && (
-            <div className="space-y-4">
-              {configSaveError && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 text-sm text-red-800 dark:text-red-400">
-                  {configSaveError}
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <IntervalInput
-                  label="Intervalo"
-                  value={configForm.intervalSecs}
-                  onChange={(seconds) => {
-                    setConfigForm((p) => ({ ...p, intervalSecs: seconds }));
-                    setConfigFormErrors((p) => { const n = { ...p }; delete n.intervalSecs; return n; });
-                  }}
-                  error={configFormErrors.intervalSecs}
-                />
-                {/* Locked off where the backend would answer 400 — a retired
-                    or replaced unit cannot be polled — but the rest of the form
-                    stays editable, so its settings can still be fixed. */}
-                <div className="flex items-center md:pt-6">
-                  <Switch
-                    id="wireless-polling-enabled"
-                    label="Sondeo inalámbrico habilitado"
-                    description={enableBlockedReason ?? undefined}
-                    checked={canEnablePolling && configForm.enabled === 'true'}
-                    onChange={(e) => setConfigForm((p) => ({ ...p, enabled: String(e.target.checked) }))}
-                    disabled={!canEnablePolling}
-                  />
-                </div>
-                {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  // WLS-166: a live contract's plan overrides this value, so it
-                  // only matters for links nobody pays for.
-                  <Input
-                    label="Capacidad manual (kbps)"
-                    type="number"
-                    value={configForm.linkCapacityKbps}
-                    onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityKbps: e.target.value }))}
-                    info="Normalmente se deja vacía: si la estación tiene un servicio contratado activo o pendiente, se usa la velocidad de su plan. Solo aplica a enlaces sin contrato, como backhauls. En kbps: 50 Mbps = 50000."
-                    fullWidth
-                  />
-                )}
-                {(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  <Input
-                    label="Límite de estaciones provisionadas"
-                    type="number"
-                    value={configForm.clientsProvisionedLimit}
-                    onChange={(e) => setConfigForm((p) => ({ ...p, clientsProvisionedLimit: e.target.value }))}
-                    fullWidth
-                  />
-                )}
-                {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  // Typing filters on name and IP alike; clearing the text leaves it undeclared.
-                  <Combobox
-                    label="AP declarado"
-                    value={configForm.parentApDeviceId}
-                    onChange={(id) => setConfigForm((p) => ({ ...p, parentApDeviceId: id }))}
-                    options={apDevices.map((d) => ({ value: d.id, label: d.name, sublabel: d.ipAddress ?? undefined }))}
-                    placeholder={apDevicesLoading ? 'Cargando...' : 'Automático'}
-                    disabled={apDevicesLoading}
-                    info="El AP donde esta estación debería estar conectada. Alimenta la vista de «Estaciones Esperadas» en ese AP."
-                    fullWidth
-                  />
-                )}
-                {/* Only the standard Ethernet speeds are accepted (WLS-165), so this
-                    is a pick-list rather than a number field. */}
-                <Select
-                  label="Velocidad LAN provisionada"
-                  value={configForm.provisionedLanSpeedMbps}
-                  onChange={(e) => setConfigForm((p) => ({ ...p, provisionedLanSpeedMbps: e.target.value }))}
-                  options={lanSpeedOptions(configForm.provisionedLanSpeedMbps)}
-                  info="Normalmente no hace falta fijarla: se completa sola con el primer sondeo. Fíjala solo para corregir una línea base capturada mientras el puerto ya estaba degradado."
-                  fullWidth
-                />
-              </div>
-            </div>
-          )}
-        </Card.Body>
-        {showConfigForm && (
-          <Card.Footer>
-            <EditFormActions
-              onCancel={() => setShowConfigForm(false)}
-              onSave={handleSaveConfig}
-              isSaving={configSaving}
-              hideCancel
-              saveLabel={noConfig ? 'Crear configuración' : 'Guardar Cambios'}
-            />
-          </Card.Footer>
-        )}
-      </Card>
-
+      {/* How the radio is doing comes first; how it is set up, after. */}
       {config && (
         <>
-          {/* Identity suggestions — a read-only diff between what AirOS last
-              reported about its own hostname/MAC, or the AP it's talking to,
-              and what's on file here. Each row is its own accept/dismiss. */}
-          {showSuggestions && (
-            <div id={IDENTITY_SUGGESTIONS_ANCHOR} className="scroll-mt-4">
-              <Card>
-                <Card.Header>
-                  <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo el AP declarado vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
-                    Sugerencias de Identidad
-                    <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
-                      ({visibleSuggestions.length})
-                    </span>
-                  </SectionTitle>
-                </Card.Header>
-                <Card.Body>
-                  <div className="space-y-2">
-                    {visibleSuggestions.map((s) => {
-                      const key = suggestionKey(s);
-                      return (
-                        <div
-                          key={key}
-                          className="flex flex-wrap items-center justify-between gap-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3"
-                        >
-                          <div className="min-w-0 text-sm">
-                            <span className="font-medium text-gray-700 dark:text-gray-300">
-                              {SUGGESTION_FIELD_LABELS[s.field]}:
-                            </span>{' '}
-                            <span className="text-gray-500 dark:text-gray-400 line-through wrap-anywhere">
-                              {s.currentLabel ?? s.currentValue ?? '—'}
-                            </span>{' '}
-                            <span className="text-gray-400 dark:text-gray-500">→</span>{' '}
-                            <span className="text-gray-900 dark:text-gray-100 font-medium wrap-anywhere">
-                              {s.suggestedLabel ?? s.suggestedValue}
-                            </span>
-                          </div>
-                          {canWrite && (
-                            <div className="flex items-center gap-2 shrink-0">
-                              <IconButton
-                                icon={<CheckIcon />}
-                                label="Aplicar"
-                                variant="primary"
-                                onClick={() => handleAcceptSuggestion(s)}
-                                isLoading={acceptingSuggestionKey === key}
-                                disabled={acceptingSuggestionKey !== null}
-                              />
-                              <IconButton
-                                icon={<CloseIcon />}
-                                label="Descartar"
-                                onClick={() => handleDismissSuggestion(s)}
-                                disabled={acceptingSuggestionKey !== null}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Card.Body>
-              </Card>
-            </div>
-          )}
-
-          {/* On-demand check for a failing link. The backend refuses a vendor
-              it cannot read, so there is nothing to offer for one. */}
-          {!unsupportedVendorReason && !serverCannotReach && <LinkDiagnosisCard deviceId={deviceId} canWrite={canWrite} />}
-
           {/* Latest snapshot */}
           <Card>
             <Card.Header>
@@ -1552,9 +1255,308 @@ export function DeviceWirelessTab({
             );
           })()}
 
-          <DeviceAlertThresholdsCard deviceId={deviceId} canWrite={canWrite} />
+          {/* Identity suggestions — a read-only diff between what AirOS last
+              reported about its own hostname/MAC, or the AP it's talking to,
+              and what's on file here. Each row is its own accept/dismiss. */}
+          {showSuggestions && (
+            <div id={IDENTITY_SUGGESTIONS_ANCHOR} className="scroll-mt-4">
+              <Card>
+                <Card.Header>
+                  <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo el AP declarado vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
+                    Sugerencias de Identidad
+                    <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                      ({visibleSuggestions.length})
+                    </span>
+                  </SectionTitle>
+                </Card.Header>
+                <Card.Body>
+                  <div className="space-y-2">
+                    {visibleSuggestions.map((s) => {
+                      const key = suggestionKey(s);
+                      return (
+                        <div
+                          key={key}
+                          className="flex flex-wrap items-center justify-between gap-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3"
+                        >
+                          <div className="min-w-0 text-sm">
+                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                              {SUGGESTION_FIELD_LABELS[s.field]}:
+                            </span>{' '}
+                            <span className="text-gray-500 dark:text-gray-400 line-through wrap-anywhere">
+                              {s.currentLabel ?? s.currentValue ?? '—'}
+                            </span>{' '}
+                            <span className="text-gray-400 dark:text-gray-500">→</span>{' '}
+                            <span className="text-gray-900 dark:text-gray-100 font-medium wrap-anywhere">
+                              {s.suggestedLabel ?? s.suggestedValue}
+                            </span>
+                          </div>
+                          {canWrite && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <IconButton
+                                icon={<CheckIcon />}
+                                label="Aplicar"
+                                variant="primary"
+                                onClick={() => handleAcceptSuggestion(s)}
+                                isLoading={acceptingSuggestionKey === key}
+                                disabled={acceptingSuggestionKey !== null}
+                              />
+                              <IconButton
+                                icon={<CloseIcon />}
+                                label="Descartar"
+                                onClick={() => handleDismissSuggestion(s)}
+                                disabled={acceptingSuggestionKey !== null}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card.Body>
+              </Card>
+            </div>
+          )}
+
+          {/* On-demand check for a failing link. The backend refuses a vendor
+              it cannot read, so there is nothing to offer for one. */}
+          {!unsupportedVendorReason && !serverCannotReach && <LinkDiagnosisCard deviceId={deviceId} canWrite={canWrite} />}
+
         </>
       )}
+
+      {/* Config card — alone at the top until a config exists. */}
+      <Card>
+        <Card.Header>
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <SectionTitle
+              info={
+                <>
+                  El tipo se deduce de la categoría del dispositivo: un punto de acceso se registra como
+                  Access Point y cualquier otro como Estación (CPE); para cambiarlo, ajusta la categoría en la
+                  pestaña Detalles. {WIRELESS_INDEPENDENT_OF_ICMP_NOTE}
+                </>
+              }
+            >
+              Configuración Inalámbrica
+            </SectionTitle>
+            {!configLoading && !configError && (noConfig || config) && (
+              <div className="flex gap-2">
+                {noConfig && !showConfigForm ? (
+                  // Creating is offered only once the credentials its collector
+                  // logs in with are saved; until then the body says what's missing.
+                  hasCollectorCreds === true && !unsupportedVendorReason && permissions.canWrite && (
+                    <IconButton
+                      icon={<PlusIcon />}
+                      label="Crear sondeo inalámbrico"
+                      variant="primary"
+                      onClick={() => { setShowConfigForm(true); setConfigSaveError(null); }}
+                    />
+                  )
+                ) : (
+                  <EditToggleButton
+                    isEditing={showConfigForm}
+                    onEdit={() => { setShowConfigForm(true); setConfigSaveError(null); }}
+                    onCancel={() => setShowConfigForm(false)}
+                  />
+                )}
+                {!noConfig && !showConfigForm && permissions.isAdmin && (
+                  <IconButton icon={<TrashIcon />} label="Eliminar configuración" variant="danger" onClick={handleDeleteConfig} />
+                )}
+              </div>
+            )}
+          </div>
+        </Card.Header>
+        <Card.Body>
+          {configLoading ? (
+            <div className="flex justify-center py-4">
+              <LoadingSpinner message="Cargando configuración..." />
+            </div>
+          ) : configError ? (
+            <p className="text-red-600 dark:text-red-400 text-sm">{configError}</p>
+          ) : noConfig ? (
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">
+                Este dispositivo no tiene configuración de monitoreo inalámbrico.
+              </p>
+              <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
+                Se registrará como{' '}
+                <span className="font-medium">
+                  {inferDeviceType(category) === 'ACCESS_POINT' ? 'Access Point' : 'Estación (CPE)'}
+                </span>
+                .
+              </p>
+              {credentialsBlockedReason && (
+                <p className="mb-4 text-xs text-amber-700 dark:text-amber-400">{credentialsBlockedReason}</p>
+              )}
+            </div>
+          ) : config && !showConfigForm ? (
+            <>
+            {disabledByStatus && (
+              <p className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+                {WIRELESS_DISABLED_BY_STATUS_NOTE}
+              </p>
+            )}
+            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Tipo</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                  {effectiveDeviceType === 'ACCESS_POINT' ? 'Access Point' : 'Estación (CPE)'}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Habilitado</dt>
+                <dd className="mt-1">
+                  <Badge variant={config.enabled ? 'success' : 'neutral'}>
+                    {config.enabled ? 'Sí' : 'No'}
+                  </Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Intervalo</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtInterval(config.intervalSecs)}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">IP de sondeo</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">
+                  {config.ipAddress || deviceIpAddress ? <IpLink ip={config.ipAddress || deviceIpAddress || ''} /> : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Último sondeo</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                  {config.lastPolledAt ? new Date(config.lastPolledAt).toLocaleString('es') : '—'}
+                </dd>
+              </div>
+              {!isAP && config.linkCapacityKbps != null && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Cap. manual (respaldo)</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtKbps(config.linkCapacityKbps)}</dd>
+                </div>
+              )}
+              {isAP && config.clientsProvisionedLimit !== null && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Límite clientes</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.clientsProvisionedLimit}</dd>
+                </div>
+              )}
+              {config.provisionedLanSpeedMbps !== null && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Velocidad LAN provisionada</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.provisionedLanSpeedMbps} Mbps</dd>
+                </div>
+              )}
+              {!isAP && config.parentApDeviceId && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">AP declarado</dt>
+                  <dd className="mt-1">
+                    <Link
+                      href={`/devices/${config.parentApDeviceId}`}
+                      className="text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      {parentAp?.name ?? config.parentApDeviceId}
+                    </Link>
+                    {parentAp?.ipAddress && (
+                      <span className="block"><IpLink ip={parentAp.ipAddress} /></span>
+                    )}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            </>
+          ) : null}
+
+          {showConfigForm && (
+            <div className="space-y-4">
+              {configSaveError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 text-sm text-red-800 dark:text-red-400">
+                  {configSaveError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <IntervalInput
+                  label="Intervalo"
+                  value={configForm.intervalSecs}
+                  onChange={(seconds) => {
+                    setConfigForm((p) => ({ ...p, intervalSecs: seconds }));
+                    setConfigFormErrors((p) => { const n = { ...p }; delete n.intervalSecs; return n; });
+                  }}
+                  error={configFormErrors.intervalSecs}
+                />
+                {/* Locked off where the backend would answer 400 — a retired
+                    or replaced unit cannot be polled — but the rest of the form
+                    stays editable, so its settings can still be fixed. */}
+                <div className="flex items-center md:pt-6">
+                  <Switch
+                    id="wireless-polling-enabled"
+                    label="Sondeo inalámbrico habilitado"
+                    description={enableBlockedReason ?? undefined}
+                    checked={canEnablePolling && configForm.enabled === 'true'}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, enabled: String(e.target.checked) }))}
+                    disabled={!canEnablePolling}
+                  />
+                </div>
+                {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
+                  // WLS-166: a live contract's plan overrides this value, so it
+                  // only matters for links nobody pays for.
+                  <Input
+                    label="Capacidad manual (kbps)"
+                    type="number"
+                    value={configForm.linkCapacityKbps}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, linkCapacityKbps: e.target.value }))}
+                    info="Normalmente se deja vacía: si la estación tiene un servicio contratado activo o pendiente, se usa la velocidad de su plan. Solo aplica a enlaces sin contrato, como backhauls. En kbps: 50 Mbps = 50000."
+                    fullWidth
+                  />
+                )}
+                {(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
+                  <Input
+                    label="Límite de estaciones provisionadas"
+                    type="number"
+                    value={configForm.clientsProvisionedLimit}
+                    onChange={(e) => setConfigForm((p) => ({ ...p, clientsProvisionedLimit: e.target.value }))}
+                    fullWidth
+                  />
+                )}
+                {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
+                  // Typing filters on name and IP alike; clearing the text leaves it undeclared.
+                  <Combobox
+                    label="AP declarado"
+                    value={configForm.parentApDeviceId}
+                    onChange={(id) => setConfigForm((p) => ({ ...p, parentApDeviceId: id }))}
+                    options={apDevices.map((d) => ({ value: d.id, label: d.name, sublabel: d.ipAddress ?? undefined }))}
+                    placeholder={apDevicesLoading ? 'Cargando...' : 'Automático'}
+                    disabled={apDevicesLoading}
+                    info="El AP donde esta estación debería estar conectada. Alimenta la vista de «Estaciones Esperadas» en ese AP."
+                    fullWidth
+                  />
+                )}
+                {/* Only the standard Ethernet speeds are accepted (WLS-165), so this
+                    is a pick-list rather than a number field. */}
+                <Select
+                  label="Velocidad LAN provisionada"
+                  value={configForm.provisionedLanSpeedMbps}
+                  onChange={(e) => setConfigForm((p) => ({ ...p, provisionedLanSpeedMbps: e.target.value }))}
+                  options={lanSpeedOptions(configForm.provisionedLanSpeedMbps)}
+                  info="Normalmente no hace falta fijarla: se completa sola con el primer sondeo. Fíjala solo para corregir una línea base capturada mientras el puerto ya estaba degradado."
+                  fullWidth
+                />
+              </div>
+            </div>
+          )}
+        </Card.Body>
+        {showConfigForm && (
+          <Card.Footer>
+            <EditFormActions
+              onCancel={() => setShowConfigForm(false)}
+              onSave={handleSaveConfig}
+              isSaving={configSaving}
+              hideCancel
+              saveLabel={noConfig ? 'Crear configuración' : 'Guardar Cambios'}
+            />
+          </Card.Footer>
+        )}
+      </Card>
+
+      {config && <DeviceAlertThresholdsCard deviceId={deviceId} canWrite={canWrite} />}
     </div>
   );
 }

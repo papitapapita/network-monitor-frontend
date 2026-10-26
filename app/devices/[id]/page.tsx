@@ -16,6 +16,7 @@ import { Button, LoadingSpinner, Tooltip, IconButton, BackLink, TrashIcon } from
 import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
+import { DeviceHealthCard } from '@/components/devices/DeviceHealthCard';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
 import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab';
@@ -483,14 +484,18 @@ export default function DeviceDetailPage() {
         </nav>
       </div>
 
+      {/* How the device is doing comes first; what it is, below. */}
       {currentTab === 'details' && (
-        <DeviceDetailsTab
-          device={device}
-          onDeviceUpdated={(updated) => {
-            setDevice(updated);
-            if (updated.deviceModelId !== device.deviceModelId) loadModel(updated.deviceModelId);
-          }}
-        />
+        <div className="space-y-6">
+          <DeviceHealthCard device={device} showWireless={showWireless} onOpenTab={setActiveTab} />
+          <DeviceDetailsTab
+            device={device}
+            onDeviceUpdated={(updated) => {
+              setDevice(updated);
+              if (updated.deviceModelId !== device.deviceModelId) loadModel(updated.deviceModelId);
+            }}
+          />
+        </div>
       )}
 
       {currentTab === 'history' && (

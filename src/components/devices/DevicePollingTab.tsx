@@ -36,6 +36,7 @@ import {
   fmtInterval,
 } from '@/constants/polling.constants';
 import { IntervalInput } from './IntervalInput';
+import { PingSummaryTiles, usePingSummary } from './PingSummary';
 import {
   canEnableMonitoring,
   monitoringBlockedReason,
@@ -133,6 +134,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const monitoringOff =
     !device.monitoringEnabled || noConfig || pollingStatus?.pollingEnabled === false;
 
+  /** The last day of pings, shown under the live status. */
+  const ping = usePingSummary(deviceId, !monitoringOff);
+
   /** Null while monitoring can be turned on from here — the same rule the details form applies. */
   const blockedReason = monitoringBlockedReason(device.status, device.ipAddress);
 
@@ -218,6 +222,11 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     fetchPollingStatus();
   }, [fetchPollingStatus]);
 
+  const refreshStatus = () => {
+    fetchPollingStatus();
+    ping.refresh();
+  };
+
   const handlePollNow = async () => {
     setIsPolling(true);
     setPollResult(null);
@@ -225,7 +234,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
     const agentFailure = result.success ? null : agentPollFailure(result.status, result.error);
     if (result.success && result.data) {
       setPollResult(result.data);
-      fetchPollingStatus();
+      refreshStatus();
     } else if (agentFailure) {
       // The agent gave no reading and nothing was recorded; the card stands.
       showError(agentFailure);
@@ -385,7 +394,7 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
   const refreshAfterReconnect = useRef<() => void>(() => {});
   useEffect(() => {
     refreshAfterReconnect.current = () => {
-      fetchPollingStatus();
+      refreshStatus();
       if (historyShown) fetchHistory(historyQuery.offset);
     };
   });
@@ -468,8 +477,8 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
         isLoading={deletingHistory}
       />
 
-      {/* Status — its own settings icon swaps this card's body for the config
-          form in place, the same way Detalles swaps in "Editar Dispositivo". */}
+      {/* Status first — how the device is answering — and the settings that
+          drive it in their own card below. */}
       <Card>
         <Card.Header>
           <div className="flex flex-wrap justify-between items-center gap-2">
@@ -478,38 +487,177 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 all polling has not. */}
             <SectionTitle
               info={
-                showConfig
-                  ? 'Con el monitoreo habilitado, el dispositivo se sondea periódicamente con el intervalo indicado aquí.'
-                  : isWirelessCategory(device.category)
-                    ? `${WIRELESS_INDEPENDENT_OF_ICMP_NOTE} Para detenerlo, deshabilítalo en la pestaña «Inalámbrico».`
-                    : undefined
+                isWirelessCategory(device.category)
+                  ? `${WIRELESS_INDEPENDENT_OF_ICMP_NOTE} Para detenerlo, deshabilítalo en la pestaña «Inalámbrico».`
+                  : undefined
               }
             >
-              {showConfig ? 'Configuración de Sondeo' : 'Estado del Sondeo'}
+              Estado del Sondeo
             </SectionTitle>
-            <div className="flex gap-2">
-              {!monitoringOff && !showConfig && (
-                <>
-                  <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchPollingStatus} disabled={statusLoading} />
-                  {canPollNow && (
-                    <IconButton
-                      icon={<PollIcon />}
-                      label="Sondear ahora"
-                      variant="primary"
-                      onClick={handlePollNow}
-                      isLoading={isPolling}
-                      disabled={!hasIp}
-                    />
-                  )}
-                </>
-              )}
-              <EditToggleButton
-                isEditing={showConfig}
-                onEdit={openConfig}
-                onCancel={() => setShowConfig(false)}
-                editLabel="Editar configuración"
-              />
+            {!monitoringOff && (
+              <div className="flex gap-2">
+                <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={refreshStatus} disabled={statusLoading} />
+                {canPollNow && (
+                  <IconButton
+                    icon={<PollIcon />}
+                    label="Sondear ahora"
+                    variant="primary"
+                    onClick={handlePollNow}
+                    isLoading={isPolling}
+                    disabled={!hasIp}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </Card.Header>
+        <Card.Body>
+          {statusLoading ? (
+            <div className="flex justify-center py-4">
+              <LoadingSpinner message="Cargando estado..." />
             </div>
+          ) : statusError ? (
+            <p className="text-red-600 dark:text-red-400 text-sm">{statusError}</p>
+          ) : monitoringOff ? (
+            <>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                Este dispositivo no tiene el monitoreo habilitado, por lo que no se está sondeando.
+                Habilítelo en «Configuración de Sondeo», más abajo, para conocer su conectividad.
+              </p>
+              {/* No schedule to show — only what the last poll, if any, left behind. */}
+              <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-4">
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Estado Actual</dt>
+                  <dd className="mt-1">
+                    <Badge variant={getPollingStatusBadgeVariant('UNKNOWN')}>
+                      {CONNECTIVITY_LABELS.UNKNOWN}
+                    </Badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Último Sondeo</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {/* Stopping monitoring clears `lastPolled` — nothing is scheduled to
+                        refresh it — but the last ping actually taken stays on record,
+                        and that is the one worth dating here. */}
+                    {lastPolledAt ? new Date(lastPolledAt).toLocaleString('es') : '—'}
+                  </dd>
+                </div>
+              </dl>
+            </>
+          ) : pollingStatus ? (
+            <>
+              {!behindAgent && !serverOnSite && (
+                <p className="mb-4 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-300">
+                  <strong>Nadie sondea este equipo.</strong> El servidor no está en la red monitoreada, así que su
+                  estado queda «Desconocido» y no genera alertas de caída. Asígnale un agente en «Detalles»
+                  (Sondeado por) para monitorearlo.
+                </p>
+              )}
+              {behindAgent && (
+                <p className={`mb-4 rounded-md border p-3 text-sm ${
+                  agentSilent
+                    ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 text-gray-700 dark:text-gray-300'
+                }`}>
+                  {agentSilent && agent ? (
+                    <>
+                      <strong>
+                        El agente{' '}
+                        <Link href={`/agents/${agent.id}`} className="underline">{agent.name}</Link>{' '}
+                        no está reportando
+                      </strong>{' '}
+                      ({AGENT_CONDITION_LABELS[agentState!].toLowerCase()}
+                      {agent.offlineSince && ` desde el ${formatAgentDate(agent.offlineSince)}`}). Por eso el estado
+                      es «Desconocido»: los datos de abajo son la última medición que hizo, no una caída del equipo.
+                    </>
+                  ) : (
+                    <>
+                      Lo sondea el agente{' '}
+                      {agent ? (
+                        <Link href={`/agents/${agent.id}`} className="font-medium text-brand-600 dark:text-brand-400 hover:underline">
+                          {agent.name}
+                        </Link>
+                      ) : (
+                        'asignado'
+                      )}
+                      , instalado en su red. «Sondear ahora» se lo pide a ese agente.
+                    </>
+                  )}
+                </p>
+              )}
+              <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Estado Actual</dt>
+                  <dd className="mt-1">
+                    <Badge variant={getPollingStatusBadgeVariant(pollingStatus.currentStatus)}>
+                      {CONNECTIVITY_LABELS[pollingStatus.currentStatus] ?? pollingStatus.currentStatus}
+                    </Badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos Consecutivos</dt>
+                  <dd className={`mt-1 ${pollingStatus.consecutiveFailures > 0 ? 'text-red-700 dark:text-red-400 font-medium' : 'text-gray-900 dark:text-gray-100'}`}>
+                    {pollingStatus.consecutiveFailures} de {pollingStatus.failuresBeforeDown}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Último Sondeo</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {pollingStatus.lastPolled ? new Date(pollingStatus.lastPolled).toLocaleString('es') : '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Próximo Programado</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {pollingStatus.nextScheduled ? new Date(pollingStatus.nextScheduled).toLocaleString('es') : '—'}
+                  </dd>
+                </div>
+              </dl>
+
+              {/* A manual poll makes at most 3 ping attempts, so even an
+                  unreachable device answers in about 20 s. */}
+              {isPolling && (
+                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                  Sondeando… puede tardar hasta unos 20 segundos si el dispositivo no responde.
+                </p>
+              )}
+
+              {pollResult && (
+                <div className={`mt-4 p-3 rounded-md text-sm ${
+                  pollResult.status === 'SUCCESS'
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400'
+                    : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400'
+                }`}>
+                  Resultado: <strong>{pollResult.status === 'SUCCESS' ? 'Exitoso' : 'Fallido'}</strong> — {pollResult.message}
+                  {pollResult.metrics && ` (${pollResult.metrics.latencyMs}ms)`}
+                </div>
+              )}
+
+              {ping.summary && (
+                <div className="mt-6">
+                  <PingSummaryTiles summary={ping.summary} />
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Sin estado de sondeo disponible.</p>
+          )}
+        </Card.Body>
+      </Card>
+
+      <Card>
+        <Card.Header>
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <SectionTitle info="Con el monitoreo habilitado, el dispositivo se sondea periódicamente con el intervalo indicado aquí.">
+              Configuración de Sondeo
+            </SectionTitle>
+            <EditToggleButton
+              isEditing={showConfig}
+              onEdit={openConfig}
+              onCancel={() => setShowConfig(false)}
+              editLabel="Editar configuración"
+            />
           </div>
         </Card.Header>
         <Card.Body>
@@ -572,151 +720,29 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                 </div>
               )}
             </>
-          ) : statusLoading ? (
-            <div className="flex justify-center py-4">
-              <LoadingSpinner message="Cargando estado..." />
-            </div>
-          ) : statusError ? (
-            <p className="text-red-600 dark:text-red-400 text-sm">{statusError}</p>
-          ) : monitoringOff ? (
-            <>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Este dispositivo no tiene el monitoreo habilitado, por lo que no se está sondeando.
-                Habilítelo en «Configuración de Sondeo» para conocer su conectividad.
-              </p>
-              {/* No schedule and no interval to show — only what the last poll, if
-                  any, left behind. */}
-              <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-4">
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Estado Actual</dt>
-                  <dd className="mt-1">
-                    <Badge variant={getPollingStatusBadgeVariant('UNKNOWN')}>
-                      {CONNECTIVITY_LABELS.UNKNOWN}
-                    </Badge>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Sondeo Habilitado</dt>
-                  <dd className="mt-1">
-                    <Badge variant="neutral">No</Badge>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Último Sondeo</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                    {/* Stopping monitoring clears `lastPolled` — nothing is scheduled to
-                        refresh it — but the last ping actually taken stays on record,
-                        and that is the one worth dating here. */}
-                    {lastPolledAt ? new Date(lastPolledAt).toLocaleString('es') : '—'}
-                  </dd>
-                </div>
-              </dl>
-            </>
-          ) : pollingStatus ? (
-            <>
-              {!behindAgent && !serverOnSite && (
-                <p className="mb-4 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-300">
-                  <strong>Nadie sondea este equipo.</strong> El servidor no está en la red monitoreada, así que su
-                  estado queda «Desconocido» y no genera alertas de caída. Asígnale un agente en «Detalles»
-                  (Sondeado por) para monitorearlo.
-                </p>
-              )}
-              {behindAgent && (
-                <p className={`mb-4 rounded-md border p-3 text-sm ${
-                  agentSilent
-                    ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300'
-                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 text-gray-700 dark:text-gray-300'
-                }`}>
-                  {agentSilent && agent ? (
-                    <>
-                      <strong>
-                        El agente{' '}
-                        <Link href={`/agents/${agent.id}`} className="underline">{agent.name}</Link>{' '}
-                        no está reportando
-                      </strong>{' '}
-                      ({AGENT_CONDITION_LABELS[agentState!].toLowerCase()}
-                      {agent.offlineSince && ` desde el ${formatAgentDate(agent.offlineSince)}`}). Por eso el estado
-                      es «Desconocido»: los datos de abajo son la última medición que hizo, no una caída del equipo.
-                    </>
-                  ) : (
-                    <>
-                      Lo sondea el agente{' '}
-                      {agent ? (
-                        <Link href={`/agents/${agent.id}`} className="font-medium text-brand-600 dark:text-brand-400 hover:underline">
-                          {agent.name}
-                        </Link>
-                      ) : (
-                        'asignado'
-                      )}
-                      , instalado en su red. «Sondear ahora» se lo pide a ese agente.
-                    </>
-                  )}
-                </p>
-              )}
-              <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Estado Actual</dt>
-                  <dd className="mt-1">
-                    <Badge variant={getPollingStatusBadgeVariant(pollingStatus.currentStatus)}>
-                      {CONNECTIVITY_LABELS[pollingStatus.currentStatus] ?? pollingStatus.currentStatus}
-                    </Badge>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Sondeo Habilitado</dt>
-                  <dd className="mt-1">
-                    <Badge variant={pollingStatus.pollingEnabled ? 'success' : 'neutral'}>
-                      {pollingStatus.pollingEnabled ? 'Sí' : 'No'}
-                    </Badge>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos Consecutivos</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{pollingStatus.consecutiveFailures}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Intervalo</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtInterval(pollingStatus.intervalSeconds)}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos Antes de Caída</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{pollingStatus.failuresBeforeDown}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Último Sondeo</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                    {pollingStatus.lastPolled ? new Date(pollingStatus.lastPolled).toLocaleString('es') : '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Próximo Programado</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                    {pollingStatus.nextScheduled ? new Date(pollingStatus.nextScheduled).toLocaleString('es') : '—'}
-                  </dd>
-                </div>
-              </dl>
-
-              {/* A manual poll makes at most 3 ping attempts, so even an
-                  unreachable device answers in about 20 s. */}
-              {isPolling && (
-                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                  Sondeando… puede tardar hasta unos 20 segundos si el dispositivo no responde.
-                </p>
-              )}
-
-              {pollResult && (
-                <div className={`mt-4 p-3 rounded-md text-sm ${
-                  pollResult.status === 'SUCCESS'
-                    ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400'
-                    : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400'
-                }`}>
-                  Resultado: <strong>{pollResult.status === 'SUCCESS' ? 'Exitoso' : 'Fallido'}</strong> — {pollResult.message}
-                  {pollResult.metrics && ` (${pollResult.metrics.latencyMs}ms)`}
-                </div>
-              )}
-            </>
           ) : (
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Sin estado de sondeo disponible.</p>
+            <dl className="wrap-anywhere grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Monitoreo Habilitado</dt>
+                <dd className="mt-1">
+                  <Badge variant={monitoringOff ? 'neutral' : 'success'}>{monitoringOff ? 'No' : 'Sí'}</Badge>
+                </dd>
+              </div>
+              {/* A disabled config keeps its settings for a later resume, so
+                  they are still worth showing — just not with no config at all. */}
+              {pollingStatus && (
+                <>
+                  <div>
+                    <dt className="font-medium text-gray-500 dark:text-gray-400">Intervalo</dt>
+                    <dd className="mt-1 text-gray-900 dark:text-gray-100">{fmtInterval(pollingStatus.intervalSeconds)}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos Antes de Caída</dt>
+                    <dd className="mt-1 text-gray-900 dark:text-gray-100">{pollingStatus.failuresBeforeDown}</dd>
+                  </div>
+                </>
+              )}
+            </dl>
           )}
         </Card.Body>
         {showConfig && (
