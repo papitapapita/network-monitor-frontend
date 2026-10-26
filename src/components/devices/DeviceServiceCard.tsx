@@ -1,12 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceResponseDTO } from '@/types/device.types';
-import { Badge, Card, LoadingSpinner } from '@/components/ui';
+import { Badge, Button, Card, Combobox, Input, LoadingSpinner, Select, isCancelEscape } from '@/components/ui';
 import { useInstallation } from '@/hooks/useInstallation';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useToast } from '@/contexts/toast.context';
+import { fetchAllCustomers } from '@/hooks/useCatalogs';
+import { PAYMENT_DAY_OPTIONS } from '@/constants/billing-settings.constants';
+import type { PaymentDay } from '@/types/customer.types';
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VARIANTS } from '@/constants/contracted-service.constants';
 
 /** The categories that are meant to back a customer's service. */
@@ -59,9 +64,7 @@ export function DeviceServiceCard({ device }: { device: DeviceResponseDTO }) {
         ) : isError ? (
           <p className="text-sm text-red-700 dark:text-red-400">No se pudo cargar el servicio contratado.</p>
         ) : !data ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Este dispositivo no está asignado a ningún servicio. Se asigna desde la ficha del cliente.
-          </p>
+          <NewServiceForm device={device} />
         ) : (
           <>
             <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -98,5 +101,133 @@ export function DeviceServiceCard({ device }: { device: DeviceResponseDTO }) {
         )}
       </Card.Body>
     </Card>
+  );
+}
+
+const emptyForm = { customerId: '', servicePlanId: '', startDate: '', paymentDay: '30' };
+
+/**
+ * Contracts a service on this device for a customer picked here, so an installer
+ * standing at the unit doesn't have to go find the customer first. Same request
+ * as the customer page's form, with the device already chosen.
+ */
+function NewServiceForm({ device }: { device: DeviceResponseDTO }) {
+  const { canWrite } = usePermissions();
+  const { showSuccess, showError, showFormErrors } = useToast();
+  const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Shares the `['customers']` cache with the other customer pickers.
+  const { data: customers = [], isLoading: customersLoading } = useQuery({
+    queryKey: ['customers'],
+    queryFn: fetchAllCustomers,
+    enabled: isOpen,
+  });
+  const { data: plans = [] } = useQuery({
+    queryKey: ['servicePlans', 'active'],
+    queryFn: async () => {
+      const r = await apiService.listServicePlans({ limit: 100 });
+      if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar los planes');
+      return r.data.servicePlans.filter((p) => p.isActive);
+    },
+    enabled: isOpen,
+  });
+
+  const close = () => {
+    setIsOpen(false);
+    setForm(emptyForm);
+    setErrors({});
+  };
+
+  const setField = (field: keyof typeof emptyForm, value: string) => {
+    setForm((p) => ({ ...p, [field]: value }));
+    setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const next: Record<string, string> = {};
+    if (!form.customerId) next.customerId = 'Selecciona un cliente';
+    if (!form.servicePlanId) next.servicePlanId = 'Selecciona un plan';
+    setErrors(next);
+    if (showFormErrors(next)) return;
+
+    setIsSaving(true);
+    const r = await apiService.createContractedService({
+      customerId: form.customerId,
+      servicePlanId: form.servicePlanId,
+      deviceId: device.id,
+      startDate: form.startDate ? new Date(form.startDate).toISOString() : undefined,
+      paymentDay: Number(form.paymentDay) as PaymentDay,
+    });
+    setIsSaving(false);
+    if (r.success) {
+      showSuccess('Servicio contratado creado.');
+      close();
+      queryClient.invalidateQueries({ queryKey: ['contractedServices'] });
+    } else {
+      showError(r.error || 'Error al crear el servicio');
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Este dispositivo no está asignado a ningún servicio.</p>
+        {canWrite && <Button size="sm" onClick={() => setIsOpen(true)}>Agregar servicio</Button>}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} onKeyDown={(e) => { if (isCancelEscape(e)) close(); }} className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Combobox
+          label="Cliente"
+          value={form.customerId}
+          onChange={(id) => setField('customerId', id)}
+          options={customers.map((c) => ({
+            value: c.id,
+            label: c.fullName,
+            sublabel: [c.phone, c.cedula].filter(Boolean).join(' · '),
+          }))}
+          placeholder={customersLoading ? 'Cargando clientes...' : 'Buscar por nombre, teléfono o cédula'}
+          error={errors.customerId}
+          required
+          fullWidth
+        />
+        <Select
+          label="Plan"
+          value={form.servicePlanId}
+          onChange={(e) => setField('servicePlanId', e.target.value)}
+          options={[{ value: '', label: 'Seleccionar plan' }, ...plans.map((p) => ({ value: p.id, label: `${p.name} (${p.downloadMbps}↓/${p.uploadMbps}↑ Mbps)` }))]}
+          error={errors.servicePlanId}
+          required
+          fullWidth
+        />
+        <Input
+          label="Fecha de inicio (opcional)"
+          type="date"
+          value={form.startDate}
+          onChange={(e) => setField('startDate', e.target.value)}
+          fullWidth
+        />
+        <Select
+          label="Día de pago"
+          value={form.paymentDay}
+          onChange={(e) => setField('paymentDay', e.target.value)}
+          options={PAYMENT_DAY_OPTIONS}
+          info="El día del mes en que vence la factura de este servicio."
+          fullWidth
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" isLoading={isSaving}>Guardar</Button>
+        <Button type="button" variant="outline" size="sm" onClick={close}>Cancelar</Button>
+      </div>
+    </form>
   );
 }
