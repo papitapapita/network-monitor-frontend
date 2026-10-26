@@ -24,6 +24,13 @@ interface ComboboxProps {
   disabled?: boolean;
   createLabel?: string;
   onCreateNew?: (query: string) => void;
+  /**
+   * Hands the typed text to the caller, which searches on its own (e.g. on the
+   * server) and passes the matches back as `options`; they are shown unfiltered.
+   */
+  onQueryChange?: (query: string) => void;
+  /** The caller's search is in flight; shown instead of "Sin resultados". */
+  isLoading?: boolean;
 }
 
 export function Combobox({
@@ -39,8 +46,14 @@ export function Combobox({
   disabled,
   createLabel,
   onCreateNew,
+  onQueryChange,
+  isLoading,
 }: ComboboxProps) {
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState('');
+  const setQuery = (q: string) => {
+    setQueryState(q);
+    onQueryChange?.(q);
+  };
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [dropdownRect, setDropdownRect] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number } | null>(null);
@@ -48,7 +61,7 @@ export function Combobox({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedOption = options.find((o) => o.value === value);
-  const filtered = query
+  const filtered = query && !onQueryChange
     ? options.filter((o) => {
         // Every whitespace-separated token has to appear somewhere in label+sublabel,
         // so "mik rb4" matches "RB450G" under "MikroTik" regardless of word order.
@@ -96,7 +109,7 @@ export function Combobox({
         !(target as Element).closest?.('[data-combobox-dropdown]')
       ) {
         setIsOpen(false);
-        setQuery('');
+        setQueryState('');
         setHighlightedIndex(-1);
       }
     };
@@ -189,7 +202,7 @@ export function Combobox({
             className="overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5"
           >
             {filtered.length === 0 && !onCreateNew && (
-              <li className="px-2 py-1.5 text-sm text-gray-500 dark:text-gray-400">Sin resultados</li>
+              <li className="px-2 py-1.5 text-sm text-gray-500 dark:text-gray-400">{isLoading ? 'Buscando...' : 'Sin resultados'}</li>
             )}
             {filtered.map((opt, i) => (
               <li

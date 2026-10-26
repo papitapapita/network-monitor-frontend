@@ -14,6 +14,7 @@ import {
 import { DeviceResponseDTO } from '@/types/device.types';
 import { PAYMENT_DAY_OPTIONS, formatPaymentDay } from '@/constants/billing-settings.constants';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
+import { CpeDevicePicker } from '@/components/devices/CpeDevicePicker';
 import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnterCancelOnEscape, isCancelEscape, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
@@ -103,7 +104,17 @@ export default function CustomerDetailPage() {
   const [contracts, setContracts] = useState<ContractedServiceDTO[]>([]);
   const [contractsLoading, setContractsLoading] = useState(true);
   const [servicePlans, setServicePlans] = useState<ServicePlanDTO[]>([]);
+  // Every CPE seen so far (assigned to a contract or returned by a picker's
+  // search), so names resolve without loading the whole inventory.
   const [cpeDevices, setCpeDevices] = useState<DeviceResponseDTO[]>([]);
+  const rememberDevices = useCallback((devices: DeviceResponseDTO[]) => {
+    if (devices.length === 0) return;
+    setCpeDevices((prev) => {
+      const byId = new Map(prev.map((d) => [d.id, d]));
+      for (const d of devices) byId.set(d.id, d);
+      return [...byId.values()];
+    });
+  }, []);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({ servicePlanId: '', deviceId: '', startDate: '' });
   const [addError, setAddError] = useState<string | null>(null);
@@ -157,17 +168,17 @@ export default function CustomerDetailPage() {
       // Only hit the router when there is something to enforce.
       const suspended = r.data.contractedServices.filter((c) => c.status === 'SUSPENDED');
       if (suspended.length > 0) fetchEnforcement(suspended);
+      const deviceIds = [...new Set(r.data.contractedServices.map((c) => c.deviceId).filter((id): id is string => !!id))];
+      Promise.all(deviceIds.map((id) => apiService.getDevice(id))).then((rs) =>
+        rememberDevices(rs.flatMap((d) => (d.success && d.data ? [d.data] : [])))
+      );
     }
     setContractsLoading(false);
-  }, [customerId, fetchEnforcement]);
+  }, [customerId, fetchEnforcement, rememberDevices]);
 
   useEffect(() => {
     fetchContracts();
     apiService.listServicePlans({ limit: 100 }).then((r) => { if (r.success && r.data) setServicePlans(r.data.servicePlans); });
-    apiService.listDevices({ category: 'CPE', limit: 200 }).then((r) => { if (r.success && r.data) setCpeDevices(r.data.devices); });
-    apiService.listDevices({ category: 'WIRELESS_CPE', limit: 200 }).then((r) => {
-      if (r.success && r.data) setCpeDevices((p) => [...p, ...r.data!.devices]);
-    });
   }, [fetchContracts]);
 
   const handleVerifyEnforcement = async (id: string) => {
@@ -292,7 +303,7 @@ export default function CustomerDetailPage() {
   };
 
   // The throttle targets the assigned device's IP; without one the status still
-  // changes but nothing is enforced. Unknown devices (not in the CPE lists) are
+  // changes but nothing is enforced. Unknown devices (not loaded yet) are
   // left alone rather than warned about wrongly.
   const throttleUnavailable = (cs: ContractedServiceDTO) => {
     if (!cs.deviceId) return true;
@@ -500,11 +511,12 @@ export default function CustomerDetailPage() {
                   error={addFormErrors.servicePlanId}
                   fullWidth
                 />
-                <Select
+                <CpeDevicePicker
                   label="Dispositivo CPE (opcional)"
                   value={addForm.deviceId}
-                  onChange={(e) => setAddForm((p) => ({ ...p, deviceId: e.target.value }))}
-                  options={[{ value: '', label: 'Sin dispositivo' }, ...cpeDevices.map((d) => ({ value: d.id, label: `${d.name}${d.ipAddress ? ` – ${d.ipAddress}` : ''}` }))]}
+                  onChange={(deviceId) => setAddForm((p) => ({ ...p, deviceId }))}
+                  selected={deviceOf(addForm.deviceId)}
+                  onDevicesFound={rememberDevices}
                   fullWidth
                 />
                 <Input
@@ -555,13 +567,16 @@ export default function CustomerDetailPage() {
                           options={servicePlans.filter((p) => p.isActive || p.id === cs.servicePlanId).map((p) => ({ value: p.id, label: p.name }))}
                           fullWidth={false}
                         />
-                        <Select
-                          label="Dispositivo CPE"
-                          value={editDeviceId}
-                          onChange={(e) => { setEditDeviceId(e.target.value); setEditError(null); }}
-                          options={[{ value: '', label: 'Sin dispositivo' }, ...cpeDevices.map((d) => ({ value: d.id, label: `${d.name}${d.ipAddress ? ` – ${d.ipAddress}` : ''}` }))]}
-                          fullWidth={false}
-                        />
+                        <div className="w-full sm:w-72">
+                          <CpeDevicePicker
+                            label="Dispositivo CPE"
+                            value={editDeviceId}
+                            onChange={(deviceId) => { setEditDeviceId(deviceId); setEditError(null); }}
+                            selected={deviceOf(editDeviceId)}
+                            onDevicesFound={rememberDevices}
+                            fullWidth
+                          />
+                        </div>
                         <Select
                           label="Estado"
                           value={editStatus}
