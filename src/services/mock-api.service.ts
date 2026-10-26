@@ -205,7 +205,7 @@ const DEFAULT_ALERT_THRESHOLDS: AlertThresholdsDTO = {
 };
 let alertThresholds: AlertThresholdsDTO = structuredClone(DEFAULT_ALERT_THRESHOLDS);
 let billingSettings: BillingSettingsDTO = { automaticBillingEnabled: false, billingMode: 'ADVANCE', issueLeadDays: 5, graceDays: 3, automaticCutEnabled: false, reminderWhatsAppTemplate: null, billWhatsAppTemplate: null };
-let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true, alertTicketMode: 'SUGGEST' };
+let notificationSettings: NotificationSettingsDTO = { telegramChatId: '-1001234567890', downAlertDelayMinutes: 60, wirelessAlertsEnabled: true, alertTicketMode: 'SUGGEST', quietHoursStart: null, quietHoursEnd: null };
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -1149,6 +1149,7 @@ class MockApiService {
     return ok(
       notificationPolicies[deviceId] ?? {
         deviceId,
+        quietHoursMode: 'INHERIT',
         quietHoursStart: null,
         quietHoursEnd: null,
         alertDelayMinutes: null,
@@ -1167,8 +1168,13 @@ class MockApiService {
     if (hasStart !== hasEnd) {
       return err('quietHoursStart and quietHoursEnd must both be set, or both be null');
     }
+    const mode = data.quietHoursMode ?? (hasStart ? 'CUSTOM' : 'INHERIT');
+    if ((mode === 'CUSTOM') !== hasStart) {
+      return err('quietHoursStart and quietHoursEnd must be set when quietHoursMode is CUSTOM, and only then');
+    }
     const policy: DeviceNotificationPolicyDTO = {
       deviceId,
+      quietHoursMode: mode,
       quietHoursStart: data.quietHoursStart ?? null,
       quietHoursEnd: data.quietHoursEnd ?? null,
       alertDelayMinutes: data.alertDelayMinutes ?? null,
@@ -1217,6 +1223,10 @@ class MockApiService {
   }
 
   async saveNotificationSettings(data: NotificationSettingsDTO): Promise<ApiResponse<NotificationSettingsDTO>> {
+    const hasStart = (data.quietHoursStart ?? null) !== null;
+    if (hasStart !== ((data.quietHoursEnd ?? null) !== null)) {
+      return err('quietHoursStart and quietHoursEnd must both be set, or both be null');
+    }
     notificationSettings = { ...data, telegramChatId: data.telegramChatId?.trim() || null };
     return ok({ ...notificationSettings });
   }

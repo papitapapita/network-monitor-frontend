@@ -17,6 +17,13 @@ export interface NotificationSettingsDTO {
    * on its own, as before.
    */
   alertTicketMode: AlertTicketMode;
+  /**
+   * The install's quiet hours (NOT-207), "HH:mm" 24-hour: every device on
+   * INHERIT — or with no policy — withholds its notifications inside it. Both
+   * null = none (the default). Overnight windows cross midnight.
+   */
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
 }
 
 export type AlertTicketMode = 'SUGGEST' | 'AUTOMATIC';

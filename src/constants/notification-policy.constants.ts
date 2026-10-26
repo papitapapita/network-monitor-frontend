@@ -1,4 +1,22 @@
+import { QuietHoursMode } from '@/types/notification-policy.types';
+
 export const ALERT_DELAY_MINUTES_MIN = 0;
+
+/** The three-option control BACKEND_API.md suggests for NOT-170. */
+export const QUIET_HOURS_MODE_OPTIONS: { value: QuietHoursMode; label: string }[] = [
+  { value: 'INHERIT', label: 'Horario de la red' },
+  { value: 'CUSTOM', label: 'Horario propio' },
+  { value: 'ALWAYS_NOTIFY', label: 'Notificar siempre' },
+];
+
+export const QUIET_HOURS_MODE_LABELS: Record<QuietHoursMode, string> = Object.fromEntries(
+  QUIET_HOURS_MODE_OPTIONS.map((o) => [o.value, o.label])
+) as Record<QuietHoursMode, string>;
+
+/** `22:00–07:00`, or null when there is no window. */
+export function formatQuietHours(start: string | null, end: string | null): string | null {
+  return start && end ? `${start}–${end}` : null;
+}
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 

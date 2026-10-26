@@ -2,10 +2,11 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api.service';
-import { DeviceNotificationPolicyDTO } from '@/types/notification-policy.types';
+import { DeviceNotificationPolicyDTO, QuietHoursMode } from '@/types/notification-policy.types';
 import {
   Card,
   Input,
+  Select,
   Badge,
   LoadingSpinner,
   ConfirmModal,
@@ -18,6 +19,9 @@ import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useNotificationSettings } from '@/hooks/useNotificationSettings';
 import {
+  QUIET_HOURS_MODE_LABELS,
+  QUIET_HOURS_MODE_OPTIONS,
+  formatQuietHours,
   validateQuietHours,
   validateAlertDelayMinutes,
 } from '@/constants/notification-policy.constants';
@@ -35,30 +39,37 @@ function ResetIcon() {
 }
 
 interface FormState {
+  quietHoursMode: QuietHoursMode;
   quietHoursStart: string;
   quietHoursEnd: string;
   alertDelayMinutes: string;
 }
 
-const emptyForm: FormState = { quietHoursStart: '', quietHoursEnd: '', alertDelayMinutes: '' };
+const emptyForm: FormState = { quietHoursMode: 'INHERIT', quietHoursStart: '', quietHoursEnd: '', alertDelayMinutes: '' };
 
 const toForm = (policy: DeviceNotificationPolicyDTO): FormState => ({
+  quietHoursMode: policy.quietHoursMode,
   quietHoursStart: policy.quietHoursStart ?? '',
   quietHoursEnd: policy.quietHoursEnd ?? '',
   alertDelayMinutes: policy.alertDelayMinutes !== null ? String(policy.alertDelayMinutes) : '',
 });
 
 /**
- * Per-device quiet hours (mutes device-down, recovery, and wireless alert
- * *notifications* — the alert record itself still opens/lists normally) and
- * an optional override of the down-alert delay. No window configured means
- * always-notify; there is no separate "important device" flag (BACKEND_API.md).
+ * Which quiet hours apply to the device (they mute device-down, recovery, and
+ * wireless alert *notifications* — the alert record itself still opens/lists
+ * normally) and an optional override of the down-alert delay. The device
+ * follows the install's window, sets its own, or always notifies (NOT-170).
  */
 export function DeviceNotificationPolicyTab({ deviceId }: Props) {
   const { showError, showSuccess, showFormErrors } = useToast();
   const { canWrite } = usePermissions();
-  // The install's delay (NOT-200) applies when the device carries none of its own.
-  const installDelay = useNotificationSettings().data?.downAlertDelayMinutes;
+  // The install's delay (NOT-200) and quiet hours (NOT-207) apply when the
+  // device carries none of its own.
+  const installSettings = useNotificationSettings().data;
+  const installDelay = installSettings?.downAlertDelayMinutes;
+  const installWindow = installSettings
+    ? formatQuietHours(installSettings.quietHoursStart, installSettings.quietHoursEnd)
+    : null;
 
   const [policy, setPolicy] = useState<DeviceNotificationPolicyDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,10 +100,14 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
     fetchPolicy();
   }, [fetchPolicy]);
 
-  const alwaysNotifies = !form.quietHoursStart && !form.quietHoursEnd;
+  const isCustom = form.quietHoursMode === 'CUSTOM';
 
   const handleSave = async () => {
-    const quietHoursError = validateQuietHours(form.quietHoursStart, form.quietHoursEnd);
+    const quietHoursError = !isCustom
+      ? null
+      : !form.quietHoursStart && !form.quietHoursEnd
+        ? 'Indica la hora de inicio y fin del horario propio'
+        : validateQuietHours(form.quietHoursStart, form.quietHoursEnd);
     const delayError = validateAlertDelayMinutes(form.alertDelayMinutes);
     const nextErrors: Record<string, string> = {};
     if (quietHoursError) nextErrors.quietHoursStart = quietHoursError;
@@ -101,9 +116,11 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
     if (showFormErrors(nextErrors)) return;
 
     setSaving(true);
+    // The window goes only with CUSTOM; the backend refuses it with the others.
     const result = await apiService.updateNotificationPolicy(deviceId, {
-      quietHoursStart: form.quietHoursStart || null,
-      quietHoursEnd: form.quietHoursEnd || null,
+      quietHoursMode: form.quietHoursMode,
+      quietHoursStart: isCustom ? form.quietHoursStart : null,
+      quietHoursEnd: isCustom ? form.quietHoursEnd : null,
       alertDelayMinutes: form.alertDelayMinutes ? parseInt(form.alertDelayMinutes, 10) : null,
     });
     setSaving(false);
@@ -141,6 +158,18 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
 
   const hasCustomPolicy = policy?.updatedAt != null;
 
+  // What the saved policy actually silences, for the read-only view.
+  const effectiveWindow = !policy || policy.quietHoursMode === 'ALWAYS_NOTIFY'
+    ? null
+    : policy.quietHoursMode === 'CUSTOM'
+      ? formatQuietHours(policy.quietHoursStart, policy.quietHoursEnd)
+      : installWindow;
+  const effectiveWindowText = policy?.quietHoursMode === 'ALWAYS_NOTIFY'
+    ? 'Nada: notifica siempre'
+    : policy?.quietHoursMode === 'INHERIT'
+      ? installWindow ? `${installWindow} (de la instalación)` : 'Nada: la instalación no tiene horario de silencio'
+      : effectiveWindow ?? '—';
+
   return (
     <div className="space-y-6">
       <ConfirmModal
@@ -148,7 +177,7 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
         onClose={() => setShowResetModal(false)}
         onConfirm={handleReset}
         title="Restablecer notificaciones"
-        message="El dispositivo volverá a notificar siempre, sin horario de silencio, y usará el retraso de alerta por defecto del sistema."
+        message="El dispositivo volverá a seguir el horario de silencio de la instalación y a usar su retraso de alerta."
         confirmText="Restablecer"
         cancelText="Cancelar"
         isLoading={resetting}
@@ -157,13 +186,15 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
       <Card>
         <Card.Header>
           <div className="flex flex-wrap justify-between items-center gap-2">
-            <SectionTitle info="Silencia las notificaciones de caída, recuperación y alertas inalámbricas de este dispositivo durante el horario indicado: las alertas se siguen registrando normalmente, solo se posponen los avisos. Deja ambos campos vacíos para que notifique siempre. Un horario que cruza medianoche (p. ej. 22:00–07:00) es válido.">
+            <SectionTitle info="Durante el horario de silencio se posponen los avisos de caída, recuperación y alertas inalámbricas de este dispositivo; las alertas se siguen registrando normalmente. «Horario de la red» sigue el de la instalación (en Configuración), «Horario propio» usa uno solo para este dispositivo y «Notificar siempre» no lo silencia nunca, p. ej. el router principal. Un horario que cruza medianoche (p. ej. 22:00–07:00) es válido.">
               Política de Notificaciones
             </SectionTitle>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={alwaysNotifies ? 'success' : 'info'}>
-                {alwaysNotifies ? 'Siempre notifica' : 'Horario de silencio activo'}
-              </Badge>
+              {policy && (
+                <Badge variant={effectiveWindow ? 'info' : 'success'}>
+                  {QUIET_HOURS_MODE_LABELS[policy.quietHoursMode]}
+                </Badge>
+              )}
               {!loading && !loadError && (
                 <>
                   <EditToggleButton isEditing={isEditing} onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
@@ -188,29 +219,51 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
             <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
           ) : isEditing ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Inicio del silencio"
-                  type="time"
-                  value={form.quietHoursStart}
+              <div className="max-w-xs">
+                <Select
+                  label="Horario de silencio"
+                  value={form.quietHoursMode}
                   onChange={(e) => {
-                    setForm((p) => ({ ...p, quietHoursStart: e.target.value }));
+                    setForm((p) => ({ ...p, quietHoursMode: e.target.value as QuietHoursMode }));
                     setErrors((p) => { const n = { ...p }; delete n.quietHoursStart; return n; });
                   }}
-                  error={errors.quietHoursStart}
-                  fullWidth
-                />
-                <Input
-                  label="Fin del silencio"
-                  type="time"
-                  value={form.quietHoursEnd}
-                  onChange={(e) => {
-                    setForm((p) => ({ ...p, quietHoursEnd: e.target.value }));
-                    setErrors((p) => { const n = { ...p }; delete n.quietHoursStart; return n; });
-                  }}
+                  options={QUIET_HOURS_MODE_OPTIONS}
+                  info={form.quietHoursMode === 'INHERIT'
+                    ? installWindow
+                      ? `Sigue el de la instalación (${installWindow}, en Configuración).`
+                      : 'Sigue el de la instalación (en Configuración); ahora no tiene ninguno.'
+                    : form.quietHoursMode === 'ALWAYS_NOTIFY'
+                      ? 'Nunca se silencia, aunque la instalación tenga horario.'
+                      : 'Usa el horario de abajo e ignora el de la instalación.'}
                   fullWidth
                 />
               </div>
+
+              {isCustom && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Inicio del silencio"
+                    type="time"
+                    value={form.quietHoursStart}
+                    onChange={(e) => {
+                      setForm((p) => ({ ...p, quietHoursStart: e.target.value }));
+                      setErrors((p) => { const n = { ...p }; delete n.quietHoursStart; return n; });
+                    }}
+                    error={errors.quietHoursStart}
+                    fullWidth
+                  />
+                  <Input
+                    label="Fin del silencio"
+                    type="time"
+                    value={form.quietHoursEnd}
+                    onChange={(e) => {
+                      setForm((p) => ({ ...p, quietHoursEnd: e.target.value }));
+                      setErrors((p) => { const n = { ...p }; delete n.quietHoursStart; return n; });
+                    }}
+                    fullWidth
+                  />
+                </div>
+              )}
 
               <div className="mt-4 max-w-xs">
                 <Input
@@ -234,12 +287,14 @@ export function DeviceNotificationPolicyTab({ deviceId }: Props) {
           ) : (
             <dl className="wrap-anywhere grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Inicio del silencio</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">{policy?.quietHoursStart ?? '—'}</dd>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Horario de silencio</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                  {policy ? QUIET_HOURS_MODE_LABELS[policy.quietHoursMode] : '—'}
+                </dd>
               </div>
               <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Fin del silencio</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">{policy?.quietHoursEnd ?? '—'}</dd>
+                <dt className="font-medium text-gray-500 dark:text-gray-400">Silencia</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{effectiveWindowText}</dd>
               </div>
               <div>
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Retraso de alerta de caída</dt>

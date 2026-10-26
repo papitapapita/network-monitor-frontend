@@ -12,6 +12,7 @@ import {
   validateDownAlertDelay,
   validateTelegramChatId,
 } from '@/constants/notification-settings.constants';
+import { validateQuietHours } from '@/constants/notification-policy.constants';
 import { AlertTicketMode, NotificationSettingsDTO } from '@/types/notification-settings.types';
 
 interface Draft {
@@ -19,6 +20,8 @@ interface Draft {
   downAlertDelayMinutes: string;
   wirelessAlertsEnabled: boolean;
   alertTicketMode: AlertTicketMode;
+  quietHoursStart: string;
+  quietHoursEnd: string;
 }
 
 const ALERT_TICKET_MODE_OPTIONS: { value: AlertTicketMode; label: string }[] = [
@@ -31,14 +34,17 @@ const toDraft = (s: NotificationSettingsDTO): Draft => ({
   downAlertDelayMinutes: String(s.downAlertDelayMinutes),
   wirelessAlertsEnabled: s.wirelessAlertsEnabled,
   alertTicketMode: s.alertTicketMode,
+  quietHoursStart: s.quietHoursStart ?? '',
+  quietHoursEnd: s.quietHoursEnd ?? '',
 });
 
 type TestOutcome = { ok: true; chat: string } | { ok: false; message: string };
 
 /**
  * Where the install's alerts go and when (NOT-200): the Telegram chat, how
- * long a device stays down before its alert is sent, and whether wireless
- * alerts are sent at all. Everyone reads them; only an administrator saves
+ * long a device stays down before its alert is sent, whether wireless alerts
+ * are sent at all, and the install's quiet hours, which every device follows
+ * unless it sets its own (NOT-207). Everyone reads them; only an administrator saves
  * them or sends a test message (`manage-settings`). A save applies from the
  * next alert.
  */
@@ -66,6 +72,8 @@ export function NotificationSettingsCard() {
     setErrors((prev) => {
       const next = { ...prev };
       for (const key of Object.keys(patch) as (keyof Draft)[]) delete next[key];
+      // The window's one error sits on its start field.
+      if ('quietHoursEnd' in patch) delete next.quietHoursStart;
       return next;
     });
     if ('telegramChatId' in patch) setTestOutcome(null);
@@ -78,6 +86,8 @@ export function NotificationSettingsCard() {
     if (chatError) next.telegramChatId = chatError;
     const delayError = validateDownAlertDelay(form.downAlertDelayMinutes);
     if (delayError) next.downAlertDelayMinutes = delayError;
+    const quietHoursError = validateQuietHours(form.quietHoursStart, form.quietHoursEnd);
+    if (quietHoursError) next.quietHoursStart = quietHoursError;
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -91,6 +101,8 @@ export function NotificationSettingsCard() {
       downAlertDelayMinutes: Number(form.downAlertDelayMinutes.trim()),
       wirelessAlertsEnabled: form.wirelessAlertsEnabled,
       alertTicketMode: form.alertTicketMode,
+      quietHoursStart: form.quietHoursStart || null,
+      quietHoursEnd: form.quietHoursEnd || null,
     });
     setSaving(false);
     if (r.success && r.data) {
@@ -222,6 +234,38 @@ export function NotificationSettingsCard() {
               onChange={(e) => edit({ wirelessAlertsEnabled: e.target.checked })}
               disabled={!canEdit}
             />
+
+            <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Inicio del silencio"
+                  type="time"
+                  value={form.quietHoursStart}
+                  onChange={(e) => edit({ quietHoursStart: e.target.value })}
+                  error={errors.quietHoursStart}
+                  info="Horario de la red: dentro de él se posponen los avisos de caída, recuperación y alertas inalámbricas de todo dispositivo con «Horario de la red»; las alertas se siguen registrando. Un dispositivo con «Notificar siempre» (pestaña «Notificaciones») nunca se silencia. Vacíos: sin horario. Puede cruzar medianoche (p. ej. 22:00–07:00)."
+                  disabled={!canEdit}
+                  fullWidth
+                />
+                <Input
+                  label="Fin del silencio"
+                  type="time"
+                  value={form.quietHoursEnd}
+                  onChange={(e) => edit({ quietHoursEnd: e.target.value })}
+                  disabled={!canEdit}
+                  fullWidth
+                />
+              </div>
+              {canEdit && (form.quietHoursStart || form.quietHoursEnd) && (
+                <button
+                  type="button"
+                  onClick={() => edit({ quietHoursStart: '', quietHoursEnd: '' })}
+                  className="mt-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  Quitar horario de silencio
+                </button>
+              )}
+            </div>
 
             <Select
               label="Tickets de alertas"
