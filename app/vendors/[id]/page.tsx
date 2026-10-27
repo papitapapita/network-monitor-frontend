@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { VendorDTO, UpdateVendorDTO } from '@/types/device.types';
-import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, TrashIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, EditFormActions, BackLink, RecordTimestamps, TrashIcon, Input, Textarea, LoadingSpinner } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -285,20 +285,9 @@ export default function VendorDetailPage() {
                   </div>
                 </dl>
               </Card.Body>
-              <Card.Footer>
-                <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <dt className="font-medium text-gray-500 dark:text-gray-400">Creado</dt>
-                    <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(vendor.createdAt).toLocaleString('es')}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-gray-500 dark:text-gray-400">Última Actualización</dt>
-                    <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(vendor.updatedAt).toLocaleString('es')}</dd>
-                  </div>
-                </dl>
-              </Card.Footer>
             </Card>
         )}
+        {!isEditing && <RecordTimestamps createdAt={vendor.createdAt} updatedAt={vendor.updatedAt} className="mt-4" />}
       </div>
     </div>
   );

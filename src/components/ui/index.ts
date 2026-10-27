@@ -68,5 +68,6 @@ export { EditToggleButton } from './EditToggleButton';
 export { submitOnEnter, submitOnEnterCancelOnEscape, isCancelEscape } from './enterToSubmit';
 
 export { BackLink } from './BackLink';
+export { RecordTimestamps } from './RecordTimestamps';
 
 export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon, EyeIcon, EyeOffIcon, ExpandIcon, CollapseIcon, LocateIcon } from './icons';

@@ -10,7 +10,7 @@ import {
   VendorDTO,
   DeviceType,
 } from '@/types/device.types';
-import { Card, Input, Select, Switch, Badge, EditFormActions } from '@/components/ui';
+import { Card, Input, Select, Switch, Badge, EditFormActions, RecordTimestamps } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
 import { POE_SWITCH_OS_LABELS, POE_SWITCH_OS_OPTIONS } from '@/constants/power.constants';
@@ -287,15 +287,8 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
                   <dt className="font-medium text-gray-500 dark:text-gray-400">ID de Fabricante</dt>
                   <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono text-xs">{model.vendorId}</dd>
                 </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Creado</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(model.createdAt).toLocaleString('es')}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Última Actualización</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(model.updatedAt).toLocaleString('es')}</dd>
-                </div>
               </dl>
+              <RecordTimestamps createdAt={model.createdAt} updatedAt={model.updatedAt} className="mt-4" />
             </Card.Footer>
           </Card>
       )}

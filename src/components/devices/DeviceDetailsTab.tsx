@@ -22,6 +22,7 @@ import {
   Badge,
   EditFormActions,
   EditToggleButton,
+  RecordTimestamps,
   getDeviceStatusBadgeVariant,
   FieldLabel,
 } from '@/components/ui';
@@ -606,22 +607,15 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                 </div>
               </dl>
             </Card.Body>
-            <Card.Footer>
-              <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Creado</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(device.createdAt).toLocaleString('es')}</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Última Actualización</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">{new Date(device.updatedAt).toLocaleString('es')}</dd>
-                </div>
-              </dl>
-            </Card.Footer>
           </Card>
       )}
 
-      {!isEditing && <DeviceServiceCard device={device} />}
+      {!isEditing && (
+        <>
+          <DeviceServiceCard device={device} />
+          <RecordTimestamps createdAt={device.createdAt} updatedAt={device.updatedAt} />
+        </>
+      )}
 
       <LocationCreateModal
         isOpen={showLocationModal}
