@@ -65,6 +65,7 @@ import { PushPublicKeyDTO, PushSubscriptionDTO, PushTestResultDTO } from '../typ
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import { BackUpNowResultDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
+import { TopologyDTO, TopologyNodeDTO } from '../types/topology.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AgentDTO,
@@ -261,6 +262,43 @@ function upstreamRefusal(deviceId: string | null, upstreamId: string): ApiRespon
     }
   }
   return null;
+}
+
+// ── Topology ─────────────────────────────────────────────────
+// Built from the devices' upstream links and the mock polling status, so an
+// OFFLINE device below another OFFLINE one reads UNREACHABLE (DEV-186).
+
+function buildTopology(): TopologyNodeDTO[] {
+  const live = devices.filter((d) => !d.deletedAt);
+  const parents = new Set(live.map((d) => d.upstreamDeviceId).filter(Boolean));
+  const onNetwork = live.filter((d) => d.status === 'ACTIVE' || d.status === 'COMMISSIONING' || parents.has(d.id));
+  const byId = new Map(onNetwork.map((d) => [d.id, d]));
+  const down = (id: string) => pollingStatus[id]?.currentStatus === 'OFFLINE';
+  return onNetwork
+    .map((d): TopologyNodeDTO => {
+      const status = pollingStatus[d.id];
+      let reachability: TopologyNodeDTO['reachability'] = !status?.pollingEnabled ? 'UNKNOWN' : status.currentStatus === 'ONLINE' ? 'UP' : status.currentStatus === 'OFFLINE' ? 'DOWN' : 'UNKNOWN';
+      if (reachability === 'DOWN') {
+        for (let at = d.upstreamDeviceId ? byId.get(d.upstreamDeviceId) : undefined; at; at = at.upstreamDeviceId ? byId.get(at.upstreamDeviceId) : undefined) {
+          if (down(at.id)) { reachability = 'UNREACHABLE'; break; }
+        }
+      }
+      const location = locations.find((l) => l.id === d.locationId);
+      return {
+        id: d.id,
+        name: d.name,
+        status: d.status,
+        category: d.category,
+        ipAddress: d.ipAddress,
+        locationId: d.locationId,
+        locationName: location?.name ?? null,
+        upstreamDeviceId: d.upstreamDeviceId && byId.has(d.upstreamDeviceId) ? d.upstreamDeviceId : null,
+        reachability,
+        downSince: reachability === 'DOWN' || reachability === 'UNREACHABLE' ? (status?.lastPolled ?? null) : null,
+        childCount: onNetwork.filter((c) => c.upstreamDeviceId === d.id).length,
+      };
+    })
+    .sort((a, b) => (a.ipAddress ?? '~').localeCompare(b.ipAddress ?? '~', undefined, { numeric: true }));
 }
 
 // ── Device backups ───────────────────────────────────────────
@@ -1346,6 +1384,22 @@ class MockApiService {
   }
   async revealDeviceCredentials(): Promise<ApiResponse<RevealedDeviceCredentialsDTO>> {
     return { success: false, error: 'No disponible en modo mock' };
+  }
+
+  // ── Topology ───────────────────────────────────────────────
+
+  async getTopology(): Promise<ApiResponse<TopologyDTO>> {
+    const nodes = buildTopology();
+    return ok({ nodes, total: nodes.length });
+  }
+
+  async getTopologyDescendants(deviceId: string): Promise<ApiResponse<TopologyDTO>> {
+    const all = buildTopology();
+    const self = all.find((n) => n.id === deviceId);
+    if (!self) return { success: false, status: 404, error: `Device not found in the topology: ${deviceId}` };
+    const nodes = [self];
+    for (let i = 0; i < nodes.length; i++) nodes.push(...all.filter((n) => n.upstreamDeviceId === nodes[i].id));
+    return ok({ nodes, total: nodes.length });
   }
 
   // ── Device Backups ─────────────────────────────────────────

@@ -14,7 +14,9 @@
     "e2e:sweep": "tsx e2e/fixtures/sweep.ts"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.8",
     "@tanstack/react-query": "^5.100.10",
+    "@xyflow/react": "^12.12.0",
     "leaflet": "^1.9.4",
     "next": "^16.2.1",
     "qrcode": "^1.5.4",

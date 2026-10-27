@@ -67,8 +67,9 @@ type DeviceFixture = Omit<
 
 /**
  * The mock network: Core-Router-01 → Switch-Core-01 → Switch-Floor-1 →
- * AP-Floor-2-01 → the Souza CPE, with the east backhaul and the damaged roof
- * AP hanging off the core. Core-Router-02 is a second root.
+ * AP-Floor-2-01 → four customer CPEs, with the east backhaul (and its two
+ * CPEs) and the damaged roof AP hanging off the core. Core-Router-02 is a
+ * second root. Switch-Floor-1 is down, so everything behind it is cut off.
  */
 const MOCK_UPSTREAMS: Record<string, string> = {
   'dev-3': 'dev-1',
@@ -77,6 +78,11 @@ const MOCK_UPSTREAMS: Record<string, string> = {
   'dev-8': 'dev-3',
   'dev-2': 'dev-5',
   'dev-6': 'dev-2',
+  'dev-11': 'dev-2',
+  'dev-12': 'dev-2',
+  'dev-13': 'dev-2',
+  'dev-14': 'dev-4',
+  'dev-15': 'dev-4',
 };
 
 const liveDevice = (d: DeviceFixture): DeviceResponseDTO => ({
@@ -164,6 +170,49 @@ const DEVICE_FIXTURES: DeviceFixture[] = [
     installedDate: daysAgo(400), createdAt: daysAgo(400), updatedAt: daysAgo(60),
     replacedByDeviceId: 'dev-1',
   },
+  // Customers' antennas, so the network map has leaves; the last one nobody has linked yet.
+  {
+    id: 'dev-11', name: 'CPE-Cliente-Gomez', status: 'ACTIVE', category: 'WIRELESS_CPE',
+    ownerType: 'CLIENT', deviceModelId: 'dm-2', locationId: 'loc-2',
+    ipAddress: '10.0.1.45', macAddress: 'AA:BB:CC:DD:EF:11', serialNumber: null,
+    monitoringEnabled: true, description: null,
+    installedDate: daysAgo(60), createdAt: daysAgo(60), updatedAt: daysAgo(4),
+  },
+  {
+    id: 'dev-12', name: 'CPE-Cliente-Perez', status: 'ACTIVE', category: 'WIRELESS_CPE',
+    ownerType: 'CLIENT', deviceModelId: 'dm-2', locationId: 'loc-2',
+    ipAddress: '10.0.1.46', macAddress: 'AA:BB:CC:DD:EF:12', serialNumber: null,
+    monitoringEnabled: true, description: null,
+    installedDate: daysAgo(60), createdAt: daysAgo(60), updatedAt: daysAgo(4),
+  },
+  {
+    id: 'dev-13', name: 'CPE-Cliente-Rojas', status: 'ACTIVE', category: 'WIRELESS_CPE',
+    ownerType: 'CLIENT', deviceModelId: 'dm-2', locationId: 'loc-2',
+    ipAddress: '10.0.1.47', macAddress: 'AA:BB:CC:DD:EF:13', serialNumber: null,
+    monitoringEnabled: true, description: null,
+    installedDate: daysAgo(60), createdAt: daysAgo(60), updatedAt: daysAgo(4),
+  },
+  {
+    id: 'dev-14', name: 'CPE-Cliente-Mora', status: 'ACTIVE', category: 'WIRELESS_CPE',
+    ownerType: 'CLIENT', deviceModelId: 'dm-2', locationId: 'loc-2',
+    ipAddress: '192.168.50.21', macAddress: 'AA:BB:CC:DD:EF:14', serialNumber: null,
+    monitoringEnabled: true, description: null,
+    installedDate: daysAgo(60), createdAt: daysAgo(60), updatedAt: daysAgo(4),
+  },
+  {
+    id: 'dev-15', name: 'CPE-Cliente-Vargas', status: 'ACTIVE', category: 'WIRELESS_CPE',
+    ownerType: 'CLIENT', deviceModelId: 'dm-2', locationId: 'loc-2',
+    ipAddress: '192.168.50.22', macAddress: 'AA:BB:CC:DD:EF:15', serialNumber: null,
+    monitoringEnabled: true, description: null,
+    installedDate: daysAgo(60), createdAt: daysAgo(60), updatedAt: daysAgo(4),
+  },
+  {
+    id: 'dev-16', name: 'CPE-Cliente-Rincon', status: 'ACTIVE', category: 'WIRELESS_CPE',
+    ownerType: 'CLIENT', deviceModelId: 'dm-2', locationId: 'loc-2',
+    ipAddress: '10.0.9.80', macAddress: 'AA:BB:CC:DD:EF:16', serialNumber: null,
+    monitoringEnabled: true, description: null,
+    installedDate: daysAgo(60), createdAt: daysAgo(60), updatedAt: daysAgo(4),
+  },
 ];
 
 export const MOCK_DEVICES: DeviceResponseDTO[] = DEVICE_FIXTURES.map(liveDevice);
@@ -189,7 +238,7 @@ export const MOCK_POLLING_STATUS: Record<string, PollingStatusDTO> = {
   'dev-2': {
     deviceId: 'dev-2', pollingEnabled: true, intervalSeconds: 60, failuresBeforeDown: 3,
     lastPolled: minsAgo(2), nextScheduled: new Date(Date.now() + 58_000).toISOString(),
-    currentStatus: 'ONLINE', lastResult: lastResult('dev-2', 'SUCCESS', 'ONLINE', 18), consecutiveFailures: 0,
+    currentStatus: 'OFFLINE', lastResult: lastResult('dev-2', 'FAILED', 'OFFLINE'), consecutiveFailures: 6,
   },
   'dev-3': {
     deviceId: 'dev-3', pollingEnabled: true, intervalSeconds: 30, failuresBeforeDown: 5,
@@ -204,7 +253,44 @@ export const MOCK_POLLING_STATUS: Record<string, PollingStatusDTO> = {
   'dev-6': {
     deviceId: 'dev-6', pollingEnabled: true, intervalSeconds: 300, failuresBeforeDown: 2,
     lastPolled: minsAgo(3), nextScheduled: new Date(Date.now() + 297_000).toISOString(),
-    currentStatus: 'ONLINE', lastResult: lastResult('dev-6', 'SUCCESS', 'ONLINE', 35), consecutiveFailures: 0,
+    currentStatus: 'OFFLINE', lastResult: lastResult('dev-6', 'FAILED', 'OFFLINE'), consecutiveFailures: 3,
+  },
+  // Down since a few minutes ago: the AP, the CPEs behind it and dev-6 above
+  // are cut off by it (UNREACHABLE on the network map).
+  'dev-5': {
+    deviceId: 'dev-5', pollingEnabled: true, intervalSeconds: 60, failuresBeforeDown: 3,
+    lastPolled: minsAgo(1), nextScheduled: new Date(Date.now() + 59_000).toISOString(),
+    currentStatus: 'OFFLINE', lastResult: lastResult('dev-5', 'FAILED', 'OFFLINE'), consecutiveFailures: 9,
+  },
+  'dev-11': {
+    deviceId: 'dev-11', pollingEnabled: true, intervalSeconds: 300, failuresBeforeDown: 2,
+    lastPolled: minsAgo(2), nextScheduled: new Date(Date.now() + 298_000).toISOString(),
+    currentStatus: 'OFFLINE', lastResult: lastResult('dev-11', 'FAILED', 'OFFLINE'), consecutiveFailures: 3,
+  },
+  'dev-12': {
+    deviceId: 'dev-12', pollingEnabled: true, intervalSeconds: 300, failuresBeforeDown: 2,
+    lastPolled: minsAgo(2), nextScheduled: new Date(Date.now() + 298_000).toISOString(),
+    currentStatus: 'OFFLINE', lastResult: lastResult('dev-12', 'FAILED', 'OFFLINE'), consecutiveFailures: 3,
+  },
+  'dev-13': {
+    deviceId: 'dev-13', pollingEnabled: true, intervalSeconds: 300, failuresBeforeDown: 2,
+    lastPolled: minsAgo(2), nextScheduled: new Date(Date.now() + 298_000).toISOString(),
+    currentStatus: 'OFFLINE', lastResult: lastResult('dev-13', 'FAILED', 'OFFLINE'), consecutiveFailures: 3,
+  },
+  'dev-14': {
+    deviceId: 'dev-14', pollingEnabled: true, intervalSeconds: 300, failuresBeforeDown: 2,
+    lastPolled: minsAgo(2), nextScheduled: new Date(Date.now() + 298_000).toISOString(),
+    currentStatus: 'ONLINE', lastResult: lastResult('dev-14', 'SUCCESS', 'ONLINE', 24), consecutiveFailures: 0,
+  },
+  'dev-15': {
+    deviceId: 'dev-15', pollingEnabled: true, intervalSeconds: 300, failuresBeforeDown: 2,
+    lastPolled: minsAgo(2), nextScheduled: new Date(Date.now() + 298_000).toISOString(),
+    currentStatus: 'ONLINE', lastResult: lastResult('dev-15', 'SUCCESS', 'ONLINE', 24), consecutiveFailures: 0,
+  },
+  'dev-16': {
+    deviceId: 'dev-16', pollingEnabled: true, intervalSeconds: 300, failuresBeforeDown: 2,
+    lastPolled: minsAgo(2), nextScheduled: new Date(Date.now() + 298_000).toISOString(),
+    currentStatus: 'ONLINE', lastResult: lastResult('dev-16', 'SUCCESS', 'ONLINE', 24), consecutiveFailures: 0,
   },
 };
 

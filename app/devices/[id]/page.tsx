@@ -16,6 +16,7 @@ import { Button, LoadingSpinner, Tooltip, IconButton, BackLink, TrashIcon } from
 import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
+import { DeviceDownstreamCard } from '@/components/devices/DeviceDownstreamCard';
 import { DeviceHealthCard } from '@/components/devices/DeviceHealthCard';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
@@ -495,6 +496,7 @@ export default function DeviceDetailPage() {
       {currentTab === 'details' && (
         <div className="space-y-6">
           <DeviceHealthCard device={device} showWireless={showWireless} onOpenTab={setActiveTab} />
+          <DeviceDownstreamCard deviceId={device.id} />
           <DeviceDetailsTab
             device={device}
             onDeviceUpdated={(updated) => {

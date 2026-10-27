@@ -1,3 +1,6 @@
+import type { TopologyReachability } from '@/types/topology.types';
+import type { BadgeVariant } from '@/components/ui';
+
 /**
  * The upstream link rules' refusals (BACKEND_API.md, Topology → Upstream link
  * rules, DEV-181..183), matched on the backend's English wording and said in
@@ -26,3 +29,29 @@ export function upstreamLinkError(raw: string | null | undefined): string | null
   }
   return null;
 }
+
+/**
+ * DEV-186. During an outage the red node is the one to send a technician to;
+ * the grey ones behind it are probably fine, just cut off.
+ */
+export const REACHABILITY: Record<TopologyReachability, { label: string; hint: string; variant: BadgeVariant; dot: string }> = {
+  UP: { label: 'En línea', hint: 'Respondió al último ping.', variant: 'success', dot: 'bg-green-500' },
+  DOWN: {
+    label: 'Caído',
+    hint: 'No responde y nada por encima de él está caído: aquí está la falla.',
+    variant: 'danger',
+    dot: 'bg-red-500',
+  },
+  UNREACHABLE: {
+    label: 'Sin alcance',
+    hint: 'No responde, pero un equipo por encima también está caído: probablemente está aislado, no dañado.',
+    variant: 'neutral',
+    dot: 'bg-gray-400',
+  },
+  UNKNOWN: {
+    label: 'Sin datos',
+    hint: 'No se monitorea, aún no se ha sondeado o su agente no está reportando.',
+    variant: 'neutral',
+    dot: 'bg-transparent border border-gray-400 dark:border-gray-500',
+  },
+};

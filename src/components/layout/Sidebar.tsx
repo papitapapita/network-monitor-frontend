@@ -82,6 +82,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
           'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
         ),
       },
+      // What hangs off what, and during an outage, where the fault is.
+      {
+        href: '/topology',
+        label: 'Topología',
+        icon: icon('M12 5a2 2 0 100-4 2 2 0 000 4zm0 0v4m0 0H6a2 2 0 00-2 2v4m8-6h6a2 2 0 012 2v4M4 19a2 2 0 100-4 2 2 0 000 4zm16 0a2 2 0 100-4 2 2 0 000 4zm-8 0a2 2 0 100-4 2 2 0 000 4zm0-10v6'),
+      },
       {
         href: '/wireless',
         label: 'Tráfico en vivo',

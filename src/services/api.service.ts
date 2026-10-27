@@ -158,6 +158,7 @@ import {
 } from '../types/bill.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import { BackUpNowResultDTO, BackupFile, DeviceBackupsDTO } from '../types/backup.types';
+import { TopologyDTO } from '../types/topology.types';
 import {
   QuotationDTO,
   QuotationListResponse,
@@ -673,6 +674,23 @@ class ApiService {
       if (translated) return { success: false, status: result.status, error: translated };
     }
     return result;
+  }
+
+  // ============================================================
+  // Topology
+  // ============================================================
+
+  /** The whole network: build the tree from each node's `upstreamDeviceId`. */
+  async getTopology(): Promise<ApiResponse<TopologyDTO>> {
+    return this.request<TopologyDTO>('/topology');
+  }
+
+  /**
+   * The device (`nodes[0]`) and everything below it, breadth-first. 404 when
+   * it is not on the network (e.g. INVENTORY) with nothing hanging off it.
+   */
+  async getTopologyDescendants(deviceId: string): Promise<ApiResponse<TopologyDTO>> {
+    return this.request<TopologyDTO>(`/topology/${deviceId}/descendants`);
   }
 
   // ============================================================
