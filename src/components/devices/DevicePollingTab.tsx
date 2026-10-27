@@ -596,9 +596,9 @@ export function DevicePollingTab({ device, onDeviceUpdated }: Props) {
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos Consecutivos</dt>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Sondeos fallidos</dt>
                   <dd className={`mt-1 ${pollingStatus.consecutiveFailures > 0 ? 'text-red-700 dark:text-red-400 font-medium' : 'text-gray-900 dark:text-gray-100'}`}>
-                    {pollingStatus.consecutiveFailures} de {pollingStatus.failuresBeforeDown}
+                    {pollingStatus.consecutiveFailures}
                   </dd>
                 </div>
                 <div>

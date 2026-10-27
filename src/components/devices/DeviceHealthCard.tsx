@@ -7,6 +7,7 @@ import { DeviceResponseDTO } from '@/types/device.types';
 import { Card, Badge, IconButton, SectionTitle, getPollingStatusBadgeVariant } from '@/components/ui';
 import { fmtAge, fmtBps } from '@/constants/wireless.constants';
 import { HealthTile, PingSummaryTiles, usePingSummary } from './PingSummary';
+import { fetchDeviceAlerts } from './DeviceHistoryTab';
 
 const CONNECTIVITY_LABELS: Record<string, string> = {
   ONLINE: 'En línea',
@@ -47,13 +48,13 @@ interface Props {
   device: DeviceResponseDTO;
   /** The radio is read only for a wireless model in a wireless category — the page already knows which. */
   showWireless: boolean;
-  onOpenTab: (tab: 'polling' | 'wireless') => void;
+  onOpenTab: (tab: 'history' | 'polling' | 'wireless') => void;
 }
 
 /**
  * How the device is doing right now, before anything about how it is set up:
- * the ping verdict and its last day, and — for a radio — the latest snapshot
- * and its open alerts. Read-only; every number links to the tab that owns it.
+ * the ping verdict and its last day, its open alerts, and — for a radio — the
+ * latest snapshot. Read-only; every number links to the tab that owns it.
  */
 export function DeviceHealthCard({ device, showWireless, onOpenTab }: Props) {
   const monitored = device.monitoringEnabled && !!device.ipAddress;
@@ -75,13 +76,19 @@ export function DeviceHealthCard({ device, showWireless, onOpenTab }: Props) {
     },
     enabled: showWireless,
   });
+  // Same key as the history tab, so opening it from the tile reuses this fetch.
+  const alertsQuery = useQuery({
+    queryKey: ['alerts', 'device', device.id],
+    queryFn: () => fetchDeviceAlerts(device.id),
+  });
   const pollingStatus = pollingQuery.data ?? null;
   const wireless = showWireless ? (wirelessQuery.data ?? null) : null;
-  const loading = pollingQuery.isFetching || wirelessQuery.isFetching;
+  const loading = pollingQuery.isFetching || wirelessQuery.isFetching || alertsQuery.isFetching;
 
   const refresh = () => {
     pollingQuery.refetch();
     if (showWireless) wirelessQuery.refetch();
+    alertsQuery.refetch();
     ping.refresh();
   };
 
@@ -93,7 +100,7 @@ export function DeviceHealthCard({ device, showWireless, onOpenTab }: Props) {
 
   const m = wireless?.metrics;
   const isAP = wireless?.deviceType === 'ACCESS_POINT';
-  const alertCount = wireless?.activeAlerts.length ?? 0;
+  const openAlertCount = alertsQuery.data?.alerts.filter((a) => a.status === 'OPEN').length ?? null;
 
   return (
     <Card>
@@ -112,19 +119,20 @@ export function DeviceHealthCard({ device, showWireless, onOpenTab }: Props) {
             >
               <Badge variant={getPollingStatusBadgeVariant(connectivity)}>{CONNECTIVITY_LABELS[connectivity]}</Badge>
             </HealthTile>
-            <HealthTile
-              label="Fallos consecutivos"
-              hint={pollingStatus && !pollingOff ? `Se marca caído tras ${pollingStatus.failuresBeforeDown}` : undefined}
-            >
+            <HealthTile label="Sondeos fallidos">
               <span className={pollingStatus && pollingStatus.consecutiveFailures > 0 && !pollingOff ? 'text-red-700 dark:text-red-400' : ''}>
                 {pollingStatus && !pollingOff ? pollingStatus.consecutiveFailures : '—'}
               </span>
             </HealthTile>
-            {showWireless && (
-              <HealthTile label="Alertas inalámbricas" hint={wireless ? undefined : 'Sin lectura del radio'}>
-                <span className={alertCount > 0 ? 'text-red-700 dark:text-red-400' : ''}>{wireless ? alertCount : '—'}</span>
+            <button
+              type="button"
+              onClick={() => onOpenTab('history')}
+              className="text-left rounded-lg hover:ring-1 hover:ring-brand-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <HealthTile label="Alertas activas" hint="Ver en historial →">
+                <span className={openAlertCount ? 'text-red-700 dark:text-red-400' : ''}>{openAlertCount ?? '—'}</span>
               </HealthTile>
-            )}
+            </button>
           </div>
 
           {monitored && ping.summary && (

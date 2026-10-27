@@ -398,7 +398,7 @@ export default function AlertDetailPage() {
         ) : isDeviceUnreachable(alert) ? (
           <dl className="wrap-anywhere grid grid-cols-2 gap-4 text-sm">
             <div>
-              <dt className="font-medium text-gray-500 dark:text-gray-400">Fallos consecutivos</dt>
+              <dt className="font-medium text-gray-500 dark:text-gray-400">Sondeos fallidos</dt>
               <dd className="mt-1 font-mono text-gray-900 dark:text-gray-100">
                 {formatDetailValue(alert.details.consecutiveFailures)}
               </dd>

@@ -54,7 +54,7 @@ function fmtDuration(seconds: number | null): string | null {
   return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
 }
 
-async function fetchDeviceAlerts(deviceId: string) {
+export async function fetchDeviceAlerts(deviceId: string) {
   const r = await apiService.listAlerts({ deviceId, limit: ALERT_FETCH_LIMIT });
   if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar las alertas');
   return r.data;
