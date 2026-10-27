@@ -64,7 +64,7 @@ import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/not
 import { PushPublicKeyDTO, PushSubscriptionDTO, PushTestResultDTO } from '../types/push.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
-import { BackUpNowResultDTO, BackupDiffDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
+import { BackUpNowResultDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AgentDTO,
@@ -248,23 +248,13 @@ const findLiveDevice = (id: string): DeviceResponseDTO | undefined =>
 
 // ── Device backups ───────────────────────────────────────────
 // Mock mode has no device to read, so every «Respaldar ahora» hands over the
-// same RouterOS export with the clock in it: each one is a new version, and
-// any two of them differ in one line — enough to walk through the diff.
+// same RouterOS export with the clock in it: each one counts as a change and
+// replaces the device's one copy.
 
 const mockBackups = new Map<string, Array<ConfigBackupDTO & { content: string }>>();
 
 const mockExport = (at: string) =>
   `# ${at} by RouterOS 7.14\n/system identity\nset name=mock-router\n/system clock\nset time-zone-name=America/Bogota\n/system note\nset note="${at}"\n/user\nset admin password=********\n`;
-
-function diffLines(a: string[], b: string[]): BackupDiffDTO['hunks'] {
-  // Same length and order in the mock's exports: a line-by-line walk is enough.
-  const lines: BackupDiffDTO['hunks'][number]['lines'] = [];
-  a.forEach((line, i) => {
-    if (line === b[i]) lines.push({ kind: 'context', text: line });
-    else lines.push({ kind: 'removed', text: line }, { kind: 'added', text: b[i] });
-  });
-  return lines.some((l) => l.kind !== 'context') ? [{ fromStart: 1, fromLines: a.length, toStart: 1, toLines: b.length, lines }] : [];
-}
 
 // ── Probe agents ─────────────────────────────────────────────
 // Mock mode has no PC to install on, so a pending agent pairs itself a few
@@ -1338,21 +1328,9 @@ class MockApiService {
     const now = new Date().toISOString();
     const content = mockExport(now);
     const backup = { id: `bkp-${uid()}`, deviceId, format: 'ROUTEROS_EXPORT' as const, sizeBytes: content.length, trigger: 'MANUAL' as const, takenAt: now, lastCheckedAt: now, content };
-    mockBackups.set(deviceId, [backup, ...(mockBackups.get(deviceId) ?? [])].slice(0, 30));
+    mockBackups.set(deviceId, [backup]);
     const { content: _content, ...dto } = backup;
     return ok({ outcome: 'SAVED', backup: dto });
-  }
-
-  async diffDeviceBackups(deviceId: string, from: string, to: string): Promise<ApiResponse<BackupDiffDTO>> {
-    const list = mockBackups.get(deviceId) ?? [];
-    const a = list.find((b) => b.id === from);
-    const b = list.find((x) => x.id === to);
-    if (!a || !b) return err('Backup not found');
-    const hunks = diffLines(a.content.split('\n').slice(1), b.content.split('\n').slice(1));
-    const count = (kind: string) => hunks.reduce((n, h) => n + h.lines.filter((l) => l.kind === kind).length, 0);
-    const { content: _a, ...fromDto } = a;
-    const { content: _b, ...toDto } = b;
-    return ok({ from: fromDto, to: toDto, identical: hunks.length === 0, added: count('added'), removed: count('removed'), hunks });
   }
 
   async downloadDeviceBackup(deviceId: string, backupId: string): Promise<ApiResponse<BackupFile>> {

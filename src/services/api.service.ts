@@ -157,7 +157,7 @@ import {
   PayBillDTO,
 } from '../types/bill.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
-import { BackUpNowResultDTO, BackupDiffDTO, BackupFile, DeviceBackupsDTO } from '../types/backup.types';
+import { BackUpNowResultDTO, BackupFile, DeviceBackupsDTO } from '../types/backup.types';
 import {
   QuotationDTO,
   QuotationListResponse,
@@ -734,7 +734,7 @@ class ApiService {
   // Device Backups
   // ============================================================
 
-  /** The backup state and the stored versions, newest first, without the files. */
+  /** The backup state and the kept copy (at most one), without the file. */
   async listDeviceBackups(deviceId: string): Promise<ApiResponse<DeviceBackupsDTO>> {
     return this.request<DeviceBackupsDTO>(`/devices/${deviceId}/backups`);
   }
@@ -742,12 +742,6 @@ class ApiService {
   /** 409: the device was not asked; 502: it was asked and did not answer. Either way the attempt is recorded. */
   async backUpDevice(deviceId: string): Promise<ApiResponse<BackUpNowResultDTO>> {
     return this.request<BackUpNowResultDTO>(`/devices/${deviceId}/backups`, { method: 'POST' });
-  }
-
-  /** ADMIN only (`manage-credentials`): the compared files hold the device's secrets, masked here. */
-  async diffDeviceBackups(deviceId: string, from: string, to: string): Promise<ApiResponse<BackupDiffDTO>> {
-    const query = new URLSearchParams({ from, to });
-    return this.request<BackupDiffDTO>(`/devices/${deviceId}/backups/diff?${query}`);
   }
 
   // The file as the device sent it, passwords included — plain text, not the

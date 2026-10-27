@@ -1,9 +1,6 @@
 import type { BadgeVariant } from '@/components/ui';
-import type { DeviceCategory, DeviceType } from '@/types/device.types';
+import type { DeviceCategory, DeviceOwnerType, DeviceType } from '@/types/device.types';
 import type { BackupFormat, BackupOutcome, BackupTrigger, ConfigBackupDTO } from '@/types/backup.types';
-
-/** The newest versions kept per device; older ones are dropped. */
-export const BACKUPS_KEPT = 30;
 
 export const BACKUP_FORMAT_LABELS: Record<BackupFormat, string> = {
   AIROS_CFG: 'AirOS (system.cfg)',
@@ -16,21 +13,28 @@ export const BACKUP_TRIGGER_LABELS: Record<BackupTrigger, string> = {
 };
 
 export const BACKUP_OUTCOME_LABELS: Record<BackupOutcome, { label: string; variant: BadgeVariant }> = {
-  SAVED: { label: 'Versión nueva guardada', variant: 'success' },
+  SAVED: { label: 'Configuración nueva guardada', variant: 'success' },
   UNCHANGED: { label: 'Sin cambios', variant: 'success' },
   FAILED: { label: 'Falló', variant: 'danger' },
 };
 
-const BACKED_UP_MODEL_TYPES: DeviceType[] = ['ROUTER', 'ROUTERBOARD', 'SWITCH'];
+const BACKED_UP_MODEL_TYPES: DeviceType[] = ['ROUTERBOARD', 'SWITCH'];
 
 /**
- * Whether the device is one the nightly run backs up: an access point, or a
- * router, routerboard or switch by model (BKP-010). The backend also counts a
- * device wireless monitoring polls as an AP whatever its category; that case
- * is missed here, and its manual backup still works from the API.
+ * Whether the device is one the nightly run backs up: a company device that
+ * is an antenna (AP or station category) or a routerboard or switch by model
+ * (BKP-010). A customer's device, one with no owner and a Wi-Fi router model
+ * never are. The backend also counts a device wireless monitoring polls as an
+ * antenna whatever its category; that case is missed here, and its manual
+ * backup still works from the API.
  */
-export const isBackupTarget = (category: DeviceCategory | null | undefined, modelType: DeviceType | undefined): boolean =>
-  category === 'ACCESS_POINT' || (!!modelType && BACKED_UP_MODEL_TYPES.includes(modelType));
+export const isBackupTarget = (
+  owner: DeviceOwnerType | null | undefined,
+  category: DeviceCategory | null | undefined,
+  modelType: DeviceType | undefined
+): boolean =>
+  owner === 'COMPANY' &&
+  (category === 'ACCESS_POINT' || category === 'WIRELESS_CPE' || (!!modelType && BACKED_UP_MODEL_TYPES.includes(modelType)));
 
 export const formatBytes = (bytes: number): string =>
   bytes < 1024 ? `${bytes} B` : bytes < 1_048_576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1_048_576).toFixed(1)} MB`;
@@ -49,7 +53,8 @@ export function backupFileName(deviceName: string, backup: ConfigBackupDTO): str
  * manual backup and alone in `state.lastError`.
  */
 const REASONS: Array<[string, string]> = [
-  ['Only access points, routers and switches are backed up for now', 'Por ahora solo se respaldan puntos de acceso, routers y switches.'],
+  ['Only company antennas, routerboards and switches are backed up for now', 'Por ahora solo se respaldan las antenas, routerboards y switches de la empresa.'],
+  ['Only access points, routers and switches are backed up for now', 'Por ahora solo se respaldan las antenas, routerboards y switches de la empresa.'],
   ['This server cannot reach the device, and it is not behind an on-site agent', 'El servidor está fuera del sitio y este equipo no está detrás de un agente. Asígnale uno en «Sondeado por».'],
   ['The device has no IP address', 'El equipo no tiene dirección IP.'],
   ['No HTTP credentials are configured for this device', 'El equipo no tiene credenciales HTTP. Agrégalas en la pestaña Credenciales.'],

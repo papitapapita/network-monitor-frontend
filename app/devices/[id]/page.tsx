@@ -179,8 +179,8 @@ export default function DeviceDetailPage() {
   // under a non-wireless model is inert, not an error: it just loses the tab.
   const showWireless = isWirelessCategory(device?.category) && deviceModel?.isWireless === true;
 
-  // Only access points, routers, routerboards and switches are backed up (BKP-010).
-  const showBackups = isBackupTarget(device?.category, deviceModel?.deviceType);
+  // Only the company's antennas, routerboards and switches are backed up (BKP-010).
+  const showBackups = isBackupTarget(device?.ownerType, device?.category, deviceModel?.deviceType);
 
   // Falls back to details if the wireless or backups tab disappears while open —
   // the model can lose its wireless flag, or the device its category, mid-visit.

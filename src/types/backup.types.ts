@@ -1,6 +1,6 @@
 /**
- * Nightly configuration backups of access points, routers and switches
- * (BACKEND_API.md, Device Backups). The routes answer the DTO directly, with
+ * Nightly configuration backup of the company's antennas, routerboards and
+ * switches, one copy per device (BACKEND_API.md, Device Backups). The routes answer the DTO directly, with
  * no `{ success, data }` envelope.
  */
 
@@ -38,40 +38,14 @@ export interface DeviceBackupsDTO {
   deviceId: string;
   /** Null: never attempted. */
   state: DeviceBackupStateDTO | null;
-  /** Newest first; the newest 30 are kept. */
+  /** The kept copy, or []: only the latest configuration is kept (BKP-030). */
   backups: ConfigBackupDTO[];
 }
 
 export interface BackUpNowResultDTO {
-  /** SAVED: a new version (201); UNCHANGED: the device still holds the latest (200). */
+  /** SAVED: changed (or first) and replaced the copy (201); UNCHANGED: the device still holds it (200). */
   outcome: 'SAVED' | 'UNCHANGED';
   backup: ConfigBackupDTO;
-}
-
-export interface BackupDiffLine {
-  kind: 'context' | 'added' | 'removed';
-  text: string;
-}
-
-export interface BackupDiffHunk {
-  /** 1-based; the line before when fromLines is 0. */
-  fromStart: number;
-  fromLines: number;
-  toStart: number;
-  toLines: number;
-  lines: BackupDiffLine[];
-}
-
-/** Secrets show as `name=********`; download the file for the real values (BKP-053). */
-export interface BackupDiffDTO {
-  from: ConfigBackupDTO;
-  to: ConfigBackupDTO;
-  identical: boolean;
-  /** Lines only in `to`. */
-  added: number;
-  /** Lines only in `from`. */
-  removed: number;
-  hunks: BackupDiffHunk[];
 }
 
 export interface BackupFile {

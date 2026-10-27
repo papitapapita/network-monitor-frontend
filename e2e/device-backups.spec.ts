@@ -11,7 +11,7 @@ import { patchInstallation } from './fixtures/agents';
 
 type Created = { id: string; name: string };
 
-async function arrangeDevice(api: ApiClient, deviceType: string, category: string | null = null) {
+async function arrangeDevice(api: ApiClient, deviceType: string, category: string | null = null, ownerType = 'COMPANY') {
   const vendor = await api.create<Created>('vendors', { name: uniqueName('vendor'), slug: uniqueName('vendor') });
   const model = await api.create<Created>('device-models', {
     vendorId: vendor.id,
@@ -23,7 +23,7 @@ async function arrangeDevice(api: ApiClient, deviceType: string, category: strin
     name: uniqueName('device'),
     deviceModelId: model.id,
     status: 'INVENTORY',
-    ownerType: 'COMPANY',
+    ownerType,
     serialNumber: uniqueName('sn'),
     ...(category ? { category } : {}),
   });
@@ -39,35 +39,15 @@ const backup = (deviceId: string, id: string, takenAt: string, trigger = 'SCHEDU
   lastCheckedAt: takenAt,
 });
 
-/** Answers the list with `listed`, and records each POST, diff and download asked for. */
+/** Answers the list with `listed`, and records each POST and download asked for. */
 async function stubBackups(page: Page, deviceId: string, listed: object, backUp?: { status: number; body: object }) {
-  const calls = { posts: 0, diffs: [] as string[], downloads: [] as string[] };
+  const calls = { posts: 0, downloads: [] as string[] };
   await page.route(new RegExp(`/api/devices/${deviceId}/backups(\\?.*)?$`), async (route) => {
     if (route.request().method() === 'POST') {
       calls.posts++;
       return route.fulfill({ status: backUp?.status ?? 201, json: backUp?.body ?? {} });
     }
     return route.fulfill({ json: listed });
-  });
-  await page.route(new RegExp(`/api/devices/${deviceId}/backups/diff\\?`), async (route) => {
-    calls.diffs.push(new URL(route.request().url()).search);
-    return route.fulfill({
-      json: {
-        from: backup(deviceId, 'b-old', '2026-10-05T08:00:00.000Z'),
-        to: backup(deviceId, 'b-new', '2026-10-06T08:00:00.000Z'),
-        identical: false,
-        added: 1,
-        removed: 1,
-        hunks: [{
-          fromStart: 4, fromLines: 3, toStart: 4, toLines: 3,
-          lines: [
-            { kind: 'context', text: '/ip address' },
-            { kind: 'removed', text: 'add address=10.0.0.1/24 interface=ether1' },
-            { kind: 'added', text: 'add address=10.0.0.2/24 interface=ether1' },
-          ],
-        }],
-      },
-    });
   });
   await page.route(new RegExp(`/api/devices/${deviceId}/backups/[^/]+/download$`), async (route) => {
     calls.downloads.push(route.request().url());
@@ -80,37 +60,26 @@ async function stubBackups(page: Page, deviceId: string, listed: object, backUp?
   return calls;
 }
 
-test('a router lists its versions, and an administrator compares and downloads them', async ({ page, api }) => {
-  const device = await arrangeDevice(api, 'ROUTER');
+test('a routerboard shows its one kept copy, and an administrator downloads it', async ({ page, api }) => {
+  const device = await arrangeDevice(api, 'ROUTERBOARD');
   const calls = await stubBackups(page, device.id, {
     deviceId: device.id,
     state: {
-      lastAttemptAt: '2026-10-06T08:00:00.000Z', lastOutcome: 'SAVED', lastError: null,
+      lastAttemptAt: '2026-10-06T08:00:00.000Z', lastOutcome: 'UNCHANGED', lastError: null,
       lastSuccessAt: '2026-10-06T08:00:00.000Z', failingSince: null, consecutiveFailures: 0,
     },
-    backups: [
-      backup(device.id, 'b-new', '2026-10-06T08:00:00.000Z'),
-      backup(device.id, 'b-old', '2026-10-05T08:00:00.000Z', 'MANUAL'),
-    ],
+    backups: [backup(device.id, 'b-new', '2026-10-05T08:00:00.000Z', 'MANUAL')],
   });
 
   await page.goto(`/devices/${device.id}`);
   await page.getByRole('button', { name: 'Respaldos' }).click();
 
-  const versions = page.getByRole('table', { name: 'Versiones guardadas' });
-  await expect(versions.getByRole('row')).toHaveCount(3);
-  await expect(versions.getByText('Manual')).toBeVisible();
-
-  // Only the newer row has an older version to compare with.
-  await expect(versions.getByRole('button', { name: 'Ver cambios' })).toHaveCount(1);
-  await versions.getByRole('button', { name: 'Ver cambios' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Cambios de configuración' });
-  await expect(dialog.getByText('add address=10.0.0.2/24 interface=ether1')).toBeVisible();
-  expect(calls.diffs).toEqual(['?from=b-old&to=b-new']);
-  await page.keyboard.press('Escape');
+  await expect(page.getByText('Configuración guardada')).toBeVisible();
+  await expect(page.getByText('(manual)')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver cambios' })).toHaveCount(0);
 
   const download = page.waitForEvent('download');
-  await versions.getByRole('button', { name: /Descargar respaldo/ }).first().click();
+  await page.getByRole('button', { name: /Descargar respaldo/ }).click();
   expect((await download).suggestedFilename()).toMatch(/\.rsc$/);
   expect(calls.downloads).toHaveLength(1);
 });
@@ -141,8 +110,8 @@ test('a backup the device refuses says why in Spanish, and a failing streak show
   expect(calls.posts).toBe(1);
 });
 
-test('off site, a router behind no agent cannot be backed up from here', async ({ page, api }) => {
-  const device = await arrangeDevice(api, 'ROUTER');
+test('off site, a routerboard behind no agent cannot be backed up from here', async ({ page, api }) => {
+  const device = await arrangeDevice(api, 'ROUTERBOARD');
   await patchInstallation(page, (data) => { data.serverOnSite = false; });
   await stubBackups(page, device.id, { deviceId: device.id, state: null, backups: [] });
 
@@ -151,8 +120,15 @@ test('off site, a router behind no agent cannot be backed up from here', async (
   await expect(page.getByRole('button', { name: 'Respaldar ahora' })).toBeDisabled();
 });
 
-test('a customer CPE has no backups tab', async ({ page, api }) => {
-  const device = await arrangeDevice(api, 'ANTENNA', 'CPE');
+test("a customer's antenna has no backups tab", async ({ page, api }) => {
+  const device = await arrangeDevice(api, 'ANTENNA', 'WIRELESS_CPE', 'CLIENT');
+  await page.goto(`/devices/${device.id}`);
+  await expect(page.getByRole('button', { name: 'Configuración' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Respaldos' })).toHaveCount(0);
+});
+
+test('a Wi-Fi router model has no backups tab', async ({ page, api }) => {
+  const device = await arrangeDevice(api, 'ROUTER');
   await page.goto(`/devices/${device.id}`);
   await expect(page.getByRole('button', { name: 'Configuración' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Respaldos' })).toHaveCount(0);
