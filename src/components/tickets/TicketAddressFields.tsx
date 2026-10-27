@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import dynamic from 'next/dynamic';
 import { FieldLabel, Input } from '@/components/ui';
 import { TicketAddressDTO, TicketAddressInput } from '@/types/ticket.types';
-import { reverseGeocode } from '@/services/geocoding.service';
+import { useCoordsGeocoding } from '@/hooks/useCoordsGeocoding';
 
 const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
   ssr: false,
@@ -50,25 +50,11 @@ export const addressFormFrom = (address: TicketAddressDTO | null): AddressForm =
  * always left for the operator to fill in.
  */
 export function useAddressGeocoding(setForm: React.Dispatch<React.SetStateAction<AddressForm>>) {
-  const [isGeocoding, setIsGeocoding] = useState(false);
-
-  const onLocationPick = async (lat: string, lon: string) => {
-    setForm((prev) => ({ ...prev, latitude: lat, longitude: lon }));
-    setIsGeocoding(true);
-    try {
-      const inferred = await reverseGeocode(lat, lon);
-      setForm((prev) => ({
-        ...prev,
-        ...(inferred.road ? { street: inferred.road } : {}),
-        ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
-        ...(inferred.neighborhood ? { neighborhood: inferred.neighborhood } : {}),
-      }));
-    } finally {
-      setIsGeocoding(false);
-    }
-  };
-
-  return { isGeocoding, onLocationPick };
+  return useCoordsGeocoding(setForm, (r) => ({
+    street: r.road,
+    municipality: r.municipality,
+    neighborhood: r.neighborhood,
+  }));
 }
 
 const filled = (form: AddressForm): string[] =>

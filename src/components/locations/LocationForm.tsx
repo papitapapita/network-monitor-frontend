@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { FieldLabel, Input, Select } from '@/components/ui';
 import type { LocationType, LocationResponseDTO, CreateLocationDTO, UpdateLocationDTO } from '@/types/location.types';
 import { LOCATION_TYPE_OPTIONS } from '@/constants/location.constants';
-import { reverseGeocode } from '@/services/geocoding.service';
+import { useCoordsGeocoding } from '@/hooks/useCoordsGeocoding';
 
 const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
   ssr: false,
@@ -39,31 +39,18 @@ export const EMPTY_LOCATION_FORM: LocationFormData = {
 /**
  * Shared by the "click/drag on map" and "paste coordinates" inputs: both just
  * produce a lat/lon pair, so both should backfill the same way. Fields that
- * geocoding can't resolve are left untouched — the operator fills those in.
+ * geocoding can't resolve are left for the operator, once the previous
+ * point's suggestion is cleared out of them.
  */
 export function useLocationCoordsGeocoding(
   setFormData: React.Dispatch<React.SetStateAction<LocationFormData>>,
 ) {
-  const [isGeocoding, setIsGeocoding] = useState(false);
-
-  const onLocationPick = async (lat: string, lon: string) => {
-    setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }));
-    setIsGeocoding(true);
-    try {
-      const inferred = await reverseGeocode(lat, lon);
-      setFormData((prev) => ({
-        ...prev,
-        ...(inferred.road ? { address: inferred.road } : {}),
-        ...(inferred.municipality ? { municipality: inferred.municipality } : {}),
-        ...(inferred.neighborhood ? { neighborhood: inferred.neighborhood } : {}),
-        ...(inferred.altitude != null ? { altitude: String(inferred.altitude) } : {}),
-      }));
-    } finally {
-      setIsGeocoding(false);
-    }
-  };
-
-  return { isGeocoding, onLocationPick };
+  return useCoordsGeocoding(setFormData, (r) => ({
+    address: r.road,
+    municipality: r.municipality,
+    neighborhood: r.neighborhood,
+    altitude: r.altitude != null ? String(r.altitude) : undefined,
+  }));
 }
 
 function parseCoords(raw: string): { lat: string; lon: string } | null {
