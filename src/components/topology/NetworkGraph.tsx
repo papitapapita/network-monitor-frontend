@@ -328,7 +328,17 @@ function Graph({ nodes: all, initialFocus }: NetworkGraphProps) {
       <div className="relative flex-1 min-h-0">
         {shown.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            {keep ? 'Ningún equipo coincide con el filtro.' : 'Todavía no hay equipos enlazados: indica de qué equipo cuelga cada uno, o acepta las sugerencias.'}
+            {keep ? (
+              'Ningún equipo coincide con el filtro.'
+            ) : (
+              <>
+                Todavía no hay equipos enlazados: indica de qué equipo cuelga cada uno, o acepta las{' '}
+                <Link href="/topology?tab=suggestions" className="text-brand-600 dark:text-brand-400 hover:underline">
+                  sugerencias
+                </Link>
+                .
+              </>
+            )}
           </div>
         ) : (
           <ReactFlow
@@ -440,6 +450,15 @@ function UnlinkedList({ nodes }: { nodes: TopologyNodeDTO[] }) {
         </span>
         <span aria-hidden>{open ? '▾' : '▸'}</span>
       </button>
+      {open && (
+        <p className="px-4 pb-2 text-gray-500 dark:text-gray-400">
+          Indica de qué equipo cuelga cada uno en su ficha, o revisa las{' '}
+          <Link href="/topology?tab=suggestions" className="text-brand-600 dark:text-brand-400 hover:underline">
+            sugerencias
+          </Link>
+          .
+        </p>
+      )}
       {open && (
         <ul className="max-h-48 overflow-y-auto px-4 pb-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
           {nodes.map((n) => (

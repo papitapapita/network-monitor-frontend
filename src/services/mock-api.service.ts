@@ -65,7 +65,7 @@ import { PushPublicKeyDTO, PushSubscriptionDTO, PushTestResultDTO } from '../typ
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import { BackUpNowResultDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
-import { TopologyDTO, TopologyNodeDTO } from '../types/topology.types';
+import { AcceptUpstreamLinksResultDTO, TopologyDTO, TopologyNodeDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AgentDTO,
@@ -1400,6 +1400,60 @@ class MockApiService {
     const nodes = [self];
     for (let i = 0; i < nodes.length; i++) nodes.push(...all.filter((n) => n.upstreamDeviceId === nodes[i].id));
     return ok({ nodes, total: nodes.length });
+  }
+
+  /**
+   * The unlinked CPE (dev-16) heard on AP-Floor-2-01 by MAC, and the east
+   * backhaul's CPE Mora proposed onto AP-Floor-2-01 by IP — a change, so it
+   * starts unticked. The roof switch could not be read.
+   */
+  async getUpstreamSuggestions(locationId?: string): Promise<ApiResponse<UpstreamSuggestionsDTO>> {
+    await new Promise((r) => setTimeout(r, 600));
+    const at = new Date(Date.now() - 20 * 60_000).toISOString();
+    const proposals = [
+      { deviceId: 'dev-16', upstream: 'dev-2', source: 'WIRELESS' as const, matchedBy: 'MAC' as const, port: null },
+      { deviceId: 'dev-14', upstream: 'dev-2', source: 'WIRELESS' as const, matchedBy: 'IP' as const, port: null },
+      { deviceId: 'dev-4', upstream: 'dev-3', source: 'POE' as const, matchedBy: null, port: 'ether4' },
+    ];
+    const suggestions = proposals
+      .map((p) => ({ ...p, device: findLiveDevice(p.deviceId), up: findLiveDevice(p.upstream) }))
+      .filter((p) => p.device && p.up && p.device.upstreamDeviceId !== p.upstream)
+      .filter((p) => !locationId || p.device!.locationId === locationId)
+      .map(({ device, up, source, matchedBy, port }) => ({
+        deviceId: device!.id,
+        deviceName: device!.name,
+        ipAddress: device!.ipAddress,
+        locationName: locations.find((l) => l.id === device!.locationId)?.name ?? null,
+        currentUpstreamDeviceId: device!.upstreamDeviceId,
+        currentUpstreamDeviceName: device!.upstreamDeviceId ? findLiveDevice(device!.upstreamDeviceId)?.name ?? null : null,
+        suggestedUpstreamDeviceId: up!.id,
+        suggestedUpstreamDeviceName: up!.name,
+        source,
+        matchedBy,
+        observedAt: source === 'WIRELESS' ? at : null,
+        port,
+      }));
+    return ok({
+      suggestions,
+      total: suggestions.length,
+      unreadSwitches: [{ deviceId: 'dev-5', name: 'Switch-Floor-1', reason: 'The switch did not answer in time' }],
+    });
+  }
+
+  async acceptUpstreamLinks(links: UpstreamLinkDTO[]): Promise<ApiResponse<AcceptUpstreamLinksResultDTO>> {
+    const results = links.map(({ deviceId, upstreamDeviceId }) => {
+      const device = findLiveDevice(deviceId);
+      if (device?.upstreamDeviceId === upstreamDeviceId) return { deviceId, upstreamDeviceId, outcome: 'UNCHANGED' as const, error: null };
+      const refused = device ? upstreamRefusal(deviceId, upstreamDeviceId) : err(`Device not found: ${deviceId}`);
+      if (refused) return { deviceId, upstreamDeviceId, outcome: 'FAILED' as const, error: refused.error ?? null };
+      devices = devices.map((d) => (d.id === deviceId ? { ...d, upstreamDeviceId } : d));
+      return { deviceId, upstreamDeviceId, outcome: 'LINKED' as const, error: null };
+    });
+    return ok({
+      results,
+      linked: results.filter((r) => r.outcome === 'LINKED').length,
+      failed: results.filter((r) => r.outcome === 'FAILED').length,
+    });
   }
 
   // ── Device Backups ─────────────────────────────────────────

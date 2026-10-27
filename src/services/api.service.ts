@@ -158,7 +158,7 @@ import {
 } from '../types/bill.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import { BackUpNowResultDTO, BackupFile, DeviceBackupsDTO } from '../types/backup.types';
-import { TopologyDTO } from '../types/topology.types';
+import { AcceptUpstreamLinksResultDTO, TopologyDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
 import {
   QuotationDTO,
   QuotationListResponse,
@@ -691,6 +691,23 @@ class ApiService {
    */
   async getTopologyDescendants(deviceId: string): Promise<ApiResponse<TopologyDTO>> {
     return this.request<TopologyDTO>(`/topology/${deviceId}/descendants`);
+  }
+
+  /**
+   * Upstreams the network proposes from the radios and the PoE switch ports.
+   * The switches are read live, so without a location this can take seconds.
+   */
+  async getUpstreamSuggestions(locationId?: string): Promise<ApiResponse<UpstreamSuggestionsDTO>> {
+    const query = locationId ? `?${new URLSearchParams({ locationId })}` : '';
+    return this.request<UpstreamSuggestionsDTO>(`/topology/suggestions${query}`);
+  }
+
+  /** 1–500 links, each device once; applied in order, and one refused does not stop the rest. */
+  async acceptUpstreamLinks(links: UpstreamLinkDTO[]): Promise<ApiResponse<AcceptUpstreamLinksResultDTO>> {
+    return this.request<AcceptUpstreamLinksResultDTO>('/topology/suggestions/accept', {
+      method: 'POST',
+      body: JSON.stringify({ links }),
+    });
   }
 
   // ============================================================

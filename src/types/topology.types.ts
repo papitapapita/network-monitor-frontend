@@ -36,3 +36,60 @@ export interface TopologyDTO {
   nodes: TopologyNodeDTO[];
   total: number;
 }
+
+/** A PoE switch that could not be read: its POE suggestions are missing. */
+export interface UnreadSwitchDTO {
+  deviceId: string;
+  name: string;
+  reason: string;
+}
+
+/**
+ * An upstream the network proposes for a device (DEV-190..195). Nothing is
+ * linked until an operator accepts it. When `currentUpstreamDeviceId` is
+ * set, it is a change rather than a first link.
+ */
+export interface UpstreamSuggestionDTO {
+  deviceId: string;
+  deviceName: string;
+  ipAddress: string | null;
+  locationName: string | null;
+  currentUpstreamDeviceId: string | null;
+  currentUpstreamDeviceName: string | null;
+  suggestedUpstreamDeviceId: string;
+  suggestedUpstreamDeviceName: string;
+  /** WIRELESS: a station's radio names its AP. POE: a switch port is labelled with the device's IP. */
+  source: 'WIRELESS' | 'POE';
+  /** WIRELESS only; IP is the less certain match. */
+  matchedBy: 'MAC' | 'IP' | null;
+  /** WIRELESS only: when the radio reported it. */
+  observedAt: string | null;
+  /** POE only: the switch port, e.g. "ether3". */
+  port: string | null;
+}
+
+export interface UpstreamSuggestionsDTO {
+  /** At most one per device, sorted by device IP. */
+  suggestions: UpstreamSuggestionDTO[];
+  total: number;
+  unreadSwitches: UnreadSwitchDTO[];
+}
+
+export interface UpstreamLinkDTO {
+  deviceId: string;
+  upstreamDeviceId: string;
+}
+
+export interface UpstreamLinkResultDTO extends UpstreamLinkDTO {
+  /** UNCHANGED: it already hung there. */
+  outcome: 'LINKED' | 'UNCHANGED' | 'FAILED';
+  /** FAILED only: the same messages as the link rules. */
+  error: string | null;
+}
+
+export interface AcceptUpstreamLinksResultDTO {
+  /** In request order. */
+  results: UpstreamLinkResultDTO[];
+  linked: number;
+  failed: number;
+}
