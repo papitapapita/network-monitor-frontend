@@ -1,3 +1,5 @@
+import type { PoeSwitchOs } from './power.types';
+
 export type DeviceStatus =
   | 'INVENTORY'
   | 'COMMISSIONING'
@@ -280,6 +282,8 @@ export interface DeviceModelResponseDTO {
   model: string;
   deviceType: DeviceType;
   isWireless: boolean;
+  /** PoE-out switch firmware; null = not one. Its devices appear under the site's PoE ports. */
+  poeSwitchOs: PoeSwitchOs | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -289,6 +293,7 @@ export interface CreateDeviceModelDTO {
   model: string;
   deviceType: DeviceType;
   isWireless: boolean;
+  poeSwitchOs?: PoeSwitchOs | null;
 }
 
 export interface UpdateDeviceModelDTO {
@@ -296,6 +301,8 @@ export interface UpdateDeviceModelDTO {
   model?: string;
   deviceType?: DeviceType;
   isWireless?: boolean;
+  /** null clears it. */
+  poeSwitchOs?: PoeSwitchOs | null;
 }
 
 export interface DeviceModelListResponse {

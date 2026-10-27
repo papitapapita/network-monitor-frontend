@@ -9,6 +9,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/toast.context';
 import { Badge, Button, Checkbox, LoadingSpinner, Select } from '@/components/ui';
 import { upstreamLinkError } from '@/constants/topology.constants';
+import { poeReason } from '@/constants/power.constants';
 import type { UpstreamLinkResultDTO, UpstreamSuggestionDTO } from '@/types/topology.types';
 
 /**
@@ -138,7 +139,7 @@ export function TopologySuggestions() {
                 <Link href={`/devices/${u.deviceId}`} className="underline">
                   {u.name}
                 </Link>{' '}
-                — {u.reason}
+                — {poeReason(u.reason)}
               </li>
             ))}
           </ul>

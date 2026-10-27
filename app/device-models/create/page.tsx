@@ -8,6 +8,8 @@ import { CreateDeviceModelDTO, VendorDTO, DeviceType } from '@/types/device.type
 import { Card, Button, Input, Select, Switch, LoadingSpinner, BackLink } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
+import { POE_SWITCH_OS_OPTIONS } from '@/constants/power.constants';
+import type { PoeSwitchOs } from '@/types/power.types';
 
 export default function CreateDeviceModelPage() {
   const router = useRouter();
@@ -25,6 +27,7 @@ export default function CreateDeviceModelPage() {
     model: '',
     deviceType: '' as DeviceType | '',
     isWireless: false,
+    poeSwitchOs: '' as PoeSwitchOs | '',
   });
 
   useEffect(() => {
@@ -63,6 +66,7 @@ export default function CreateDeviceModelPage() {
       model: formData.model.trim(),
       deviceType: formData.deviceType as DeviceType,
       isWireless: formData.isWireless,
+      poeSwitchOs: formData.poeSwitchOs || null,
     };
 
     const result = await apiService.createDeviceModel(dto);
@@ -152,6 +156,15 @@ export default function CreateDeviceModelPage() {
                     info="Requerido para las categorías CPE Inalámbrico y AP."
                   />
                 </div>
+                <Select
+                  label="Switch PoE"
+                  name="poeSwitchOs"
+                  value={formData.poeSwitchOs}
+                  onChange={handleChange}
+                  options={POE_SWITCH_OS_OPTIONS}
+                  info="Un switch que alimenta antenas por PoE y el sistema operativo que corre. Sus equipos aparecen en «Puertos PoE» de su ubicación, que nombra la antena de cada puerto por la IP en su etiqueta."
+                  fullWidth
+                />
               </div>
             </Card.Body>
           </Card>

@@ -19,6 +19,7 @@ import {
   useLocationCoordsGeocoding,
 } from '@/components/locations/LocationForm';
 import { AssignDeviceModal } from '@/components/locations/AssignDeviceModal';
+import { LocationPoeCard } from '@/components/locations/LocationPoeCard';
 import type { BadgeVariant } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -294,6 +295,8 @@ export default function LocationDetailPage() {
           </Card>
         </>
       )}
+
+      <LocationPoeCard locationId={locationId} />
 
       {/* Devices section */}
       <div>

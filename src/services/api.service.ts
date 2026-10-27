@@ -158,6 +158,7 @@ import {
 } from '../types/bill.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import { BackUpNowResultDTO, BackupFile, DeviceBackupsDTO } from '../types/backup.types';
+import { PowerSourceDTO, SitePoePortsDTO } from '../types/power.types';
 import { AcceptUpstreamLinksResultDTO, TopologyDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
 import {
   QuotationDTO,
@@ -708,6 +709,20 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ links }),
     });
+  }
+
+  // ============================================================
+  // Power Control (read only) — raw DTOs, every call reads the switches live
+  // ============================================================
+
+  /** The PoE-out ports of every PoE switch at the site, each named by the antenna it powers. */
+  async getLocationPoePorts(locationId: string): Promise<ApiResponse<SitePoePortsDTO>> {
+    return this.request<SitePoePortsDTO>(`/locations/${locationId}/poe-ports`, { cache: 'no-store' });
+  }
+
+  /** Which PoE port at the device's own site powers it. */
+  async getDevicePowerSource(deviceId: string): Promise<ApiResponse<PowerSourceDTO>> {
+    return this.request<PowerSourceDTO>(`/devices/${deviceId}/power-source`, { cache: 'no-store' });
   }
 
   // ============================================================

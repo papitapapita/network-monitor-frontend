@@ -65,6 +65,7 @@ import { PushPublicKeyDTO, PushSubscriptionDTO, PushTestResultDTO } from '../typ
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import { BackUpNowResultDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
+import { PoePortDTO, PowerSourceDTO, SitePoePortsDTO } from '../types/power.types';
 import { AcceptUpstreamLinksResultDTO, TopologyDTO, TopologyNodeDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
@@ -299,6 +300,67 @@ function buildTopology(): TopologyNodeDTO[] {
       };
     })
     .sort((a, b) => (a.ipAddress ?? '~').localeCompare(b.ipAddress ?? '~', undefined, { numeric: true }));
+}
+
+// ── Power control ────────────────────────────────────────────
+// Every PoE switch at a site powers one port per other live device there with
+// an IP, labelled with it, plus an empty port and one whose label names a
+// device recorded at another site.
+
+function mockSitePoe(locationId: string): SitePoePortsDTO | null {
+  const location = locations.find((l) => l.id === locationId);
+  if (!location) return null;
+  const here = devices.filter((d) => !d.deletedAt && d.locationId === locationId);
+  const switches = here
+    .filter((d) => (d.status === 'ACTIVE' || d.status === 'COMMISSIONING') && deviceModels.find((m) => m.id === d.deviceModelId)?.poeSwitchOs)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((sw) => {
+      const firmware = deviceModels.find((m) => m.id === sw.deviceModelId)!.poeSwitchOs!;
+      const port = (n: number) => (firmware === 'SWOS' ? `Port${n}` : `ether${n}`);
+      const powered = here.filter((d) => d.id !== sw.id && d.ipAddress);
+      const elsewhere = devices.find((d) => !d.deletedAt && d.ipAddress && d.locationId !== locationId);
+      const ports: PoePortDTO[] = [
+        ...powered.map((d, i) => ({
+          port: port(i + 2),
+          label: `${d.name} ${d.ipAddress}`,
+          mode: 'AUTO' as const,
+          status: pollingStatus[d.id]?.currentStatus === 'OFFLINE' ? ('NO_LOAD' as const) : ('POWERED' as const),
+          powerWatts: pollingStatus[d.id]?.currentStatus === 'OFFLINE' ? 0 : 4.2 + i,
+          voltage: 24,
+          match: { kind: 'MATCHED' as const, ip: d.ipAddress, deviceId: d.id, deviceName: d.name, deviceLocationName: location.name },
+        })),
+        ...(elsewhere
+          ? [{
+              port: port(powered.length + 2),
+              label: elsewhere.ipAddress!,
+              mode: 'FORCED_ON' as const,
+              status: 'POWERED' as const,
+              powerWatts: 3.1,
+              voltage: 24,
+              match: {
+                kind: 'MATCHED_OTHER_LOCATION' as const,
+                ip: elsewhere.ipAddress,
+                deviceId: elsewhere.id,
+                deviceName: elsewhere.name,
+                deviceLocationName: locations.find((l) => l.id === elsewhere.locationId)?.name ?? null,
+              },
+            }]
+          : []),
+        { port: port(powered.length + 3), label: 'libre', mode: 'OFF', status: 'OFF', powerWatts: null, voltage: null, match: { kind: 'UNMATCHED', ip: null, deviceId: null, deviceName: null, deviceLocationName: null } },
+      ];
+      return {
+        deviceId: sw.id,
+        name: sw.name,
+        ipAddress: sw.ipAddress,
+        firmware,
+        firmwareVersion: firmware === 'SWOS' ? '2.13' : '7.14.3 (stable)',
+        readable: true,
+        reason: null,
+        error: null,
+        ports,
+      };
+    });
+  return { locationId, locationName: location.name, switches };
 }
 
 // ── Device backups ───────────────────────────────────────────
@@ -955,6 +1017,7 @@ class MockApiService {
       model: data.model,
       deviceType: data.deviceType,
       isWireless: data.isWireless,
+      poeSwitchOs: data.poeSwitchOs ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -1453,6 +1516,37 @@ class MockApiService {
       results,
       linked: results.filter((r) => r.outcome === 'LINKED').length,
       failed: results.filter((r) => r.outcome === 'FAILED').length,
+    });
+  }
+
+  // ── Power Control ──────────────────────────────────────────
+
+  async getLocationPoePorts(locationId: string): Promise<ApiResponse<SitePoePortsDTO>> {
+    await new Promise((r) => setTimeout(r, 400));
+    const site = mockSitePoe(locationId);
+    return site ? ok(site) : { success: false, status: 404, error: 'Location not found' };
+  }
+
+  async getDevicePowerSource(deviceId: string): Promise<ApiResponse<PowerSourceDTO>> {
+    const device = findLiveDevice(deviceId);
+    if (!device) return { success: false, status: 404, error: 'Device not found' };
+    const none = (reason: string): ApiResponse<PowerSourceDTO> => ok({ deviceId, kind: 'NONE', reason, sources: [], unreadSwitches: [] });
+    if (!device.ipAddress) return none('The device has no IP address');
+    if (!device.locationId) return none('The device has no location, so no switch is looked at');
+    const site = mockSitePoe(device.locationId)!;
+    if (site.switches.length === 0) return none('There is no PoE switch at the device location');
+    const sources = site.switches.flatMap((sw) =>
+      sw.ports
+        .filter((p) => p.match.ip === device.ipAddress)
+        .map((p) => ({ switchDeviceId: sw.deviceId, switchName: sw.name, port: p.port, mode: p.mode, status: p.status, powerWatts: p.powerWatts }))
+    );
+    if (sources.length === 0) return none('No PoE port at the device location is labelled with its IP');
+    return ok({
+      deviceId,
+      kind: sources.length > 1 ? 'DUPLICATE' : 'FOUND',
+      reason: sources.length > 1 ? 'More than one port is labelled with the device IP' : null,
+      sources,
+      unreadSwitches: [],
     });
   }
 

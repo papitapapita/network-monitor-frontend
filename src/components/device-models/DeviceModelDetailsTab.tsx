@@ -13,6 +13,8 @@ import {
 import { Card, Input, Select, Switch, Badge, EditFormActions } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { isWirelessCategory } from '@/constants/device.constants';
+import { POE_SWITCH_OS_LABELS, POE_SWITCH_OS_OPTIONS } from '@/constants/power.constants';
+import type { PoeSwitchOs } from '@/types/power.types';
 
 const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
   ANTENNA: 'Antena',
@@ -41,6 +43,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
     model: m.model,
     deviceType: m.deviceType as DeviceType | '',
     isWireless: m.isWireless,
+    poeSwitchOs: (m.poeSwitchOs ?? '') as PoeSwitchOs | '',
   });
 
   const [formData, setFormData] = useState(makeFormData(model));
@@ -96,6 +99,7 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
       model: formData.model.trim(),
       deviceType: formData.deviceType as DeviceType,
       isWireless: formData.isWireless,
+      poeSwitchOs: formData.poeSwitchOs || null,
     };
 
     const result = await apiService.updateDeviceModel(model.id, dto);
@@ -219,6 +223,15 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
                   info="Requerido para las categorías CPE Inalámbrico y AP."
                 />
               </div>
+              <Select
+                label="Switch PoE"
+                name="poeSwitchOs"
+                value={formData.poeSwitchOs}
+                onChange={handleChange}
+                options={POE_SWITCH_OS_OPTIONS}
+                info="Un switch que alimenta antenas por PoE y el sistema operativo que corre. Sus equipos aparecen en «Puertos PoE» de su ubicación, que nombra la antena de cada puerto por la IP en su etiqueta."
+                fullWidth
+              />
             </div>
           </Card.Body>
           <Card.Footer>
@@ -254,6 +267,12 @@ export function DeviceModelDetailsTab({ model, onModelUpdated, isEditing, onEdit
                     <Badge variant={model.isWireless ? 'success' : 'neutral'}>
                       {model.isWireless ? 'Sí' : 'No'}
                     </Badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Switch PoE</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {model.poeSwitchOs ? POE_SWITCH_OS_LABELS[model.poeSwitchOs] : 'No'}
                   </dd>
                 </div>
                 <div>
