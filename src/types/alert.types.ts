@@ -21,6 +21,27 @@ export interface AlertDTO {
   notifiedAt: string | null;
   recoveryNotifiedAt: string | null;
   durationSecs: number | null;
+  /**
+   * The upstream device's alert this outage is part of (NOT-240..247): set
+   * on a device_unreachable alert behind a failed AP or switch, which is
+   * then never notified on its own. Null on its own, or once detached.
+   */
+  causedByAlertId: string | null;
+  /** Only on `GET /api/alerts/:id`: every device attached to this alert; [] for an ordinary one. */
+  affectedDevices?: AffectedDeviceDTO[];
+}
+
+/** A device that went down behind a root alert, with how it is doing now. */
+export interface AffectedDeviceDTO {
+  deviceId: string;
+  name: string;
+  ipAddress: string | null;
+  /** UP once the device answered again. */
+  status: 'DOWN' | 'UP';
+  /** The nearest affected device between it and the root, as the Telegram message groups them. */
+  viaDeviceId: string | null;
+  /** Null when it hangs straight off the root. */
+  viaDeviceName: string | null;
 }
 
 /** `details` payload of a `device_unreachable` alert. */
@@ -64,7 +85,7 @@ export interface BulkDeleteAlertsResult extends BulkReportBuckets {
   deleted: string[];
 }
 
-/** Only the list carries `deviceName`; `GET /api/alerts/:id` returns a plain AlertDTO. */
+/** Only the list carries `deviceName`; `GET /api/alerts/:id` returns an AlertDTO with `affectedDevices`. */
 export interface AlertListItemDTO extends AlertDTO {
   /** The device's current name, so a renamed device's old alerts show the new one. */
   deviceName: string;
@@ -72,6 +93,8 @@ export interface AlertListItemDTO extends AlertDTO {
   ticket: { id: string; code: number; status: TicketStatus } | null;
   /** An open alert with no ticket of its own: offer "Crear ticket" (NOT-206). Always false once resolved. */
   ticketSuggested: boolean;
+  /** How many devices went down behind this one (NOT-243). */
+  affectedCount: number;
 }
 
 export interface AlertListResponse {

@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
+  AffectedDeviceDTO,
   AlertDTO,
   AlertSeverity,
   AlertStatus,
@@ -82,6 +83,69 @@ function describe(alert: AlertDTO): string {
   return alert.description || alert.type;
 }
 
+/**
+ * The devices that went down behind this alert's device (NOT-243), grouped
+ * under the intermediate device they hang from, as the Telegram message does.
+ */
+function AffectedDevicesCard({ devices }: { devices: AffectedDeviceDTO[] }) {
+  const stillDown = devices.filter((d) => d.status === 'DOWN').length;
+  const groups = new Map<string, { name: string | null; id: string | null; devices: AffectedDeviceDTO[] }>();
+  for (const d of devices) {
+    const key = d.viaDeviceId ?? '';
+    const g = groups.get(key) ?? { name: d.viaDeviceName, id: d.viaDeviceId, devices: [] };
+    g.devices.push(d);
+    groups.set(key, g);
+  }
+  // Straight off the root first, then by the device they hang from.
+  const ordered = [...groups.values()].sort((a, b) => (a.id ? 1 : 0) - (b.id ? 1 : 0) || (a.name ?? '').localeCompare(b.name ?? ''));
+
+  return (
+    <Card className="mb-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Equipos afectados ({devices.length})</h2>
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {stillDown === 0 ? 'Todos volvieron.' : `Volvieron ${devices.length - stillDown} de ${devices.length}.`}
+        </span>
+      </div>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        Cayeron detrás de este equipo y no avisaron uno por uno: este aviso los nombra. Si alguno sigue caído un rato
+        después de que este vuelva, avisa por su cuenta.
+      </p>
+      <div className="space-y-4">
+        {ordered.map((g) => (
+          <div key={g.id ?? 'root'}>
+            <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              {g.id ? (
+                <>
+                  Detrás de{' '}
+                  <Link href={`/devices/${g.id}`} className="normal-case text-brand-600 dark:text-brand-400 hover:underline">
+                    {g.name}
+                  </Link>
+                </>
+              ) : (
+                'Directamente'
+              )}
+            </h3>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
+              {g.devices.map((d) => (
+                <li key={d.deviceId} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
+                  <span className="min-w-0">
+                    <Link href={`/devices/${d.deviceId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
+                      {d.name}
+                    </Link>
+                    {d.ipAddress && <span className="ml-2 font-mono text-xs text-gray-500 dark:text-gray-400">{d.ipAddress}</span>}
+                  </span>
+                  <Badge variant={d.status === 'DOWN' ? 'danger' : 'success'}>{d.status === 'DOWN' ? 'Sigue caído' : 'Volvió'}</Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -102,6 +166,8 @@ export default function AlertDetailPage() {
 
   const [alert, setAlert] = useState<AlertDTO | null>(null);
   const [deviceName, setDeviceName] = useState<string | null>(null);
+  // The device whose outage this alert is part of, named in the banner.
+  const [rootDevice, setRootDevice] = useState<{ id: string; name: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +188,12 @@ export default function AlertDetailPage() {
       setAlert(result.data);
       const devResult = await apiService.getDevice(result.data.deviceId);
       setDeviceName(devResult.success && devResult.data ? devResult.data.name : null);
+      setRootDevice(null);
+      if (result.data.causedByAlertId) {
+        const root = await apiService.getAlert(result.data.causedByAlertId);
+        const rootDev = root.success && root.data ? await apiService.getDevice(root.data.deviceId) : null;
+        if (rootDev?.success && rootDev.data) setRootDevice({ id: rootDev.data.id, name: rootDev.data.name });
+      }
     } else {
       setError(result.error || 'Error al cargar la alerta');
     }
@@ -273,6 +345,24 @@ export default function AlertDetailPage() {
         </div>
       )}
 
+      {alert.causedByAlertId && (
+        <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4 text-sm text-gray-700 dark:text-gray-300">
+          Este equipo cayó detrás de{' '}
+          {rootDevice ? (
+            <Link href={`/devices/${rootDevice.id}`} className="font-medium text-brand-600 dark:text-brand-400 hover:underline">
+              {rootDevice.name}
+            </Link>
+          ) : (
+            'otro equipo'
+          )}
+          , que también está caído, así que no avisó por su cuenta: lo nombra el aviso de{' '}
+          <Link href={`/alerts/${alert.causedByAlertId}`} className="font-medium text-brand-600 dark:text-brand-400 hover:underline">
+            esa alerta
+          </Link>
+          . Probablemente está aislado, no dañado.
+        </div>
+      )}
+
       {/* Details card */}
       <Card className="mb-6">
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Información general</h2>
@@ -289,10 +379,15 @@ export default function AlertDetailPage() {
           <DetailField label="Duración" value={formatDuration(alert.durationSecs)} />
           <DetailField label="Inicio" value={formatDate(alert.startedAt)} />
           <DetailField label="Resolución" value={formatDate(alert.resolvedAt)} />
-          <DetailField label="Notificada" value={formatDate(alert.notifiedAt)} />
+          <DetailField
+            label="Notificada"
+            value={!alert.notifiedAt && alert.causedByAlertId ? 'No, la nombra la alerta principal' : formatDate(alert.notifiedAt)}
+          />
           <DetailField label="Recuperación notificada" value={formatDate(alert.recoveryNotifiedAt)} />
         </dl>
       </Card>
+
+      {alert.affectedDevices && alert.affectedDevices.length > 0 && <AffectedDevicesCard devices={alert.affectedDevices} />}
 
       {/* Type-specific details */}
       <Card>

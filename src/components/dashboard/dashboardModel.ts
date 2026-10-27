@@ -76,9 +76,27 @@ export function buildProblems(
   const problems: Problem[] = [];
   const downIds = new Set<string>();
 
+  // An outage behind a failed AP or switch is one problem, not one per device
+  // (NOT-243): a device whose unreachable alert hangs off a root still open
+  // is counted on the root's line instead of getting its own.
+  const openById = new Map(openAlerts.map((a) => [a.id, a]));
+  const behindRoot = new Set<string>();
+  const affectedBehind = new Map<string, number>();
+  for (const a of openAlerts) {
+    const root = a.causedByAlertId ? openById.get(a.causedByAlertId) : undefined;
+    if (!root || !isDeviceUnreachable(a)) continue;
+    behindRoot.add(a.deviceId);
+    affectedBehind.set(root.deviceId, (affectedBehind.get(root.deviceId) ?? 0) + 1);
+  }
+  const affectedNote = (deviceId: string) => {
+    const n = affectedBehind.get(deviceId);
+    return n ? `${n} equipo${n === 1 ? '' : 's'} caído${n === 1 ? '' : 's'} detrás` : null;
+  };
+
   for (const d of devices) {
     if (d.connectivity?.status !== 'DOWN') continue;
     downIds.add(d.id);
+    if (behindRoot.has(d.id)) continue;
     // The failure count is only on the per-device reading, which may not be in yet.
     const failures = statuses[d.id]?.consecutiveFailures ?? 0;
     problems.push({
@@ -89,7 +107,7 @@ export function buildProblems(
       deviceName: d.name,
       locationName: location(d),
       title: 'Sin respuesta',
-      detail: [d.ipAddress, failures > 0 ? `${failures} sondeo${failures === 1 ? '' : 's'} fallido${failures === 1 ? '' : 's'}` : null]
+      detail: [d.ipAddress, failures > 0 ? `${failures} sondeo${failures === 1 ? '' : 's'} fallido${failures === 1 ? '' : 's'}` : null, affectedNote(d.id)]
         .filter(Boolean)
         .join(' · ') || null,
       since: d.connectivity.downSince,
@@ -97,8 +115,8 @@ export function buildProblems(
   }
 
   for (const a of openAlerts) {
-    // Already listed as down — the alert would only repeat it.
-    if (isDeviceUnreachable(a) && downIds.has(a.deviceId)) continue;
+    // Already listed as down, or counted on its root's line — the alert would only repeat it.
+    if (isDeviceUnreachable(a) && (downIds.has(a.deviceId) || behindRoot.has(a.deviceId))) continue;
     const d = byId.get(a.deviceId);
     problems.push({
       key: `alert:${a.id}`,
@@ -108,7 +126,7 @@ export function buildProblems(
       deviceName: d?.name ?? 'Dispositivo eliminado',
       locationName: location(d),
       title: a.description || a.type,
-      detail: a.source || null,
+      detail: [a.source, isDeviceUnreachable(a) ? affectedNote(a.deviceId) : null].filter(Boolean).join(' · ') || null,
       since: a.startedAt,
     });
   }

@@ -76,7 +76,72 @@ type AlertColumn = DataTableColumn<AlertListItemDTO> & { label: string; locked?:
  * timestamps, producer-specific
  * details) lives on the alert's own detail page.
  */
-function alertColumnCatalog(deviceNames: Record<string, string>, onTicketChanged: () => void = () => {}): AlertColumn[] {
+/**
+ * How an outage folds on the page (NOT-243): the alerts of devices down
+ * behind a failed AP or switch hang under that device's alert, the root,
+ * instead of each taking a row of its own.
+ */
+interface CascadeView {
+  /** Per root on this page: its affected alerts that are on this page too. */
+  childrenOnPage: Map<string, AlertListItemDTO[]>;
+  /** Alert ids on this page, to tell a child whose root is here from one whose root is elsewhere. */
+  onPage: Set<string>;
+  expanded: Set<string>;
+  toggle: (rootId: string) => void;
+}
+
+const NO_CASCADE: CascadeView = { childrenOnPage: new Map(), onPage: new Set(), expanded: new Set(), toggle: () => {} };
+
+function CascadeNote({ a, cascade }: { a: AlertListItemDTO; cascade: CascadeView }) {
+  if (a.causedByAlertId) {
+    return cascade.onPage.has(a.causedByAlertId) ? (
+      <span className="block text-xs text-gray-500 dark:text-gray-400">Cayó con el equipo de arriba</span>
+    ) : (
+      <Link
+        href={`/alerts/${a.causedByAlertId}`}
+        onClick={(e) => e.stopPropagation()}
+        className="block text-xs text-brand-600 dark:text-brand-400 hover:underline"
+      >
+        Parte de una caída mayor →
+      </Link>
+    );
+  }
+  if (a.affectedCount === 0) return null;
+  const label = `${a.affectedCount} equipo${a.affectedCount === 1 ? '' : 's'} afectado${a.affectedCount === 1 ? '' : 's'} detrás`;
+  // Its affected alerts may sit on other pages; the alert's own page lists them all.
+  if (!cascade.childrenOnPage.has(a.id)) {
+    return (
+      <Link
+        href={`/alerts/${a.id}`}
+        onClick={(e) => e.stopPropagation()}
+        className="mt-1 inline-block text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+      >
+        {label} →
+      </Link>
+    );
+  }
+  const open = cascade.expanded.has(a.id);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        cascade.toggle(a.id);
+      }}
+      aria-expanded={open}
+      className="mt-1 inline-flex items-start gap-1 text-left text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+    >
+      <span aria-hidden>{open ? '▾' : '▸'}</span>
+      {label}
+    </button>
+  );
+}
+
+function alertColumnCatalog(
+  deviceNames: Record<string, string>,
+  onTicketChanged: () => void = () => {},
+  cascade: CascadeView = NO_CASCADE
+): AlertColumn[] {
   return [
     {
       key: 'severity',
@@ -107,9 +172,10 @@ function alertColumnCatalog(deviceNames: Record<string, string>, onTicketChanged
       header: 'Descripción',
       sortable: true,
       cell: (a) => (
-        <span className="block max-w-xs text-sm text-gray-700 dark:text-gray-300">
-          {describe(a)}
-        </span>
+        <div className={`max-w-xs ${a.causedByAlertId && cascade.onPage.has(a.causedByAlertId) ? 'pl-4 border-l-2 border-gray-200 dark:border-gray-700' : ''}`}>
+          <span className="block text-sm text-gray-700 dark:text-gray-300">{describe(a)}</span>
+          <CascadeNote a={a} cascade={cascade} />
+        </div>
       ),
     },
     {
@@ -158,9 +224,10 @@ const DEFAULT_ALERT_COLUMNS = alertColumnCatalog({}).map((c) => c.key);
 function buildAlertColumns(
   deviceNames: Record<string, string>,
   visibleKeys: string[],
-  onTicketChanged: () => void
+  onTicketChanged: () => void,
+  cascade: CascadeView
 ): DataTableColumn<AlertListItemDTO>[] {
-  return alertColumnCatalog(deviceNames, onTicketChanged).filter((c) => c.locked || visibleKeys.includes(c.key));
+  return alertColumnCatalog(deviceNames, onTicketChanged, cascade).filter((c) => c.locked || visibleKeys.includes(c.key));
 }
 
 const alertCount = (n: number) => `${n} ${n === 1 ? 'alerta' : 'alertas'}`;
@@ -343,9 +410,40 @@ function AlertsPageContent() {
     COLUMNS_STORAGE_KEY,
     DEFAULT_ALERT_COLUMNS
   );
+  // An outage folds under its root: an affected alert whose root is on this
+  // page leaves the top level and comes back, right under it, when expanded.
+  const [expandedRoots, setExpandedRoots] = useState<Set<string>>(new Set());
+  const toggleRoot = useCallback(
+    (id: string) =>
+      setExpandedRoots((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    []
+  );
+  const cascade: CascadeView = React.useMemo(() => {
+    const onPage = new Set(sortedAlerts.map((a) => a.id));
+    const childrenOnPage = new Map<string, AlertListItemDTO[]>();
+    for (const a of sortedAlerts) {
+      if (!a.causedByAlertId || !onPage.has(a.causedByAlertId)) continue;
+      childrenOnPage.set(a.causedByAlertId, [...(childrenOnPage.get(a.causedByAlertId) ?? []), a]);
+    }
+    return { onPage, childrenOnPage, expanded: expandedRoots, toggle: toggleRoot };
+  }, [sortedAlerts, expandedRoots, toggleRoot]);
+  const displayedAlerts = React.useMemo(
+    () =>
+      sortedAlerts.flatMap((a) => {
+        if (a.causedByAlertId && cascade.onPage.has(a.causedByAlertId)) return [];
+        return cascade.expanded.has(a.id) ? [a, ...(cascade.childrenOnPage.get(a.id) ?? [])] : [a];
+      }),
+    [sortedAlerts, cascade]
+  );
+
   const columns = React.useMemo(
-    () => buildAlertColumns(deviceNames, visibleKeys, fetchAlerts),
-    [deviceNames, visibleKeys, fetchAlerts]
+    () => buildAlertColumns(deviceNames, visibleKeys, fetchAlerts, cascade),
+    [deviceNames, visibleKeys, fetchAlerts, cascade]
   );
 
   const hasFilters =
@@ -473,7 +571,7 @@ function AlertsPageContent() {
 
       <DataTable
         columns={columns}
-        rows={sortedAlerts}
+        rows={displayedAlerts}
         getRowId={(a) => a.id}
         getRowLabel={(a) => describe(a)}
         onRowClick={(a) => router.push(`/alerts/${a.id}`)}
