@@ -101,7 +101,7 @@ const DeviceNodeCard = memo(function DeviceNodeCard({ data }: NodeProps<DeviceNo
           aria-label={hidden ? `Mostrar ${hidden.total} equipos debajo de ${node.name}` : `Ocultar lo que cuelga de ${node.name}`}
           title={
             hidden
-              ? `${hidden.total} ocultos${hidden.down ? ` · ${hidden.down} caídos` : ''}${hidden.unreachable ? ` · ${hidden.unreachable} sin alcance` : ''}`
+              ? `${hidden.total} ocultos${hidden.down ? ` · ${hidden.down} caído${hidden.down === 1 ? '' : 's'}` : ''}${hidden.unreachable ? ` · ${hidden.unreachable} sin alcance` : ''}`
               : 'Ocultar'
           }
         >
@@ -301,7 +301,7 @@ function Graph({ nodes: all, initialFocus }: NetworkGraphProps) {
         />
         <div className="flex flex-wrap items-center gap-2 text-sm sm:ml-auto">
           <span className="text-gray-500 dark:text-gray-400">{all.length} equipos</span>
-          {counts.down > 0 && <Badge variant="danger">{counts.down} caídos</Badge>}
+          {counts.down > 0 && <Badge variant="danger">{counts.down} caído{counts.down === 1 ? '' : 's'}</Badge>}
           {counts.unreachable > 0 && <Badge variant="neutral">{counts.unreachable} sin alcance</Badge>}
         </div>
       </div>
@@ -424,7 +424,7 @@ function SelectedPanel({
         <dd className="text-gray-900 dark:text-gray-100">
           {hidden.total === 0
             ? 'Nada'
-            : `${hidden.total} equipo${hidden.total === 1 ? '' : 's'}${hidden.down ? `, ${hidden.down} caídos` : ''}${hidden.unreachable ? `, ${hidden.unreachable} sin alcance` : ''}`}
+            : `${hidden.total} equipo${hidden.total === 1 ? '' : 's'}${hidden.down ? `, ${hidden.down} caído${hidden.down === 1 ? '' : 's'}` : ''}${hidden.unreachable ? `, ${hidden.unreachable} sin alcance` : ''}`}
         </dd>
       </dl>
       <Link href={`/devices/${node.id}`} className="mt-3 inline-block font-medium text-brand-600 dark:text-brand-400 hover:underline">

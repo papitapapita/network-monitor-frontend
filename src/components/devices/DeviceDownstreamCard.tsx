@@ -43,8 +43,8 @@ export function DeviceDownstreamCard({ deviceId }: { deviceId: string }) {
             Cuelgan de este equipo
           </SectionTitle>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-gray-500 dark:text-gray-400">{below.length} equipos</span>
-            {down > 0 && <Badge variant="danger">{down} caídos</Badge>}
+            <span className="text-gray-500 dark:text-gray-400">{below.length} equipo{below.length === 1 ? '' : 's'}</span>
+            {down > 0 && <Badge variant="danger">{down} caído{down === 1 ? '' : 's'}</Badge>}
             {unreachable > 0 && <Badge variant="neutral">{unreachable} sin alcance</Badge>}
             <Link href={`/topology?focus=${deviceId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
               Ver en el mapa
