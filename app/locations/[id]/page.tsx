@@ -7,7 +7,7 @@ import { LocationResponseDTO, UpdateLocationDTO } from '@/types/location.types';
 import { DeviceResponseDTO, DeviceStatus } from '@/types/device.types';
 import { LOCATION_TYPE_LABELS, LOCATION_TYPE_BADGE_VARIANTS } from '@/constants/location.constants';
 import { DEVICE_STATUS_LABELS, deviceCategoryLabel } from '@/constants/device.constants';
-import { BackLink, Button, Badge, EditIcon, IconButton, EditFormActions, LoadingSpinner, Card, Table, TableEmptyState, TrashIcon } from '@/components/ui';
+import { BackLink, Button, Badge, EditToggleButton, IconButton, EditFormActions, RecordTimestamps, LoadingSpinner, Card, Table, TableEmptyState, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import {
   LocationForm,
@@ -215,16 +215,13 @@ export default function LocationDetailPage() {
         </div>
       )}
 
-      {!isEditing && permissions.canWrite && (
-        <div className="flex justify-end mb-3">
-          <IconButton icon={<EditIcon />} label="Editar" size="md" onClick={() => setIsEditing(true)} />
-        </div>
-      )}
-
       {isEditing ? (
         <Card className="mb-6">
           <Card.Header>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Editar Ubicación</h2>
+            <div className="flex justify-between items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar Ubicación</h2>
+              <EditToggleButton isEditing onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
+            </div>
           </Card.Header>
           <Card.Body>
             <LocationForm
@@ -236,14 +233,18 @@ export default function LocationDetailPage() {
             />
           </Card.Body>
           <Card.Footer>
-            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} />
+            <EditFormActions onCancel={cancelEdit} onSave={handleSave} isSaving={isSaving} hideCancel />
           </Card.Footer>
         </Card>
       ) : (
-        <>
-          {/* Details card */}
-          <Card className="mb-6">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Información general</h2>
+        <Card className="mb-6">
+          <Card.Header>
+            <div className="flex justify-between items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información general</h2>
+              <EditToggleButton isEditing={false} onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
+            </div>
+          </Card.Header>
+          <Card.Body>
             <dl className="wrap-anywhere grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-5">
               <DetailField label="Municipio" value={location.municipality} />
               <DetailField label="Barrio" value={location.neighborhood} />
@@ -278,22 +279,8 @@ export default function LocationDetailPage() {
                 </a>
               </div>
             )}
-          </Card>
-
-          {/* Timestamps */}
-          <Card className="mb-6">
-            <dl className="wrap-anywhere grid grid-cols-2 gap-x-6 gap-y-4">
-              <DetailField
-                label="Creada"
-                value={new Date(location.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
-              />
-              <DetailField
-                label="Última actualización"
-                value={new Date(location.updatedAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
-              />
-            </dl>
-          </Card>
-        </>
+          </Card.Body>
+        </Card>
       )}
 
       <LocationPoeCard locationId={locationId} />
@@ -370,6 +357,8 @@ export default function LocationDetailPage() {
           </Table>
         </Card>
       </div>
+
+      <RecordTimestamps createdAt={location.createdAt} updatedAt={location.updatedAt} createdLabel="Creada" updatedLabel="Actualizada" className="mt-6" />
     </div>
   );
 }
