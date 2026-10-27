@@ -1,21 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { PollingHistoryResponse, PollingResultDTO } from '@/types/polling.types';
-import { useWidth } from '@/components/dashboard/charts';
+import { LegendKey, Tooltip, niceAxis, useWidth } from '@/components/dashboard/charts';
 
 /**
  * The backend's cap on one history page — at a 60 s interval, about 16 of the
- * 24 hours. It bounds the sparkline only: the figures come from the endpoint's
+ * 24 hours. It bounds the chart only: the figures come from the endpoint's
  * statistics, which cover the whole window.
  */
 const WINDOW_LIMIT = 1000;
 const WINDOW_HOURS = 24;
 
 export interface PingSummary {
-  /** Oldest first, so the sparkline reads left to right. */
+  /** Oldest first, so the chart reads left to right. */
   samples: PollingResultDTO[];
   /** Percent of pings answered in the window; null with no pings at all. */
   availability: number | null;
@@ -45,7 +45,7 @@ function summarise({ results, totalCount, statistics }: PollingHistoryResponse):
 /**
  * The last day of pings: the endpoint's statistics for the figures (MON-043:
  * they describe the whole date window, not the page) and the newest page of
- * rows for the sparkline. Skipped while `enabled` is false, since a device
+ * rows for the chart. Skipped while `enabled` is false, since a device
  * nobody polls has no recent pings worth a request.
  */
 export function usePingSummary(deviceId: string, enabled: boolean) {
@@ -77,56 +77,127 @@ export function availabilityTone(pct: number | null): string {
   return 'text-red-700 dark:text-red-400';
 }
 
-const HEIGHT = 40;
+const HEIGHT = 180;
+
+const fmtTime = (t: number) => new Date(t).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
 
 /**
- * Latency across the window, with each unanswered ping as a red tick on the
- * floor — a gap in the line alone would read as "no data", not "down".
+ * Latency across the window on a millisecond axis, with each unanswered ping
+ * as a red tick on the floor — a gap in the line alone would read as "no
+ * data", not "down". Hovering names the nearest ping and what it answered.
  */
-export function LatencySparkline({ samples }: { samples: PollingResultDTO[] }) {
+export function LatencyChart({ samples }: { samples: PollingResultDTO[] }) {
   const [ref, width] = useWidth<HTMLDivElement>();
+  const [hovered, setHovered] = useState<number | null>(null);
   if (samples.length < 2) return null;
 
-  const t0 = new Date(samples[0].timestamp).getTime();
-  const span = Math.max(1, new Date(samples[samples.length - 1].timestamp).getTime() - t0);
-  const max = Math.max(1, ...samples.map((s) => s.metrics?.latencyMs ?? 0));
-  const pad = 3;
-  const x = (s: PollingResultDTO) => pad + ((new Date(s.timestamp).getTime() - t0) / span) * (width - 2 * pad);
-  const y = (ms: number) => pad + (HEIGHT - 2 * pad) * (1 - ms / max);
+  const times = samples.map((s) => new Date(s.timestamp).getTime());
+  const t0 = times[0];
+  const t1 = times[times.length - 1];
+  const span = Math.max(1, t1 - t0);
+  const { max, ticks } = niceAxis(Math.max(1, ...samples.map((s) => s.metrics?.latencyMs ?? 0)), 3, true);
+  const margin = { top: 10, right: 8, bottom: 20, left: 52 };
+  const plotW = Math.max(0, width - margin.left - margin.right);
+  const plotH = HEIGHT - margin.top - margin.bottom;
+  const x = (t: number) => margin.left + ((t - t0) / span) * plotW;
+  const y = (ms: number) => margin.top + plotH * (1 - ms / max);
+  const floor = y(0);
 
   // Break the line at every failure so it never bridges an outage.
   let path = '';
   let penUp = true;
-  for (const s of samples) {
+  samples.forEach((s, i) => {
     if (s.status !== 'SUCCESS' || !s.metrics) {
       penUp = true;
-      continue;
+      return;
     }
-    path += `${penUp ? 'M' : 'L'}${x(s)},${y(s.metrics.latencyMs)} `;
+    path += `${penUp ? 'M' : 'L'}${x(times[i])},${y(s.metrics.latencyMs)} `;
     penUp = false;
-  }
+  });
+
+  const onMove = (e: React.MouseEvent<SVGRectElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const t = t0 + ((e.clientX - rect.left) / rect.width) * span;
+    let nearest = 0;
+    for (let i = 1; i < times.length; i++) {
+      if (Math.abs(times[i] - t) < Math.abs(times[nearest] - t)) nearest = i;
+    }
+    setHovered(nearest);
+  };
+
+  const hs = hovered !== null ? samples[hovered] : null;
+  const hx = hovered !== null ? x(times[hovered]) : 0;
+  const hy = hs?.metrics && hs.status === 'SUCCESS' ? y(hs.metrics.latencyMs) : floor;
 
   return (
-    <div ref={ref} className="h-10 w-full">
-      {width > 0 && (
-        <svg width={width} height={HEIGHT} role="img" aria-label={`Latencia: máximo ${Math.round(max)} ms`}>
-          <line x1={pad} x2={width - pad} y1={HEIGHT - pad} y2={HEIGHT - pad} stroke="var(--viz-axis)" strokeWidth={1} />
-          <path d={path} fill="none" stroke="var(--viz-series)" strokeWidth={1.5} strokeLinejoin="round" />
-          {samples
-            .filter((s) => s.status !== 'SUCCESS')
-            .map((s) => (
-              <line
-                key={s.id}
-                x1={x(s)}
-                x2={x(s)}
-                y1={HEIGHT - pad}
-                y2={HEIGHT - pad - 8}
-                stroke="var(--viz-critical)"
-                strokeWidth={1.5}
-              />
+    <div>
+      <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+        {width > 0 && (
+          <svg width={width} height={HEIGHT} role="img" aria-label={`Latencia de ping: máximo ${max} ms`}>
+            {ticks.map((t) => (
+              <g key={t}>
+                <line
+                  x1={margin.left}
+                  x2={width - margin.right}
+                  y1={y(t)}
+                  y2={y(t)}
+                  stroke={t === 0 ? 'var(--viz-axis)' : 'var(--viz-grid)'}
+                  strokeWidth={1}
+                />
+                <text x={margin.left - 8} y={y(t)} dy="0.32em" textAnchor="end" className="fill-gray-400 text-[10px] tabular-nums dark:fill-gray-500">
+                  {t} ms
+                </text>
+              </g>
             ))}
-        </svg>
-      )}
+            <path d={path} fill="none" stroke="var(--viz-series)" strokeWidth={1.5} strokeLinejoin="round" />
+            {samples.map((s, i) =>
+              s.status !== 'SUCCESS' ? (
+                <line key={s.id} x1={x(times[i])} x2={x(times[i])} y1={floor} y2={floor - 10} stroke="var(--viz-critical)" strokeWidth={1.5} />
+              ) : null,
+            )}
+            <text x={margin.left} y={HEIGHT - 4} className="fill-gray-400 text-[10px] dark:fill-gray-500">
+              {fmtTime(t0)}
+            </text>
+            <text x={width - margin.right} y={HEIGHT - 4} textAnchor="end" className="fill-gray-400 text-[10px] dark:fill-gray-500">
+              {fmtTime(t1)}
+            </text>
+            {hs && (
+              <>
+                <line x1={hx} x2={hx} y1={margin.top} y2={floor} stroke="var(--viz-axis)" strokeWidth={1} />
+                <circle
+                  cx={hx}
+                  cy={hy}
+                  r={4}
+                  fill={hs.status === 'SUCCESS' ? 'var(--viz-series)' : 'var(--viz-critical)'}
+                  stroke="var(--viz-surface)"
+                  strokeWidth={2}
+                />
+              </>
+            )}
+            <rect
+              x={margin.left}
+              y={margin.top}
+              width={plotW}
+              height={plotH}
+              fill="transparent"
+              onMouseMove={onMove}
+              onMouseLeave={() => setHovered(null)}
+            />
+          </svg>
+        )}
+        {hs && (
+          <Tooltip x={hx} y={hy} containerWidth={width}>
+            <p className="text-gray-500 dark:text-gray-400">{fmtTime(times[hovered!])}</p>
+            <p className={`font-medium ${hs.status === 'SUCCESS' ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-400'}`}>
+              {hs.status === 'SUCCESS' && hs.metrics ? `${Math.round(hs.metrics.latencyMs)} ms` : 'Sin respuesta'}
+            </p>
+          </Tooltip>
+        )}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        <LegendKey color="var(--viz-series)" label="Latencia del ping" />
+        <LegendKey color="var(--viz-critical)" label="Sin respuesta" />
+      </div>
     </div>
   );
 }
@@ -142,7 +213,7 @@ export function HealthTile({ label, children, hint }: { label: string; children:
   );
 }
 
-/** Availability and latency over the last day, plus the latency line. */
+/** Availability and latency over the last day, plus the latency chart. */
 export function PingSummaryTiles({ summary }: { summary: PingSummary }) {
   if (summary.totalCount === 0) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">Sin sondeos en las últimas {WINDOW_HOURS} h.</p>;
@@ -165,7 +236,10 @@ export function PingSummaryTiles({ summary }: { summary: PingSummary }) {
           {summary.avgLatencyMs !== null ? `${Math.round(summary.avgLatencyMs)} ms` : '—'}
         </HealthTile>
       </div>
-      <LatencySparkline samples={summary.samples} />
+      <div>
+        <h4 className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Latencia del ping · últimas {WINDOW_HOURS} h</h4>
+        <LatencyChart samples={summary.samples} />
+      </div>
     </div>
   );
 }
