@@ -12,6 +12,7 @@ import { ROLE_LABELS } from '@/constants/user.constants';
 import { isAdminRole } from '@/constants/roles';
 import type { InstallationDTO } from '@/types/installation.types';
 import { isRouteAvailable } from '@/constants/installation.constants';
+import { NotificationBell } from '@/components/inbox/NotificationBell';
 
 
 const icon = (d: string | string[]) => (
@@ -431,6 +432,10 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
 
       {/* Bottom: settings + user */}
       <div className="shrink-0 px-2 pb-4 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-0.5">
+        {/* The mobile top bar carries its own bell. */}
+        <div className="hidden md:block">
+          <NotificationBell variant="sidebar" collapsed={isRail} />
+        </div>
         {isAdminRole(user?.role) && (
           <NavItem
             href="/users"

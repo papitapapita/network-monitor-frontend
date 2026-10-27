@@ -15,6 +15,8 @@ import { syncPushSubscription } from '@/services/push';
 import { BRAND } from '@/constants/brand.constants';
 import { isRouteAvailable } from '@/constants/installation.constants';
 import { isVendorRole } from '@/constants/roles';
+import { InboxProvider } from '@/contexts/inbox.context';
+import { NotificationBell } from '@/components/inbox/NotificationBell';
 
 function LockIcon() {
   return (
@@ -180,81 +182,87 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // A form that can only end in 402 is not worth opening.
   const blockedByReadOnly = subscription.readOnly && /\/(create|edit)(\/|$)/.test(pathname);
 
+  // The inbox (and its stream) lives only in the signed-in, unlocked shell.
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile overlay backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
+    <InboxProvider>
+      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Mobile overlay backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-20 bg-black/40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setCollapsed(!sidebarCollapsed)}
         />
-      )}
 
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setCollapsed(!sidebarCollapsed)}
-      />
+        <div
+          className={`flex flex-col flex-1 min-w-0 transition-[margin] duration-200 ${
+            sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'
+          }`}
+        >
+          {/* Mobile top bar */}
+          <header className="md:hidden flex items-center h-14 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0 sticky top-0 z-10">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Abrir menú"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <BrandMark className="ml-2 w-7 h-7" />
+            <span className="ml-2 text-sm font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{BRAND.name}</span>
+            <div className="ml-auto">
+              <NotificationBell variant="topbar" />
+            </div>
+          </header>
 
-      <div
-        className={`flex flex-col flex-1 min-w-0 transition-[margin] duration-200 ${
-          sidebarCollapsed ? 'md:ml-16' : 'md:ml-56'
-        }`}
-      >
-        {/* Mobile top bar */}
-        <header className="md:hidden flex items-center h-14 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0 sticky top-0 z-10">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            aria-label="Abrir menú"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <BrandMark className="ml-2 w-7 h-7" />
-          <span className="ml-2 text-sm font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{BRAND.name}</span>
-        </header>
+          {/* x hidden: an edge-positioned IconButton's tooltip label stays in
+              layout while invisible (opacity doesn't remove it from flow), so
+              without this a tooltip like "Eliminar dispositivo" near the right
+              edge quietly pokes past the viewport and turns this into a
+              horizontally-scrollable container. Every wide-content component
+              (tables, the device detail tab bar) already scrolls within its
+              own wrapper, so main never legitimately needs to scroll sideways. */}
+          <SubscriptionBanner subscription={subscription} paymentHref={paymentHref} />
 
-        {/* x hidden: an edge-positioned IconButton's tooltip label stays in
-            layout while invisible (opacity doesn't remove it from flow), so
-            without this a tooltip like "Eliminar dispositivo" near the right
-            edge quietly pokes past the viewport and turns this into a
-            horizontally-scrollable container. Every wide-content component
-            (tables, the device detail tab bar) already scrolls within its
-            own wrapper, so main never legitimately needs to scroll sideways. */}
-        <SubscriptionBanner subscription={subscription} paymentHref={paymentHref} />
-
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          {/* A saved link into a module this install does not run: its API
-              answers 404 on every call, so say so once instead of letting the
-              page fail request by request. */}
-          {blockedByReadOnly ? (
-            <StatusPage
-              icon={<LockIcon />}
-              iconTone="amber"
-              title="Sistema en solo lectura"
-              description="La suscripción está vencida, así que no se pueden crear ni modificar registros. Puedes seguir consultando todo."
-              primaryAction={{ label: 'Volver atrás', onClick: () => router.back() }}
-            />
-          ) : installation.isLoaded && !isRouteAvailable(pathname, installation) ? (
-            <StatusPage
-              icon={<UnavailableIcon />}
-              iconTone="amber"
-              title="No disponible en esta instalación"
-              description={
-                pathname.startsWith('/network-scan')
-                  ? 'El servidor de esta instalación no está en la red monitoreada, así que no puede escanearla. Los agentes vigilan esa red desde adentro.'
-                  : 'Esta sección pertenece a un módulo que no está activo en esta instalación. Si lo necesitas, habla con el proveedor del sistema.'
-              }
-              primaryAction={{ label: 'Volver al inicio', href: '/' }}
-            />
-          ) : (
-            children
-          )}
-        </main>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            {/* A saved link into a module this install does not run: its API
+                answers 404 on every call, so say so once instead of letting the
+                page fail request by request. */}
+            {blockedByReadOnly ? (
+              <StatusPage
+                icon={<LockIcon />}
+                iconTone="amber"
+                title="Sistema en solo lectura"
+                description="La suscripción está vencida, así que no se pueden crear ni modificar registros. Puedes seguir consultando todo."
+                primaryAction={{ label: 'Volver atrás', onClick: () => router.back() }}
+              />
+            ) : installation.isLoaded && !isRouteAvailable(pathname, installation) ? (
+              <StatusPage
+                icon={<UnavailableIcon />}
+                iconTone="amber"
+                title="No disponible en esta instalación"
+                description={
+                  pathname.startsWith('/network-scan')
+                    ? 'El servidor de esta instalación no está en la red monitoreada, así que no puede escanearla. Los agentes vigilan esa red desde adentro.'
+                    : 'Esta sección pertenece a un módulo que no está activo en esta instalación. Si lo necesitas, habla con el proveedor del sistema.'
+                }
+                primaryAction={{ label: 'Volver al inicio', href: '/' }}
+              />
+            ) : (
+              children
+            )}
+          </main>
+        </div>
       </div>
-    </div>
+    </InboxProvider>
   );
 }

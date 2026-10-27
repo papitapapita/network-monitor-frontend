@@ -62,6 +62,7 @@ import {
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
 import { PushPublicKeyDTO, PushSubscriptionDTO, PushTestResultDTO } from '../types/push.types';
+import type { InboxListDTO, InboxListParams, InboxNotificationDTO } from '../types/inbox.types';
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import { BackUpNowResultDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
@@ -1378,6 +1379,22 @@ class MockApiService {
   }
   async unsubscribePush(): Promise<ApiResponse<null>> {
     return ok(null);
+  }
+  async getInbox(params: InboxListParams = {}): Promise<ApiResponse<InboxListDTO>> {
+    return ok({ notifications: [], total: 0, unread: 0, hasMore: false, limit: params.limit ?? 20, offset: params.offset ?? 0 });
+  }
+  async getInboxUnreadCount(): Promise<ApiResponse<{ unread: number }>> {
+    return ok({ unread: 0 });
+  }
+  async markInboxRead(): Promise<ApiResponse<InboxNotificationDTO>> {
+    return { success: false, error: 'Notification not found', status: 404 };
+  }
+  async markInboxAllRead(): Promise<ApiResponse<{ marked: number }>> {
+    return ok({ marked: 0 });
+  }
+  streamInbox(handlers: { onState?: (state: SseState) => void }): () => void {
+    handlers.onState?.({ status: 'error', error: 'No disponible en modo mock' });
+    return () => {};
   }
   async sendTestPush(): Promise<ApiResponse<PushTestResultDTO>> {
     return { success: false, error: 'Phone notifications are not configured on this server' };

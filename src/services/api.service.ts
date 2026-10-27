@@ -48,6 +48,7 @@ import {
 import { NotificationMutesDTO } from '../types/notification-mutes.types';
 import { NotificationSettingsDTO, NotificationTestResultDTO } from '../types/notification-settings.types';
 import { PushPublicKeyDTO, PushSubscriptionBody, PushSubscriptionDTO, PushTestResultDTO } from '../types/push.types';
+import { InboxListDTO, InboxListParams, InboxNotificationDTO, InboxStreamHandlers } from '../types/inbox.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AlertDTO,
@@ -1221,6 +1222,51 @@ class ApiService {
     return this.request<NotificationTestResultDTO>('/notification-settings/test', {
       method: 'POST',
       body: JSON.stringify(telegramChatId ? { telegramChatId } : {})
+    });
+  }
+
+  // ============================================================
+  // Notification inbox (NOT-260…269) — always the signed-in user's own
+  // ============================================================
+
+  async getInbox(params: InboxListParams = {}): Promise<ApiResponse<InboxListDTO>> {
+    const query = new URLSearchParams();
+    if (params.unread) query.set('unread', 'true');
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    if (params.offset) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return this.request<InboxListDTO>(`/notifications${qs ? `?${qs}` : ''}`);
+  }
+
+  async getInboxUnreadCount(): Promise<ApiResponse<{ unread: number }>> {
+    return this.request<{ unread: number }>('/notifications/unread-count');
+  }
+
+  /** Marking one already read keeps its first `readAt` (NOT-262). */
+  async markInboxRead(id: string): Promise<ApiResponse<InboxNotificationDTO>> {
+    return this.request<InboxNotificationDTO>(`/notifications/${id}/read`, { method: 'POST' });
+  }
+
+  async markInboxAllRead(): Promise<ApiResponse<{ marked: number }>> {
+    return this.request<{ marked: number }>('/notifications/read-all', { method: 'POST' });
+  }
+
+  /**
+   * The inbox live (NOT-265, NOT-269): one per tab while signed in. It has its
+   * own cap of 10 per user, apart from the 5 the live views share.
+   */
+  streamInbox(handlers: InboxStreamHandlers & { onState?: (state: SseState) => void }): () => void {
+    return openSseStream(`${this.baseUrl}/notifications/stream`, {
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        if (event === 'unread') {
+          const dto = parseStreamJson<{ unread: number }>(data);
+          if (dto) handlers.onUnread(dto.unread);
+        } else if (event === 'notification') {
+          const dto = parseStreamJson<{ notification: InboxNotificationDTO; unread: number }>(data);
+          if (dto) handlers.onNotification(dto.notification, dto.unread);
+        }
+      },
     });
   }
 
