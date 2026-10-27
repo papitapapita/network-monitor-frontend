@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
+import { useTopology } from '@/hooks/useTopology';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const MapView = dynamic(() => import('@/components/map/MapView'), {
@@ -15,6 +16,9 @@ const MapView = dynamic(() => import('@/components/map/MapView'), {
   ),
 });
 
+/** Reachability on the lines and pins; the pins themselves load once. */
+const TOPOLOGY_REFRESH_MS = 30_000;
+
 export default function MapPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['locationMapPins'],
@@ -24,6 +28,8 @@ export default function MapPage() {
       return r.data!;
     },
   });
+
+  const { data: topology } = useTopology({ refreshMs: TOPOLOGY_REFRESH_MS });
 
   const pins = data?.pins ?? [];
   const totalDevices = pins.reduce((sum, p) => sum + p.devices.length, 0);
@@ -102,7 +108,7 @@ export default function MapPage() {
         )}
 
         {!isLoading && !error && pins.length > 0 && (
-          <MapView pins={pins} className="h-full w-full" />
+          <MapView pins={pins} topology={topology?.nodes} className="h-full w-full" />
         )}
       </div>
     </div>

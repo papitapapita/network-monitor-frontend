@@ -1,11 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useQuery } from '@tanstack/react-query';
-import { apiService } from '@/services/api.service';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { InfoTip } from '@/components/ui';
 import { useUrlState } from '@/hooks/useUrlState';
+import { useTopology } from '@/hooks/useTopology';
 import { TopologySuggestions } from '@/components/topology/TopologySuggestions';
 
 // React Flow measures the window; there is nothing to render on the server.
@@ -29,16 +28,7 @@ export default function TopologyPage() {
   const tab: Tab = url.get('tab') === 'suggestions' ? 'suggestions' : 'map';
   // A device page's «Ver en el mapa» opens the map on it.
   const focusId = url.get('focus') || null;
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['topology'],
-    queryFn: async () => {
-      const r = await apiService.getTopology();
-      if (!r.success || !r.data) throw new Error(r.error ?? 'Error al cargar la topología');
-      return r.data;
-    },
-    refetchInterval: REFRESH_MS,
-    enabled: tab === 'map',
-  });
+  const { data, isLoading, error } = useTopology({ refreshMs: REFRESH_MS, enabled: tab === 'map' });
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">

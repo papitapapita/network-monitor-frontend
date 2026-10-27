@@ -53,6 +53,15 @@ export function descendantsOf(index: TopologyIndex, id: string): TopologyNodeDTO
   return out;
 }
 
+/** How long ago `iso` was, e.g. "hace 5 min", or null when there is no time. */
+export function sinceLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.round(mins / 60);
+  return hours < 48 ? `hace ${hours} h` : `hace ${Math.round(hours / 24)} d`;
+}
+
 export interface HiddenSummary {
   total: number;
   down: number;

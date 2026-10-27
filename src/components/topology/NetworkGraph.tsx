@@ -28,6 +28,7 @@ import {
   indexTopology,
   initialFolds,
   layout,
+  sinceLabel,
   summarise,
   visibleNodes,
   type HiddenSummary,
@@ -44,14 +45,6 @@ type DeviceNodeData = {
 };
 
 type DeviceNode = Node<DeviceNodeData, 'device'>;
-
-const sinceLabel = (iso: string | null): string | null => {
-  if (!iso) return null;
-  const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
-  if (mins < 60) return `hace ${mins} min`;
-  const hours = Math.round(mins / 60);
-  return hours < 48 ? `hace ${hours} h` : `hace ${Math.round(hours / 24)} d`;
-};
 
 const BORDER: Record<TopologyNodeDTO['reachability'], string> = {
   UP: 'border-gray-300 dark:border-gray-600',
@@ -410,7 +403,7 @@ function SelectedPanel({
         <dd className="text-gray-900 dark:text-gray-100">{deviceCategoryLabel(node.category)}</dd>
         <dt className="text-gray-500 dark:text-gray-400">Ubicación</dt>
         <dd className="text-gray-900 dark:text-gray-100">{node.locationName ?? '—'}</dd>
-        <dt className="text-gray-500 dark:text-gray-400">Cuelga de</dt>
+        <dt className="text-gray-500 dark:text-gray-400">Depende de</dt>
         <dd>
           {upstream ? (
             <button type="button" className="text-brand-600 dark:text-brand-400 hover:underline text-left" onClick={() => onFocus(upstream.id)}>

@@ -32,26 +32,34 @@ export function upstreamLinkError(raw: string | null | undefined): string | null
 
 /**
  * DEV-186. During an outage the red node is the one to send a technician to;
- * the grey ones behind it are probably fine, just cut off.
+ * the grey ones behind it are probably fine, just cut off. `stroke` is the
+ * same state as a CSS colour, for what Tailwind can't reach (map lines and pins).
  */
-export const REACHABILITY: Record<TopologyReachability, { label: string; hint: string; variant: BadgeVariant; dot: string }> = {
-  UP: { label: 'En línea', hint: 'Respondió al último ping.', variant: 'success', dot: 'bg-green-500' },
+export const REACHABILITY: Record<
+  TopologyReachability,
+  { label: string; hint: string; variant: BadgeVariant; dot: string; stroke: string }
+> = {
+  UP: { label: 'En línea', hint: 'Respondió al último ping.', variant: 'success', dot: 'bg-green-500', stroke: '#22c55e' },
   DOWN: {
     label: 'Caído',
     hint: 'No responde y nada por encima de él está caído: aquí está la falla.',
     variant: 'danger',
     dot: 'bg-red-500',
+    stroke: '#ef4444',
   },
   UNREACHABLE: {
     label: 'Sin alcance',
     hint: 'No responde, pero un equipo por encima también está caído: probablemente está aislado, no dañado.',
     variant: 'neutral',
     dot: 'bg-gray-400',
+    // Greyed red: touched by the fault, not where it is.
+    stroke: '#b98585',
   },
   UNKNOWN: {
     label: 'Sin datos',
     hint: 'No se monitorea, aún no se ha sondeado o su agente no está reportando.',
     variant: 'neutral',
     dot: 'bg-transparent border border-gray-400 dark:border-gray-500',
+    stroke: '#cbd0d6',
   },
 };
