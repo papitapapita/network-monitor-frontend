@@ -43,6 +43,24 @@ export function useDashboardData() {
     refetchInterval: REFRESH_MS,
   });
 
+  // The open-alert tile counts what /alerts?status=OPEN lists, by the server's
+  // own totals: counting the 300 newest missed older open alerts and dropped
+  // removed devices' ones, so the tile and the page it links to disagreed.
+  const openAlertCountsQuery = useQuery({
+    queryKey: ['dashboard', 'openAlertCounts'],
+    queryFn: async () => {
+      const [open, critical] = await Promise.all([
+        apiService.listAlerts({ status: 'OPEN', limit: 1 }),
+        apiService.listAlerts({ status: 'OPEN', severity: 'CRITICAL', limit: 1 }),
+      ]);
+      return {
+        open: unwrap(open, 'Error al cargar alertas').total,
+        critical: unwrap(critical, 'Error al cargar alertas').total,
+      };
+    },
+    refetchInterval: REFRESH_MS,
+  });
+
   const ticketsQuery = useQuery({
     queryKey: ['dashboard', 'tickets'],
     queryFn: async () =>
@@ -90,13 +108,14 @@ export function useDashboardData() {
     statuses: statusQuery.data ?? {},
     alertsQuery,
     alerts,
+    openAlertCountsQuery,
     ticketsQuery,
     tickets: ticketsQuery.data?.tickets ?? [],
     locationNames,
     fleet,
     refresh,
     isRefreshing:
-      devicesQuery.isFetching || statusQuery.isFetching || alertsQuery.isFetching || ticketsQuery.isFetching,
+      devicesQuery.isFetching || statusQuery.isFetching || alertsQuery.isFetching || openAlertCountsQuery.isFetching || ticketsQuery.isFetching,
     lastRefreshed: updatedAt > 0 ? new Date(updatedAt) : null,
   };
 }

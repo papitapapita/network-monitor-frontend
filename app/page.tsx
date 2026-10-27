@@ -89,8 +89,8 @@ export default function DashboardPage() {
   const ticketSummary = useMemo(() => summarizeTickets(tickets), [tickets]);
   const lifecycle = useMemo(() => countByStatus(devices), [devices]);
 
-  const openAlerts = alerts.filter((a) => a.status === 'OPEN');
-  const criticalOpen = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
+  const openAlertCount = data.openAlertCountsQuery.data?.open ?? 0;
+  const criticalOpen = data.openAlertCountsQuery.data?.critical ?? 0;
   const measured = connectivity.online + connectivity.offline;
   const availability = measured > 0 ? Math.round((connectivity.online / measured) * 100) : null;
   const longestDown = problems
@@ -159,10 +159,10 @@ export default function DashboardPage() {
         <KpiTile
           label="Alertas abiertas"
           href="/alerts?status=OPEN"
-          loading={alertsLoading}
-          tone={criticalOpen > 0 ? 'critical' : openAlerts.length > 0 ? 'warning' : 'good'}
-          value={openAlerts.length}
-          sub={`${criticalOpen} crítica${criticalOpen === 1 ? '' : 's'} · ${openAlerts.length - criticalOpen} advertencia${openAlerts.length - criticalOpen === 1 ? '' : 's'}`}
+          loading={data.openAlertCountsQuery.isPending}
+          tone={criticalOpen > 0 ? 'critical' : openAlertCount > 0 ? 'warning' : 'good'}
+          value={openAlertCount}
+          sub={`${criticalOpen} crítica${criticalOpen === 1 ? '' : 's'} · ${openAlertCount - criticalOpen} advertencia${openAlertCount - criticalOpen === 1 ? '' : 's'}`}
         />
         <KpiTile
           label="Tickets abiertos"
