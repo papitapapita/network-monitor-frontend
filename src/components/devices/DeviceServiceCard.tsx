@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import { DeviceResponseDTO } from '@/types/device.types';
-import { Badge, Button, Card, Combobox, Input, LoadingSpinner, Select, isCancelEscape } from '@/components/ui';
+import { Badge, Button, Card, Combobox, IconButton, Input, LoadingSpinner, PlusIcon, Select, isCancelEscape } from '@/components/ui';
 import { useInstallation } from '@/hooks/useInstallation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/toast.context';
@@ -177,7 +177,7 @@ function NewServiceForm({ device }: { device: DeviceResponseDTO }) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-500 dark:text-gray-400">Este dispositivo no está asignado a ningún servicio.</p>
-        {canWrite && <Button size="sm" onClick={() => setIsOpen(true)}>Agregar servicio</Button>}
+        {canWrite && <IconButton icon={<PlusIcon />} label="Agregar servicio" variant="primary" onClick={() => setIsOpen(true)} />}
       </div>
     );
   }

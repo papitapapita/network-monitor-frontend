@@ -15,7 +15,7 @@ import { DeviceResponseDTO } from '@/types/device.types';
 import { PAYMENT_DAY_OPTIONS, formatPaymentDay } from '@/constants/billing-settings.constants';
 import { ServiceEnforcementStatusDTO } from '@/types/enforcement.types';
 import { CpeDevicePicker } from '@/components/devices/CpeDevicePicker';
-import { Card, Button, EditIcon, IconButton, EditFormActions, submitOnEnterCancelOnEscape, isCancelEscape, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
+import { Card, Button, EditIcon, IconButton, PlusIcon, EditFormActions, submitOnEnterCancelOnEscape, isCancelEscape, BackLink, Input, Select, LoadingSpinner, Badge, Modal, TrashIcon } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -473,7 +473,7 @@ export default function CustomerDetailPage() {
               {contracts.length > 0 && <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({contracts.length})</span>}
             </h2>
             {!showAddForm && permissions.canWrite && (
-              <Button size="sm" onClick={() => setShowAddForm(true)}>Agregar Servicio</Button>
+              <IconButton icon={<PlusIcon />} label="Agregar servicio" variant="primary" onClick={() => setShowAddForm(true)} />
             )}
           </div>
         </Card.Header>
