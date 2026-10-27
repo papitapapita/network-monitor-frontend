@@ -29,14 +29,31 @@ import { RESTORE_GRACE_DAYS } from '@/constants/device.constants';
 import { useAgents } from '@/hooks/useAgents';
 import { AGENT_STATUS_LABELS, SERVER_POLLER_LABEL, agentPollFailure } from '@/constants/agent.constants';
 import { SERVER_AGENT_VALUE, agentIdFromPicker } from '@/components/agents/AgentPicker';
-import type { BulkAction } from '@/components/ui';
+import type { BulkAction, BulkRowResult } from '@/components/ui';
 import type { DeviceListItemDTO } from '@/types/device.types';
+import type { ManualPollResultDTO } from '@/types/polling.types';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useInstallation } from '@/hooks/useInstallation';
 
 const COLUMNS_STORAGE_KEY = 'nms:devices-columns';
 
 const deviceCount = (n: number) => `${n} ${n === 1 ? 'dispositivo' : 'dispositivos'}`;
+
+/** What a manual poll found, for its toast or its row's tag. */
+function describePoll(poll: ManualPollResultDTO): BulkRowResult {
+  switch (poll.status) {
+    case 'SUCCESS':
+      return {
+        tone: 'success',
+        text: poll.metrics ? `Responde · ${Math.round(poll.metrics.latencyMs)} ms` : 'Responde',
+        detail: poll.message,
+      };
+    case 'FAILED':
+      return { tone: 'danger', text: 'Sin respuesta', detail: poll.message };
+    default:
+      return { tone: 'neutral', text: 'Sondeo omitido', detail: poll.message };
+  }
+}
 
 function DevicesPageContent() {
   const router = useRouter();
@@ -257,7 +274,7 @@ function DevicesPageContent() {
               label: 'Sondear',
               confirmTitle: 'Sondear dispositivos',
               confirmMessage: (n) =>
-                `¿Sondear ${deviceCount(n)} ahora? Cada uno recibe un ping inmediato y el resultado queda en su historial; la tabla se actualiza al terminar.`,
+                `¿Sondear ${deviceCount(n)} ahora? Cada uno recibe un ping inmediato; verás si respondió y el resultado queda en su historial.`,
               confirmText: 'Sondear',
               doneParticiple: 'sondead',
               progressVerb: 'Sondeando',
@@ -274,6 +291,7 @@ function DevicesPageContent() {
                 const result = await apiService.triggerPoll(id);
                 return result.success ? result : { ...result, error: agentPollFailure(result.status, result.error) ?? result.error };
               },
+              describeResult: (data) => describePoll(data as ManualPollResultDTO),
             } satisfies BulkAction<DeviceListItemDTO>,
             ...(moveAction ? [moveAction] : []),
           ],

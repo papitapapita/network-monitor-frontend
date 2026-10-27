@@ -9,7 +9,9 @@ import { ConfirmModal, Modal, UndoModal } from './Modal';
 import { Button } from './Button';
 import { Textarea } from './Textarea';
 import { Select } from './Select';
+import { Badge } from './Badge';
 import { useToast } from '@/contexts/toast.context';
+import type { ToastVariant } from './Toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import { ApiResponse, BulkActionSummary } from '@/types/common.types';
 import { BulkFanOutProgress, runBulkFanOut } from '@/services/bulk-fanout';
@@ -44,6 +46,20 @@ export interface EntityNoun {
   gender?: 'm' | 'f';
 }
 
+/** What one row's call answered, worded by the action's `describeResult`. */
+export interface BulkRowResult {
+  tone: 'success' | 'danger' | 'neutral';
+  text: string;
+  /** The longer story behind `text` — a tooltip on the row, a second line in a toast. */
+  detail?: string;
+}
+
+const RESULT_TOAST_VARIANT: Record<BulkRowResult['tone'], ToastVariant> = {
+  success: 'success',
+  danger: 'error',
+  neutral: 'info',
+};
+
 /**
  * A second thing the selection can be put through, beside deleting it — the
  * alerts list resolving what it selected, the devices list polling it.
@@ -72,6 +88,15 @@ export interface BulkAction<T = unknown> {
   runOne?: (id: string, input?: string) => Promise<ApiResponse<unknown>>;
   /** Gerund for the progress line of a `runOne` fan-out — "Sondeando", "Resolviendo". */
   progressVerb?: string;
+  /**
+   * Words what a row's `runOne` call answered, for an action whose answer is
+   * the point — a poll's latency, not just that the poll went through. A run
+   * over one row reports it in a toast; a larger run tags each row it sent
+   * with its own outcome, refusals included, until the page, the filters or
+   * the next action move on. Skipped rows stay untagged — the summary line
+   * already names them, and they stay selected.
+   */
+  describeResult?: (data: unknown) => BulkRowResult;
   /**
    * Why this row cannot take *this* action, or `null` if it can. Such rows are
    * dropped from the run and reported as skipped rather than made unselectable:
@@ -289,6 +314,18 @@ function rangeBetween(ids: string[], anchor: string, id: string): string[] {
   return ids.slice(Math.min(from, to), Math.max(from, to) + 1);
 }
 
+/** A row's outcome of the last bulk action, under its identifying cell. */
+function RowResultNote({ result }: { result: BulkRowResult | undefined }) {
+  if (!result) return null;
+  return (
+    <div className="mt-1 max-w-xs" title={result.detail ?? result.text}>
+      <Badge variant={result.tone} className="max-w-full">
+        <span className="truncate">{result.text}</span>
+      </Badge>
+    </div>
+  );
+}
+
 const RANGE_HINT = 'Mantén Shift para seleccionar un rango';
 /** How long a press on a mobile row must hold before it enters selection mode. */
 const LONG_PRESS_MS = 500;
@@ -329,6 +366,8 @@ export function DataTable<T>({
   /** Value typed into the pending action's `prompt`, cleared with the modal. */
   const [actionInput, setActionInput] = useState('');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  /** Each row's outcome of the last `describeResult` action that ran over several rows. */
+  const [rowResults, setRowResults] = useState<Map<string, BulkRowResult>>(new Map());
   /**
    * Rows blocked behind a DEV-030-style confirm-and-retry, awaiting the second
    * confirmation one at a time — `blockedQueue[0]` is on screen now, the rest
@@ -350,10 +389,11 @@ export function DataTable<T>({
   /** Timer for a mobile row's long-press-to-select gesture, and whether it already fired. */
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
-  const { showError } = useToast();
+  const { showError, showToast } = useToast();
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setRowResults(new Map());
     setShowConfirm(false);
     setBlockedQueue([]);
     setBlockedTotal(0);
@@ -610,6 +650,9 @@ export function DataTable<T>({
 
     setIsRunningAction(true);
     setActionNotice(null);
+    setRowResults(new Map());
+    /** What each row's `runOne` answered, for `describeResult`. */
+    const answers = new Map<string, unknown>();
     try {
       let summary: BulkActionSummary;
 
@@ -627,7 +670,11 @@ export function DataTable<T>({
         // 60/min budget, so a selection of thirty must not be fired at once.
         const { succeededIds, failed } = await runBulkFanOut(
           runnable,
-          (id) => runOne(id, input),
+          async (id) => {
+            const result = await runOne(id, input);
+            if (result.success) answers.set(id, result.data);
+            return result;
+          },
           setActionProgress
         );
         summary = {
@@ -645,11 +692,29 @@ export function DataTable<T>({
         ...summary,
         skipped: [...skipped, ...summary.skipped],
       };
-      const message = summaryMessage(merged, bulkDelete.entity, action.doneParticiple);
-      // A row the endpoint refused outright is a failure worth the red banner;
-      // one it merely skipped (already resolved, not monitored) is a normal run.
-      if (merged.failed.length > 0) showError(message);
-      else setActionNotice(message);
+      const results = new Map<string, BulkRowResult>();
+      const describe = action.run ? undefined : action.describeResult;
+      if (describe) {
+        merged.succeeded.forEach((id) => results.set(id, describe(answers.get(id))));
+        merged.failed.forEach(({ id, error }) => results.set(id, { tone: 'danger', text: error }));
+      }
+
+      if (results.size === 1 && merged.skipped.length === 0) {
+        // One row: its own answer says everything the count line would, and more.
+        const [[id, result]] = results;
+        const row = rowsById.get(id);
+        const label = row ? getRowLabel?.(row) : undefined;
+        showToast(RESULT_TOAST_VARIANT[result.tone], label ? `${label}: ${result.text}` : result.text, {
+          details: result.detail ? [result.detail] : undefined,
+        });
+      } else {
+        setRowResults(results);
+        const message = summaryMessage(merged, bulkDelete.entity, action.doneParticiple);
+        // A row the endpoint refused outright is a failure worth the red banner;
+        // one it merely skipped (already resolved, not monitored) is a normal run.
+        if (merged.failed.length > 0) showError(message);
+        else setActionNotice(results.size > 0 ? `${message} · el resultado de cada uno aparece en su fila` : message);
+      }
 
       // Leaves selected exactly what the action did not take, so a retry — or a
       // different action — aims at those rows and not at the ones already done.
@@ -821,12 +886,13 @@ export function DataTable<T>({
                             </span>
                           </Table.Cell>
                         )}
-                        {columns.map((col) => (
+                        {columns.map((col, index) => (
                           <Table.Cell
                             key={col.key}
                             className={`${col.className ?? ''} ${col.cellClassName ?? ''}`}
                           >
                             {col.cell(row)}
+                            {index === 0 && <RowResultNote result={rowResults.get(id)} />}
                           </Table.Cell>
                         ))}
                         {rowActions && (
@@ -1010,7 +1076,10 @@ export function DataTable<T>({
                               />
                             </span>
                           )}
-                          <div className="min-w-0 flex-1 break-words">{primaryColumn?.cell(row)}</div>
+                          <div className="min-w-0 flex-1 break-words">
+                            {primaryColumn?.cell(row)}
+                            <RowResultNote result={rowResults.get(id)} />
+                          </div>
                         </div>
 
                         {secondaryColumns.length > 0 && (
