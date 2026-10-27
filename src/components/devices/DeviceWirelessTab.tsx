@@ -15,7 +15,7 @@ import {
 } from '@/types/wireless.types';
 import { DeviceCategory, DeviceStatus, DeviceResponseDTO } from '@/types/device.types';
 import { DeviceAlertThresholdsCard } from '@/components/wireless/DeviceAlertThresholdsCard';
-import { Card, Input, Select, Switch, Combobox, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle, PlusIcon } from '@/components/ui';
+import { Card, Input, Select, Switch, LoadingSpinner, Badge, ConfirmModal, IconButton, EditFormActions, EditToggleButton, SectionTitle, PlusIcon } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { useInstallation } from '@/hooks/useInstallation';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -42,6 +42,7 @@ import {
   IDENTITY_SUGGESTIONS_ANCHOR,
 } from '@/constants/wireless.constants';
 import { LinkDiagnosisCard } from '@/components/wireless/LinkDiagnosisCard';
+import { upstreamLinkError } from '@/constants/topology.constants';
 import { agentPollFailure } from '@/constants/agent.constants';
 
 function CloseIcon() {
@@ -203,7 +204,7 @@ const REBOOT_WINDOW_MS = 120_000;
 const SUGGESTION_FIELD_LABELS: Record<WirelessIdentitySuggestion['field'], string> = {
   name: 'Nombre',
   macAddress: 'Dirección MAC',
-  parentApDeviceId: 'AP declarado',
+  upstreamDeviceId: 'Cuelga de (AP)',
 };
 
 // A station that declares this AP as its parent but is missing from the AP's
@@ -435,20 +436,12 @@ export function DeviceWirelessTab({
     linkCapacityKbps: '',
     clientsProvisionedLimit: '',
     provisionedLanSpeedMbps: '',
-    parentApDeviceId: '',
   });
   const [configSaving, setConfigSaving] = useState(false);
   const [configFormErrors, setConfigFormErrors] = useState<Record<string, string>>({});
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
   const [showConfigForm, setShowConfigForm] = useState(false);
 
-  // Candidate parents for a STATION's `parentApDeviceId` — loaded lazily, only
-  // once the edit form for a STATION is actually opened.
-  const [apDevices, setApDevices] = useState<{ id: string; name: string; ipAddress: string | null }[]>([]);
-  const [apDevicesLoading, setApDevicesLoading] = useState(false);
-  // The declared parent AP's name and IP, resolved for display in the
-  // read-only view (the config only carries the id).
-  const [parentAp, setParentAp] = useState<{ name: string; ipAddress: string | null } | null>(null);
 
   const [expectedClients, setExpectedClients] = useState<WirelessExpectedClientsResponse | null>(null);
   const [expectedClientsLoading, setExpectedClientsLoading] = useState(false);
@@ -475,7 +468,6 @@ export function DeviceWirelessTab({
         linkCapacityKbps: c.linkCapacityKbps != null ? String(c.linkCapacityKbps) : '',
         clientsProvisionedLimit: c.clientsProvisionedLimit !== null ? String(c.clientsProvisionedLimit) : '',
         provisionedLanSpeedMbps: c.provisionedLanSpeedMbps !== null ? String(c.provisionedLanSpeedMbps) : '',
-        parentApDeviceId: c.parentApDeviceId ?? '',
       });
     } else {
       if (result.error?.toLowerCase().includes('not found') || result.error?.toLowerCase().includes('404')) {
@@ -603,35 +595,6 @@ export function DeviceWirelessTab({
     }
   }, [config, category, fetchStatus, fetchAlerts, fetchIdentitySuggestions, fetchExpectedClients]);
 
-  // The config only carries the declared parent's id — resolve its name once
-  // for the read-only view instead of asking the operator to recognise a UUID.
-  useEffect(() => {
-    if (!config?.parentApDeviceId) {
-      setParentAp(null);
-      return;
-    }
-    let cancelled = false;
-    apiService.getDevice(config.parentApDeviceId).then((r) => {
-      if (!cancelled) setParentAp(r.success && r.data ? { name: r.data.name, ipAddress: r.data.ipAddress } : null);
-    });
-    return () => { cancelled = true; };
-  }, [config?.parentApDeviceId]);
-
-  // Candidate APs for the "parent AP" picker — loaded only once the STATION
-  // config form is actually open, not on every tab visit.
-  useEffect(() => {
-    if (!showConfigForm) return;
-    const isStationForm = noConfig ? inferDeviceType(category) === 'STATION' : config?.deviceType === 'STATION';
-    if (!isStationForm || apDevices.length > 0) return;
-    setApDevicesLoading(true);
-    apiService.listDevices({ category: 'ACCESS_POINT', deleted: 'false', limit: 200 }).then((r) => {
-      if (r.success && r.data) {
-        setApDevices(r.data.devices.map((d) => ({ id: d.id, name: d.name, ipAddress: d.ipAddress })));
-      }
-      setApDevicesLoading(false);
-    });
-  }, [showConfigForm, noConfig, category, config?.deviceType, apDevices.length]);
-
   useEffect(() => {
     apiService.getDeviceCredentials(deviceId).then((r) => {
       setHasHttpCreds(r.success && r.data ? r.data.hasHttpCredentials : false);
@@ -697,7 +660,6 @@ export function DeviceWirelessTab({
     setConfigSaving(true);
     setConfigSaveError(null);
 
-    const formIsAP = noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP;
     const payload = {
       ipAddress: deviceIpAddress,
       intervalSecs: configForm.intervalSecs ? parseInt(configForm.intervalSecs) : undefined,
@@ -714,8 +676,6 @@ export function DeviceWirelessTab({
         !isValidLanSpeed(configForm.provisionedLanSpeedMbps)
           ? undefined
           : configForm.provisionedLanSpeedMbps ? parseInt(configForm.provisionedLanSpeedMbps) : null,
-      // STATION only — the backend 400s if this is set on an ACCESS_POINT.
-      parentApDeviceId: formIsAP ? null : (configForm.parentApDeviceId || null),
     };
 
     let result;
@@ -750,7 +710,6 @@ export function DeviceWirelessTab({
       setNoConfig(true);
       setExpectedClients(null);
       setIdentitySuggestions([]);
-      setParentAp(null);
       showSuccess('Configuración inalámbrica eliminada.');
     } else {
       showError(result.error || 'No se pudo eliminar la configuración inalámbrica');
@@ -763,31 +722,15 @@ export function DeviceWirelessTab({
   const handleAcceptSuggestion = async (s: WirelessIdentitySuggestion) => {
     const key = suggestionKey(s);
     setAcceptingSuggestionKey(key);
-    if (s.field === 'parentApDeviceId') {
-      const result = await apiService.updateWirelessConfig(deviceId, { parentApDeviceId: s.suggestedValue });
-      setAcceptingSuggestionKey(null);
-      if (result.success) {
-        // Reload rather than setConfig: the edit form is seeded from the
-        // fetch, and a stale parentApDeviceId there would undo this on the
-        // next save. The new config re-runs the suggestions fetch.
-        showSuccess('Sugerencia aplicada.');
-        fetchConfig();
-      } else {
-        showError(result.error || 'No se pudo aplicar la sugerencia');
-      }
-      return;
-    }
-    const result = await apiService.updateDevice(
-      deviceId,
-      s.field === 'name' ? { name: s.suggestedValue } : { macAddress: s.suggestedValue }
-    );
+    // Every field, the AP included since it became the device's upstream, is a device PATCH.
+    const result = await apiService.updateDevice(deviceId, { [s.field]: s.suggestedValue });
     setAcceptingSuggestionKey(null);
     if (result.success && result.data) {
       showSuccess('Sugerencia aplicada.');
       onDeviceUpdated(result.data);
       fetchIdentitySuggestions();
     } else {
-      showError(result.error || 'No se pudo aplicar la sugerencia');
+      showError(upstreamLinkError(result.error) ?? (result.error || 'No se pudo aplicar la sugerencia'));
     }
   };
 
@@ -1189,7 +1132,7 @@ export function DeviceWirelessTab({
 
           {/* Stations (AP only) — the live list from the AP's last poll,
               which covers both declared and undeclared clients, followed by
-              the declared stations (parentApDeviceId on the STATION side)
+              the declared stations (those whose upstream is this AP)
               that are missing from it, dimmed and flagged. */}
           {isAP && (status || (expectedClients && expectedClients.missingCount > 0)) && (() => {
             const connected = status?.clients ?? [];
@@ -1262,7 +1205,7 @@ export function DeviceWirelessTab({
             <div id={IDENTITY_SUGGESTIONS_ANCHOR} className="scroll-mt-4">
               <Card>
                 <Card.Header>
-                  <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo el AP declarado vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
+                  <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo «Cuelga de» vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
                     Sugerencias de Identidad
                     <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
                       ({visibleSuggestions.length})
@@ -1445,22 +1388,6 @@ export function DeviceWirelessTab({
                   <dd className="mt-1 text-gray-900 dark:text-gray-100">{config.provisionedLanSpeedMbps} Mbps</dd>
                 </div>
               )}
-              {!isAP && config.parentApDeviceId && (
-                <div>
-                  <dt className="font-medium text-gray-500 dark:text-gray-400">AP declarado</dt>
-                  <dd className="mt-1">
-                    <Link
-                      href={`/devices/${config.parentApDeviceId}`}
-                      className="text-brand-600 dark:text-brand-400 hover:underline"
-                    >
-                      {parentAp?.name ?? config.parentApDeviceId}
-                    </Link>
-                    {parentAp?.ipAddress && (
-                      <span className="block"><IpLink ip={parentAp.ipAddress} /></span>
-                    )}
-                  </dd>
-                </div>
-              )}
             </dl>
             </>
           ) : null}
@@ -1513,19 +1440,6 @@ export function DeviceWirelessTab({
                     type="number"
                     value={configForm.clientsProvisionedLimit}
                     onChange={(e) => setConfigForm((p) => ({ ...p, clientsProvisionedLimit: e.target.value }))}
-                    fullWidth
-                  />
-                )}
-                {!(noConfig ? inferDeviceType(category) === 'ACCESS_POINT' : isAP) && (
-                  // Typing filters on name and IP alike; clearing the text leaves it undeclared.
-                  <Combobox
-                    label="AP declarado"
-                    value={configForm.parentApDeviceId}
-                    onChange={(id) => setConfigForm((p) => ({ ...p, parentApDeviceId: id }))}
-                    options={apDevices.map((d) => ({ value: d.id, label: d.name, sublabel: d.ipAddress ?? undefined }))}
-                    placeholder={apDevicesLoading ? 'Cargando...' : 'Automático'}
-                    disabled={apDevicesLoading}
-                    info="El AP donde esta estación debería estar conectada. Alimenta la vista de «Estaciones Esperadas» en ese AP."
                     fullWidth
                   />
                 )}

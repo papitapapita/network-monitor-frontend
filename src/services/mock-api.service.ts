@@ -246,6 +246,23 @@ const withSummaries = (cs: ContractedServiceDTO): ContractedServiceDetailDTO => 
 const findLiveDevice = (id: string): DeviceResponseDTO | undefined =>
   devices.find((d) => d.id === id && !d.deletedAt);
 
+/** The upstream link rules (DEV-181..183): null if `deviceId → upstreamId` may be made. */
+function upstreamRefusal(deviceId: string | null, upstreamId: string): ApiResponse<never> | null {
+  if (upstreamId === deviceId) return err('Cannot make a device its own upstream device');
+  const upstream = findLiveDevice(upstreamId);
+  if (!upstream) return { success: false, status: 404, error: `Upstream device not found: ${upstreamId}` };
+  if (upstream.status !== 'ACTIVE' && upstream.status !== 'COMMISSIONING') {
+    return err(`The upstream device must be ACTIVE or COMMISSIONING, not ${upstream.status}`);
+  }
+  for (let at: DeviceResponseDTO | undefined = upstream; at?.upstreamDeviceId; at = findLiveDevice(at.upstreamDeviceId)) {
+    if (at.upstreamDeviceId === deviceId) {
+      const device = findLiveDevice(deviceId!);
+      return err(`${upstream.name} is already downstream of ${device?.name ?? deviceId} — linking them would form a loop`);
+    }
+  }
+  return null;
+}
+
 // ── Device backups ───────────────────────────────────────────
 // Mock mode has no device to read, so every «Respaldar ahora» hands over the
 // same RouterOS export with the clock in it: each one counts as a change and
@@ -435,7 +452,12 @@ class MockApiService {
       replacedAt: null,
       replacesDeviceId: null,
       replacedByDeviceId: null,
+      upstreamDeviceId: data.upstreamDeviceId ?? null,
     };
+    if (device.upstreamDeviceId) {
+      const refused = upstreamRefusal(null, device.upstreamDeviceId);
+      if (refused) return refused;
+    }
     const missing = findMissingIdentifier(device);
     if (missing) return conflict(missing);
 
@@ -529,6 +551,12 @@ class MockApiService {
       if ('error' in resolved) return agentRefusal(resolved.error);
     }
 
+    // Like the agent: re-sending the link a device already has is not re-checked.
+    if (data.upstreamDeviceId && data.upstreamDeviceId !== devices[idx].upstreamDeviceId) {
+      const refused = upstreamRefusal(id, data.upstreamDeviceId);
+      if (refused) return refused;
+    }
+
     const updated = { ...devices[idx], ...data, updatedAt: new Date().toISOString() };
     const missing = findMissingIdentifier(updated);
     if (missing) return conflict(missing);
@@ -561,6 +589,8 @@ class MockApiService {
       deletedBy: MOCK_USER_ID,
       monitoringEnabled: false,
     };
+    // DEV-184: what hung off it becomes a root, and a restore does not undo that.
+    devices = devices.map((d) => (d.upstreamDeviceId === id ? { ...d, upstreamDeviceId: null } : d));
     stopMonitoring(id);
     return { success: true };
   }
@@ -657,6 +687,7 @@ class MockApiService {
       replacedAt: now,
       replacesDeviceId: retiring.id,
       replacedByDeviceId: null,
+      upstreamDeviceId: retiring.upstreamDeviceId,
     };
 
     const retiredDevice: DeviceResponseDTO = {
@@ -665,10 +696,18 @@ class MockApiService {
       ipAddress: null,
       monitoringEnabled: false,
       replacedByDeviceId: newDevice.id,
+      upstreamDeviceId: null,
       updatedAt: now,
     };
 
     devices[idx] = retiredDevice;
+    // DEV-185: what hung off the old unit now hangs off the new one.
+    let downstreamDevicesMoved = 0;
+    devices = devices.map((d) => {
+      if (d.upstreamDeviceId !== retiring.id) return d;
+      downstreamDevicesMoved++;
+      return { ...d, upstreamDeviceId: newDevice.id };
+    });
     devices = [newDevice, ...devices];
     stopMonitoring(retiring.id);
     if (pollingHistory[retiring.id]) pollingHistory[newDevice.id] = [];
@@ -688,6 +727,7 @@ class MockApiService {
       wirelessConfigRemoved: false,
       credentialsTransferred: false,
       contractedServiceTransferred: !!service,
+      downstreamDevicesMoved,
     });
   }
 

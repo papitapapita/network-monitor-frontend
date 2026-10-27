@@ -33,6 +33,8 @@ import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { DEVICE_CATEGORY_OPTIONS, DEVICE_OWNER_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_STATUS_LABELS as STATUS_LABELS, MISSING_IDENTIFIER_MESSAGE, deviceCategoryLabel, deviceOwnerLabel, isWirelessCategory, isValidIpAddress, isValidMacAddress, requiresIdentifier, canEnableMonitoring } from '@/constants/device.constants';
 import { IpLink } from './IpLink';
 import { DeviceServiceCard } from './DeviceServiceCard';
+import { UpstreamDevicePicker } from './UpstreamDevicePicker';
+import { upstreamLinkError } from '@/constants/topology.constants';
 
 interface Props {
   device: DeviceResponseDTO;
@@ -58,6 +60,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
     serialNumber: d.serialNumber ?? '',
     locationId: d.locationId ?? '',
     agentId: agentPickerValue(d.agentId),
+    upstreamDeviceId: d.upstreamDeviceId ?? '',
     installedDate: d.installedDate ? d.installedDate.slice(0, 10) : '',
     description: d.description ?? '',
     monitoringEnabled: d.monitoringEnabled
@@ -124,6 +127,20 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       if (r.success && r.data) setDeviceModels(r.data.deviceModels);
     });
   }, []);
+
+  // The device only carries its upstream's id; its name is read for the view
+  // and to seed the picker. Tagged with the id it answers, so a stale name
+  // cannot outlive a relink.
+  const [upstream, setUpstream] = useState<DeviceResponseDTO | null>(null);
+  const upstreamDevice = upstream && upstream.id === device.upstreamDeviceId ? upstream : null;
+  useEffect(() => {
+    if (!device.upstreamDeviceId) return;
+    let cancelled = false;
+    apiService.getDevice(device.upstreamDeviceId).then((r) => {
+      if (!cancelled && r.success && r.data) setUpstream(r.data);
+    });
+    return () => { cancelled = true; };
+  }, [device.upstreamDeviceId]);
 
   useEffect(() => {
     apiService.getDeviceModel(device.deviceModelId).then((r) => {
@@ -231,6 +248,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       ...(agentIdFromPicker(formData.agentId) !== device.agentId
         ? { agentId: agentIdFromPicker(formData.agentId) }
         : {}),
+      upstreamDeviceId: formData.upstreamDeviceId || null,
       installedDate: formData.installedDate ? new Date(formData.installedDate).toISOString() : null,
       description: formData.description.trim() || null,
       monitoringEnabled: formData.monitoringEnabled
@@ -256,10 +274,12 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
       setIsEditing(false);
       showSuccess('Dispositivo guardado.');
     } else {
-      const message = result.error || 'Error al actualizar el dispositivo';
-      // A rejected MAC or IP belongs on its own input, not only in the notice.
-      if (result.errorField) {
-        setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
+      const linkRefusal = upstreamLinkError(result.error);
+      const message = linkRefusal ?? (result.error || 'Error al actualizar el dispositivo');
+      // A rejected MAC, IP or upstream belongs on its own input, not only in the notice.
+      const field = linkRefusal ? 'upstreamDeviceId' : result.errorField;
+      if (field) {
+        setFormErrors((prev) => ({ ...prev, [field]: message }));
       }
       showError(message);
     }
@@ -416,6 +436,17 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                   error={formErrors.agentId}
                 />
               )}
+              <UpstreamDevicePicker
+                value={formData.upstreamDeviceId}
+                onChange={(id) => {
+                  setFormData((prev) => ({ ...prev, upstreamDeviceId: id }));
+                  if (formErrors.upstreamDeviceId) setFormErrors((prev) => { const n = { ...prev }; delete n.upstreamDeviceId; return n; });
+                }}
+                selected={upstreamDevice}
+                excludeId={device.id}
+                error={formErrors.upstreamDeviceId}
+                fullWidth
+              />
               <Input
                 label="Fecha de Instalación"
                 name="installedDate"
@@ -537,6 +568,19 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                         },
                       ]
                     : []),
+                  {
+                    label: 'Cuelga de',
+                    value: device.upstreamDeviceId ? (
+                      <Link
+                        href={`/devices/${device.upstreamDeviceId}`}
+                        className="text-brand-600 dark:text-brand-400 hover:underline"
+                      >
+                        {upstreamDevice?.name ?? 'Equipo'}
+                      </Link>
+                    ) : (
+                      'Ninguno (raíz de la red)'
+                    ),
+                  },
                   {
                     label: 'Modelo',
                     value: (

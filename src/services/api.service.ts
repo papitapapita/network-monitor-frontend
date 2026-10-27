@@ -1308,7 +1308,7 @@ class ApiService {
 
   /**
    * The AP-side view of "who's supposed to be here and isn't" — every STATION
-   * config whose `parentApDeviceId` declares this AP, each paired with its
+   * whose device's `upstreamDeviceId` is this AP, each paired with its
    * live client entry when connected. 404 if this device's own config is a
    * STATION rather than an ACCESS_POINT.
    */

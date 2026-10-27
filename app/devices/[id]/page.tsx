@@ -364,6 +364,13 @@ export default function DeviceDetailPage() {
                 {replaceResult.contractedServiceTransferred && (
                   <li>El servicio contratado del cliente ahora apunta al equipo nuevo.</li>
                 )}
+                {replaceResult.downstreamDevicesMoved > 0 && (
+                  <li>
+                    {replaceResult.downstreamDevicesMoved === 1
+                      ? 'El equipo que colgaba de esta unidad ahora cuelga del nuevo.'
+                      : `Los ${replaceResult.downstreamDevicesMoved} equipos que colgaban de esta unidad ahora cuelgan del nuevo.`}
+                  </li>
+                )}
               </ul>
               {replaceResult.wirelessConfigRemoved && (
                 <p className="mt-2 text-sm font-medium text-yellow-800 dark:text-yellow-400">

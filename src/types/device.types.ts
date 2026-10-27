@@ -66,6 +66,13 @@ export interface DeviceResponseDTO {
   replacedAt: string | null;
   replacesDeviceId: string | null;
   replacedByDeviceId: string | null;
+
+  /**
+   * The device this one hangs off on the network — a CPE's AP, an AP's
+   * switch, a switch's router. Null = a root (the gateway, or a device nobody
+   * has linked yet). See `GET /api/topology`.
+   */
+  upstreamDeviceId: string | null;
 }
 
 export interface CreateDeviceDTO {
@@ -80,6 +87,8 @@ export interface CreateDeviceDTO {
    * refused when there are two or more. `null` always means the server.
    */
   agentId?: string | null;
+  /** The device it hangs off; null = a root. Refused for itself, a loop, or an upstream not ACTIVE/COMMISSIONING. */
+  upstreamDeviceId?: string | null;
   serialNumber?: string | null;
   macAddress?: string | null;
   ipAddress?: string | null;
@@ -102,6 +111,8 @@ export interface UpdateDeviceDTO {
   locationId?: string | null;
   /** null = polled by the server; a revoked agent is refused. */
   agentId?: string | null;
+  /** The device it hangs off; null = a root. Refused for itself, a loop, or an upstream not ACTIVE/COMMISSIONING. */
+  upstreamDeviceId?: string | null;
   serialNumber?: string | null;
   macAddress?: string | null;
   ipAddress?: string | null;
@@ -207,6 +218,8 @@ export interface ReplaceDeviceResultDTO {
   wirelessConfigRemoved: boolean;
   credentialsTransferred: boolean;
   contractedServiceTransferred: boolean;
+  /** Devices that hung off the old unit, now hanging off the new one (DEV-185). */
+  downstreamDevicesMoved: number;
 }
 
 /**

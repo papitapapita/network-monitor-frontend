@@ -21,6 +21,8 @@ import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBef
 import { useGoBack } from '@/hooks/useGoBack';
 import { useAgents } from '@/hooks/useAgents';
 import { AgentPicker, agentIdFromPicker } from '@/components/agents/AgentPicker';
+import { UpstreamDevicePicker } from '@/components/devices/UpstreamDevicePicker';
+import { upstreamLinkError } from '@/constants/topology.constants';
 
 
 export default function CreateDevicePage() {
@@ -52,6 +54,7 @@ export default function CreateDevicePage() {
     macAddress: '',
     serialNumber: '',
     locationId: '',
+    upstreamDeviceId: '',
     installedDate: '',
     description: '',
   });
@@ -192,6 +195,7 @@ export default function CreateDevicePage() {
     if (formData.serialNumber.trim()) dto.serialNumber = formData.serialNumber.trim();
     if (formData.locationId) dto.locationId = formData.locationId;
     if (effectiveAgent) dto.agentId = agentIdFromPicker(effectiveAgent);
+    if (formData.upstreamDeviceId) dto.upstreamDeviceId = formData.upstreamDeviceId;
     if (formData.installedDate) dto.installedDate = new Date(formData.installedDate).toISOString();
     if (formData.description.trim()) dto.description = formData.description.trim();
 
@@ -209,11 +213,13 @@ export default function CreateDevicePage() {
       showSuccess('Dispositivo creado.');
       router.replace(`/devices/${result.data.id}`);
     } else {
-      const message = result.error || 'Error al crear el dispositivo';
-      // A rejected MAC or IP belongs on its own input, not only in the floating
-      // notice — that is the field the operator has to go back and change.
-      if (result.errorField) {
-        setFormErrors((prev) => ({ ...prev, [result.errorField!]: message }));
+      const linkRefusal = upstreamLinkError(result.error);
+      const message = linkRefusal ?? (result.error || 'Error al crear el dispositivo');
+      // A rejected MAC, IP or upstream belongs on its own input, not only in the
+      // floating notice — that is the field the operator has to go back and change.
+      const field = linkRefusal ? 'upstreamDeviceId' : result.errorField;
+      if (field) {
+        setFormErrors((prev) => ({ ...prev, [field]: message }));
       }
       showError(message);
       setIsSubmitting(false);
@@ -499,6 +505,15 @@ export default function CreateDevicePage() {
                     required={assignableAgents.length > 1}
                   />
                 )}
+                <UpstreamDevicePicker
+                  value={formData.upstreamDeviceId}
+                  onChange={(id) => {
+                    setFormData((prev) => ({ ...prev, upstreamDeviceId: id }));
+                    if (formErrors.upstreamDeviceId) setFormErrors((prev) => { const n = { ...prev }; delete n.upstreamDeviceId; return n; });
+                  }}
+                  error={formErrors.upstreamDeviceId}
+                  fullWidth
+                />
                 <Input
                   label="Fecha de Instalación"
                   name="installedDate"

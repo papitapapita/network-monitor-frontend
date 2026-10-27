@@ -56,14 +56,28 @@ export const MOCK_LOCATIONS: LocationResponseDTO[] = [
  */
 type DeviceFixture = Omit<
   DeviceResponseDTO,
-  'agentId' | 'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
+  'agentId' | 'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId' | 'upstreamDeviceId'
 > &
   Partial<
     Pick<
       DeviceResponseDTO,
-      'agentId' | 'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId'
+      'agentId' | 'deletedAt' | 'deletedBy' | 'replacedAt' | 'replacesDeviceId' | 'replacedByDeviceId' | 'upstreamDeviceId'
     >
   >;
+
+/**
+ * The mock network: Core-Router-01 → Switch-Core-01 → Switch-Floor-1 →
+ * AP-Floor-2-01 → the Souza CPE, with the east backhaul and the damaged roof
+ * AP hanging off the core. Core-Router-02 is a second root.
+ */
+const MOCK_UPSTREAMS: Record<string, string> = {
+  'dev-3': 'dev-1',
+  'dev-4': 'dev-1',
+  'dev-5': 'dev-3',
+  'dev-8': 'dev-3',
+  'dev-2': 'dev-5',
+  'dev-6': 'dev-2',
+};
 
 const liveDevice = (d: DeviceFixture): DeviceResponseDTO => ({
   agentId: null,
@@ -72,6 +86,7 @@ const liveDevice = (d: DeviceFixture): DeviceResponseDTO => ({
   replacedAt: null,
   replacesDeviceId: null,
   replacedByDeviceId: null,
+  upstreamDeviceId: MOCK_UPSTREAMS[d.id] ?? null,
   ...d,
 });
 

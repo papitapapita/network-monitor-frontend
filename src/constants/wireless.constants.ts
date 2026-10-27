@@ -11,7 +11,7 @@ import {
 /**
  * A STATION that reported an AP other than its declared parent for three polls
  * in a row (WLS-013). Its `lastValue` is that poll count and `threshold` the 3;
- * the fix is accepting the `parentApDeviceId` identity suggestion, so it opens
+ * the fix is accepting the `upstreamDeviceId` identity suggestion, so it opens
  * no ticket.
  */
 export const PARENT_AP_MISMATCH_METRIC = 'parent_ap_mismatch';

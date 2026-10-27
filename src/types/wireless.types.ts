@@ -141,8 +141,6 @@ export interface WirelessConfigDTO {
   clientsProvisionedLimit: number | null;
   /** Either device type. Usually left unset — see the note on Create/Update. */
   provisionedLanSpeedMbps: number | null;
-  /** STATION only — the ACCESS_POINT device this CPE is declared to sit on. */
-  parentApDeviceId: string | null;
   lastPolledAt: string | null;
 }
 
@@ -162,12 +160,6 @@ export interface CreateWirelessConfigDTO {
    * correct a baseline captured while the port was already degraded.
    */
   provisionedLanSpeedMbps?: number | null;
-  /**
-   * STATION only — declares which AP device this CPE is meant to sit on,
-   * separate from whatever the radio's last poll actually reported. Drives
-   * `GET /wireless/clients/expected` on the AP side.
-   */
-  parentApDeviceId?: string | null;
 }
 
 export interface UpdateWirelessConfigDTO {
@@ -177,7 +169,6 @@ export interface UpdateWirelessConfigDTO {
   linkCapacityKbps?: number | null;
   clientsProvisionedLimit?: number | null;
   provisionedLanSpeedMbps?: number | null;
-  parentApDeviceId?: string | null;
 }
 
 export interface WirelessExpectedClientEntry {
@@ -202,12 +193,13 @@ export interface WirelessExpectedClientsResponse {
 }
 
 export interface WirelessIdentitySuggestion {
-  field: 'name' | 'macAddress' | 'parentApDeviceId';
-  /** From device-inventory, or the wireless config for `parentApDeviceId`. */
+  /** `upstreamDeviceId` was `parentApDeviceId` before 2026-10-28. */
+  field: 'name' | 'macAddress' | 'upstreamDeviceId';
+  /** From device-inventory. */
   currentValue: string | null;
   /** From the latest AirOS poll. */
   suggestedValue: string;
-  /** Device names for `parentApDeviceId`, whose values are ids; null otherwise. */
+  /** Device names for `upstreamDeviceId`, whose values are ids; null otherwise. */
   currentLabel: string | null;
   suggestedLabel: string | null;
 }
@@ -216,7 +208,7 @@ export interface WirelessIdentitySuggestion {
  * Read-only diff between what AirOS last reported about its own
  * hostname/MAC and what's on file in device-inventory. Never auto-written —
  * accepting a suggestion means calling `updateDevice` with the suggested
- * value, or `updateWirelessConfig` for `parentApDeviceId`. Serial number is
+ * value, the AP (`upstreamDeviceId`) included. Serial number is
  * never compared; AirOS does not expose one.
  */
 export interface WirelessIdentitySuggestionsResponse {
