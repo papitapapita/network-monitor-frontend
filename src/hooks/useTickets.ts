@@ -177,6 +177,7 @@ export function useTickets() {
   const setCategoryFilter = (v: string) => set({ category: v || null, page: null });
   const setScheduledFrom = (v: string) => set({ scheduledFrom: v || null, page: null });
   const setScheduledTo = (v: string) => set({ scheduledTo: v || null, page: null });
+  const clearScheduled = () => set({ scheduledFrom: null, scheduledTo: null, page: null });
   const clearDeviceFilter = () => set({ deviceId: null, page: null });
   const setSearch = (v: string) => setSearchState(v);
 
@@ -238,6 +239,7 @@ export function useTickets() {
     setCategoryFilter,
     setScheduledFrom,
     setScheduledTo,
+    clearScheduled,
     clearDeviceFilter,
     setSearch,
     setCurrentPage,

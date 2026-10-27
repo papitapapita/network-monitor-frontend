@@ -12,11 +12,11 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
   IconButton,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
-  Select,
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
@@ -153,9 +153,20 @@ function ServicePlansContent() {
             ? `${all.length} ${all.length === 1 ? 'plan' : 'planes'} en total`
             : 'Administra los planes de internet'
         }
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre del plan...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -176,30 +187,17 @@ function ServicePlansContent() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={2}
-        hasFilters={hasFilters}
-        onClear={clearFilters}
-        secondaryFiltersActive={!!statusFilter}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Nombre del plan...',
-          maxLength: 150,
-        }}
+        activeFilterCount={+!!statusFilter}
       >
-        <Select
+        <FilterChip
           label="Estado"
           value={statusFilter}
-          onChange={(e) => set({ status: e.target.value || null, page: null })}
+          onChange={(v) => set({ status: v || null, page: null })}
           options={[
             { value: '', label: 'Todos los Estados' },
             { value: 'active', label: 'Activo' },
             { value: 'inactive', label: 'Inactivo' },
           ]}
-          fullWidth
         />
       </FilterBar>
 

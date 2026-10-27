@@ -13,11 +13,11 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
   IconButton,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
-  Select,
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
@@ -144,9 +144,20 @@ function DeviceModelsPageContent() {
       <PageHeader
         title="Modelos de Dispositivo"
         subtitle={countLabel}
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Fabricante o modelo...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -167,26 +178,13 @@ function DeviceModelsPageContent() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={2}
-        hasFilters={hasFilters}
-        onClear={clearFilters}
-        secondaryFiltersActive={!!typeFilter}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Fabricante o modelo...',
-          maxLength: 150,
-        }}
+        activeFilterCount={+!!typeFilter}
       >
-        <Select
+        <FilterChip
           label="Tipo de Dispositivo"
           value={typeFilter}
-          onChange={(e) => set({ type: e.target.value || null, page: null })}
+          onChange={(v) => set({ type: v || null, page: null })}
           options={DEVICE_TYPE_OPTIONS}
-          fullWidth
         />
       </FilterBar>
 

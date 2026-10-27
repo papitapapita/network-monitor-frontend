@@ -170,36 +170,7 @@ function DevicesPageContent() {
       <PageHeader
         title="Dispositivos"
         subtitle={deviceCountLabel}
-        onRefresh={() => fetchDevices()}
-        isRefreshing={isFetching}
         lastRefreshed={lastRefreshed}
-        actions={
-          <>
-            <ColumnPicker
-              columns={DEVICE_COLUMN_OPTIONS}
-              visibleKeys={visibleKeys}
-              onToggle={toggle}
-              onReset={reset}
-              isDefault={isDefault}
-            />
-            <IconButton
-              icon={<TrashIcon />}
-              label="Papelera"
-              variant="outline"
-              size="md"
-              onClick={() => router.push('/devices/trash')}
-            />
-            {permissions.canWrite && (
-              <IconButton
-                icon={<PlusIcon />}
-                label="Agregar Dispositivo"
-                variant="primary"
-                size="md"
-                onClick={() => router.push('/devices/create')}
-              />
-            )}
-          </>
-        }
       />
 
       {locationFilter && (
@@ -242,6 +213,35 @@ function DevicesPageContent() {
         onConnectivityChange={setConnectivityFilter}
         onSearchChange={setSearch}
         onClear={clearFilters}
+        onRefresh={() => fetchDevices()}
+        isRefreshing={isFetching}
+        actions={
+          <>
+            <ColumnPicker
+              columns={DEVICE_COLUMN_OPTIONS}
+              visibleKeys={visibleKeys}
+              onToggle={toggle}
+              onReset={reset}
+              isDefault={isDefault}
+            />
+            <IconButton
+              icon={<TrashIcon />}
+              label="Papelera"
+              variant="outline"
+              size="md"
+              onClick={() => router.push('/devices/trash')}
+            />
+            {permissions.canWrite && (
+              <IconButton
+                icon={<PlusIcon />}
+                label="Agregar Dispositivo"
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/devices/create')}
+              />
+            )}
+          </>
+        }
       />
 
       {error && <ErrorBanner message={error} onRetry={() => fetchDevices()} />}

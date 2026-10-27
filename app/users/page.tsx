@@ -9,7 +9,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { isAdminRole } from '@/constants/roles';
 import { ROLE_LABELS, ROLE_VARIANTS } from '@/constants/user.constants';
 import { StatusPage } from '@/components/layout/StatusPage';
-import { Badge, ConfirmModal, DataTable, EditIcon, ErrorBanner, IconButton, PageHeader, PlusIcon } from '@/components/ui';
+import { Badge, ConfirmModal, DataTable, EditIcon, ErrorBanner, FilterBar, IconButton, PageHeader, PlusIcon } from '@/components/ui';
 import type { DataTableColumn } from '@/components/ui';
 import { UserFormModal } from '@/components/users/UserFormModal';
 import { useToast } from '@/contexts/toast.context';
@@ -165,9 +165,12 @@ export default function UsersPage() {
         title="Usuarios"
         subtitle={users.length > 0 ? `${active} ${active === 1 ? 'cuenta activa' : 'cuentas activas'}` : 'Cuentas del personal'}
         info="Cada persona entra con su propia cuenta y un código de su aplicación de autenticación. Un cambio de rol, contraseña o estado cierra sus sesiones abiertas. No se eliminan cuentas: se deshabilitan."
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           permissions.isAdmin && (
             <IconButton icon={<PlusIcon />} label="Nuevo usuario" variant="primary" size="md" onClick={() => setEditing(null)} />

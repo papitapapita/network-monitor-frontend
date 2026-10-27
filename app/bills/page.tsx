@@ -25,6 +25,7 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
   IconButton,
   Input,
   LoadingSpinner,
@@ -242,9 +243,20 @@ function BillsPageContent() {
             ? `${bills.length} ${bills.length === 1 ? 'factura' : 'facturas'} · ${formatCurrency(totals.outstanding)} por cobrar (${totals.outstandingCount})`
             : 'Genera y administra la facturación mensual'
         }
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Cliente, plan o periodo...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -262,40 +274,25 @@ function BillsPageContent() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={4}
-        hasFilters={hasFilters}
-        onClear={clearFilters}
-        secondaryFiltersActive={!!(statusFilter || yearFilter || monthFilter)}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Cliente, plan o periodo...',
-          maxLength: 150,
-        }}
+        activeFilterCount={[statusFilter, yearFilter, monthFilter].filter(Boolean).length}
       >
-        <Select
+        <FilterChip
           label="Estado"
           value={statusFilter}
-          onChange={(e) => set({ status: e.target.value || null, page: null })}
+          onChange={(v) => set({ status: v || null, page: null })}
           options={BILL_STATUS_OPTIONS}
-          fullWidth
         />
-        <Select
+        <FilterChip
           label="Año"
           value={yearFilter}
-          onChange={(e) => set({ year: e.target.value || null, page: null })}
+          onChange={(v) => set({ year: v || null, page: null })}
           options={[{ value: '', label: 'Todos' }, ...YEAR_OPTIONS]}
-          fullWidth
         />
-        <Select
+        <FilterChip
           label="Mes"
           value={monthFilter}
-          onChange={(e) => set({ month: e.target.value || null, page: null })}
+          onChange={(v) => set({ month: v || null, page: null })}
           options={[{ value: '', label: 'Todos' }, ...MONTH_OPTIONS]}
-          fullWidth
         />
       </FilterBar>
 

@@ -20,10 +20,10 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
   IconButton,
   PageHeader,
   PlusIcon,
-  Select,
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
@@ -175,9 +175,20 @@ export default function CollectionAccountsPage() {
             ? `${accounts.length} ${accounts.length === 1 ? 'cuenta de cobro' : 'cuentas de cobro'}`
             : 'Cobra trabajos puntuales fuera del servicio de internet'
         }
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Cliente, cédula o número...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -198,25 +209,13 @@ export default function CollectionAccountsPage() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={2}
-        hasFilters={hasFilters}
-        onClear={clearFilters}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Cliente, cédula o número...',
-          maxLength: 150,
-        }}
+        activeFilterCount={+!!statusFilter}
       >
-        <Select
+        <FilterChip
           label="Estado"
           value={statusFilter}
-          onChange={(e) => set({ status: e.target.value || null, page: null })}
+          onChange={(v) => set({ status: v || null, page: null })}
           options={COLLECTION_ACCOUNT_STATUS_OPTIONS}
-          fullWidth
         />
       </FilterBar>
 

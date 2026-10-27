@@ -13,6 +13,7 @@ import {
   ColumnPicker,
   DataTable,
   ErrorBanner,
+  FilterBar,
   LoadingSpinner,
   PageHeader,
   getDeviceStatusBadgeVariant,
@@ -219,9 +220,12 @@ function DeviceTrashPageContent() {
             ? `${total} ${total === 1 ? 'dispositivo eliminado' : 'dispositivos eliminados'}`
             : 'Los dispositivos eliminados se guardan aquí antes de borrarse'
         }
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <ColumnPicker
             columns={DEVICE_TRASH_COLUMN_OPTIONS}

@@ -133,9 +133,20 @@ function VendorsPageContent() {
       <PageHeader
         title="Fabricantes"
         subtitle={countLabel}
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={!!search}
+        onClear={() => set({ search: null, page: null })}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre o slug...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -156,17 +167,6 @@ function VendorsPageContent() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        hasFilters={!!search}
-        onClear={() => set({ search: null, page: null })}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Nombre o slug...',
-          maxLength: 150,
-        }}
       />
 
       {error && <ErrorBanner message={(error as Error).message} onRetry={() => refetch()} />}

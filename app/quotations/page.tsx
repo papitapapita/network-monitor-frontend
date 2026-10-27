@@ -19,10 +19,10 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
   IconButton,
   PageHeader,
   PlusIcon,
-  Select,
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
@@ -161,9 +161,20 @@ export default function QuotationsPage() {
             ? `${quotations.length} ${quotations.length === 1 ? 'cotización' : 'cotizaciones'}`
             : 'Prepara y da seguimiento a propuestas comerciales'
         }
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Cliente o código...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -184,25 +195,13 @@ export default function QuotationsPage() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={2}
-        hasFilters={hasFilters}
-        onClear={clearFilters}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Cliente o código...',
-          maxLength: 150,
-        }}
+        activeFilterCount={+!!statusFilter}
       >
-        <Select
+        <FilterChip
           label="Estado"
           value={statusFilter}
-          onChange={(e) => set({ status: e.target.value || null, page: null })}
+          onChange={(v) => set({ status: v || null, page: null })}
           options={QUOTATION_STATUS_OPTIONS}
-          fullWidth
         />
       </FilterBar>
 

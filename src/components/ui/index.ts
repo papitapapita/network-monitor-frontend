@@ -31,6 +31,7 @@ export type { PickableColumn, ColumnVisibility } from './ColumnPicker';
 export { PageHeader } from './PageHeader';
 
 export { FilterBar } from './FilterBar';
+export { FilterChip, FilterDateRangeChip, FilterTextChip } from './FilterChip';
 
 export { ErrorBanner } from './ErrorBanner';
 
@@ -70,4 +71,4 @@ export { submitOnEnter, submitOnEnterCancelOnEscape, isCancelEscape } from './en
 export { BackLink } from './BackLink';
 export { RecordTimestamps } from './RecordTimestamps';
 
-export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon, EyeIcon, EyeOffIcon, ExpandIcon, CollapseIcon, LocateIcon } from './icons';
+export { PlusIcon, EditIcon, ArrowLeftIcon, TrashIcon, SearchIcon, FunnelIcon, XIcon, XCircleIcon, EyeIcon, EyeOffIcon, ExpandIcon, CollapseIcon, LocateIcon, RefreshIcon } from './icons';

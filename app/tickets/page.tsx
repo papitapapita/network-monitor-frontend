@@ -28,12 +28,12 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
+  FilterDateRangeChip,
   IconButton,
-  Input,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
-  Select,
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
@@ -109,9 +109,21 @@ function TicketsPageContent() {
             ? `${t.totalTickets} ${t.totalTickets === 1 ? 'coincide' : 'coinciden'} con los filtros`
             : `${t.totalTickets} ${t.totalTickets === 1 ? 'ticket' : 'tickets'} en total`
         }
+        lastRefreshed={t.lastRefreshed}
+      />
+
+      <FilterBar
+        hasFilters={t.hasFilters}
+        onClear={t.clearFilters}
+        activeFilterCount={[t.statusFilter, t.priorityFilter, t.categoryFilter, t.technicianFilter, t.scheduledFrom || t.scheduledTo].filter(Boolean).length}
+        search={{
+          value: t.search,
+          onChange: (value) => t.setSearch(value),
+          placeholder: 'Código, asunto o descripción...',
+          maxLength: 150,
+        }}
         onRefresh={() => t.fetchTickets()}
         isRefreshing={t.isFetching}
-        lastRefreshed={t.lastRefreshed}
         actions={
           <>
             <ColumnPicker
@@ -135,76 +147,44 @@ function TicketsPageContent() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={4}
-        hasFilters={t.hasFilters}
-        onClear={t.clearFilters}
-        secondaryFiltersActive={!!(
-          t.statusFilter ||
-          t.priorityFilter ||
-          t.categoryFilter ||
-          t.technicianFilter ||
-          t.scheduledFrom ||
-          t.scheduledTo
-        )}
-        search={{
-          value: t.search,
-          onChange: (value) => t.setSearch(value),
-          placeholder: 'Código, asunto o descripción...',
-          maxLength: 150,
-        }}
       >
         {/* "Sin cerrar" is an option here rather than a checkbox beside the
             select, because `openOnly` and `status` contradict each other on the
             backend and the broader one wins silently. One control, one
             parameter, no contradiction to police. */}
-        <Select
+        <FilterChip
           label="Estado"
           value={t.statusFilter}
-          onChange={(e) => t.setStatusFilter(e.target.value)}
+          onChange={(v) => t.setStatusFilter(v)}
           options={TICKET_STATUS_FILTER_OPTIONS}
-          fullWidth
         />
-        <Select
+        <FilterChip
           label="Prioridad"
           value={t.priorityFilter}
-          onChange={(e) => t.setPriorityFilter(e.target.value)}
+          onChange={(v) => t.setPriorityFilter(v)}
           options={TICKET_PRIORITY_FILTER_OPTIONS}
-          fullWidth
         />
-        <Select
+        <FilterChip
           label="Categoría"
           value={t.categoryFilter}
-          onChange={(e) => t.setCategoryFilter(e.target.value)}
+          onChange={(v) => t.setCategoryFilter(v)}
           options={TICKET_CATEGORY_FILTER_OPTIONS}
-          fullWidth
         />
         {/* Same trick: "Sin asignar" lives inside the technician select, so
             `unassignedOnly` and `technicianId` can never both be sent. */}
-        <Select
+        <FilterChip
           label="Técnico"
           value={t.technicianFilter}
-          onChange={(e) => t.setTechnicianFilter(e.target.value)}
+          onChange={(v) => t.setTechnicianFilter(v)}
           options={technicianOptions}
-          fullWidth
         />
-        <Input
-          label="Programado desde"
-          type="date"
-          value={t.scheduledFrom}
-          onChange={(e) => t.setScheduledFrom(e.target.value)}
-          max={t.scheduledTo || undefined}
-          fullWidth
-        />
-        <Input
-          label="Programado hasta"
-          type="date"
-          value={t.scheduledTo}
-          onChange={(e) => t.setScheduledTo(e.target.value)}
-          min={t.scheduledFrom || undefined}
-          fullWidth
+        <FilterDateRangeChip
+          label="Programado"
+          from={t.scheduledFrom}
+          to={t.scheduledTo}
+          onFromChange={t.setScheduledFrom}
+          onToChange={t.setScheduledTo}
+          onClear={t.clearScheduled}
         />
       </FilterBar>
 

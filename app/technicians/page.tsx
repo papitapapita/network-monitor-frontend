@@ -19,11 +19,11 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
   IconButton,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
-  Select,
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
@@ -144,9 +144,20 @@ function TechniciansPageContent() {
             ? `${all.length} ${all.length === 1 ? 'técnico' : 'técnicos'} en total`
             : 'Los trabajadores de campo a los que se despachan los tickets'
         }
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={!!(search || activeFilter)}
+        onClear={() => set({ search: null, active: null, page: null })}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre, teléfono o email...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -167,26 +178,13 @@ function TechniciansPageContent() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={2}
-        hasFilters={!!(search || activeFilter)}
-        onClear={() => set({ search: null, active: null, page: null })}
-        secondaryFiltersActive={!!activeFilter}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Nombre, teléfono o email...',
-          maxLength: 150,
-        }}
+        activeFilterCount={+!!activeFilter}
       >
-        <Select
+        <FilterChip
           label="Estado"
           value={activeFilter}
-          onChange={(e) => set({ active: e.target.value || null, page: null })}
+          onChange={(v) => set({ active: v || null, page: null })}
           options={TECHNICIAN_ACTIVE_FILTER_OPTIONS}
-          fullWidth
         />
       </FilterBar>
 

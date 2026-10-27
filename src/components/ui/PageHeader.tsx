@@ -3,6 +3,7 @@
 import React from 'react';
 import { IconButton } from './IconButton';
 import { InfoTip } from './InfoTip';
+import { RefreshIcon } from './icons';
 
 interface PageHeaderProps {
   title: string;
@@ -19,25 +20,6 @@ interface PageHeaderProps {
   inline?: boolean;
 }
 
-function RefreshIcon() {
-  return (
-    <svg
-      className="h-4 w-4 shrink-0"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-      />
-    </svg>
-  );
-}
-
 /** Title, count line, refresh control and primary actions — shared by every list page. */
 export function PageHeader({
   title,
@@ -49,6 +31,32 @@ export function PageHeader({
   actions,
   inline = false,
 }: PageHeaderProps) {
+  // List pages keep their buttons in the FilterBar; the refresh time then
+  // rides on the subtitle line instead of under a button row.
+  const hasControls = !!onRefresh || !!actions;
+  const refreshedAt = lastRefreshed?.toLocaleTimeString('es');
+
+  if (!hasControls) {
+    return (
+      <div className="mb-6 min-w-0">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
+          {info && <InfoTip label={`Acerca de «${title}»`}>{info}</InfoTip>}
+        </div>
+        {(subtitle || refreshedAt) && (
+          <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
+            {subtitle}
+            {refreshedAt && (
+              <span className="whitespace-nowrap text-gray-400 dark:text-gray-500">
+                {subtitle ? ' · ' : ''}Actualizado {refreshedAt}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={
@@ -82,7 +90,7 @@ export function PageHeader({
         </div>
         {lastRefreshed && (
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            Actualizado: {lastRefreshed.toLocaleTimeString('es')}
+            Actualizado: {refreshedAt}
           </span>
         )}
       </div>

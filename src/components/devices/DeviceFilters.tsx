@@ -1,6 +1,7 @@
 'use client';
 
-import { Select, FilterBar } from '@/components/ui';
+import type React from 'react';
+import { FilterBar, FilterChip } from '@/components/ui';
 import { DEVICE_CATEGORY_FILTER_OPTIONS, DEVICE_STATUS_FILTER_OPTIONS } from '@/constants/device.constants';
 
 interface DeviceFiltersProps {
@@ -18,6 +19,10 @@ interface DeviceFiltersProps {
   onConnectivityChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onClear: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  /** The page's toolbar buttons, after "Actualizar". */
+  actions?: React.ReactNode;
 }
 
 export function DeviceFilters({
@@ -34,13 +39,18 @@ export function DeviceFilters({
   onConnectivityChange,
   onSearchChange,
   onClear,
+  onRefresh,
+  isRefreshing,
+  actions,
 }: DeviceFiltersProps) {
   return (
     <FilterBar
-      columns={4}
       hasFilters={hasFilters}
       onClear={onClear}
-      secondaryFiltersActive={!!(statusFilter || categoryFilter || connectivityFilter || agentFilter)}
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
+      actions={actions}
+      activeFilterCount={[statusFilter, categoryFilter, connectivityFilter, agentFilter].filter(Boolean).length}
       search={{
         value: search,
         onChange: onSearchChange,
@@ -48,39 +58,35 @@ export function DeviceFilters({
         maxLength: 150,
       }}
     >
-      <Select
+      <FilterChip
         label="Estado"
         value={statusFilter}
-        onChange={(e) => onStatusChange(e.target.value)}
+        onChange={onStatusChange}
         options={DEVICE_STATUS_FILTER_OPTIONS}
-        fullWidth
       />
-      <Select
+      <FilterChip
         label="Categoría"
         value={categoryFilter}
-        onChange={(e) => onCategoryChange(e.target.value)}
+        onChange={onCategoryChange}
         options={DEVICE_CATEGORY_FILTER_OPTIONS}
-        fullWidth
       />
-      <Select
+      <FilterChip
         label="Conectividad"
         value={connectivityFilter}
-        onChange={(e) => onConnectivityChange(e.target.value)}
+        onChange={onConnectivityChange}
         options={[
           { value: '', label: 'Todos' },
           { value: 'UP', label: 'En línea' },
           { value: 'DOWN', label: 'Desconectado' },
           { value: 'UNKNOWN', label: 'Desconocido' },
         ]}
-        fullWidth
       />
       {agentOptions && onAgentChange && (
-        <Select
+        <FilterChip
           label="Sondeado por"
           value={agentFilter}
-          onChange={(e) => onAgentChange(e.target.value)}
+          onChange={onAgentChange}
           options={[{ value: '', label: 'Todos' }, ...agentOptions]}
-          fullWidth
         />
       )}
     </FilterBar>

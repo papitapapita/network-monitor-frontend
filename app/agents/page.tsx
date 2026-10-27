@@ -11,6 +11,7 @@ import { useInstallation } from '@/hooks/useInstallation';
 import {
   DataTable,
   ErrorBanner,
+  FilterBar,
   IconButton,
   LoadingSpinner,
   PageHeader,
@@ -121,9 +122,12 @@ function AgentsPageContent() {
         title="Agentes"
         subtitle={subtitle}
         info="Un agente es un programa que se instala en un PC de la red del cliente y sondea sus equipos desde allí. Los dispositivos que no estén detrás de un agente los sondea el servidor."
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           canManageAgents && (
             <IconButton

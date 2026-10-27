@@ -19,11 +19,11 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
+  FilterChip,
   IconButton,
   LoadingSpinner,
   PageHeader,
   PlusIcon,
-  Select,
   sortRows,
   useColumnVisibility,
 } from '@/components/ui';
@@ -160,9 +160,20 @@ function LocationsPageContent() {
             ? `${allLocations.length} ${allLocations.length === 1 ? 'ubicación' : 'ubicaciones'} en total`
             : 'Gestiona las ubicaciones de la red'
         }
+        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
+      />
+
+      <FilterBar
+        hasFilters={hasFilters}
+        onClear={clearFilters}
+        search={{
+          value: search,
+          onChange: (value) => set({ search: value || null, page: null }),
+          placeholder: 'Nombre, municipio, barrio o dirección...',
+          maxLength: 150,
+        }}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
         actions={
           <>
             <ColumnPicker
@@ -183,26 +194,13 @@ function LocationsPageContent() {
             )}
           </>
         }
-      />
-
-      <FilterBar
-        columns={2}
-        hasFilters={hasFilters}
-        onClear={clearFilters}
-        secondaryFiltersActive={!!typeFilter}
-        search={{
-          value: search,
-          onChange: (value) => set({ search: value || null, page: null }),
-          placeholder: 'Nombre, municipio, barrio o dirección...',
-          maxLength: 150,
-        }}
+        activeFilterCount={+!!typeFilter}
       >
-        <Select
+        <FilterChip
           label="Tipo"
           value={typeFilter}
-          onChange={(e) => set({ type: e.target.value || null, page: null })}
+          onChange={(v) => set({ type: v || null, page: null })}
           options={LOCATION_TYPE_FILTER_OPTIONS}
-          fullWidth
         />
       </FilterBar>
 

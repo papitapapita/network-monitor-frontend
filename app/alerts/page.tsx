@@ -16,10 +16,11 @@ import {
   DataTable,
   ErrorBanner,
   FilterBar,
-  Input,
+  FilterChip,
+  FilterDateRangeChip,
+  FilterTextChip,
   LoadingSpinner,
   PageHeader,
-  Select,
   useColumnVisibility,
 } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
@@ -458,9 +459,15 @@ function AlertsPageContent() {
       <PageHeader
         title="Alertas"
         subtitle={totalLabel}
+        lastRefreshed={lastRefreshed}
+      />
+
+      <FilterBar
+        hasFilters={!!hasFilters}
+        onClear={clearFilters}
+        activeFilterCount={[severityFilter, statusFilter, sourceFilter, deviceIdFilter, fromFilter || toFilter].filter(Boolean).length}
         onRefresh={fetchAlerts}
         isRefreshing={isLoading}
-        lastRefreshed={lastRefreshed}
         actions={
           <ColumnPicker
             columns={ALERT_COLUMN_OPTIONS}
@@ -470,68 +477,49 @@ function AlertsPageContent() {
             isDefault={isDefault}
           />
         }
-      />
-
-      <FilterBar
-        columns={4}
-        hasFilters={!!hasFilters}
-        onClear={clearFilters}
-        secondaryFiltersActive={!!hasFilters}
       >
-        <Select
+        <FilterChip
           label="Severidad"
           value={severityFilter}
-          onChange={(e) => set({ severity: e.target.value || null, page: null })}
+          onChange={(v) => set({ severity: v || null, page: null })}
           options={[
             { value: '', label: 'Todas las Severidades' },
             { value: 'WARNING', label: 'Advertencia' },
             { value: 'CRITICAL', label: 'Crítico' },
           ]}
-          fullWidth
         />
-        <Select
+        <FilterChip
           label="Estado"
           value={statusFilter}
-          onChange={(e) => set({ status: e.target.value || null, page: null })}
+          onChange={(v) => set({ status: v || null, page: null })}
           options={[
             { value: '', label: 'Todos los Estados' },
             { value: 'OPEN', label: 'Abierta' },
             { value: 'RESOLVED', label: 'Resuelta' },
           ]}
-          fullWidth
         />
-        <Select
+        <FilterChip
           label="Origen"
           value={sourceFilter}
-          onChange={(e) => set({ source: e.target.value || null, page: null })}
+          onChange={(v) => set({ source: v || null, page: null })}
           options={[
             { value: '', label: 'Todos los Orígenes' },
             ...sourceOptions.map((s) => ({ value: s, label: s })),
           ]}
-          fullWidth
         />
-        <Input
+        <FilterTextChip
           label="ID de dispositivo"
           value={deviceIdFilter}
-          onChange={(e) => set({ deviceId: e.target.value || null, page: null })}
+          onChange={(v) => set({ deviceId: v || null, page: null })}
           placeholder="UUID del dispositivo"
-          fullWidth
         />
-        <Input
-          label="Desde"
-          type="date"
-          value={fromFilter}
-          max={toFilter || undefined}
-          onChange={(e) => set({ from: e.target.value || null, page: null })}
-          fullWidth
-        />
-        <Input
-          label="Hasta"
-          type="date"
-          value={toFilter}
-          min={fromFilter || undefined}
-          onChange={(e) => set({ to: e.target.value || null, page: null })}
-          fullWidth
+        <FilterDateRangeChip
+          label="Fecha"
+          from={fromFilter}
+          to={toFilter}
+          onFromChange={(v) => set({ from: v || null, page: null })}
+          onToChange={(v) => set({ to: v || null, page: null })}
+          onClear={() => set({ from: null, to: null, page: null })}
         />
       </FilterBar>
 
