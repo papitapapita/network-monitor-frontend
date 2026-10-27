@@ -6,7 +6,6 @@ import { apiService } from '@/services/api.service';
 import {
   WirelessConfigDTO,
   WirelessStatusDTO,
-  WirelessAlertDTO,
   WirelessClientDTO,
   WirelessDeviceType,
   CreateWirelessConfigDTO,
@@ -38,7 +37,6 @@ import {
   isValidLanSpeed,
   wirelessCollectorFor,
   COLLECTION_METHOD_LABELS,
-  PARENT_AP_MISMATCH_METRIC,
   IDENTITY_SUGGESTIONS_ANCHOR,
 } from '@/constants/wireless.constants';
 import { LinkDiagnosisCard } from '@/components/wireless/LinkDiagnosisCard';
@@ -98,14 +96,6 @@ function CheckIcon() {
   return (
     <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  );
-}
-
-function ClearIcon() {
-  return (
-    <svg className="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }
@@ -185,10 +175,6 @@ function linkScoreBadgeVariant(score: number | null): 'success' | 'warning' | 'd
   if (score >= 80) return 'success';
   if (score >= 60) return 'warning';
   return 'danger';
-}
-
-function alertSeverityVariant(severity: string): 'warning' | 'danger' {
-  return severity === 'CRITICAL' ? 'danger' : 'warning';
 }
 
 // The backend derives the radio mode from the device's category and returns it
@@ -410,15 +396,6 @@ export function DeviceWirelessTab({
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
 
-  const [alerts, setAlerts] = useState<WirelessAlertDTO[]>([]);
-  const [alertsLoading, setAlertsLoading] = useState(false);
-  const [alertsError, setAlertsError] = useState<string | null>(null);
-  const [alertsNotice, setAlertsNotice] = useState<string | null>(null);
-  /** Which row's clear is in flight; also blocks the other buttons while it runs. */
-  const [clearingAlertId, setClearingAlertId] = useState<string | null>(null);
-  const [showClearAllModal, setShowClearAllModal] = useState(false);
-  const [clearingAll, setClearingAll] = useState(false);
-
   const [polling, setPolling] = useState(false);
   const [pollMsg, setPollMsg] = useState<string | null>(null);
 
@@ -492,15 +469,6 @@ export function DeviceWirelessTab({
     setStatusLoading(false);
   }, [deviceId]);
 
-  const fetchAlerts = useCallback(async () => {
-    setAlertsLoading(true);
-    const result = await apiService.getWirelessAlerts(deviceId);
-    if (result.success && result.data) {
-      setAlerts(result.data);
-    }
-    setAlertsLoading(false);
-  }, [deviceId]);
-
   const fetchExpectedClients = useCallback(async () => {
     setExpectedClientsLoading(true);
     setExpectedClientsError(null);
@@ -522,62 +490,6 @@ export function DeviceWirelessTab({
     setIdentitySuggestionsLoading(false);
   }, [deviceId]);
 
-  /**
-   * Clearing by hand makes the same transition the poller makes when the metric
-   * recovers — recovery notification and ticket close included — so it is not a
-   * way to hide a fault: the next poll re-raises the alert if it persists.
-   */
-  const handleClearAlert = async (alertId: string) => {
-    setClearingAlertId(alertId);
-    setAlertsError(null);
-    setAlertsNotice(null);
-    const result = await apiService.clearWirelessAlert(deviceId, alertId);
-    setClearingAlertId(null);
-
-    if (!result.success) {
-      const message = result.error || 'No se pudo limpiar la alerta';
-      setAlertsError(message);
-      showError(message);
-      return;
-    }
-    // The list holds only active alerts, so a cleared one leaves it. Refetching
-    // also picks up anything the poller changed meanwhile.
-    await fetchAlerts();
-    fetchStatus();
-  };
-
-  const handleClearAllAlerts = async () => {
-    setClearingAll(true);
-    setAlertsError(null);
-    setAlertsNotice(null);
-    // No ids: the endpoint clears the device's whole active list, so the button
-    // does not depend on the list this tab happens to be showing.
-    const result = await apiService.bulkClearWirelessAlerts(deviceId);
-    setClearingAll(false);
-    setShowClearAllModal(false);
-
-    if (!result.success || !result.data) {
-      const message = result.error || 'No se pudieron limpiar las alertas';
-      setAlertsError(message);
-      showError(message);
-      return;
-    }
-    const { cleared, skipped, failed } = result.data;
-    const parts = [`${cleared.length} ${cleared.length === 1 ? 'alerta limpiada' : 'alertas limpiadas'}`];
-    if (skipped.length > 0) parts.push(`${skipped.length} sin cambios`);
-    if (failed.length > 0) parts.push(`${failed.length} con error (${failed[0].error})`);
-    const message = parts.join(' · ');
-    if (failed.length > 0) {
-      setAlertsError(message);
-      showError(message);
-    } else {
-      setAlertsNotice(message);
-    }
-
-    await fetchAlerts();
-    fetchStatus();
-  };
-
   // `fetchConfig` is keyed on the device id alone, so name the status as its own
   // dependency: a retirement or a commissioning flips `enabled` server-side, and
   // the toggle would otherwise keep showing what this tab last wrote.
@@ -588,13 +500,12 @@ export function DeviceWirelessTab({
   useEffect(() => {
     if (config) {
       fetchStatus();
-      fetchAlerts();
       fetchIdentitySuggestions();
       if (config.deviceType === 'ACCESS_POINT' || category === 'ACCESS_POINT') {
         fetchExpectedClients();
       }
     }
-  }, [config, category, fetchStatus, fetchAlerts, fetchIdentitySuggestions, fetchExpectedClients]);
+  }, [config, category, fetchStatus, fetchIdentitySuggestions, fetchExpectedClients]);
 
   useEffect(() => {
     apiService.getDeviceCredentials(deviceId).then((r) => {
@@ -643,7 +554,6 @@ export function DeviceWirelessTab({
           : `Sondeo completado — métricas: ${r.metricsCollected ? 'sí' : 'no'}, alertas activadas: ${r.alertsTriggered}, resueltas: ${r.alertsCleared}`
       );
       fetchStatus();
-      fetchAlerts();
     } else {
       // An agent that gave no reading recorded nothing; say why in Spanish.
       const message = agentPollFailure(result.status, result.error) ?? result.error ?? 'Error al sondear el equipo';
@@ -707,7 +617,6 @@ export function DeviceWirelessTab({
     if (result.success) {
       setConfig(null);
       setStatus(null);
-      setAlerts([]);
       setNoConfig(true);
       setExpectedClients(null);
       setIdentitySuggestions([]);
@@ -742,7 +651,7 @@ export function DeviceWirelessTab({
   const visibleSuggestions = identitySuggestions.filter((s) => !dismissedSuggestionKeys.has(suggestionKey(s)));
   const showSuggestions = !identitySuggestionsLoading && visibleSuggestions.length > 0;
 
-  // The parent-AP alert (here and on /alerts/:id) links to this card by hash,
+  // The parent-AP alert (on /alerts/:id) links to this card by hash,
   // but the card only mounts once the suggestions fetch lands, after the
   // browser's own anchor jump has come and gone.
   useEffect(() => {
@@ -822,20 +731,13 @@ export function DeviceWirelessTab({
         isLoading={rebooting}
       />
 
-      <ConfirmModal
-        isOpen={showClearAllModal}
-        onClose={() => setShowClearAllModal(false)}
-        onConfirm={handleClearAllAlerts}
-        title="Limpiar alertas activas"
-        message="Se limpiarán todas las alertas inalámbricas activas de este equipo, igual que si las métricas se hubieran recuperado. Si el próximo sondeo sigue viendo la falla, volverán a activarse."
-        confirmText="Limpiar"
-        cancelText="Cancelar"
-        isLoading={clearingAll}
-      />
-
       {/* How the radio is doing comes first; how it is set up, after. */}
       {config && (
         <>
+          {/* On-demand check for a failing link. The backend refuses a vendor
+              it cannot read, so there is nothing to offer for one. */}
+          {!unsupportedVendorReason && !serverCannotReach && <LinkDiagnosisCard deviceId={deviceId} canWrite={canWrite} />}
+
           {/* Latest snapshot */}
           <Card>
             <Card.Header>
@@ -1050,99 +952,6 @@ export function DeviceWirelessTab({
             </Card.Body>
           </Card>
 
-          {/* Active alerts */}
-          <Card>
-            <Card.Header>
-              <div className="flex flex-wrap justify-between items-center gap-2">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Alertas Activas
-                  {alerts.length > 0 && (
-                    <span className="ml-2 text-sm font-normal text-red-600 dark:text-red-400">
-                      ({alerts.length})
-                    </span>
-                  )}
-                </h2>
-                <div className="flex items-center gap-2">
-                  {canWrite && alerts.length > 0 && (
-                    <IconButton
-                      icon={<ClearIcon />}
-                      label="Limpiar todas las alertas"
-                      onClick={() => setShowClearAllModal(true)}
-                      disabled={clearingAlertId !== null}
-                    />
-                  )}
-                  <IconButton icon={<RefreshIcon />} label="Actualizar" onClick={fetchAlerts} disabled={alertsLoading} />
-                </div>
-              </div>
-            </Card.Header>
-            <Card.Body>
-              {alertsError && (
-                <p className="mb-3 text-sm text-red-600 dark:text-red-400">{alertsError}</p>
-              )}
-              {alertsNotice && (
-                <p className="mb-3 text-sm text-green-700 dark:text-green-400">{alertsNotice}</p>
-              )}
-              {alertsLoading ? (
-                <div className="flex justify-center py-4">
-                  <LoadingSpinner message="Cargando alertas..." />
-                </div>
-              ) : alerts.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Sin alertas activas.</p>
-              ) : (
-                <div className="space-y-3">
-                  {alerts.map((alert: WirelessAlertDTO) => (
-                    <div
-                      key={alert.id}
-                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <Badge variant={alertSeverityVariant(alert.severity)} className="mr-2">
-                            {alert.severity}
-                          </Badge>
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 wrap-anywhere">
-                            {alert.message}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            {new Date(alert.triggeredAt).toLocaleString('es')}
-                          </span>
-                          {canWrite && (
-                            <IconButton
-                              icon={<ClearIcon />}
-                              label="Limpiar alerta"
-                              onClick={() => handleClearAlert(alert.id)}
-                              isLoading={clearingAlertId === alert.id}
-                              disabled={clearingAlertId !== null}
-                            />
-                          )}
-                        </div>
-                      </div>
-                      {alert.metric === PARENT_AP_MISMATCH_METRIC ? (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {alert.lastValue} sondeos seguidos con otro AP.{' '}
-                          {showSuggestions ? (
-                            <a href={`#${IDENTITY_SUGGESTIONS_ANCHOR}`} className="text-brand-600 dark:text-brand-400 hover:underline">
-                              Acepta la sugerencia de AP
-                            </a>
-                          ) : (
-                            'Acepta la sugerencia de AP'
-                          )}{' '}
-                          para corregir el registro; la alerta se cierra en el siguiente sondeo.
-                        </p>
-                      ) : (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Métrica: <code className="font-mono">{alert.metric}</code> — valor: {alert.lastValue}, umbral: {alert.threshold}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card.Body>
-          </Card>
-
           {/* Stations (AP only) — the live list from the AP's last poll,
               which covers both declared and undeclared clients, followed by
               the declared stations (those whose upstream is this AP)
@@ -1272,10 +1081,6 @@ export function DeviceWirelessTab({
               </Card>
             </div>
           )}
-
-          {/* On-demand check for a failing link. The backend refuses a vendor
-              it cannot read, so there is nothing to offer for one. */}
-          {!unsupportedVendorReason && !serverCannotReach && <LinkDiagnosisCard deviceId={deviceId} canWrite={canWrite} />}
 
         </>
       )}
