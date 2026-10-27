@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams, usePathname, useSearchParams } from 'next/navigation';
 import { apiService } from '@/services/api.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
@@ -108,8 +108,10 @@ export default function DeviceDetailPage() {
   const goBack = useGoBack('/devices');
   const params = useParams();
   const deviceId = params.id as string;
-  // `?tab=wireless` lets another page (the hardware swap banner) link straight
-  // to a tab.
+  // The open tab lives in `?tab=`, so another page (the hardware swap banner)
+  // can link straight to one, and the browser's back button steps back
+  // through the tabs before it leaves the page.
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   // Deleting takes ADMIN, and so does undoing it — restoring is the inverse of
@@ -125,10 +127,19 @@ export default function DeviceDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { showError } = useToast();
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    const tab = searchParams.get('tab');
-    return isTab(tab) ? tab : 'details';
-  });
+  const tabParam = searchParams.get('tab');
+  const activeTab: Tab = isTab(tabParam) ? tabParam : 'details';
+  const setActiveTab = useCallback(
+    (tab: Tab) => {
+      if (tab === activeTab) return;
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === 'details') params.delete('tab');
+      else params.set('tab', tab);
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [activeTab, searchParams, pathname, router],
+  );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
