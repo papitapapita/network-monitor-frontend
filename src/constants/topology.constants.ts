@@ -8,15 +8,15 @@ import type { BadgeVariant } from '@/components/ui';
  * answers with the same messages.
  */
 const LINK_REFUSALS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
-  [/Cannot make a device its own upstream device/, () => 'Un equipo no puede colgar de sí mismo.'],
+  [/Cannot make a device its own upstream device/, () => 'Un equipo no puede depender de sí mismo.'],
   [
     /^(.+) is already downstream of (.+) — linking them would form a loop/,
-    (m) => `«${m[1]}» ya cuelga (directa o indirectamente) de «${m[2]}»: enlazarlos formaría un ciclo.`,
+    (m) => `«${m[1]}» ya depende (directa o indirectamente) de «${m[2]}»: enlazarlos formaría un ciclo.`,
   ],
-  [/Upstream device not found/, () => 'El equipo del que cuelga no existe o fue eliminado.'],
+  [/Upstream device not found/, () => 'El equipo del que depende no existe o fue eliminado.'],
   [
     /The upstream device must be ACTIVE or COMMISSIONING, not (\w+)/,
-    () => 'El equipo del que cuelga debe estar activo o en instalación.',
+    () => 'El equipo del que depende debe estar activo o en instalación.',
   ],
 ];
 

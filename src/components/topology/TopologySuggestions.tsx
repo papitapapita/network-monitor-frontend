@@ -100,7 +100,7 @@ export function TopologySuggestions() {
   return (
     <div className="p-4 sm:p-6 space-y-4 overflow-y-auto h-full">
       <p className="text-sm text-gray-600 dark:text-gray-400 max-w-3xl">
-        El sistema propone de qué equipo cuelga cada uno a partir de lo que ya lee: el AP que reporta cada radio cliente
+        El sistema propone de qué equipo depende cada uno a partir de lo que ya lee: el AP que reporta cada radio cliente
         y los puertos de los switches PoE rotulados con la IP de la antena que alimentan. Nada se enlaza hasta que lo
         aceptes.
       </p>
@@ -169,7 +169,7 @@ export function TopologySuggestions() {
       ) : error ? (
         <p className="text-sm text-red-600 dark:text-red-400">{(error as Error).message}</p>
       ) : suggestions.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">No hay sugerencias: cada equipo que el sistema sabe ubicar ya cuelga de donde debe.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No hay sugerencias: cada equipo que el sistema sabe ubicar ya depende del equipo que le corresponde.</p>
       ) : (
         <div className="overflow-x-auto table-scroll-x rounded-lg border border-gray-200 dark:border-gray-700">
           <table className="min-w-full text-sm" aria-label="Sugerencias de enlace">
@@ -185,7 +185,7 @@ export function TopologySuggestions() {
                   </th>
                 )}
                 <th className="py-2 px-3 font-medium">Equipo</th>
-                <th className="py-2 px-3 font-medium">Cuelga de ahora</th>
+                <th className="py-2 px-3 font-medium">Depende ahora de</th>
                 <th className="py-2 px-3 font-medium">Sugerido</th>
                 <th className="py-2 px-3 font-medium">Por qué</th>
               </tr>

@@ -369,8 +369,8 @@ export default function DeviceDetailPage() {
                 {replaceResult.downstreamDevicesMoved > 0 && (
                   <li>
                     {replaceResult.downstreamDevicesMoved === 1
-                      ? 'El equipo que colgaba de esta unidad ahora cuelga del nuevo.'
-                      : `Los ${replaceResult.downstreamDevicesMoved} equipos que colgaban de esta unidad ahora cuelgan del nuevo.`}
+                      ? 'El equipo que dependía de esta unidad ahora depende del nuevo.'
+                      : `Los ${replaceResult.downstreamDevicesMoved} equipos que dependían de esta unidad ahora dependen del nuevo.`}
                   </li>
                 )}
               </ul>

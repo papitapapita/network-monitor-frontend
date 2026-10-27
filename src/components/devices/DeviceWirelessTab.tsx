@@ -204,7 +204,7 @@ const REBOOT_WINDOW_MS = 120_000;
 const SUGGESTION_FIELD_LABELS: Record<WirelessIdentitySuggestion['field'], string> = {
   name: 'Nombre',
   macAddress: 'Dirección MAC',
-  upstreamDeviceId: 'Cuelga de (AP)',
+  upstreamDeviceId: 'Depende de (AP)',
 };
 
 // A station that declares this AP as its parent but is missing from the AP's
@@ -1205,7 +1205,7 @@ export function DeviceWirelessTab({
             <div id={IDENTITY_SUGGESTIONS_ANCHOR} className="scroll-mt-4">
               <Card>
                 <Card.Header>
-                  <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo «Cuelga de» vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
+                  <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo «Depende de» vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
                     Sugerencias de Identidad
                     <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
                       ({visibleSuggestions.length})

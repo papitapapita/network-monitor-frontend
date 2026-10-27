@@ -46,7 +46,7 @@ export default function TopologyPage() {
         <div className="flex items-center gap-2 pb-2">
           <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Topología</h1>
           <InfoTip>
-            De qué equipo cuelga cada uno: el AP de un CPE, el switch de un AP, el router de un switch. Durante una
+            De qué equipo depende cada uno: el AP de un CPE, el switch de un AP, el router de un switch. Durante una
             caída, el equipo en rojo es donde está la falla; los grises detrás de él están aislados, probablemente
             no dañados. Se actualiza cada minuto.
           </InfoTip>

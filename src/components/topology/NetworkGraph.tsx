@@ -98,7 +98,7 @@ const DeviceNodeCard = memo(function DeviceNodeCard({ data }: NodeProps<DeviceNo
               ? 'bg-gray-600 border-gray-600 text-white'
               : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-200'
           }`}
-          aria-label={hidden ? `Mostrar ${hidden.total} equipos debajo de ${node.name}` : `Ocultar lo que cuelga de ${node.name}`}
+          aria-label={hidden ? `Mostrar ${hidden.total} equipos debajo de ${node.name}` : `Ocultar lo que depende de ${node.name}`}
           title={
             hidden
               ? `${hidden.total} ocultos${hidden.down ? ` · ${hidden.down} caído${hidden.down === 1 ? '' : 's'}` : ''}${hidden.unreachable ? ` · ${hidden.unreachable} sin alcance` : ''}`
@@ -319,7 +319,7 @@ function Graph({ nodes: all, initialFocus }: NetworkGraphProps) {
           ))}
           {counts.unreachable > 0 && (
             <span className="text-red-700/80 dark:text-red-300/80">
-              {' '}— los {counts.unreachable} sin alcance cuelgan de ahí y probablemente están bien.
+              {' '}— los {counts.unreachable} sin alcance dependen de ahí y probablemente están bien.
             </span>
           )}
         </div>
@@ -332,7 +332,7 @@ function Graph({ nodes: all, initialFocus }: NetworkGraphProps) {
               'Ningún equipo coincide con el filtro.'
             ) : (
               <>
-                Todavía no hay equipos enlazados: indica de qué equipo cuelga cada uno, o acepta las{' '}
+                Todavía no hay equipos enlazados: indica de qué equipo depende cada uno, o acepta las{' '}
                 <Link href="/topology?tab=suggestions" className="text-brand-600 dark:text-brand-400 hover:underline">
                   sugerencias
                 </Link>
@@ -446,13 +446,13 @@ function UnlinkedList({ nodes }: { nodes: TopologyNodeDTO[] }) {
       >
         <span>
           <span className="font-medium">{nodes.length} sin enlazar</span>
-          <span className="text-gray-500 dark:text-gray-400"> — no cuelgan de nada ni tienen nada debajo, así que no aparecen en el mapa.</span>
+          <span className="text-gray-500 dark:text-gray-400"> — no dependen de nada ni tienen nada debajo, así que no aparecen en el mapa.</span>
         </span>
         <span aria-hidden>{open ? '▾' : '▸'}</span>
       </button>
       {open && (
         <p className="px-4 pb-2 text-gray-500 dark:text-gray-400">
-          Indica de qué equipo cuelga cada uno en su ficha, o revisa las{' '}
+          Indica de qué equipo depende cada uno en su ficha, o revisa las{' '}
           <Link href="/topology?tab=suggestions" className="text-brand-600 dark:text-brand-400 hover:underline">
             sugerencias
           </Link>

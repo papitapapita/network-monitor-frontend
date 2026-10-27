@@ -569,7 +569,7 @@ export function DeviceDetailsTab({ device, onDeviceUpdated }: Props) {
                       ]
                     : []),
                   {
-                    label: 'Cuelga de',
+                    label: 'Depende de',
                     value: device.upstreamDeviceId ? (
                       <Link
                         href={`/devices/${device.upstreamDeviceId}`}

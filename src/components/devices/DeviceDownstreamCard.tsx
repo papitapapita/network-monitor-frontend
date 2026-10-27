@@ -40,7 +40,7 @@ export function DeviceDownstreamCard({ deviceId }: { deviceId: string }) {
       <Card.Header>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <SectionTitle info="Los equipos que dependen de este en la red, directa o indirectamente. Si este cae, quedan sin alcance y no avisan uno por uno.">
-            Cuelgan de este equipo
+            Dependen de este equipo
           </SectionTitle>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-gray-500 dark:text-gray-400">{below.length} equipo{below.length === 1 ? '' : 's'}</span>
@@ -54,7 +54,7 @@ export function DeviceDownstreamCard({ deviceId }: { deviceId: string }) {
       </Card.Header>
       <Card.Body>
         <div className="overflow-x-auto table-scroll-x">
-          <table className="min-w-full text-sm" aria-label="Equipos que cuelgan de este">
+          <table className="min-w-full text-sm" aria-label="Equipos que dependen de este">
             <thead>
               <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                 <th className="py-2 pr-4 font-medium">Equipo</th>

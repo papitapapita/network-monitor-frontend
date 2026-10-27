@@ -62,7 +62,7 @@ export function UpstreamDevicePicker({ value, onChange, selected, excludeId, err
 
   return (
     <Combobox
-      label="Cuelga de"
+      label="Depende de"
       value={value}
       onChange={(id) => {
         setPicked(devices.find((d) => d.id === id) ?? null);
