@@ -3,8 +3,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { apiService } from '@/services/api.service';
 import { DeviceCredentialsResponseDTO, RevealedDeviceCredentialsDTO, SetDeviceCredentialsDTO } from '@/types/device.types';
-import { Card, Input, Checkbox, Badge, Button, LoadingSpinner, IconButton, EditFormActions, EditToggleButton, ConfirmModal, InfoTip, SectionTitle, Modal, EyeIcon, EyeOffIcon } from '@/components/ui';
-import { getRevealUnlock, setRevealUnlock, clearRevealUnlock } from '@/services/credentialReveal';
+import { Card, Input, Checkbox, Badge, LoadingSpinner, IconButton, EditFormActions, EditToggleButton, ConfirmModal, InfoTip, SectionTitle, EyeIcon, EyeOffIcon } from '@/components/ui';
+import { getRevealUnlock, clearRevealUnlock } from '@/services/credentialReveal';
+import { RevealUnlockModal } from '@/components/devices/RevealUnlockModal';
 import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
 import { wirelessCollectorFor } from '@/constants/wireless.constants';
@@ -105,9 +106,6 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   const [revealed, setRevealed] = useState<RevealedDeviceCredentialsDTO | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [showUnlock, setShowUnlock] = useState(false);
-  const [unlockPassword, setUnlockPassword] = useState('');
-  const [unlockError, setUnlockError] = useState<string | null>(null);
-  const [unlocking, setUnlocking] = useState(false);
   const [revealedUntil, setRevealedUntil] = useState<number | null>(null);
 
   const hideSecrets = useCallback(() => {
@@ -122,11 +120,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     return () => clearTimeout(timer);
   }, [revealedUntil, hideSecrets]);
 
-  const askPassword = () => {
-    setUnlockPassword('');
-    setUnlockError(null);
-    setShowUnlock(true);
-  };
+  const askPassword = () => setShowUnlock(true);
 
   const reveal = async (unlock: { token: string; expiresAt: number }) => {
     setRevealing(true);
@@ -152,26 +146,6 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     const unlock = getRevealUnlock();
     if (unlock) reveal(unlock);
     else askPassword();
-  };
-
-  const handleUnlock = async () => {
-    if (!unlockPassword) {
-      setUnlockError('Escribe tu contraseña.');
-      return;
-    }
-    setUnlocking(true);
-    setUnlockError(null);
-    const result = await apiService.unlockCredentialReveal(unlockPassword);
-    setUnlocking(false);
-    if (result.success && result.data) {
-      setRevealUnlock(result.data.revealToken, result.data.expiresInSeconds);
-      setShowUnlock(false);
-      setUnlockPassword('');
-      const unlock = getRevealUnlock();
-      if (unlock) await reveal(unlock);
-    } else {
-      setUnlockError(result.error || 'No se pudo verificar la contraseña');
-    }
   };
 
   const fetchCreds = useCallback(async () => {
@@ -602,36 +576,12 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
         isLoading={deleting}
       />
 
-      <Modal
+      <RevealUnlockModal
         isOpen={showUnlock}
         onClose={() => setShowUnlock(false)}
-        title="Confirma tu contraseña"
-        info="Ver las credenciales en texto plano pide tu contraseña. Vale 5 minutos para cualquier dispositivo, y cada consulta queda registrada."
-        size="sm"
-        onSubmit={handleUnlock}
-      >
-        <Input
-          label="Tu contraseña"
-          type="password"
-          value={unlockPassword}
-          onChange={(e) => {
-            setUnlockPassword(e.target.value);
-            setUnlockError(null);
-          }}
-          error={unlockError ?? undefined}
-          autoComplete="current-password"
-          autoFocus
-          fullWidth
-        />
-        <Modal.Footer>
-          <Button variant="outline" onClick={() => setShowUnlock(false)} disabled={unlocking}>
-            Cancelar
-          </Button>
-          <Button onClick={handleUnlock} isLoading={unlocking}>
-            Ver credenciales
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        onUnlocked={reveal}
+        confirmText="Ver credenciales"
+      />
 
       {/* SNMP-first vendors read their summary before the HTTP card */}
       {snmpFirst && snmpSummary}

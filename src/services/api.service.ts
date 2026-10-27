@@ -80,6 +80,7 @@ import {
   PingSampleDTO,
   RadioSampleDTO,
   StartLinkDiagnosisResult,
+  RevealedWirelessKeyDTO,
 } from '../types/wireless.types';
 import { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import {
@@ -223,6 +224,28 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 const stripValidationPrefix = (error: string): string =>
   error.replace(/^(body|params|query)(\.[\w.[\]]+)?:\s*/, '');
+
+/**
+ * Reading a radio's own settings fails the ways a poll does (WLS-225):
+ * `"Cannot <do it> — <reason>: <what the radio said>"`. `action` finishes
+ * "No se pudo …".
+ */
+function radioSettingsFailure(status: number | undefined, error: string | undefined, action: string): string {
+  const raw = stripValidationPrefix(error ?? '');
+  const detail = raw.split(/: /).slice(1).join(': ');
+  const reason = raw.split(' — ').slice(1).join(' — ');
+  if (status === 404) return 'El equipo no tiene configuración inalámbrica.';
+  if (/not supported yet/.test(reason)) return 'Solo los radios Ubiquiti (AirOS) permiten esto por ahora.';
+  if (/HTTP credentials not configured/.test(reason)) return 'Configura credenciales HTTP en la pestaña Credenciales.';
+  if (/IP address not configured/.test(reason)) return 'El equipo no tiene IP configurada en el monitoreo inalámbrico.';
+  if (/not on the monitored network/.test(reason)) {
+    return 'El servidor no está en la red monitoreada y este equipo no tiene agente que llegue al radio.';
+  }
+  if (/agent is not connected/.test(reason)) return `El agente de este equipo no está conectado, así que no se pudo ${action}.`;
+  if (status === 504) return 'El agente no respondió a tiempo. Inténtalo de nuevo.';
+  if (status === 502) return `El radio no respondió como se esperaba${detail ? `: ${detail}` : '.'}`;
+  return raw || `No se pudo ${action}.`;
+}
 
 /**
  * A malformed frame is not worth tearing the stream down for — the next
@@ -1412,6 +1435,24 @@ class ApiService {
     return this.request<WirelessRebootResult>(`/devices/${deviceId}/wireless/reboot`, {
       method: 'POST'
     });
+  }
+
+  /**
+   * The radio's SSID and Wi-Fi key, read live from it (WLS-220). Takes the
+   * same unlock as the credential reveal, so its 403 splits the same way.
+   */
+  async revealWirelessKey(deviceId: string, revealToken: string): Promise<ApiResponse<RevealedWirelessKeyDTO>> {
+    const result = await this.request<RevealedWirelessKeyDTO>(`/devices/${deviceId}/wireless/key/reveal`, {
+      method: 'POST',
+      headers: { 'X-Credential-Reveal-Token': revealToken },
+      cache: 'no-store',
+    });
+    if (result.status === 403) {
+      return result.errorField === 'revealToken'
+        ? { ...result, error: 'Vuelve a escribir tu contraseña para ver la clave Wi-Fi.' }
+        : { ...result, error: 'Tu rol no puede ver la clave Wi-Fi de un radio.' };
+    }
+    return result.success ? result : { ...result, error: radioSettingsFailure(result.status, result.error, 'leer la clave Wi-Fi') };
   }
 
   // Wireless alert thresholds (WLS-200..202) — the install's set, read by every

@@ -82,6 +82,8 @@ export interface WirelessCollector {
   credentials: 'http' | 'snmp';
   /** Only AirOS exposes a reboot endpoint the backend can call. */
   canReboot: boolean;
+  /** Only AirOS lets the backend read the radio's Wi-Fi key (WLS-222). */
+  radioSettings: boolean;
 }
 
 /**
@@ -90,8 +92,8 @@ export interface WirelessCollector {
  * contacting the radio. Keep in step with the backend's collector registry.
  */
 const WIRELESS_COLLECTORS: Record<string, WirelessCollector> = {
-  ubiquiti: { method: 'http_api', credentials: 'http', canReboot: true },
-  mimosa: { method: 'snmp', credentials: 'snmp', canReboot: false },
+  ubiquiti: { method: 'http_api', credentials: 'http', canReboot: true, radioSettings: true },
+  mimosa: { method: 'snmp', credentials: 'snmp', canReboot: false, radioSettings: false },
 };
 
 /** Null when the vendor has no collector, so the radio cannot be polled at all. */

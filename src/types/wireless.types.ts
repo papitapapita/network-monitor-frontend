@@ -380,3 +380,19 @@ export interface StartLinkDiagnosisResult {
   started: boolean;
   diagnosis: LinkDiagnosisDTO;
 }
+
+/**
+ * A radio's Wi-Fi security read live from its `system.cfg` (WLS-220/221) —
+ * only from the reveal endpoint, behind the same unlock as device credentials.
+ */
+export interface RevealedWirelessKeyDTO {
+  deviceId: string;
+  /** What the radio's own configuration says, which may differ from the role it was registered with. */
+  role: 'ACCESS_POINT' | 'STATION';
+  ssid: string | null;
+  /** OTHER is WPA Enterprise or WEP: there is no shared key to show. */
+  security: 'WPA_PSK' | 'OPEN' | 'OTHER';
+  /** Set only for WPA_PSK. */
+  key: string | null;
+  readAt: string;
+}

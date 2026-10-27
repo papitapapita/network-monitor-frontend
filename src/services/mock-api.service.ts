@@ -96,7 +96,7 @@ import {
   BulkClearAlertsResult,
   BulkDeleteAlertsResult,
 } from '../types/alert.types';
-import type { LinkDiagnosisDTO, StartLinkDiagnosisResult, WirelessPollResult } from '../types/wireless.types';
+import type { LinkDiagnosisDTO, StartLinkDiagnosisResult, WirelessPollResult, RevealedWirelessKeyDTO } from '../types/wireless.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import { ApiResponse } from '../types/common.types';
 import { SseState } from './sse';
@@ -1654,6 +1654,9 @@ class MockApiService {
   }
   async rebootWirelessDevice() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async revealWirelessKey(): Promise<ApiResponse<RevealedWirelessKeyDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
   }
   async getAlertThresholds(): Promise<ApiResponse<InstallAlertThresholdsDTO>> {
     return ok({ thresholds: structuredClone(alertThresholds), defaults: structuredClone(DEFAULT_ALERT_THRESHOLDS) });

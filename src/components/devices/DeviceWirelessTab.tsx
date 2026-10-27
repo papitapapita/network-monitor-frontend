@@ -42,6 +42,7 @@ import {
   IDENTITY_SUGGESTIONS_ANCHOR,
 } from '@/constants/wireless.constants';
 import { LinkDiagnosisCard } from '@/components/wireless/LinkDiagnosisCard';
+import { WirelessKeyField } from '@/components/wireless/WirelessKeyField';
 import { upstreamLinkError } from '@/constants/topology.constants';
 import { agentPollFailure } from '@/constants/agent.constants';
 
@@ -786,6 +787,17 @@ export function DeviceWirelessTab({
       : hasHttpCreds === false
         ? 'Configura credenciales HTTP en la pestaña Credenciales'
         : null;
+  // The Wi-Fi key is AirOS only (WLS-222) and seeing it is the reveal
+  // permission; an unknown vendor shows it and lets the backend decide. It
+  // reaches the radio like a poll does (WLS-225), so off site via the agent.
+  const showWirelessKey = permissions.canRevealCredentials && (collector ? collector.radioSettings : !vendorSlug);
+  const wirelessKeyBlockedReason = !canPollFromHere
+    ? 'El servidor no está en la red monitoreada y este equipo no tiene agente: asígnale uno en «Detalles» (Sondeado por).'
+    : !config?.ipAddress
+      ? 'El equipo no tiene IP configurada en el monitoreo inalámbrico.'
+      : hasHttpCreds === false
+        ? 'Configura credenciales HTTP en la pestaña Credenciales.'
+        : null;
   // A config created without the credentials its collector logs in with would
   // just sit there never collecting anything — require them up front instead
   // of letting the operator find out later.
@@ -903,6 +915,7 @@ export function DeviceWirelessTab({
                       <dt className="text-gray-500 dark:text-gray-400">SSID</dt>
                       <dd className="mt-1 text-gray-900 dark:text-gray-100 break-all">{metrics.ssid ?? '—'}</dd>
                     </div>
+                    {showWirelessKey && <WirelessKeyField deviceId={deviceId} blockedReason={wirelessKeyBlockedReason} />}
                     {!isAP && (
                       <div>
                         <dt className="text-gray-500 dark:text-gray-400">Señal RX (del AP)</dt>
