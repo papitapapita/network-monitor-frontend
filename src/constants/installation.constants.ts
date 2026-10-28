@@ -5,7 +5,8 @@ type RouteRequirement = (installation: InstallationDTO) => boolean;
 /**
  * Which part of the install each section of the app belongs to. A module that
  * is off has no routes at all (404), and the network scan is refused on an
- * install whose server is not on the monitored network (DEV-171).
+ * install whose server is not on the monitored network (DEV-171), and so is the
+ * internet speed test.
  */
 const ROUTE_REQUIREMENTS: [prefix: string, requirement: RouteRequirement][] = [
   ['/customers', (i) => i.modules.customers],
@@ -18,6 +19,8 @@ const ROUTE_REQUIREMENTS: [prefix: string, requirement: RouteRequirement][] = [
   ['/calendario', (i) => i.modules.tickets],
   ['/technicians', (i) => i.modules.tickets],
   ['/network-scan', (i) => i.serverOnSite],
+  // Off site it would measure the cloud server, not the ISP (MON-104).
+  ['/speed-test', (i) => i.serverOnSite],
 ];
 
 /** Whether a path — a list or anything under it — exists on this install. */

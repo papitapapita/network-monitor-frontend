@@ -110,6 +110,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         label: 'Escaneo',
         icon: icon('M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z'),
       },
+      // The ISP's own internet link, measured from its on-site server.
+      {
+        href: '/speed-test',
+        label: 'Test de velocidad',
+        icon: icon(['M4.93 19.07a10 10 0 1114.14 0', 'M12 14l4-5']),
+      },
       // The PCs that poll a customer's network from inside it.
       {
         href: '/agents',

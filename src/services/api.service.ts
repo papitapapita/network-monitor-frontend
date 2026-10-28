@@ -109,6 +109,12 @@ import {
   NetworkSweepStartDTO,
   NetworkSweepSummaryDTO,
 } from '../types/network-sweep.types';
+import {
+  SpeedTestListResponseDTO,
+  SpeedTestProgressDTO,
+  SpeedTestResultDTO,
+  SpeedTestStartDTO,
+} from '../types/speed-test.types';
 import { translateAgentError } from '../constants/agent.constants';
 import { openSseStream, SseState } from './sse';
 import { ApiResponse } from '../types/common.types';
@@ -284,6 +290,15 @@ export interface NetworkSweepStreamHandlers {
   onResult: (result: NetworkSweepResultDTO) => void;
   /** The last frame; the stream is already closed when this runs. */
   onDone: (summary: NetworkSweepSummaryDTO) => void;
+  onState?: (state: SseState) => void;
+}
+
+export interface SpeedTestStreamHandlers {
+  onStart: (start: SpeedTestStartDTO) => void;
+  /** One per latency sample, then one per second of download and of upload. */
+  onProgress: (progress: SpeedTestProgressDTO) => void;
+  /** The last frame, a failed test included; the stream is already closed when this runs. */
+  onDone: (result: SpeedTestResultDTO) => void;
   onState?: (state: SseState) => void;
 }
 
@@ -1711,6 +1726,37 @@ class ApiService {
       },
     });
     return close;
+  }
+
+  /**
+   * Runs one internet speed test (MON-100 … MON-104). Closing the stream stops
+   * it, and a stopped test is not kept; one at a time per install (409).
+   */
+  streamSpeedTest(handlers: SpeedTestStreamHandlers): () => void {
+    const close = openSseStream(`${this.baseUrl}/network/speed-test/stream`, {
+      // Reconnecting would run a whole new test.
+      reconnect: false,
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        if (event === 'speed-test-start') {
+          const dto = parseStreamJson<SpeedTestStartDTO>(data);
+          if (dto) handlers.onStart(dto);
+        } else if (event === 'speed-test-progress') {
+          const dto = parseStreamJson<SpeedTestProgressDTO>(data);
+          if (dto) handlers.onProgress(dto);
+        } else if (event === 'speed-test-done') {
+          const dto = parseStreamJson<SpeedTestResultDTO>(data);
+          close();
+          if (dto) handlers.onDone(dto);
+        }
+      },
+    });
+    return close;
+  }
+
+  /** Newest first, failed tests included (MON-103). */
+  async getSpeedTests(limit: number, offset: number): Promise<ApiResponse<SpeedTestListResponseDTO>> {
+    return this.request<SpeedTestListResponseDTO>(`/network/speed-tests?limit=${limit}&offset=${offset}`);
   }
 
   // ============================================================
