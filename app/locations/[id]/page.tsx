@@ -203,9 +203,6 @@ export default function LocationDetailPage() {
               {LOCATION_TYPE_LABELS[location.type]}
             </Badge>
           </div>
-          {permissions.isAdmin && (
-            <IconButton icon={<TrashIcon />} label="Eliminar ubicación" variant="danger" onClick={() => setShowDeleteModal(true)} />
-          )}
         </div>
       </div>
 
@@ -241,7 +238,12 @@ export default function LocationDetailPage() {
           <Card.Header>
             <div className="flex justify-between items-center gap-2">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información general</h2>
-              <EditToggleButton isEditing={false} onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
+              <div className="flex items-center gap-2">
+                <EditToggleButton isEditing={false} onEdit={() => setIsEditing(true)} onCancel={cancelEdit} />
+                {permissions.isAdmin && (
+                  <IconButton icon={<TrashIcon />} label="Eliminar ubicación" variant="danger" onClick={() => setShowDeleteModal(true)} />
+                )}
+              </div>
             </div>
           </Card.Header>
           <Card.Body>

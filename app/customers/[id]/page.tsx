@@ -406,23 +406,28 @@ export default function CustomerDetailPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 wrap-anywhere">{customer.fullName}</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{customer.phone}</p>
         </div>
-        {permissions.isAdmin && (
-          <IconButton icon={<TrashIcon />} label="Eliminar cliente" variant="danger" onClick={() => setShowDeleteModal(true)} />
-        )}
       </div>
 
       {/* Customer info */}
       <div>
-        {!isEditing && permissions.canWrite && (
-          <div className="flex justify-end mb-2">
-            <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
-          </div>
-        )}
-
         {saveError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-3 text-sm text-red-800 dark:text-red-400">{saveError}</div>}
 
         <Card>
-          <Card.Header><h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Cliente</h2></Card.Header>
+          <Card.Header>
+            <div className="flex justify-between items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Información del Cliente</h2>
+              {!isEditing && (permissions.canWrite || permissions.isAdmin) && (
+                <div className="flex items-center gap-2">
+                  {permissions.canWrite && (
+                    <IconButton icon={<EditIcon />} label="Editar" onClick={() => setIsEditing(true)} />
+                  )}
+                  {permissions.isAdmin && (
+                    <IconButton icon={<TrashIcon />} label="Eliminar cliente" variant="danger" onClick={() => setShowDeleteModal(true)} />
+                  )}
+                </div>
+              )}
+            </div>
+          </Card.Header>
           <Card.Body>
             {isEditing ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
