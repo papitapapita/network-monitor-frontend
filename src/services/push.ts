@@ -85,7 +85,7 @@ export async function enablePush(publicKey: string): Promise<EnablePushResult> {
   const r = await apiService.subscribePush(toBody(subscription));
   if (!r.success) {
     await subscription.unsubscribe().catch(() => undefined);
-    return { ok: false, error: r.error || 'El servidor no aceptó este teléfono.' };
+    return { ok: false, error: r.error || 'El servidor no aceptó este dispositivo.' };
   }
   return { ok: true };
 }

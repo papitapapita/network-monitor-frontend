@@ -30,15 +30,15 @@ async function readPhoneState(): Promise<PhoneState> {
 
 // The backend's refusals for `POST /api/push/test`, said in the operator's words.
 const TEST_ERRORS: Record<number, string> = {
-  409: 'Tu usuario no tiene ningún teléfono con notificaciones activas.',
-  502: 'La prueba no llegó a ningún teléfono. Desactiva y vuelve a activar las notificaciones aquí.',
-  503: 'Las notificaciones al teléfono no están configuradas en este servidor.',
+  409: 'Tu usuario no tiene ningún dispositivo con notificaciones activas.',
+  502: 'La prueba no llegó a ningún dispositivo. Desactiva y vuelve a activar las notificaciones aquí.',
+  503: 'Las notificaciones a dispositivos no están configuradas en este servidor.',
 };
 
 type TestOutcome = { ok: true; delivered: number } | { ok: false; message: string };
 
 /**
- * "Activar notificaciones en este teléfono" (NOT-220…228): the same alerts the
+ * "Activar notificaciones en este dispositivo" (NOT-220…228): the same alerts the
  * install's Telegram chat gets, on the signed-in user's own phone. Every role
  * may turn it on; it is per browser, so each phone is switched on its own.
  * Hidden entirely when the server has no VAPID keys.
@@ -75,7 +75,7 @@ export function PhoneNotificationsCard({ className = '' }: { className?: string 
     const r = on ? await enablePush(key.publicKey) : await disablePush();
     setBusy(false);
     if (!r.ok) showError(r.error);
-    else showSuccess(on ? 'Notificaciones activadas en este teléfono.' : 'Notificaciones desactivadas en este teléfono.');
+    else showSuccess(on ? 'Notificaciones activadas en este dispositivo.' : 'Notificaciones desactivadas en este dispositivo.');
     refetch();
   };
 
@@ -93,15 +93,15 @@ export function PhoneNotificationsCard({ className = '' }: { className?: string 
 
   return (
     <section
-      aria-label="Notificaciones en este teléfono"
+      aria-label="Notificaciones en este dispositivo"
       className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden ${className}`}
     >
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <SectionTitle
           className="text-base font-semibold text-gray-900 dark:text-gray-100"
-          info="Recibe en este teléfono las mismas alertas que llegan al chat de Telegram de la instalación, con sus mismos horarios de silencio y alertas silenciadas. Se activa por separado en cada teléfono o navegador."
+          info="Recibe en este dispositivo las mismas alertas que llegan al chat de Telegram de la instalación, con sus mismos horarios de silencio y alertas silenciadas. Se activa por separado en cada dispositivo o navegador."
         >
-          Notificaciones en este teléfono
+          Notificaciones en este dispositivo
         </SectionTitle>
       </div>
       <div className="px-6 py-5 space-y-4">
@@ -127,7 +127,7 @@ export function PhoneNotificationsCard({ className = '' }: { className?: string 
           <>
             <Switch
               id="push-this-phone"
-              label="Activar notificaciones en este teléfono"
+              label="Activar notificaciones en este dispositivo"
               description={
                 phone.blocked
                   ? 'Las notificaciones están bloqueadas para este sitio: permítelas en los ajustes del navegador.'
@@ -151,8 +151,8 @@ export function PhoneNotificationsCard({ className = '' }: { className?: string 
                   >
                     {testOutcome.ok
                       ? testOutcome.delivered === 1
-                        ? 'Enviada a 1 teléfono.'
-                        : `Enviada a ${testOutcome.delivered} teléfonos.`
+                        ? 'Enviada a 1 dispositivo.'
+                        : `Enviada a ${testOutcome.delivered} dispositivos.`
                       : testOutcome.message}
                   </span>
                 )}
