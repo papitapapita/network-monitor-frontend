@@ -39,6 +39,8 @@ import {
 } from '@/constants/device.constants';
 import { isBackupTarget } from '@/constants/backup.constants';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useInstallation } from '@/hooks/useInstallation';
+import { agentPollFailure } from '@/constants/agent.constants';
 
 type Tab = 'details' | 'history' | 'polling' | 'wireless' | 'settings' | 'backups';
 
@@ -63,6 +65,22 @@ function SwapVerticalIcon() {
   return (
     <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+    </svg>
+  );
+}
+
+function PollIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+}
+
+function WirelessPollIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
     </svg>
   );
 }
@@ -139,7 +157,12 @@ export default function DeviceDetailPage() {
   const [onlineStatus, setOnlineStatus] = useState<PollingStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
+  const { serverOnSite } = useInstallation();
+  const [isPolling, setIsPolling] = useState(false);
+  const [isWirelessPolling, setIsWirelessPolling] = useState(false);
+  // Bumped after a quick poll so the open tab remounts and reads the new data.
+  const [pollRefreshKey, setPollRefreshKey] = useState(0);
   const tabParam = searchParams.get('tab');
   const activeTab: Tab = isTab(tabParam) ? tabParam : 'details';
   const setActiveTab = useCallback(
@@ -211,6 +234,42 @@ export default function DeviceDetailPage() {
     setIsLoading(false);
   }, [deviceId, loadModel]);
 
+  // Quick polls from the header: the same as «Sondear ahora» on the Sondeo and
+  // Inalámbrico tabs, with the outcome as a toast.
+  const handleQuickPoll = async () => {
+    setIsPolling(true);
+    const result = await apiService.triggerPoll(deviceId);
+    setIsPolling(false);
+    if (result.success && result.data) {
+      const r = result.data;
+      setOnlineStatus(r.deviceStatus);
+      setPollRefreshKey((k) => k + 1);
+      if (r.status === 'SUCCESS') showSuccess(`Sondeo exitoso${r.metrics ? ` (${r.metrics.latencyMs} ms)` : ''}.`);
+      else if (r.status === 'SKIPPED') showError('Sondeo omitido: el monitoreo está deshabilitado.');
+      else showError(`Sondeo fallido: ${r.message}`);
+    } else if (result.status === 409) {
+      showError(result.error?.includes('is not polled')
+        ? 'El estado de este dispositivo no admite sondeo (está fuera de servicio).'
+        : 'El monitoreo está deshabilitado para este dispositivo; habilítelo antes de sondearlo.');
+    } else {
+      showError(agentPollFailure(result.status, result.error) ?? result.error ?? 'Error en el sondeo');
+    }
+  };
+
+  const handleQuickWirelessPoll = async () => {
+    setIsWirelessPolling(true);
+    const result = await apiService.triggerWirelessPoll(deviceId);
+    setIsWirelessPolling(false);
+    if (result.success && result.data) {
+      const r = result.data;
+      setPollRefreshKey((k) => k + 1);
+      if (r.skipped) showError('Sondeo inalámbrico omitido: el monitoreo está deshabilitado.');
+      else showSuccess(`Sondeo inalámbrico completado — alertas activadas: ${r.alertsTriggered}, resueltas: ${r.alertsCleared}.`);
+    } else {
+      showError(agentPollFailure(result.status, result.error) ?? result.error ?? 'Error al sondear el equipo');
+    }
+  };
+
   useEffect(() => {
     fetchDevice();
   }, [fetchDevice]);
@@ -223,6 +282,9 @@ export default function DeviceDetailPage() {
 
   // Only the company's antennas, routerboards and switches are backed up (BKP-010).
   const showBackups = isBackupTarget(device?.ownerType, device?.category, deviceModel?.deviceType);
+
+  const canQuickPoll =
+    permissions.canWrite && !!device?.ipAddress && !!device.monitoringEnabled && (serverOnSite || device.agentId !== null);
 
   // Falls back to details if the wireless or backups tab disappears while open —
   // the model can lose its wireless flag, or the device its category, mid-visit.
@@ -367,6 +429,18 @@ export default function DeviceDetailPage() {
             </h1>
           </div>
           <div className="flex flex-wrap gap-2 justify-end sm:justify-start">
+            {/* Off site, only a device behind an agent can be polled on demand. */}
+            {canQuickPoll && (
+              <IconButton icon={<PollIcon />} label="Sondeo rápido" onClick={handleQuickPoll} isLoading={isPolling} />
+            )}
+            {canQuickPoll && showWireless && (
+              <IconButton
+                icon={<WirelessPollIcon />}
+                label="Sondeo inalámbrico rápido"
+                onClick={handleQuickWirelessPoll}
+                isLoading={isWirelessPolling}
+              />
+            )}
             {/* The ping tool, from where this device is polled. */}
             {permissions.canWrite && device.ipAddress && (
               <IconButton
@@ -554,7 +628,7 @@ export default function DeviceDetailPage() {
       {/* How the device is doing comes first; what it is, below. */}
       {currentTab === 'details' && (
         <div className="space-y-6">
-          <DeviceHealthCard device={device} showWireless={showWireless} onOpenTab={setActiveTab} />
+          <DeviceHealthCard key={pollRefreshKey} device={device} showWireless={showWireless} onOpenTab={setActiveTab} />
           <DeviceDownstreamCard deviceId={device.id} />
           <DevicePowerSourceCard deviceId={device.id} locationId={device.locationId} />
           <DeviceDetailsTab
@@ -568,15 +642,16 @@ export default function DeviceDetailPage() {
       )}
 
       {currentTab === 'history' && (
-        <DeviceHistoryTab device={device} />
+        <DeviceHistoryTab key={pollRefreshKey} device={device} />
       )}
 
       {currentTab === 'polling' && (
-        <DevicePollingTab device={device} onDeviceUpdated={setDevice} />
+        <DevicePollingTab key={pollRefreshKey} device={device} onDeviceUpdated={setDevice} />
       )}
 
       {currentTab === 'wireless' && (
         <DeviceWirelessTab
+          key={pollRefreshKey}
           deviceId={deviceId}
           category={device.category}
           deviceIpAddress={device.ipAddress}
