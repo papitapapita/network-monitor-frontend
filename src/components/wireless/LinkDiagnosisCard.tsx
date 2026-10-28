@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Badge, Button, Card, LoadingSpinner, SectionTitle, Select } from '@/components/ui';
+import { Badge, Button, Card, LoadingSpinner, SectionTitle } from '@/components/ui';
 import type { BadgeVariant } from '@/components/ui';
 import { LegendKey, Tooltip, niceAxis, useWidth } from '@/components/dashboard/charts';
 import { StreamErrorNotice, StreamIndicator } from './StreamStatus';
@@ -20,10 +20,17 @@ import type {
 } from '@/types/wireless.types';
 
 const DURATION_OPTIONS = [
-  { value: '30', label: '30 segundos' },
-  { value: '60', label: '1 minuto' },
-  { value: '120', label: '2 minutos' },
-  { value: '300', label: '5 minutos' },
+  { value: 30, label: '30 s' },
+  { value: 60, label: '1 min' },
+  { value: 120, label: '2 min' },
+  { value: 300, label: '5 min' },
+];
+
+/** What a run does, shown before the first one. */
+const DIAGNOSIS_STEPS = [
+  { title: 'Ping cada segundo', text: 'Al equipo y, si es una estación, a su AP padre.' },
+  { title: 'Lectura de la radio cada 2 s', text: 'Señal, tráfico y capacidad del enlace.' },
+  { title: 'Veredicto', text: 'Si la falla está en este equipo o aguas arriba.' },
 ];
 
 const VERDICT: Record<DiagnosisVerdict, { label: string; variant: BadgeVariant }> = {
@@ -71,7 +78,7 @@ interface Props {
  */
 export function LinkDiagnosisCard({ deviceId, canWrite }: Props) {
   const d = useLinkDiagnosis(deviceId);
-  const [duration, setDuration] = useState('60');
+  const [duration, setDuration] = useState(60);
   const running = d.diagnosis?.status === 'RUNNING';
   const now = useNow(1_000, running);
 
@@ -111,20 +118,13 @@ export function LinkDiagnosisCard({ deviceId, canWrite }: Props) {
 
             {!running &&
               (canWrite ? (
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="w-44">
-                    <Select
-                      label="Duración"
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      options={DURATION_OPTIONS}
-                      fullWidth
-                    />
-                  </div>
-                  <Button onClick={() => d.start(Number(duration))} isLoading={d.isStarting}>
-                    {d.diagnosis ? 'Nuevo diagnóstico' : 'Iniciar diagnóstico'}
-                  </Button>
-                </div>
+                <StartForm
+                  duration={duration}
+                  onDurationChange={setDuration}
+                  onStart={() => d.start(duration)}
+                  isStarting={d.isStarting}
+                  hasPrevious={!!d.diagnosis}
+                />
               ) : (
                 !d.diagnosis && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -760,5 +760,78 @@ function ThroughputChart({
       ariaLabel="Tráfico y capacidad de la radio durante el diagnóstico"
       emptyText="Esperando la primera lectura de la radio..."
     />
+  );
+}
+
+/**
+ * Duration as a segmented choice and the start button. Before the first run it
+ * also says what the run does; after one, it stays a compact row above the result.
+ */
+function StartForm({
+  duration,
+  onDurationChange,
+  onStart,
+  isStarting,
+  hasPrevious,
+}: {
+  duration: number;
+  onDurationChange: (seconds: number) => void;
+  onStart: () => void;
+  isStarting: boolean;
+  hasPrevious: boolean;
+}) {
+  return (
+    <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
+      {!hasPrevious && (
+        <ol className="grid gap-3 sm:grid-cols-3">
+          {DIAGNOSIS_STEPS.map((step, i) => (
+            <li key={step.title} className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+                {i + 1}
+              </span>
+              <div className="min-w-0 text-sm">
+                <p className="font-medium text-gray-900 dark:text-gray-100">{step.title}</p>
+                <p className="text-gray-500 dark:text-gray-400">{step.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p id="diagnosis-duration-label" className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+            Duración
+          </p>
+          <div
+            role="radiogroup"
+            aria-labelledby="diagnosis-duration-label"
+            className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5 dark:border-gray-600 dark:bg-gray-800"
+          >
+            {DURATION_OPTIONS.map((o) => {
+              const selected = o.value === duration;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => onDurationChange(o.value)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                    selected
+                      ? 'bg-brand-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <Button onClick={onStart} isLoading={isStarting}>
+          {hasPrevious ? 'Nuevo diagnóstico' : 'Iniciar diagnóstico'}
+        </Button>
+      </div>
+    </div>
   );
 }
