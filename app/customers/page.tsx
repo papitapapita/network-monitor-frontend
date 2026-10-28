@@ -22,7 +22,7 @@ import {
 import type { DataTableColumn, PickableColumn } from '@/components/ui';
 import { usePermissions } from '@/hooks/usePermissions';
 
-const LIMIT = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 const COLUMNS_STORAGE_KEY = 'nms:customers-columns';
 
 type CustomerColumn = DataTableColumn<CustomerDTO> & { label: string; locked?: boolean };
@@ -72,6 +72,7 @@ function CustomersPageContent() {
   const permissions = usePermissions();
   const { get, getNumber, set } = useUrlState();
   const currentPage = getNumber('page', 1);
+  const limit = getNumber('limit', 20);
   const search = get('search', '');
   const sort = useUrlTableSort({ get, set });
   const { visibleKeys, toggle, reset, isDefault } = useColumnVisibility(
@@ -109,8 +110,8 @@ function CustomersPageContent() {
     return sortRows(rows, CUSTOMER_COLUMN_CATALOG, sort.field, sort.direction);
   }, [all, search, sort.field, sort.direction]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / LIMIT));
-  const paginated = filtered.slice((currentPage - 1) * LIMIT, currentPage * LIMIT);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+  const paginated = filtered.slice((currentPage - 1) * limit, currentPage * limit);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -173,7 +174,7 @@ function CustomersPageContent() {
             : 'Sin clientes. Agrega el primero para comenzar.'
         }
         sort={sort}
-        selectionResetKey={`${currentPage}|${search}`}
+        selectionResetKey={`${currentPage}|${limit}|${search}`}
         bulkDelete={{
           deleteOne: (id) => apiService.deleteCustomer(id),
           onFinished: () => { refetch(); },
@@ -183,8 +184,10 @@ function CustomersPageContent() {
           currentPage,
           totalPages,
           totalItems: filtered.length,
-          itemsPerPage: LIMIT,
+          itemsPerPage: limit,
           onPageChange: (page) => set({ page: page === 1 ? null : page }),
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          onPageSizeChange: (n) => set({ limit: n === 20 ? null : n, page: null }),
         }}
       />
     </div>
