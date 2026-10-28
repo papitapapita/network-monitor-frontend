@@ -110,6 +110,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         label: 'Escaneo',
         icon: icon('M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z'),
       },
+      // One address pinged now, from the server or an agent, terminal style.
+      {
+        href: '/ping',
+        label: 'Ping',
+        icon: icon(['M4 17l6-6-6-6', 'M12 19h8']),
+      },
       // The ISP's own internet link, measured from its on-site server.
       {
         href: '/speed-test',

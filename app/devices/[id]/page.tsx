@@ -63,6 +63,14 @@ function SwapVerticalIcon() {
   );
 }
 
+function TerminalIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17l6-6-6-6m8 14h8" />
+    </svg>
+  );
+}
+
 const isTab = (value: string | null): value is Tab => !!value && value in TAB_LABELS;
 
 /**
@@ -332,6 +340,18 @@ export default function DeviceDetailPage() {
             </h1>
           </div>
           <div className="flex flex-wrap gap-2 justify-end sm:justify-start">
+            {/* The ping tool, from where this device is polled. */}
+            {permissions.canWrite && device.ipAddress && (
+              <IconButton
+                icon={<TerminalIcon />}
+                label="Hacer ping"
+                onClick={() => {
+                  const qs = new URLSearchParams({ ip: device.ipAddress! });
+                  if (device.agentId) qs.set('agentId', device.agentId);
+                  router.push(`/ping?${qs}`);
+                }}
+              />
+            )}
             {/* A unit can only be swapped once — after that the successor is the
                 one to replace, and its page offers the button. */}
             {canReplace && !device.replacedByDeviceId && (

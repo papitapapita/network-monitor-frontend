@@ -110,6 +110,12 @@ import {
   NetworkSweepSummaryDTO,
 } from '../types/network-sweep.types';
 import {
+  PingToolParams,
+  PingToolReplyDTO,
+  PingToolStartDTO,
+  PingToolSummaryDTO,
+} from '../types/ping-tool.types';
+import {
   SpeedTestListResponseDTO,
   SpeedTestProgressDTO,
   SpeedTestResultDTO,
@@ -299,6 +305,14 @@ export interface SpeedTestStreamHandlers {
   onProgress: (progress: SpeedTestProgressDTO) => void;
   /** The last frame, a failed test included; the stream is already closed when this runs. */
   onDone: (result: SpeedTestResultDTO) => void;
+  onState?: (state: SseState) => void;
+}
+
+export interface PingToolStreamHandlers {
+  onStart: (start: PingToolStartDTO) => void;
+  onReply: (reply: PingToolReplyDTO) => void;
+  /** The last frame; the stream is already closed when this runs. */
+  onDone: (summary: PingToolSummaryDTO) => void;
   onState?: (state: SseState) => void;
 }
 
@@ -1746,6 +1760,35 @@ class ApiService {
           if (dto) handlers.onProgress(dto);
         } else if (event === 'speed-test-done') {
           const dto = parseStreamJson<SpeedTestResultDTO>(data);
+          close();
+          if (dto) handlers.onDone(dto);
+        }
+      },
+    });
+    return close;
+  }
+
+  /**
+   * Pings any IP once a second from the server or an agent (MON-120 … MON-123).
+   * Closing the stream stops it; nothing is stored.
+   */
+  streamPingTool(params: PingToolParams, handlers: PingToolStreamHandlers): () => void {
+    const query = new URLSearchParams({ ip: params.ip });
+    if (params.agentId) query.set('agentId', params.agentId);
+    if (params.count !== undefined) query.set('count', String(params.count));
+    const close = openSseStream(`${this.baseUrl}/network/ping/stream?${query}`, {
+      // Reconnecting would ping all over again.
+      reconnect: false,
+      onState: this.onStreamState(handlers.onState),
+      onEvent: (event, data) => {
+        if (event === 'ping-start') {
+          const dto = parseStreamJson<PingToolStartDTO>(data);
+          if (dto) handlers.onStart(dto);
+        } else if (event === 'ping-reply') {
+          const dto = parseStreamJson<PingToolReplyDTO>(data);
+          if (dto) handlers.onReply(dto);
+        } else if (event === 'ping-done') {
+          const dto = parseStreamJson<PingToolSummaryDTO>(data);
           close();
           if (dto) handlers.onDone(dto);
         }

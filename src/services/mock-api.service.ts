@@ -1736,6 +1736,11 @@ class MockApiService {
     return () => {};
   }
 
+  streamPingTool(_params: unknown, handlers: { onState?: (state: SseState) => void }): () => void {
+    handlers.onState?.({ status: 'error', error: 'No disponible en modo mock' });
+    return () => {};
+  }
+
   async getSpeedTests(limit: number, offset: number): Promise<ApiResponse<SpeedTestListResponseDTO>> {
     return ok({ results: [], total: 0, hasMore: false, limit, offset });
   }
