@@ -26,13 +26,16 @@ export function inboxTone(notification: Pick<InboxNotificationDTO, 'resolved' | 
 }
 
 /**
- * Where opening a notice leads: its alert, else its device. Security notices
+ * Where opening a notice leads: its alert, else its device. A discovery opens
+ * the discovered devices. Security notices
  * name an account, which is managed on /users. Null when what it named was
  * deleted.
  */
 export function inboxHref(notification: InboxNotificationDTO): string | null {
   if (notification.alertId) return `/alerts/${notification.alertId}`;
   if (notification.deviceId) return `/devices/${notification.deviceId}`;
+  // New hosts on the network name no device yet (DEV-206).
+  if (notification.type === 'device_discovered') return '/discovered-devices';
   if (notification.category === 'security') return '/users';
   return null;
 }

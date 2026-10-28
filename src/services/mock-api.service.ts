@@ -98,7 +98,14 @@ import {
   BulkDeleteAlertsResult,
 } from '../types/alert.types';
 import type { LinkDiagnosisDTO, StartLinkDiagnosisResult, WirelessPollResult, RevealedWirelessKeyDTO, HardwareChangesResponse } from '../types/wireless.types';
-import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
+import {
+  DiscoveredDeviceDTO,
+  DiscoveredDevicePrefillDTO,
+  DiscoverySettingsDTO,
+  NetworkScanRequest,
+  NetworkScanResult,
+  SaveDiscoverySettingsDTO,
+} from '../types/network-scan.types';
 import type { SpeedTestListResponseDTO } from '../types/speed-test.types';
 import { ApiResponse } from '../types/common.types';
 import { SseState } from './sse';
@@ -520,6 +527,8 @@ function findMissingIdentifier(next: DeviceResponseDTO): DeviceConflict | null {
 function paginate<T>(items: T[], limit = 20, offset = 0): { items: T[]; total: number } {
   return { items: items.slice(offset, offset + limit), total: items.length };
 }
+
+let discoverySettings: DiscoverySettingsDTO = { enabled: false, intervalHours: 24, segments: [], lastRunAt: null };
 
 class MockApiService {
   // ── Devices ────────────────────────────────────────────────
@@ -1619,12 +1628,17 @@ class MockApiService {
           Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase()
         ).join(':'),
         manufacturer: manufacturers[Math.floor(Math.random() * manufacturers.length)],
+        knownDeviceId: null,
+        discoveredDeviceId: null,
+        isNew: false,
       };
     });
 
     return ok({
       segment: data.segment,
       scannedCount: 256,
+      agentId: data.agentId ?? null,
+      newCount: 0,
       responsiveCount: count,
       discoveredHosts,
     });
@@ -1657,6 +1671,25 @@ class MockApiService {
   }
   async getIdentitySuggestions() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async listDiscoveredDevices(): Promise<ApiResponse<DiscoveredDeviceDTO[]>> {
+    return ok([]);
+  }
+  async getDiscoveredDevicePrefill(): Promise<ApiResponse<DiscoveredDevicePrefillDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async ignoreDiscoveredDevice(): Promise<ApiResponse<DiscoveredDeviceDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async unignoreDiscoveredDevice(): Promise<ApiResponse<DiscoveredDeviceDTO>> {
+    return { success: false, error: 'No disponible en modo mock' };
+  }
+  async getDiscoverySettings(): Promise<ApiResponse<DiscoverySettingsDTO>> {
+    return ok(structuredClone(discoverySettings));
+  }
+  async saveDiscoverySettings(data: SaveDiscoverySettingsDTO): Promise<ApiResponse<DiscoverySettingsDTO>> {
+    discoverySettings = { ...structuredClone(data), lastRunAt: discoverySettings.lastRunAt };
+    return this.getDiscoverySettings();
   }
   async getHardwareChanges(): Promise<ApiResponse<HardwareChangesResponse>> {
     return ok({ devices: [] });

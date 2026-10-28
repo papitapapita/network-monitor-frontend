@@ -58,7 +58,15 @@ import {
   BulkClearAlertsResult,
   BulkDeleteAlertsResult,
 } from '../types/alert.types';
-import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
+import {
+  DiscoveredDeviceDTO,
+  DiscoveredDevicePrefillDTO,
+  DiscoverySettingsDTO,
+  NetworkScanRequest,
+  NetworkScanResult,
+  SaveDiscoverySettingsDTO,
+} from '../types/network-scan.types';
+import { translateScanError } from '../constants/network-scan.constants';
 import {
   WirelessConfigDTO,
   WirelessStatusDTO,
@@ -1410,15 +1418,35 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data)
     });
-    // DEV-171: the menu hides the scan on such installs, so this is only
-    // reached through a saved link.
-    if (result.status === 409) {
-      return {
-        ...result,
-        error: 'El escaneo no está disponible: el servidor de esta instalación no está en la red monitoreada. Los agentes vigilan esa red desde adentro.',
-      };
-    }
-    return result;
+    return result.success ? result : { ...result, error: translateScanError(result.status, result.error) };
+  }
+
+  // Hosts the network shows that inventory lacks (DEV-200 … DEV-209).
+  async listDiscoveredDevices(ignored = false): Promise<ApiResponse<DiscoveredDeviceDTO[]>> {
+    return this.request<DiscoveredDeviceDTO[]>(`/network/discovered?ignored=${ignored}`);
+  }
+
+  async getDiscoveredDevicePrefill(id: string): Promise<ApiResponse<DiscoveredDevicePrefillDTO>> {
+    return this.request<DiscoveredDevicePrefillDTO>(`/network/discovered/${id}/prefill`);
+  }
+
+  async ignoreDiscoveredDevice(id: string): Promise<ApiResponse<DiscoveredDeviceDTO>> {
+    return this.request<DiscoveredDeviceDTO>(`/network/discovered/${id}/ignore`, { method: 'POST' });
+  }
+
+  async unignoreDiscoveredDevice(id: string): Promise<ApiResponse<DiscoveredDeviceDTO>> {
+    return this.request<DiscoveredDeviceDTO>(`/network/discovered/${id}/ignore`, { method: 'DELETE' });
+  }
+
+  async getDiscoverySettings(): Promise<ApiResponse<DiscoverySettingsDTO>> {
+    return this.request<DiscoverySettingsDTO>('/network/discovery-settings');
+  }
+
+  async saveDiscoverySettings(data: SaveDiscoverySettingsDTO): Promise<ApiResponse<DiscoverySettingsDTO>> {
+    return this.request<DiscoverySettingsDTO>('/network/discovery-settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   // ============================================================

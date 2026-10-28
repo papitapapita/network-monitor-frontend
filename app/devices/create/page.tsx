@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   CreateDeviceDTO,
@@ -20,14 +21,27 @@ import { DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_CREATE_OPTIONS, DEVICE_OWNER_OPT
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useAgents } from '@/hooks/useAgents';
-import { AgentPicker, agentIdFromPicker } from '@/components/agents/AgentPicker';
+import { AgentPicker, agentIdFromPicker, agentPickerValue } from '@/components/agents/AgentPicker';
 import { UpstreamDevicePicker } from '@/components/devices/UpstreamDevicePicker';
 import { upstreamLinkError } from '@/constants/topology.constants';
+import { DISCOVERED_DEVICES_QUERY_KEY } from '@/hooks/useDiscoveredDevices';
 
 
 export default function CreateDevicePage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><LoadingSpinner /></div>}>
+      <CreateDeviceForm />
+    </Suspense>
+  );
+}
+
+function CreateDeviceForm() {
   const router = useRouter();
-  const goBack = useGoBack('/devices');
+  // Opened from a discovered host (DEV-209): the form starts from what the
+  // network knows of it, and saving returns to the list it came from.
+  const discoveredId = useSearchParams().get('discovered');
+  const goBack = useGoBack(discoveredId ? '/discovered-devices' : '/devices');
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { showError, showSuccess, showFormErrors } = useToast();
@@ -59,19 +73,40 @@ export default function CreateDevicePage() {
     description: '',
   });
 
+  const [guessedModelName, setGuessedModelName] = useState<string | null>(null);
+
   useEffect(() => {
     const loadOptions = async () => {
-      const [vendorsRes, modelsRes, locationsRes] = await Promise.all([
+      const [vendorsRes, modelsRes, locationsRes, prefillRes] = await Promise.all([
         apiService.listVendors({ limit: 100 }),
         apiService.listDeviceModels({ limit: 100 }),
         apiService.listLocations({ limit: 100 }),
+        discoveredId ? apiService.getDiscoveredDevicePrefill(discoveredId) : null,
       ]);
       if (vendorsRes.success && vendorsRes.data) setVendors(vendorsRes.data.vendors);
       if (modelsRes.success && modelsRes.data) setAllDeviceModels(modelsRes.data.deviceModels);
       if (locationsRes.success && locationsRes.data) setLocations(locationsRes.data.locations);
+      if (prefillRes?.success && prefillRes.data) {
+        const p = prefillRes.data;
+        setFormData((prev) => ({
+          ...prev,
+          name: p.name ?? '',
+          macAddress: p.macAddress,
+          ipAddress: p.ipAddress ?? '',
+          deviceModelId: p.deviceModelId ?? '',
+          category: p.category ?? '',
+          upstreamDeviceId: p.upstreamDeviceId ?? '',
+        }));
+        setGuessedModelName(p.deviceModelId ? p.deviceModelName : null);
+        // Absent means "keep the endpoint's default" — the picker's own default.
+        if (p.agentId !== undefined) setAgentChoice(agentPickerValue(p.agentId));
+      } else if (prefillRes) {
+        showError(prefillRes.status === 404 ? 'Esa sugerencia ya no existe: puede que ya se haya creado el dispositivo.' : prefillRes.error || 'No se pudieron cargar los datos del equipo descubierto');
+      }
       setLoadingOptions(false);
     };
     loadOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the id the page opened with
   }, []);
 
   // DEV-166: with no agent the server polls the device, with one it goes
@@ -210,8 +245,11 @@ export default function CreateDevicePage() {
           failuresBeforeDown: Math.max(1, formData.pollingFailuresBeforeDown || 1),
         });
       }
-      showSuccess('Dispositivo creado.');
-      router.replace(`/devices/${result.data.id}`);
+      showSuccess(`Dispositivo «${result.data.name}» creado.`);
+      // Any device can own a suggested MAC or IP, which drops it (DEV-203).
+      queryClient.invalidateQueries({ queryKey: DISCOVERED_DEVICES_QUERY_KEY });
+      if (discoveredId) goBack();
+      else router.replace(`/devices/${result.data.id}`);
     } else {
       const linkRefusal = upstreamLinkError(result.error);
       const message = linkRefusal ?? (result.error || 'Error al crear el dispositivo');
@@ -231,7 +269,11 @@ export default function CreateDevicePage() {
       <div className="mb-6">
         <BackLink onClick={() => goBack()} className="mb-2" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Agregar Dispositivo</h1>
-        <p className="text-gray-600 dark:text-gray-400">Registra un nuevo dispositivo en la red</p>
+        <p className="text-gray-600 dark:text-gray-400">
+          {discoveredId
+            ? 'Desde un equipo descubierto en la red: revisa los valores sugeridos antes de guardar'
+            : 'Registra un nuevo dispositivo en la red'}
+        </p>
       </div>
 
       {loadingOptions ? (
@@ -285,6 +327,12 @@ export default function CreateDevicePage() {
                     }}
                     fullWidth
                   />
+
+                  {guessedModelName && formData.deviceModelId && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Modelo sugerido a partir de lo que reporta el equipo: {guessedModelName}
+                    </p>
+                  )}
 
                   {wirelessMismatch && (
                     <div className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2">

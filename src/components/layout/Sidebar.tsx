@@ -14,6 +14,7 @@ import type { InstallationDTO } from '@/types/installation.types';
 import { isRouteAvailable } from '@/constants/installation.constants';
 import { NotificationBell } from '@/components/inbox/NotificationBell';
 import { useHardwareChanges } from '@/hooks/useHardwareChanges';
+import { useDiscoveredDevices } from '@/hooks/useDiscoveredDevices';
 
 
 const icon = (d: string | string[]) => (
@@ -111,6 +112,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         href: '/network-sweep',
         label: 'Discovery',
         icon: icon('M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z'),
+      },
+      // Hosts a scan or an AP's station list shows that inventory lacks.
+      {
+        href: '/discovered-devices',
+        label: 'Descubiertos',
+        icon: icon('M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18M12 15h6m-3-3v6'),
       },
       {
         href: '/network-scan',
@@ -378,7 +385,11 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
   const navItems = useMemo(() => availableNavItems(installation), [installation]);
   const [hovered, setHovered] = useState(false);
   const { data: hardwareChanges } = useHardwareChanges(!!user);
-  const badges: Record<string, number> = { '/hardware-changes': hardwareChanges?.length ?? 0 };
+  const { data: discovered } = useDiscoveredDevices(false, !!user);
+  const badges: Record<string, number> = {
+    '/hardware-changes': hardwareChanges?.length ?? 0,
+    '/discovered-devices': discovered?.length ?? 0,
+  };
 
   const isActive = (path: string) =>
     path === '/' ? pathname === '/' : pathname.startsWith(path);
