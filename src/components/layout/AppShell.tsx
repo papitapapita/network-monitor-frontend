@@ -251,8 +251,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 iconTone="amber"
                 title="No disponible en esta instalación"
                 description={
-                  pathname.startsWith('/network-scan')
-                    ? 'El servidor de esta instalación no está en la red monitoreada, así que no puede escanearla. Los agentes vigilan esa red desde adentro.'
+                  pathname.startsWith('/speed-test')
+                    ? 'El servidor de esta instalación no está en la red monitoreada, así que mediría su propio enlace y no el del ISP.'
                     : 'Esta sección pertenece a un módulo que no está activo en esta instalación. Si lo necesitas, habla con el proveedor del sistema.'
                 }
                 primaryAction={{ label: 'Volver al inicio', href: '/' }}

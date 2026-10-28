@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
 import {
   DeviceModelResponseDTO,
-  DeviceResponseDTO,
   DeviceOwnerType,
   DeviceStatus,
   DeviceCategory,
@@ -13,7 +13,7 @@ import {
   VendorDTO,
 } from '@/types/device.types';
 import { LocationResponseDTO } from '@/types/location.types';
-import { DiscoveredHost, NetworkScanResult } from '@/types/network-scan.types';
+import { DiscoveredDevicePrefillDTO, DiscoveredHost, NetworkScanResult } from '@/types/network-scan.types';
 import {
   Button,
   Input,
@@ -25,21 +25,17 @@ import {
   TableEmptyState,
   LoadingSpinner,
   Modal,
+  Badge,
 } from '@/components/ui';
 import { LocationCreateModal } from '@/components/LocationCreateModal';
 import { useToast } from '@/contexts/toast.context';
 import { InlineModelForm } from '@/components/devices/InlineModelForm';
-import { isValidMacAddress, normalizeMacAddress, requiresIdentifier, DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE } from '@/constants/device.constants';
+import { isValidMacAddress, requiresIdentifier, DEVICE_CATEGORY_OPTIONS, DEVICE_STATUS_OPTIONS, DEVICE_OWNER_OPTIONS, MISSING_IDENTIFIER_MESSAGE } from '@/constants/device.constants';
 import { FAILURES_BEFORE_DOWN_MIN, FAILURES_BEFORE_DOWN_MAX, validateFailuresBeforeDown } from '@/constants/polling.constants';
-
-function isValidCidr(value: string): boolean {
-  const cidrRe = /^(\d{1,3}\.){3}\d{1,3}\/(\d|[1-2]\d|3[0-2])$/;
-  if (!cidrRe.test(value)) return false;
-  const [ip, prefix] = value.split('/');
-  const parts = ip.split('.').map(Number);
-  if (parts.some((p) => p > 255)) return false;
-  return Number(prefix) >= 0 && Number(prefix) <= 32;
-}
+import { SCAN_FROM_SERVER, isValidCidr } from '@/constants/network-scan.constants';
+import { useInstallation } from '@/hooks/useInstallation';
+import { useAgents } from '@/hooks/useAgents';
+import { DISCOVERED_DEVICES_QUERY_KEY } from '@/hooks/useDiscoveredDevices';
 
 
 const MANUFACTURER_ALIASES: Record<string, string> = {
@@ -92,6 +88,8 @@ function Section({ title, children }: SectionProps) {
 
 interface AddDeviceModalProps {
   host: DiscoveredHost;
+  /** What the backend guesses for a host it suggested (DEV-209); null for one seen without a MAC. */
+  prefill: DiscoveredDevicePrefillDTO | null;
   vendors: VendorDTO[];
   deviceModels: DeviceModelResponseDTO[];
   locations: LocationResponseDTO[];
@@ -103,6 +101,7 @@ interface AddDeviceModalProps {
 
 function AddDeviceModal({
   host,
+  prefill,
   vendors,
   deviceModels: initialDeviceModels,
   locations,
@@ -112,18 +111,19 @@ function AddDeviceModal({
   onAdded,
 }: AddDeviceModalProps) {
   const [selectedVendorId, setSelectedVendorId] = useState(() =>
-    guessVendorId(host.manufacturer, vendors)
+    initialDeviceModels.find((m) => m.id === prefill?.deviceModelId)?.vendorId
+      ?? guessVendorId(host.manufacturer, vendors)
   );
   const [localModels, setLocalModels] = useState<DeviceModelResponseDTO[]>(initialDeviceModels);
 
   const [form, setForm] = useState({
-    name: '',
-    deviceModelId: '',
+    name: prefill?.name ?? '',
+    deviceModelId: prefill?.deviceModelId ?? '',
     ipAddress: host.ipAddress,
     macAddress: host.macAddress ?? '',
     ownerType: '' as DeviceOwnerType | '',
     status: 'ACTIVE' as DeviceStatus | '',
-    category: '' as DeviceCategory | '',
+    category: (prefill?.category ?? '') as DeviceCategory | '',
     monitoringEnabled: false,
     pollingIntervalSeconds: 60,
     pollingFailuresBeforeDown: 3,
@@ -211,6 +211,8 @@ function AddDeviceModal({
     if (form.locationId) dto.locationId = form.locationId;
     if (form.installedDate) dto.installedDate = new Date(form.installedDate).toISOString();
     if (form.description.trim()) dto.description = form.description.trim();
+    if (prefill?.upstreamDeviceId) dto.upstreamDeviceId = prefill.upstreamDeviceId;
+    if (prefill && prefill.agentId !== undefined) dto.agentId = prefill.agentId;
 
     const res = await apiService.createDevice(dto);
     if (res.success && res.data) {
@@ -516,17 +518,24 @@ function AddDeviceModal({
   );
 }
 
-const SCAN_CACHE_KEY = 'nms_last_scan';
+// v2: results carry the inventory match and the scanning agent (DEV-201, DEV-214).
+const SCAN_CACHE_KEY = 'nms_last_scan_v2';
 
 interface ScanCache {
   segment: string;
+  from: string;
   result: NetworkScanResult;
   addedIps: string[];
   scannedAt: number;
 }
 
 export default function NetworkScanPage() {
+  const { serverOnSite } = useInstallation();
+  const { data: agents, isLoading: agentsLoading } = useAgents();
+  const queryClient = useQueryClient();
   const [segment, setSegment] = useState('');
+  // Null until the user picks: the default depends on the agents and the install.
+  const [from, setFrom] = useState<string | null>(null);
   const [segmentError, setSegmentError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -536,25 +545,34 @@ export default function NetworkScanPage() {
   const [vendors, setVendors] = useState<VendorDTO[]>([]);
   const [deviceModels, setDeviceModels] = useState<DeviceModelResponseDTO[]>([]);
   const [locations, setLocations] = useState<LocationResponseDTO[]>([]);
-  const [addingHost, setAddingHost] = useState<DiscoveredHost | null>(null);
+  const [adding, setAdding] = useState<{ host: DiscoveredHost; prefill: DiscoveredDevicePrefillDTO | null } | null>(null);
+  const [openingIp, setOpeningIp] = useState<string | null>(null);
   const [addedIps, setAddedIps] = useState<Set<string>>(new Set());
-  // Maps for detecting already-registered devices: ip → device, normalizedMac → device
-  const [devicesByIp, setDevicesByIp] = useState<Map<string, DeviceResponseDTO>>(new Map());
-  const [devicesByMac, setDevicesByMac] = useState<Map<string, DeviceResponseDTO>>(new Map());
   const { showError } = useToast();
 
-  const loadDeviceMaps = async () => {
-    const devRes = await apiService.listDevices({ limit: 1000 });
-    if (devRes.success && devRes.data) {
-      const byIp = new Map<string, DeviceResponseDTO>();
-      const byMac = new Map<string, DeviceResponseDTO>();
-      for (const d of devRes.data.devices) {
-        if (d.ipAddress) byIp.set(d.ipAddress, d);
-        if (d.macAddress) byMac.set(normalizeMacAddress(d.macAddress), d);
-      }
-      setDevicesByIp(byIp);
-      setDevicesByMac(byMac);
+  const activeAgents = (agents ?? []).filter((a) => a.status === 'ACTIVE');
+  // Off site the server is not on the monitored network, so an agent is required (DEV-214).
+  const fromOptions = [
+    ...(serverOnSite ? [{ value: SCAN_FROM_SERVER, label: 'Servidor' }] : []),
+    ...activeAgents.map((a) => ({ value: a.id, label: a.offlineSince ? `${a.name} (sin conexión)` : a.name })),
+  ];
+  const selectedFrom = from ?? (serverOnSite ? SCAN_FROM_SERVER : (activeAgents[0]?.id ?? ''));
+  const agentName = (id: string | null) =>
+    id === null ? 'Servidor' : (agents?.find((a) => a.id === id)?.name ?? 'Agente eliminado');
+
+  // A suggested host opens the form with the backend's guesses; one seen
+  // without a MAC was never suggested, so it starts from the scan alone.
+  const openAddForm = async (host: DiscoveredHost) => {
+    if (!host.discoveredDeviceId) {
+      setAdding({ host, prefill: null });
+      return;
     }
+    setOpeningIp(host.ipAddress);
+    const r = await apiService.getDiscoveredDevicePrefill(host.discoveredDeviceId);
+    setOpeningIp(null);
+    if (r.success && r.data) setAdding({ host, prefill: r.data });
+    else if (r.status === 404) setAdding({ host, prefill: null });
+    else showError(r.error || 'No se pudieron cargar los datos del equipo');
   };
 
   useEffect(() => {
@@ -574,10 +592,10 @@ export default function NetworkScanPage() {
       if (raw) {
         const cached: ScanCache = JSON.parse(raw);
         setSegment(cached.segment);
+        setFrom(cached.from);
         setResult(cached.result);
         setAddedIps(new Set(cached.addedIps));
         setScannedAt(cached.scannedAt);
-        loadDeviceMaps();
       }
     } catch {
       // ignore corrupt cache
@@ -586,21 +604,32 @@ export default function NetworkScanPage() {
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValidCidr(segment.trim())) {
-      const message = 'Ingresa un bloque CIDR válido, ej. 192.168.1.0/24 (máximo /22)';
+    if (!isValidCidr(segment.trim(), 0)) {
+      const message = 'Ingresa un bloque CIDR válido, ej. 192.168.1.0/24';
       setSegmentError(message);
       showError(message);
+      return;
+    }
+    if (!isValidCidr(segment.trim())) {
+      const message = 'El bloque es demasiado grande: como máximo un /22 (1 024 direcciones)';
+      setSegmentError(message);
+      showError(message);
+      return;
+    }
+    if (!selectedFrom) {
+      showError('Elige un agente desde el cual escanear');
       return;
     }
     setSegmentError(null);
     setScanError(null);
     setResult(null);
     setAddedIps(new Set());
-    setDevicesByIp(new Map());
-    setDevicesByMac(new Map());
     setIsScanning(true);
 
-    const res = await apiService.scanNetwork({ segment: segment.trim() });
+    const res = await apiService.scanNetwork({
+      segment: segment.trim(),
+      agentId: selectedFrom === SCAN_FROM_SERVER ? null : selectedFrom,
+    });
     if (res.success && res.data) {
       const now = Date.now();
       setResult(res.data);
@@ -608,11 +637,12 @@ export default function NetworkScanPage() {
 
       // Persist scan to cache
       try {
-        const cache: ScanCache = { segment: segment.trim(), result: res.data, addedIps: [], scannedAt: now };
+        const cache: ScanCache = { segment: segment.trim(), from: selectedFrom, result: res.data, addedIps: [], scannedAt: now };
         localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify(cache));
       } catch { /* ignore */ }
 
-      await loadDeviceMaps();
+      // The scan may have added suggestions, and the menu counts them.
+      if (res.data.newCount > 0) queryClient.invalidateQueries({ queryKey: DISCOVERED_DEVICES_QUERY_KEY });
     } else {
       const message = res.error || 'Error al escanear la red';
       setScanError(message);
@@ -637,24 +667,40 @@ export default function NetworkScanPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Escaneo de Red</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Descubre hosts activos en un segmento de red
+          Descubre hosts activos en un segmento de red, desde el servidor o desde un agente. Los que no están en el inventario quedan en{' '}
+          <Link href="/discovered-devices" className="text-brand-600 dark:text-brand-400 hover:underline">Descubiertos</Link>.
         </p>
       </div>
 
       {/* Scan form */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-        <form onSubmit={handleScan} className="flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1">
-            <Input
-              label="Segmento CIDR"
-              value={segment}
-              onChange={(e) => { setSegment(e.target.value); setSegmentError(null); }}
-              placeholder="192.168.1.0/24"
-              error={segmentError ?? undefined}
-              fullWidth
-            />
-          </div>
-          <Button type="submit" isLoading={isScanning} disabled={isScanning || !segment.trim()}>
+        <form onSubmit={handleScan} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
+          <Input
+            label="Segmento CIDR"
+            value={segment}
+            onChange={(e) => { setSegment(e.target.value); setSegmentError(null); }}
+            placeholder="192.168.1.0/24"
+            error={segmentError ?? undefined}
+            disabled={isScanning}
+            autoComplete="off"
+            spellCheck={false}
+            fullWidth
+          />
+          <Select
+            label="Desde"
+            options={fromOptions}
+            placeholder={agentsLoading ? 'Cargando…' : 'Sin agentes activos'}
+            value={selectedFrom}
+            onChange={(e) => setFrom(e.target.value)}
+            helperText={
+              !serverOnSite && !agentsLoading && activeAgents.length === 0
+                ? 'Este servidor no está en la red monitoreada: hace falta un agente para escanear.'
+                : 'Desde un agente, un /24 tarda unos 5 segundos y un /22 hasta 20.'
+            }
+            disabled={isScanning}
+            fullWidth
+          />
+          <Button type="submit" className="sm:mt-6" isLoading={isScanning} disabled={isScanning || !segment.trim() || !selectedFrom}>
             {isScanning ? 'Escaneando…' : 'Escanear'}
           </Button>
         </form>
@@ -676,11 +722,17 @@ export default function NetworkScanPage() {
         <>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-4 text-sm text-gray-600 dark:text-gray-400">
             <span>Segmento: <strong className="text-gray-900 dark:text-gray-100">{result.segment}</strong></span>
+            <span>Desde: <strong className="text-gray-900 dark:text-gray-100">{agentName(result.agentId ?? null)}</strong></span>
             <span>IPs escaneadas: <strong className="text-gray-900 dark:text-gray-100">{result.scannedCount}</strong></span>
             <span>
               Hosts encontrados:{' '}
               <strong className="text-green-700 dark:text-green-400">{result.responsiveCount}</strong>
             </span>
+            {result.newCount > 0 && (
+              <span>
+                Nuevos: <strong className="text-brand-700 dark:text-brand-400">{result.newCount}</strong>
+              </span>
+            )}
             {scannedAt && (
               <span className="text-gray-400 dark:text-gray-500">
                 Escaneado: {new Date(scannedAt).toLocaleString('es', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
@@ -707,6 +759,7 @@ export default function NetworkScanPage() {
                         <span className="font-mono text-sm text-gray-900 dark:text-gray-100">
                           {host.ipAddress}
                         </span>
+                        {host.isNew && <Badge variant="info" className="ml-2">Nuevo</Badge>}
                       </Table.Cell>
                       <Table.Cell>
                         <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -725,16 +778,10 @@ export default function NetworkScanPage() {
                       </Table.Cell>
                       <Table.Cell>
                         {(() => {
-                          const existingByIp = devicesByIp.get(host.ipAddress);
-                          const existingByMac = host.macAddress
-                            ? devicesByMac.get(normalizeMacAddress(host.macAddress))
-                            : undefined;
-                          const existing = existingByIp ?? existingByMac;
-
-                          if (existing) {
+                          if (host.knownDeviceId) {
                             return (
                               <Link
-                                href={`/devices/${existing.id}`}
+                                href={`/devices/${host.knownDeviceId}`}
                                 className="text-xs text-brand-600 dark:text-brand-400 font-medium hover:underline"
                               >
                                 Registrado →
@@ -752,9 +799,11 @@ export default function NetworkScanPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setAddingHost(host)}
+                              onClick={() => openAddForm(host)}
+                              isLoading={openingIp === host.ipAddress}
+                              disabled={openingIp !== null}
                             >
-                              Agregar
+                              Crear dispositivo
                             </Button>
                           );
                         })()}
@@ -768,22 +817,24 @@ export default function NetworkScanPage() {
         </>
       )}
 
-      {addingHost && (
+      {adding && (
         <AddDeviceModal
-          host={addingHost}
+          host={adding.host}
+          prefill={adding.prefill}
           vendors={vendors}
           deviceModels={deviceModels}
           locations={locations}
           onLocationCreated={(loc) => setLocations((prev) => [...prev, loc])}
           onModelCreated={(model) => setDeviceModels((prev) => [...prev, model])}
-          onClose={() => setAddingHost(null)}
+          onClose={() => setAdding(null)}
           onAdded={(ip) => {
             setAddedIps((prev) => {
               const next = new Set(prev).add(ip);
               updateCacheAddedIps(next);
               return next;
             });
-            setAddingHost(null);
+            queryClient.invalidateQueries({ queryKey: DISCOVERED_DEVICES_QUERY_KEY });
+            setAdding(null);
           }}
         />
       )}
