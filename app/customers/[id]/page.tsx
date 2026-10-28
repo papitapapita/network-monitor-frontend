@@ -23,6 +23,23 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useInstallation } from '@/hooks/useInstallation';
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VARIANTS, CONTRACT_TARGET_STATUS_OPTIONS } from '@/constants/contracted-service.constants';
 
+function PauseIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
 export default function CustomerDetailPage() {
   const permissions = usePermissions();
   const router = useRouter();
@@ -644,27 +661,32 @@ export default function CustomerDetailPage() {
                       </div>
                       {permissions.canWrite && (
                         <div className="flex gap-2">
+                          {/* Suspending throttles the customer, so its button says so on hover. */}
                           {(cs.status === 'ACTIVE' || cs.status === 'PENDING') && (
                             <Button
                               size="sm"
                               variant="secondary"
+                              revealLabel="Suspender"
+                              aria-label="Suspender servicio"
                               onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'SUSPEND' }); }}
                             >
-                              Suspender
+                              <PauseIcon />
                             </Button>
                           )}
                           {cs.status === 'SUSPENDED' && (
                             <Button
                               size="sm"
                               variant="success"
+                              revealLabel="Reactivar"
+                              aria-label="Reactivar servicio"
                               onClick={() => { setStatusActionError(null); setStatusNotice(null); setStatusAction({ contract: cs, action: 'REACTIVATE' }); }}
                             >
-                              Reactivar
+                              <PlayIcon />
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
+                          <IconButton
+                            icon={<EditIcon />}
+                            label="Editar servicio"
                             onClick={() => {
                               setEditingContractId(cs.id);
                               // PENDING is not a valid update target — offer ACTIVE as the next step.
@@ -674,11 +696,15 @@ export default function CustomerDetailPage() {
                               setEditPaymentDay(String(cs.paymentDay));
                               setEditError(null);
                             }}
-                          >
-                            Editar
-                          </Button>
+                          />
                           {permissions.isAdmin && (
-                            <Button size="sm" variant="danger" onClick={() => handleDeleteContract(cs.id)} isLoading={deletingContractId === cs.id}>Eliminar</Button>
+                            <IconButton
+                              icon={<TrashIcon />}
+                              label="Eliminar servicio"
+                              variant="danger"
+                              onClick={() => handleDeleteContract(cs.id)}
+                              isLoading={deletingContractId === cs.id}
+                            />
                           )}
                         </div>
                       )}

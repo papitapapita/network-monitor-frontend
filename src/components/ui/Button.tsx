@@ -10,6 +10,11 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
   /** Square padding for a bare icon, no label — pair with `aria-label` and a `Tooltip`. */
   iconOnly?: boolean;
+  /**
+   * An icon button that widens on hover or keyboard focus to show this text
+   * beside its icon. Collapsed it is exactly as wide as an `iconOnly` sibling.
+   */
+  revealLabel?: string;
   children: React.ReactNode;
 }
 
@@ -47,12 +52,23 @@ const iconOnlySizeClasses: Record<ButtonSize, string> = {
   lg: `${HEIGHT.lg} w-12`,
 };
 
+// Collapsed, the padding plus a 16px icon matches the iconOnly width above.
+const revealSizeClasses: Record<ButtonSize, string> = {
+  sm: `${HEIGHT.sm} px-2 text-sm`,
+  md: `${HEIGHT.md} px-3 text-base`,
+  lg: `${HEIGHT.lg} px-4 text-lg`,
+};
+
+const REVEAL_SHOWN =
+  'group-hover:max-w-40 group-hover:ml-1.5 group-hover:opacity-100 group-focus-visible:max-w-40 group-focus-visible:ml-1.5 group-focus-visible:opacity-100';
+
 export function Button({
   variant = 'primary',
   size = 'md',
   isLoading = false,
   fullWidth = false,
   iconOnly = false,
+  revealLabel,
   disabled,
   className = '',
   children,
@@ -62,13 +78,13 @@ export function Button({
     <button
       className={`
         ${variantClasses[variant]}
-        ${iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]}
+        ${revealLabel ? `group ${revealSizeClasses[size]}` : iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]}
         ${fullWidth ? 'w-full' : ''}
         ${disabled || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
         rounded-md font-medium
         focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800
         transition-all duration-150 ease-out
-        inline-flex items-center justify-center gap-1.5
+        inline-flex items-center justify-center ${revealLabel ? '' : 'gap-1.5'}
         ${className}
       `}
       disabled={disabled || isLoading}
@@ -97,6 +113,11 @@ export function Button({
         </svg>
       )}
       {children}
+      {revealLabel && (
+        <span className={`max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out ${REVEAL_SHOWN}`}>
+          {revealLabel}
+        </span>
+      )}
     </button>
   );
 }
