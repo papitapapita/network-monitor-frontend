@@ -107,6 +107,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         label: 'Routers principales',
         icon: icon('M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01'),
       },
+      // Each MikroTik port's link speed against the speed it should run at.
+      {
+        href: '/port-speeds',
+        label: 'Velocidad de puertos',
+        icon: icon('M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'),
+      },
       // Every device pinged once, now — what is up after an outage.
       {
         href: '/network-sweep',

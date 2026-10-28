@@ -67,6 +67,13 @@ import { BillingSettingsDTO } from '../types/billing-settings.types';
 import type { AlertThresholdsDTO, DeviceAlertThresholdsDTO, InstallAlertThresholdsDTO } from '../types/alert-thresholds.types';
 import { BackUpNowResultDTO, BackupFile, ConfigBackupDTO, DeviceBackupsDTO } from '../types/backup.types';
 import { PoePortDTO, PowerSourceDTO, SitePoePortsDTO } from '../types/power.types';
+import type {
+  ExpectedPortSpeedDTO,
+  PortSpeedsListDTO,
+  RouterPortSpeedsDTO,
+  RouterPortSpeedsReadDTO,
+  SetExpectedPortSpeedPayload,
+} from '../types/port-speed.types';
 import { AcceptUpstreamLinksResultDTO, TopologyDTO, TopologyNodeDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
@@ -1544,6 +1551,24 @@ class MockApiService {
       linked: results.filter((r) => r.outcome === 'LINKED').length,
       failed: results.filter((r) => r.outcome === 'FAILED').length,
     });
+  }
+
+  // ── Port Speeds ────────────────────────────────────────────
+
+  async getPortSpeeds(): Promise<ApiResponse<PortSpeedsListDTO>> {
+    return ok({ checkedAt: new Date().toISOString(), routers: [] });
+  }
+
+  async getRouterPortSpeeds(_deviceId: string): Promise<ApiResponse<RouterPortSpeedsReadDTO>> {
+    return { success: false, status: 404, error: 'Router not found' };
+  }
+
+  async setExpectedPortSpeed(_deviceId: string, _payload: SetExpectedPortSpeedPayload): Promise<ApiResponse<ExpectedPortSpeedDTO>> {
+    return { success: false, status: 404, error: 'Router not found' };
+  }
+
+  async acceptCurrentPortSpeeds(_deviceId: string): Promise<ApiResponse<RouterPortSpeedsDTO>> {
+    return { success: false, status: 404, error: 'Router not found' };
   }
 
   // ── Power Control ──────────────────────────────────────────

@@ -182,6 +182,13 @@ import {
 import { BillingSettingsDTO } from '../types/billing-settings.types';
 import { BackUpNowResultDTO, BackupFile, DeviceBackupsDTO } from '../types/backup.types';
 import { PowerSourceDTO, SitePoePortsDTO } from '../types/power.types';
+import type {
+  ExpectedPortSpeedDTO,
+  PortSpeedsListDTO,
+  RouterPortSpeedsDTO,
+  RouterPortSpeedsReadDTO,
+  SetExpectedPortSpeedPayload,
+} from '../types/port-speed.types';
 import { AcceptUpstreamLinksResultDTO, TopologyDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
 import {
   QuotationDTO,
@@ -785,6 +792,32 @@ class ApiService {
   /** Which PoE port at the device's own site powers it. */
   async getDevicePowerSource(deviceId: string): Promise<ApiResponse<PowerSourceDTO>> {
     return this.request<PowerSourceDTO>(`/devices/${deviceId}/power-source`, { cache: 'no-store' });
+  }
+
+  // ============================================================
+  // Port Speeds — every read asks the MikroTiks live
+  // ============================================================
+
+  /** Every MikroTik and its ports; up to ~10 s when one does not answer. */
+  async getPortSpeeds(): Promise<ApiResponse<PortSpeedsListDTO>> {
+    return this.request<PortSpeedsListDTO>('/routers/port-speeds', { cache: 'no-store' });
+  }
+
+  /** One router read now, without waiting for the slowest. */
+  async getRouterPortSpeeds(deviceId: string): Promise<ApiResponse<RouterPortSpeedsReadDTO>> {
+    return this.request<RouterPortSpeedsReadDTO>(`/routers/${deviceId}/port-speeds`, { cache: 'no-store' });
+  }
+
+  async setExpectedPortSpeed(deviceId: string, payload: SetExpectedPortSpeedPayload): Promise<ApiResponse<ExpectedPortSpeedDTO>> {
+    return this.request<ExpectedPortSpeedDTO>(`/routers/${deviceId}/port-speeds/expected`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /** Reads the router and stores each linked port's rate as its expected speed. */
+  async acceptCurrentPortSpeeds(deviceId: string): Promise<ApiResponse<RouterPortSpeedsDTO>> {
+    return this.request<RouterPortSpeedsDTO>(`/routers/${deviceId}/port-speeds/accept-current`, { method: 'POST' });
   }
 
   // ============================================================
