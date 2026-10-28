@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams, usePathname, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
+import { HARDWARE_CHANGES_QUERY_KEY } from '@/hooks/useHardwareChanges';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   DeviceModelResponseDTO,
@@ -21,6 +23,7 @@ import { DevicePowerSourceCard } from '@/components/devices/DevicePowerSourceCar
 import { DeviceHealthCard } from '@/components/devices/DeviceHealthCard';
 import { DevicePollingTab } from '@/components/devices/DevicePollingTab';
 import { DeviceWirelessTab } from '@/components/devices/DeviceWirelessTab';
+import type { ReplacePrefill } from '@/components/wireless/HardwareChangeCard';
 import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab';
 import { DeviceHistoryTab } from '@/components/devices/DeviceHistoryTab';
 import { DeviceBackupsTab } from '@/components/devices/DeviceBackupsTab';
@@ -126,6 +129,7 @@ export default function DeviceDetailPage() {
   // deleting, so the same authority governs both. Replacing hardware is an
   // `activate` operation, which an operator also holds.
   const permissions = usePermissions();
+  const queryClient = useQueryClient();
   const canDelete = permissions.isAdmin;
   const canReplace = permissions.canWrite;
 
@@ -154,6 +158,22 @@ export default function DeviceDetailPage() {
   const [replaceResult, setReplaceResult] = useState<ReplaceDeviceResultDTO | null>(null);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapResult, setSwapResult] = useState<SwapHardwareResultDTO | null>(null);
+  // A hardware-change suggestion on the wireless tab opens the same two modals
+  // pre-filled with what the radio reported. Both read it once on mount, so
+  // every opening remounts them with a fresh key.
+  const [replacePrefill, setReplacePrefill] = useState<ReplacePrefill>();
+  const [swapWithId, setSwapWithId] = useState<string>();
+  const [hardwareModalKey, setHardwareModalKey] = useState(0);
+  const openReplaceModal = (prefill?: ReplacePrefill) => {
+    setReplacePrefill(prefill);
+    setHardwareModalKey((k) => k + 1);
+    setShowReplaceModal(true);
+  };
+  const openSwapModal = (otherId?: string) => {
+    setSwapWithId(otherId);
+    setHardwareModalKey((k) => k + 1);
+    setShowSwapModal(true);
+  };
 
   /**
    * Set once the delete lands. The device is gone from every read path, so the
@@ -303,9 +323,11 @@ export default function DeviceDetailPage() {
       />
 
       <ReplaceDeviceModal
+        key={`replace-${hardwareModalKey}`}
         isOpen={showReplaceModal}
         onClose={() => setShowReplaceModal(false)}
         device={device}
+        prefill={replacePrefill}
         onReplaced={(result) => {
           setShowReplaceModal(false);
           setReplaceResult(result);
@@ -313,19 +335,23 @@ export default function DeviceDetailPage() {
           // changed, so take the record the call handed back.
           setDevice(result.retiredDevice);
           setOnlineStatus(null);
+          queryClient.invalidateQueries({ queryKey: HARDWARE_CHANGES_QUERY_KEY });
         }}
       />
 
       <SwapHardwareModal
+        key={`swap-${hardwareModalKey}`}
         isOpen={showSwapModal}
         onClose={() => setShowSwapModal(false)}
         device={device}
+        initialOtherId={swapWithId}
         onSwapped={(result) => {
           setShowSwapModal(false);
           setSwapResult(result);
           // Same record, different box: the model decides the wireless tab.
           setDevice(result.device);
           loadModel(result.device.deviceModelId);
+          queryClient.invalidateQueries({ queryKey: HARDWARE_CHANGES_QUERY_KEY });
         }}
       />
 
@@ -355,7 +381,7 @@ export default function DeviceDetailPage() {
             {/* A unit can only be swapped once — after that the successor is the
                 one to replace, and its page offers the button. */}
             {canReplace && !device.replacedByDeviceId && (
-              <IconButton icon={<SwapIcon />} label="Reemplazar equipo" onClick={() => setShowReplaceModal(true)} />
+              <IconButton icon={<SwapIcon />} label="Reemplazar equipo" onClick={() => openReplaceModal()} />
             )}
             {/* The backend refuses a swap on a retired unit that was already
                 replaced — the same condition that hides «Reemplazar». */}
@@ -363,7 +389,7 @@ export default function DeviceDetailPage() {
               <IconButton
                 icon={<SwapVerticalIcon />}
                 label="Intercambiar hardware con otro equipo"
-                onClick={() => setShowSwapModal(true)}
+                onClick={() => openSwapModal()}
               />
             )}
             {canDelete && (
@@ -558,7 +584,13 @@ export default function DeviceDetailPage() {
           deviceStatus={device.status}
           deviceDeletedAt={device.deletedAt}
           deviceReplacedAt={device.replacedAt}
-          onDeviceUpdated={setDevice}
+          onDeviceUpdated={(updated) => {
+            setDevice(updated);
+            // Accepting a reported model on an INVENTORY unit changes it.
+            if (updated.deviceModelId !== device.deviceModelId) loadModel(updated.deviceModelId);
+          }}
+          onReplaceHardware={canReplace && !device.replacedByDeviceId ? openReplaceModal : undefined}
+          onSwapHardware={canReplace && !device.replacedByDeviceId ? openSwapModal : undefined}
         />
       )}
 

@@ -24,6 +24,11 @@ interface Props {
   /** The unit being replaced. */
   device: DeviceResponseDTO;
   onReplaced: (result: ReplaceDeviceResultDTO) => void;
+  /**
+   * What the radio reported, when a hardware-change suggestion opened the
+   * modal. Read once on mount — remount (key) to apply a different one.
+   */
+  prefill?: { deviceModelId?: string; macAddress?: string };
 }
 
 const emptyForm = {
@@ -47,8 +52,8 @@ const emptyForm = {
  * its credentials and the customer's contracted service — so the form only asks
  * for what belongs to the new box itself.
  */
-export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced }: Props) {
-  const [form, setForm] = useState(emptyForm);
+export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced, prefill }: Props) {
+  const [form, setForm] = useState(() => ({ ...emptyForm, ...prefill }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { showError, showFormErrors } = useToast();
   const [isSaving, setIsSaving] = useState(false);

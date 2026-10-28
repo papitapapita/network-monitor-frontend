@@ -192,24 +192,37 @@ export interface WirelessExpectedClientsResponse {
   unexpectedConnected: WirelessClientDTO[];
 }
 
+/** How a suggestion is accepted, best first (since 2026-10-27). */
+export type IdentitySuggestionAction = 'UPDATE' | 'REPLACE' | 'SWAP';
+
 export interface WirelessIdentitySuggestion {
   /** `upstreamDeviceId` was `parentApDeviceId` before 2026-10-28. */
-  field: 'name' | 'macAddress' | 'upstreamDeviceId';
+  field: 'name' | 'macAddress' | 'upstreamDeviceId' | 'deviceModel';
   /** From device-inventory. */
   currentValue: string | null;
-  /** From the latest AirOS poll. */
-  suggestedValue: string;
-  /** Device names for `upstreamDeviceId`, whose values are ids; null otherwise. */
+  /**
+   * From the latest AirOS poll. For `deviceModel`, the matching catalog
+   * model's id — null when the catalog has no such model.
+   */
+  suggestedValue: string | null;
+  /** Device names for `upstreamDeviceId`, model names for `deviceModel`; null otherwise. */
   currentLabel: string | null;
   suggestedLabel: string | null;
+  /**
+   * `UPDATE` is a device PATCH, `REPLACE` records a new box
+   * (`replaceDevice`), `SWAP` trades hardware with `swapWith`. A MAC or model
+   * that says `REPLACE`/`SWAP` is a hardware change (WLS-152, WLS-153).
+   */
+  actions: IdentitySuggestionAction[];
+  /** Set only when `actions` is `['SWAP']`: the device the reported MAC is on. */
+  swapWith: { deviceId: string; name: string } | null;
 }
 
 /**
  * Read-only diff between what AirOS last reported about its own
- * hostname/MAC and what's on file in device-inventory. Never auto-written —
- * accepting a suggestion means calling `updateDevice` with the suggested
- * value, the AP (`upstreamDeviceId`) included. Serial number is
- * never compared; AirOS does not expose one.
+ * hostname/MAC/model and what's on file in device-inventory. Never
+ * auto-written — accepting a suggestion is the call its first `actions`
+ * entry names. Serial number is never compared; AirOS does not expose one.
  */
 export interface WirelessIdentitySuggestionsResponse {
   deviceId: string;
@@ -217,6 +230,25 @@ export interface WirelessIdentitySuggestionsResponse {
   polled: boolean;
   collectedAt: string | null;
   suggestions: WirelessIdentitySuggestion[];
+}
+
+/** One polled radio whose hardware no longer matches inventory (WLS-154). */
+export interface HardwareChangeDTO {
+  deviceId: string;
+  name: string;
+  /** The poll the comparison used. */
+  collectedAt: string;
+  /** Only `macAddress` and `deviceModel` entries. */
+  suggestions: WirelessIdentitySuggestion[];
+}
+
+/**
+ * `GET /wireless/hardware-changes`: every polled radio reporting another MAC
+ * or model, sorted by name, not paged. `SWAP` devices come in pairs, each
+ * pointing at the other, so any action calls for a refetch.
+ */
+export interface HardwareChangesResponse {
+  devices: HardwareChangeDTO[];
 }
 
 export interface WirelessClientsResponse {

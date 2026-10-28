@@ -97,7 +97,7 @@ import {
   BulkClearAlertsResult,
   BulkDeleteAlertsResult,
 } from '../types/alert.types';
-import type { LinkDiagnosisDTO, StartLinkDiagnosisResult, WirelessPollResult, RevealedWirelessKeyDTO } from '../types/wireless.types';
+import type { LinkDiagnosisDTO, StartLinkDiagnosisResult, WirelessPollResult, RevealedWirelessKeyDTO, HardwareChangesResponse } from '../types/wireless.types';
 import { NetworkScanRequest, NetworkScanResult } from '../types/network-scan.types';
 import type { SpeedTestListResponseDTO } from '../types/speed-test.types';
 import { ApiResponse } from '../types/common.types';
@@ -1657,6 +1657,9 @@ class MockApiService {
   }
   async getIdentitySuggestions() {
     return { success: false as const, error: 'No disponible en modo mock' };
+  }
+  async getHardwareChanges(): Promise<ApiResponse<HardwareChangesResponse>> {
+    return ok({ devices: [] });
   }
   async getWirelessAlerts() {
     return { success: false as const, error: 'No disponible en modo mock' };

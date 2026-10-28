@@ -13,6 +13,7 @@ import { isAdminRole } from '@/constants/roles';
 import type { InstallationDTO } from '@/types/installation.types';
 import { isRouteAvailable } from '@/constants/installation.constants';
 import { NotificationBell } from '@/components/inbox/NotificationBell';
+import { useHardwareChanges } from '@/hooks/useHardwareChanges';
 
 
 const icon = (d: string | string[]) => (
@@ -88,6 +89,12 @@ const NAV_ITEMS: (NavLink | NavGroup)[] = [
         href: '/topology',
         label: 'Topología',
         icon: icon('M12 5a2 2 0 100-4 2 2 0 000 4zm0 0v4m0 0H6a2 2 0 00-2 2v4m8-6h6a2 2 0 012 2v4M4 19a2 2 0 100-4 2 2 0 000 4zm16 0a2 2 0 100-4 2 2 0 000 4zm-8 0a2 2 0 100-4 2 2 0 000 4zm0-10v6'),
+      },
+      // Radios reporting another MAC or model than the one on file.
+      {
+        href: '/hardware-changes',
+        label: 'Cambios de equipo',
+        icon: icon('M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'),
       },
       {
         href: '/wireless',
@@ -274,11 +281,13 @@ function NavGroupItem({
   isActive,
   onNavigate,
   isRail,
+  badges,
 }: {
   group: NavGroup;
   isActive: (path: string) => boolean;
   onNavigate?: () => void;
   isRail: boolean;
+  badges: Record<string, number>;
 }) {
   const containsActive = group.children.some((c) => isActive(c.href));
   const [open, setOpen] = useState(containsActive);
@@ -292,6 +301,8 @@ function NavGroupItem({
   }
 
   const highlighted = containsActive && (isRail || !open);
+  // In rail mode the children are hidden even when open.
+  const waiting = (isRail || !open) && group.children.some((c) => badges[c.href]);
 
   return (
     <div>
@@ -300,7 +311,7 @@ function NavGroupItem({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title={isRail ? group.label : undefined}
-        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+        className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
           isRail ? 'md:justify-center md:px-0' : ''
         } ${
           highlighted
@@ -314,8 +325,14 @@ function NavGroupItem({
           {group.icon}
         </span>
         <span className={isRail ? 'md:sr-only' : 'whitespace-nowrap'}>{group.label}</span>
+        {/* A closed group still says something inside is waiting. */}
+        {waiting && (
+          <span
+            className={`ml-auto w-2 h-2 rounded-full bg-amber-500 shrink-0 ${isRail ? 'md:absolute md:top-1.5 md:right-4' : ''}`}
+          />
+        )}
         <svg
-          className={`ml-auto w-4 h-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90' : ''} ${
+          className={`${waiting ? 'ml-1' : 'ml-auto'} w-4 h-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90' : ''} ${
             isRail ? 'md:hidden' : ''
           }`}
           fill="none"
@@ -336,6 +353,7 @@ function NavGroupItem({
               collapsed={isRail}
               icon={item.icon}
               label={item.label}
+              badge={badges[item.href]}
             />
           ))}
         </div>
@@ -359,6 +377,8 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
   const installation = useInstallation();
   const navItems = useMemo(() => availableNavItems(installation), [installation]);
   const [hovered, setHovered] = useState(false);
+  const { data: hardwareChanges } = useHardwareChanges(!!user);
+  const badges: Record<string, number> = { '/hardware-changes': hardwareChanges?.length ?? 0 };
 
   const isActive = (path: string) =>
     path === '/' ? pathname === '/' : pathname.startsWith(path);
@@ -427,6 +447,7 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
               isActive={isActive}
               onNavigate={onClose}
               isRail={isRail}
+              badges={badges}
             />
           ) : (
             <SavedStateNavItem

@@ -74,6 +74,7 @@ import {
   UpdateWirelessConfigDTO,
   WirelessExpectedClientsResponse,
   WirelessIdentitySuggestionsResponse,
+  HardwareChangesResponse,
   WirelessThroughputDTO,
   WirelessThroughputSnapshot,
   LinkDiagnosisDTO,
@@ -1466,11 +1467,17 @@ class ApiService {
 
   /**
    * Read-only diff between what AirOS last reported about its own
-   * hostname/MAC and what's on file in device-inventory. Never auto-written —
-   * accepting a suggestion means calling `updateDevice` with the value.
+   * hostname/MAC/model and what's on file in device-inventory. Never
+   * auto-written — accepting one is the call its first `actions` entry names:
+   * `updateDevice`, `replaceDevice` or `swapDeviceHardware`.
    */
   async getIdentitySuggestions(deviceId: string): Promise<ApiResponse<WirelessIdentitySuggestionsResponse>> {
     return this.request<WirelessIdentitySuggestionsResponse>(`/devices/${deviceId}/wireless/identity/suggestions`);
+  }
+
+  /** Every polled radio whose reported MAC or model no longer matches inventory — the same suggestions, install-wide. */
+  async getHardwareChanges(): Promise<ApiResponse<HardwareChangesResponse>> {
+    return this.request<HardwareChangesResponse>('/wireless/hardware-changes');
   }
 
   async getWirelessAlerts(deviceId: string): Promise<ApiResponse<WirelessAlertDTO[]>> {

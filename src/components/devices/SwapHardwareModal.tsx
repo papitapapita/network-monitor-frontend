@@ -15,6 +15,11 @@ interface Props {
   /** The record whose page this is — one of the two sides. */
   device: DeviceResponseDTO;
   onSwapped: (result: SwapHardwareResultDTO) => void;
+  /**
+   * The device already carrying the MAC the radio reported, when a
+   * hardware-change suggestion opened the modal. Read once on mount.
+   */
+  initialOtherId?: string;
 }
 
 /** What travels between the two records; everything else stays with its site. */
@@ -50,8 +55,8 @@ function Row({ label, before, after }: { label: string; before: string; after: s
  * equipo», nothing is created or retired: each record keeps its IP, location,
  * customers and history, and only model, serial and MAC change hands.
  */
-export function SwapHardwareModal({ isOpen, onClose, device, onSwapped }: Props) {
-  const [otherId, setOtherId] = useState('');
+export function SwapHardwareModal({ isOpen, onClose, device, onSwapped, initialOtherId }: Props) {
+  const [otherId, setOtherId] = useState(initialOtherId ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showError, showSuccess } = useToast();

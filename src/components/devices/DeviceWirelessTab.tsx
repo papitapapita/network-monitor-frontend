@@ -2,7 +2,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
+import { HARDWARE_CHANGES_QUERY_KEY } from '@/hooks/useHardwareChanges';
 import {
   WirelessConfigDTO,
   WirelessStatusDTO,
@@ -26,6 +28,13 @@ import {
 } from '@/constants/polling.constants';
 import { IntervalInput } from './IntervalInput';
 import { IpLink } from './IpLink';
+import {
+  HardwareChangeCard,
+  MissingModelNote,
+  isHardwareChange,
+  type HardwarePatch,
+  type ReplacePrefill,
+} from '@/components/wireless/HardwareChangeCard';
 import {
   fmtBps,
   fmtKbps,
@@ -121,7 +130,15 @@ interface Props {
   deviceReplacedAt: string | null;
   /** Called after an identity suggestion is accepted and the device record changes underneath the caller. */
   onDeviceUpdated: (device: DeviceResponseDTO) => void;
+  /**
+   * Open the page's «Reemplazar equipo» / «Intercambiar hardware» modals from
+   * a hardware-change suggestion. Absent when the operator may not, or the
+   * unit was already replaced — the card then only explains.
+   */
+  onReplaceHardware?: (prefill: ReplacePrefill) => void;
+  onSwapHardware?: (otherDeviceId: string) => void;
 }
+
 
 function fmt(val: number | null | undefined, unit: string, decimals = 1): string {
   if (val == null) return '—';
@@ -192,6 +209,7 @@ const SUGGESTION_FIELD_LABELS: Record<WirelessIdentitySuggestion['field'], strin
   name: 'Nombre',
   macAddress: 'Dirección MAC',
   upstreamDeviceId: 'Depende de (AP)',
+  deviceModel: 'Modelo',
 };
 
 // A station that declares this AP as its parent but is missing from the AP's
@@ -377,6 +395,8 @@ export function DeviceWirelessTab({
   deviceDeletedAt,
   deviceReplacedAt,
   onDeviceUpdated,
+  onReplaceHardware,
+  onSwapHardware,
 }: Props) {
   const permissions = usePermissions();
   // WLS-029: an install whose server is off site talks to no device itself:
@@ -391,6 +411,7 @@ export function DeviceWirelessTab({
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
   const { showError, showSuccess, showFormErrors } = useToast();
+  const queryClient = useQueryClient();
 
   const [status, setStatus] = useState<WirelessStatusDTO | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -431,6 +452,10 @@ export function DeviceWirelessTab({
   // survives a refetch that returns the same still-unresolved suggestion.
   const [dismissedSuggestionKeys, setDismissedSuggestionKeys] = useState<Set<string>>(new Set());
   const [acceptingSuggestionKey, setAcceptingSuggestionKey] = useState<string | null>(null);
+  // A reported model missing from the catalog is added inline before it can be
+  // accepted. Its id is kept by reported name so the suggestion is usable at
+  // once, without waiting on the backend to re-match it.
+  const [createdModelIds, setCreatedModelIds] = useState<Record<string, string>>({});
 
   const fetchConfig = useCallback(async () => {
     setConfigLoading(true);
@@ -626,29 +651,59 @@ export function DeviceWirelessTab({
     }
   };
 
-  const suggestionKey = (s: WirelessIdentitySuggestion) => `${s.field}:${s.suggestedValue}`;
+  // A model missing from the catalog has no value, so its reported name keys it.
+  const suggestionKey = (s: WirelessIdentitySuggestion) => `${s.field}:${s.suggestedValue ?? s.suggestedLabel}`;
+
+  /** The catalog id a suggestion points at — including a model just added for it here. */
+  const suggestedValueOf = (s: WirelessIdentitySuggestion) =>
+    s.suggestedValue ?? (s.field === 'deviceModel' && s.suggestedLabel ? createdModelIds[s.suggestedLabel] ?? null : null);
 
   /** Never auto-written — accepting is the operator's own `PATCH`, made explicit through this button. */
   const handleAcceptSuggestion = async (s: WirelessIdentitySuggestion) => {
+    const value = suggestedValueOf(s);
+    if (value === null) return;
     const key = suggestionKey(s);
     setAcceptingSuggestionKey(key);
     // Every field, the AP included since it became the device's upstream, is a device PATCH.
-    const result = await apiService.updateDevice(deviceId, { [s.field]: s.suggestedValue });
+    // Only the model is named differently on the device.
+    const field = s.field === 'deviceModel' ? 'deviceModelId' : s.field;
+    const result = await apiService.updateDevice(deviceId, { [field]: value });
     setAcceptingSuggestionKey(null);
     if (result.success && result.data) {
       showSuccess('Sugerencia aplicada.');
       onDeviceUpdated(result.data);
       fetchIdentitySuggestions();
+      queryClient.invalidateQueries({ queryKey: HARDWARE_CHANGES_QUERY_KEY });
     } else {
       showError(upstreamLinkError(result.error) ?? (result.error || 'No se pudo aplicar la sugerencia'));
     }
   };
 
-  const handleDismissSuggestion = (s: WirelessIdentitySuggestion) => {
-    setDismissedSuggestionKeys((prev) => new Set(prev).add(suggestionKey(s)));
+  const handleDismissSuggestion = (...dismissed: WirelessIdentitySuggestion[]) => {
+    setDismissedSuggestionKeys((prev) => {
+      const next = new Set(prev);
+      for (const s of dismissed) next.add(suggestionKey(s));
+      return next;
+    });
+  };
+
+
+  /** The card's «Solo corregir la MAC» — the same PATCH as a row's accept. */
+  const handleHardwareUpdate = async (patch: HardwarePatch) => {
+    const result = await apiService.updateDevice(deviceId, patch);
+    if (result.success && result.data) {
+      showSuccess('Sugerencia aplicada.');
+      onDeviceUpdated(result.data);
+      fetchIdentitySuggestions();
+      queryClient.invalidateQueries({ queryKey: HARDWARE_CHANGES_QUERY_KEY });
+    } else {
+      showError(result.error || 'No se pudo aplicar la sugerencia');
+    }
   };
 
   const visibleSuggestions = identitySuggestions.filter((s) => !dismissedSuggestionKeys.has(suggestionKey(s)));
+  const hardwareSuggestions = visibleSuggestions.filter(isHardwareChange);
+  const fieldSuggestions = visibleSuggestions.filter((s) => !isHardwareChange(s));
   const showSuggestions = !identitySuggestionsLoading && visibleSuggestions.length > 0;
 
   // The parent-AP alert (on /alerts/:id) links to this card by hash,
@@ -1021,23 +1076,38 @@ export function DeviceWirelessTab({
           })()}
 
           {/* Identity suggestions — a read-only diff between what AirOS last
-              reported about its own hostname/MAC, or the AP it's talking to,
-              and what's on file here. Each row is its own accept/dismiss. */}
+              reported about its own hostname/MAC/model, or the AP it's talking
+              to, and what's on file here. A different box gets its own card;
+              every other field is its own accept/dismiss row. */}
           {showSuggestions && (
-            <div id={IDENTITY_SUGGESTIONS_ANCHOR} className="scroll-mt-4">
+            <div id={IDENTITY_SUGGESTIONS_ANCHOR} className="scroll-mt-4 space-y-6">
+              {hardwareSuggestions.length > 0 && (
+                <HardwareChangeCard
+                  suggestions={hardwareSuggestions}
+                  vendorSlug={vendorSlug}
+                  canWrite={canWrite}
+                  onReplace={onReplaceHardware}
+                  onSwap={onSwapHardware}
+                  onUpdate={handleHardwareUpdate}
+                  onDismiss={() => handleDismissSuggestion(...hardwareSuggestions)}
+                  onModelCreated={fetchIdentitySuggestions}
+                />
+              )}
+              {fieldSuggestions.length > 0 && (
               <Card>
                 <Card.Header>
                   <SectionTitle info="El último sondeo reportó estos valores distintos a los registrados. Nada se cambia solo: acepta o descarta cada sugerencia. Solo «Depende de» vacío se completa por sí mismo, cuando la MAC del AP reportada coincide exactamente con un equipo del inventario.">
                     Sugerencias de Identidad
                     <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
-                      ({visibleSuggestions.length})
+                      ({fieldSuggestions.length})
                     </span>
                   </SectionTitle>
                 </Card.Header>
                 <Card.Body>
                   <div className="space-y-2">
-                    {visibleSuggestions.map((s) => {
+                    {fieldSuggestions.map((s) => {
                       const key = suggestionKey(s);
+                      const missingModel = s.field === 'deviceModel' && suggestedValueOf(s) === null;
                       return (
                         <div
                           key={key}
@@ -1054,6 +1124,18 @@ export function DeviceWirelessTab({
                             <span className="text-gray-900 dark:text-gray-100 font-medium wrap-anywhere">
                               {s.suggestedLabel ?? s.suggestedValue}
                             </span>
+                            {s.field === 'deviceModel' && s.suggestedValue === null && s.suggestedLabel &&
+                              suggestedValueOf(s) === null && (
+                                <MissingModelNote
+                                  reportedName={s.suggestedLabel}
+                                  vendorSlug={vendorSlug}
+                                  canWrite={canWrite}
+                                  onCreated={(m) => {
+                                    setCreatedModelIds((prev) => ({ ...prev, [s.suggestedLabel!]: m.id }));
+                                    fetchIdentitySuggestions();
+                                  }}
+                                />
+                              )}
                           </div>
                           {canWrite && (
                             <div className="flex items-center gap-2 shrink-0">
@@ -1063,7 +1145,7 @@ export function DeviceWirelessTab({
                                 variant="primary"
                                 onClick={() => handleAcceptSuggestion(s)}
                                 isLoading={acceptingSuggestionKey === key}
-                                disabled={acceptingSuggestionKey !== null}
+                                disabled={acceptingSuggestionKey !== null || missingModel}
                               />
                               <IconButton
                                 icon={<CloseIcon />}
@@ -1079,6 +1161,7 @@ export function DeviceWirelessTab({
                   </div>
                 </Card.Body>
               </Card>
+              )}
             </div>
           )}
 
