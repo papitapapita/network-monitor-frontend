@@ -28,6 +28,7 @@ import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab'
 import { DeviceHistoryTab } from '@/components/devices/DeviceHistoryTab';
 import { DeviceBackupsTab } from '@/components/devices/DeviceBackupsTab';
 import { DeviceNotificationPolicyTab } from '@/components/devices/DeviceNotificationPolicyTab';
+import { DeviceAlertThresholdsCard } from '@/components/wireless/DeviceAlertThresholdsCard';
 import { ReplaceDeviceModal } from '@/components/devices/ReplaceDeviceModal';
 import { SwapHardwareModal } from '@/components/devices/SwapHardwareModal';
 import {
@@ -594,12 +595,13 @@ export default function DeviceDetailPage() {
         />
       )}
 
-      {/* Set-once settings that rarely change: quiet hours, then the logins
-          polling and backups use. Off Detalles so secrets never load on the
+      {/* Set-once settings that rarely change: quiet hours, a radio's alert
+          thresholds, then the logins polling and backups use. Off Detalles so secrets never load on the
           tab every visit opens. */}
       {currentTab === 'settings' && (
         <div className="space-y-6">
           <DeviceNotificationPolicyTab deviceId={deviceId} />
+          {showWireless && <DeviceAlertThresholdsCard deviceId={deviceId} canWrite={permissions.canWrite} />}
           <DeviceCredentialsTab deviceId={deviceId} vendorSlug={deviceModel?.vendorSlug ?? null} />
         </div>
       )}

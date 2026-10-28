@@ -53,6 +53,7 @@ interface Props {
  * The limits this radio's alerts open at: the install's set, with any group
  * overridden for this device alone (WLS-201) — e.g. a long backhaul allowed
  * more distance. Collapsed by default: most devices follow the install.
+ * Renders nothing until the radio has a wireless config (the backend 404s).
  */
 export function DeviceAlertThresholdsCard({ deviceId, canWrite }: Props) {
   const { showError, showSuccess } = useToast();
@@ -63,6 +64,8 @@ export function DeviceAlertThresholdsCard({ deviceId, canWrite }: Props) {
     queryKey,
     queryFn: async () => {
       const r = await apiService.getDeviceAlertThresholds(deviceId);
+      // No wireless config yet: the radio has no thresholds to show.
+      if (r.status === 404) return null;
       if (!r.success || !r.data) throw new Error(r.error || 'Error al cargar los umbrales de alerta');
       return r.data;
     },
@@ -120,6 +123,8 @@ export function DeviceAlertThresholdsCard({ deviceId, canWrite }: Props) {
     }
     save(buildOverrides(draft, overridden, data.install), 'Umbrales del equipo guardados. Aplican desde el próximo sondeo.');
   };
+
+  if (data === null) return null;
 
   return (
     <Card>
