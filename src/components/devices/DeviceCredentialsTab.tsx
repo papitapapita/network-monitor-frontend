@@ -86,6 +86,9 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
   // required there, and HTTP is optional. Every other device needs the HTTP
   // login: AirOS polling, reboots and MikroTik backups all log in with it.
   const snmpFirst = wirelessCollectorFor(vendorSlug ?? '')?.credentials === 'snmp';
+  // Only RouterOS speaks the API the live router traffic reads, so the port
+  // means nothing on any other vendor.
+  const usesApiPort = vendorSlug === 'mikrotik';
 
   const [creds, setCreds] = useState<DeviceCredentialsResponseDTO | null>(null);
   const [noCreds, setNoCreds] = useState(false);
@@ -212,7 +215,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     }
     if (invalidPort(form.httpPort)) return 'El puerto HTTP debe estar entre 1 y 65535.';
     if (invalidPort(form.sshPort)) return 'El puerto SSH debe estar entre 1 y 65535.';
-    if (invalidPort(form.apiPort)) return 'El puerto API debe estar entre 1 y 65535.';
+    if (usesApiPort && invalidPort(form.apiPort)) return 'El puerto API debe estar entre 1 y 65535.';
     return null;
   };
 
@@ -254,7 +257,7 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
     const body: SetDeviceCredentialsDTO = {
       httpPort: form.httpPort ? parseInt(form.httpPort) : undefined,
       sshPort: form.sshPort ? parseInt(form.sshPort) : undefined,
-      apiPort: form.apiPort ? parseInt(form.apiPort) : undefined,
+      apiPort: usesApiPort && form.apiPort ? parseInt(form.apiPort) : undefined,
     };
     // Omitting the pair keeps the stored login; both blank clears it.
     if (httpUsername && form.httpPassword) {
@@ -370,14 +373,17 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
         info="Los respaldos de MikroTik entran por SSH en este puerto, con el mismo usuario y contraseña."
         fullWidth
       />
-      <Input
-        label="Puerto API"
-        type="number"
-        value={form.apiPort}
-        onChange={(e) => field('apiPort', e.target.value)}
-        info="El tráfico en vivo de los routers principales se lee por la API de RouterOS en este puerto, con el mismo usuario y contraseña."
-        fullWidth
-      />
+      {usesApiPort && (
+        <Input
+          label="Puerto API"
+          type="number"
+          value={form.apiPort}
+          placeholder="8728"
+          onChange={(e) => field('apiPort', e.target.value)}
+          info="El tráfico en vivo de los routers principales se lee por la API de RouterOS en este puerto, con el mismo usuario y contraseña. Déjelo vacío para conservar el guardado."
+          fullWidth
+        />
+      )}
     </div>
   </div>
   );
@@ -669,10 +675,12 @@ export function DeviceCredentialsTab({ deviceId, vendorSlug }: Props) {
                 <dt className="font-medium text-gray-500 dark:text-gray-400">Puerto SSH</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.sshPort}</dd>
               </div>
-              <div>
-                <dt className="font-medium text-gray-500 dark:text-gray-400">Puerto API</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.apiPort}</dd>
-              </div>
+              {usesApiPort && (
+                <div>
+                  <dt className="font-medium text-gray-500 dark:text-gray-400">Puerto API</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100 font-mono">{creds.apiPort}</dd>
+                </div>
+              )}
             </dl>
           ) : null}
 
