@@ -21,8 +21,10 @@ import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   EXPECTED_SPEED_OPTIONS,
+  PORT_ISSUE,
   PORT_VERDICT,
   fmtMbps,
+  fmtSfp,
   translateAcceptCurrentError,
   translatePortSpeedReason,
 } from '@/constants/port-speed.constants';
@@ -51,6 +53,43 @@ function LinkCell({ p }: { p: RouterPortDTO }) {
         </span>
       )}
     </>
+  );
+}
+
+/** A counter as read now, with what the last scheduled check added in red. */
+function Counter({ total, added, label }: { total: number | null; added: number | null; label: string }) {
+  if (total == null) return null;
+  return (
+    <span className="block whitespace-nowrap">
+      {total.toLocaleString('es')} {label}
+      {added != null && added > 0 && (
+        <span className="ml-1 font-medium text-red-600 dark:text-red-400" title="En el último chequeo">
+          +{added.toLocaleString('es')}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function HealthCell({ p }: { p: RouterPortDTO }) {
+  if (p.rxErrors == null && p.linkDowns == null && !p.sfp && p.issues.length === 0) {
+    return <span className="text-gray-500 dark:text-gray-400">—</span>;
+  }
+  return (
+    <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+      <Counter total={p.rxErrors} added={p.errorsAdded} label={p.rxErrors === 1 ? 'error' : 'errores'} />
+      <Counter total={p.linkDowns} added={p.linkDownsAdded} label={p.linkDowns === 1 ? 'caída' : 'caídas'} />
+      {p.sfp && <span className="block whitespace-nowrap" title="Módulo de fibra">{fmtSfp(p.sfp)}</span>}
+      {p.issues.length > 0 && (
+        <span className="flex flex-wrap gap-1">
+          {p.issues.map((i) => (
+            <span key={i} title={PORT_ISSUE[i].hint}>
+              <Badge variant="danger">{PORT_ISSUE[i].label}</Badge>
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -100,8 +139,11 @@ function PortRow({
           onChange={(e) => onSave(p.expectedMbps, e.target.checked)}
         />
       </td>
-      <td className="py-2 whitespace-nowrap" title={verdict.hint}>
+      <td className="py-2 pr-4 whitespace-nowrap" title={verdict.hint}>
         <Badge variant={verdict.variant}>{verdict.label}</Badge>
+      </td>
+      <td className="py-2">
+        <HealthCell p={p} />
       </td>
     </tr>
   );
@@ -206,7 +248,8 @@ function RouterCard({ router, canWrite }: { router: RouterPortSpeedsDTO; canWrit
                     <th className="py-1 pr-4 font-medium">Enlace</th>
                     <th className="py-1 pr-4 font-medium">Esperada</th>
                     <th className="py-1 pr-4 font-medium">Avisar si pierde enlace</th>
-                    <th className="py-1 font-medium">Estado</th>
+                    <th className="py-1 pr-4 font-medium">Estado</th>
+                    <th className="py-1 font-medium">Errores y caídas</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -277,7 +320,7 @@ export default function PortSpeedsPage() {
               : `${slow} ${slow === 1 ? 'puerto está más lento' : 'puertos están más lentos'} de lo que deberían`
             : undefined
         }
-        info="A qué velocidad enlazó cada puerto Ethernet de los MikroTik de la empresa (routers y switches con RouterOS), comparada con la velocidad a la que debería enlazar. Un enlace gigabit que subió a 100 Mbps suele ser un cable dañado. Un puerto sin velocidad esperada se muestra pero no se evalúa. Cada 10 minutos el servidor revisa los routers con alguna velocidad esperada y avisa cuando un puerto está lento en dos revisiones seguidas, y cuando se recupera. «Avisar si pierde enlace» cuenta además la pérdida de enlace como lentitud."
+        info="A qué velocidad enlazó cada puerto Ethernet de los MikroTik de la empresa (routers y switches con RouterOS), comparada con la velocidad a la que debería enlazar. Un enlace gigabit que subió a 100 Mbps suele ser un cable dañado. Un puerto sin velocidad esperada se muestra pero no se evalúa. Cada 10 minutos el servidor revisa cada router y avisa cuando un puerto con velocidad esperada está lento en dos revisiones seguidas, y cuando se recupera. «Avisar si pierde enlace» cuenta además la pérdida de enlace como lentitud. La misma revisión cuenta los errores y las caídas de enlace de cada puerto, y la potencia de los módulos de fibra, y avisa cuando un puerto suma errores, se cae y vuelve, o recibe poca luz. En rojo, lo que sumó la última revisión. Los límites están en Configuración → Salud de routers. Fuera del sitio, un agente anterior a 0.11.0 no envía los contadores."
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}

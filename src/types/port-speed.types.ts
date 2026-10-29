@@ -28,6 +28,30 @@ export interface RouterPortDTO {
   /** MON-149: a lost link counts as slow. False without an expected speed. */
   alertOnNoLink: boolean;
   verdict: PortSpeedVerdict;
+  // MON-198: counters and fibre module, all null / [] on PORT_MISSING.
+  /** FCS + alignment errors since the counters were last reset; null when the router does not count them. */
+  rxErrors: number | null;
+  /** Times the link went down, as read now. */
+  linkDowns: number | null;
+  /** What the last scheduled check added; null when it could not tell (first check, counter reset). */
+  errorsAdded: number | null;
+  linkDownsAdded: number | null;
+  /** Null on a port with no fibre module. */
+  sfp: SfpReadingDTO | null;
+  /** Problems open on the port, from the scheduled check. */
+  issues: PortIssue[];
+}
+
+/** MON-193 … MON-195. */
+export type PortIssue =
+  | 'ERRORS' // errors added on 2 checks in a row
+  | 'FLAPPING' // flapLinkDowns or more link-downs in one check
+  | 'SFP_RX_LOW'; // fibre receive power under minSfpRxPowerDbm
+
+export interface SfpReadingDTO {
+  rxPowerDbm: number | null;
+  txPowerDbm: number | null;
+  temperatureC: number | null;
 }
 
 export interface RouterPortSpeedsDTO {

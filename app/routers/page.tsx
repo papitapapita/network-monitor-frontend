@@ -3,6 +3,9 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, LoadingSpinner, PageHeader } from '@/components/ui';
+import { RouterSystemTable } from '@/components/routers/RouterSystemTable';
+import { RouterAuditTable } from '@/components/routers/RouterAuditTable';
+import { useUrlState } from '@/hooks/useUrlState';
 import { StreamIndicator, StreamErrorNotice } from '@/components/wireless/StreamStatus';
 import { LegendKey } from '@/components/dashboard/charts';
 import { InterfaceSparkline } from '@/components/routers/InterfaceSparkline';
@@ -16,25 +19,76 @@ import {
   translateRouterTrafficError,
 } from '@/constants/router-traffic.constants';
 
+type Tab = 'traffic' | 'system' | 'audit';
+const TAB_LABELS: Record<Tab, string> = { traffic: 'Tráfico', system: 'Estado', audit: 'Auditoría' };
+const isTab = (v: string): v is Tab => v in TAB_LABELS;
+
+const TAB_INFO: Record<Tab, string> = {
+  traffic: '',
+  system:
+    'Lo que cada MikroTik de la empresa dice de sí mismo: su nombre, hardware, versiones y salud. El servidor los lee cada 10 minutos y guarda la última lectura buena; «Leer ahora» lee uno al momento. En rojo, los valores con una alerta abierta; los límites están en Configuración → Salud de routers. Un reinicio que el ping no vio también se avisa. Fuera del sitio se leen a través del agente del router (0.11.0 o posterior).',
+  audit:
+    'Lo que vale la pena corregir en cada MikroTik, según su última lectura: firmware pendiente, servicios sin cifrar o abiertos a cualquier dirección, el usuario «admin» y el descubrimiento de vecinos en todas las interfaces. No envía avisos. Las contraseñas por defecto no se pueden leer, así que no se revisan. Primero los RouterOS más viejos.',
+};
+
+/**
+ * The company's MikroTiks: what the gateways carry right now, what each
+ * router says about itself, and what is worth fixing on it. The open tab
+ * lives in `?tab=`, so an inbox notice can open the status tab on a router.
+ */
+export default function RoutersPage() {
+  const url = useUrlState();
+  const tabParam = url.get('tab');
+  const tab: Tab = isTab(tabParam) ? tabParam : 'traffic';
+
+  return (
+    <div className="p-4 sm:p-8">
+      <PageHeader
+        title="Routers"
+        info={
+          tab === 'traffic'
+            ? 'Tráfico de cada interfaz de los routers con la categoría Gateway, leído del router mientras esta pestaña está abierta. Bajada y subida se cuentan del lado de los clientes: en la LAN la bajada es lo que el router envía (TX); en una interfaz cuyo nombre la marca como salida a Internet (wan, isp, uplink…), lo que recibe (RX). Las gráficas muestran los últimos dos minutos.'
+            : TAB_INFO[tab]
+        }
+      />
+      <nav className="mb-6 flex gap-6 border-b border-gray-200 dark:border-gray-700">
+        {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => url.set({ tab: t === 'traffic' ? null : t })}
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+              tab === t
+                ? 'border-brand-600 dark:border-brand-400 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            {TAB_LABELS[t]}
+          </button>
+        ))}
+      </nav>
+      {tab === 'traffic' ? <RouterTraffic /> : tab === 'system' ? <RouterSystemTable /> : <RouterAuditTable />}
+    </div>
+  );
+}
+
 /**
  * What the main routers carry right now, per interface (MON-060 … MON-066).
  * One SSE connection feeds every card: the opening frame lists every router
  * with `category: 'GATEWAY'`, and each later frame replaces one of them.
  * The backend only asks the routers while someone is watching, and keeps
- * nothing, so the charts start empty and grow while the page stays open.
+ * nothing, so the charts start empty and grow while the tab stays open.
  */
-export default function RouterTrafficPage() {
+function RouterTraffic() {
   const { routers, loaded, intervalSeconds, state, retry } = useRouterTraffic();
   const now = useNow(1_000, state.status !== 'error');
   const [showDown, setShowDown] = useState(false);
 
   return (
-    <div className="p-8">
-      <PageHeader
-        title="Routers principales"
-        info={`Tráfico de cada interfaz de los routers con la categoría Gateway, leído del router cada ${intervalSeconds} s mientras esta página está abierta. Bajada y subida se cuentan del lado de los clientes: en la LAN la bajada es lo que el router envía (TX); en una interfaz cuyo nombre la marca como salida a Internet (wan, isp, uplink…), lo que recibe (RX). Las gráficas muestran los últimos dos minutos.`}
-        actions={<StreamIndicator state={state} />}
-      />
+    <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-600 dark:text-gray-400">Routers con la categoría Gateway, leídos cada {intervalSeconds} s.</p>
+        <StreamIndicator state={state} />
+      </div>
 
       <div className="space-y-6">
         <StreamErrorNotice state={state} onRetry={retry} />
@@ -82,7 +136,7 @@ export default function RouterTrafficPage() {
           </>
         )}
       </div>
-    </div>
+    </>
   );
 }
 

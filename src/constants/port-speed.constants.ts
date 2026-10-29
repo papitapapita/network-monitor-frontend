@@ -1,5 +1,29 @@
 import type { BadgeVariant } from '@/components/ui';
-import type { PortSpeedVerdict } from '@/types/port-speed.types';
+import type { PortIssue, PortSpeedVerdict, SfpReadingDTO } from '@/types/port-speed.types';
+import type { DeviceModelResponseDTO, DeviceResponseDTO } from '@/types/device.types';
+
+/**
+ * Whether the device is one of the company MikroTiks the backend reads for
+ * port speeds, system, neighbours and audit (MON-140): live, company-owned,
+ * active or commissioning, vendor `mikrotik`, and a router, routerboard or
+ * switch by model or a gateway or aggregation switch by category. SwOS
+ * switches are left out by the backend and cannot be told apart here; they
+ * answer 404, which the screens say.
+ */
+export function isCompanyMikrotik(
+  device: Pick<DeviceResponseDTO, 'ownerType' | 'status' | 'category' | 'deletedAt'> | null | undefined,
+  model: Pick<DeviceModelResponseDTO, 'vendorSlug' | 'deviceType'> | null | undefined
+): boolean {
+  if (!device || !model || device.deletedAt) return false;
+  return (
+    device.ownerType === 'COMPANY' &&
+    (device.status === 'ACTIVE' || device.status === 'COMMISSIONING') &&
+    model.vendorSlug === 'mikrotik' &&
+    (['ROUTERBOARD', 'ROUTER', 'SWITCH'].includes(model.deviceType) ||
+      device.category === 'GATEWAY' ||
+      device.category === 'AGGREGATION_SWITCH')
+  );
+}
 
 /** The only speeds `PUT …/expected` accepts, in Mbps. */
 export const EXPECTED_SPEEDS_MBPS = [10, 100, 1000, 2500, 5000, 10000, 25000, 40000, 100000] as const;
@@ -37,8 +61,32 @@ export const PORT_VERDICT: Record<PortSpeedVerdict, { label: string; hint: strin
   },
 };
 
+/** MON-193 … MON-195: open on the port until the scheduled check closes it. */
+export const PORT_ISSUE: Record<PortIssue, { label: string; hint: string }> = {
+  ERRORS: {
+    label: 'Suma errores (cable o conector)',
+    hint: 'Sumó errores de recepción en dos revisiones seguidas: suele ser un cable, un conector o un puerto dañado.',
+  },
+  FLAPPING: { label: 'Se cae y vuelve', hint: 'El enlace se cayó varias veces en una misma revisión de 10 minutos.' },
+  SFP_RX_LOW: { label: 'Potencia de fibra baja', hint: 'El módulo recibe por la fibra menos potencia que el mínimo configurado.' },
+};
+
+const fmtDecimal = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 });
+
+/** "Rx -7,2 dBm · Tx -2,1 dBm · 41 °C", leaving out what the module did not say. */
+export function fmtSfp(sfp: SfpReadingDTO): string {
+  return [
+    sfp.rxPowerDbm != null && `Rx ${fmtDecimal(sfp.rxPowerDbm)} dBm`,
+    sfp.txPowerDbm != null && `Tx ${fmtDecimal(sfp.txPowerDbm)} dBm`,
+    sfp.temperatureC != null && `${fmtDecimal(sfp.temperatureC)} °C`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /**
- * The backend's `reason` and `error`, in Spanish, with what fixes it. Unknown
+ * The backend's `reason` and `error` for a MikroTik read (port speeds, system,
+ * neighbours, bridge and ARP tables), in Spanish, with what fixes it. Unknown
  * strings (a refused login, a timeout) pass through as they are.
  */
 export function translatePortSpeedReason(raw: string | null | undefined): string {
@@ -53,6 +101,13 @@ export function translatePortSpeedReason(raw: string | null | undefined): string
   if (raw === 'The agent must be updated to read port speeds') {
     return 'El agente debe actualizarse (0.10.0 o posterior) para leer la velocidad de los puertos.';
   }
+  if (raw === 'The agent must be updated to read this from routers') {
+    return 'El agente debe actualizarse (0.11.0 o posterior) para leer esto de los routers.';
+  }
+  if (raw === 'The router is not behind an agent') return 'El router no está detrás de un agente. Asígnale el agente de su sitio.';
+  if (raw === 'The router did not answer') return 'El router no respondió.';
+  if (raw === 'The router did not answer its bridge host table') return 'El router no entregó su tabla de hosts del bridge.';
+  if (raw === 'The router did not answer its ARP table or DHCP leases') return 'El router no entregó su tabla ARP ni sus concesiones DHCP.';
   if (raw === 'The agent is not connected' || raw === 'The agent disconnected') return 'El agente del router no está conectado.';
   if (raw === 'The agent did not answer in time') return 'El agente no respondió a tiempo.';
   if (raw.startsWith('RouterOS API error:')) {
@@ -73,3 +128,6 @@ export function translateAcceptCurrentError(raw: string | undefined): string {
   if (raw === 'Router not found') return 'Este equipo ya no es un router MikroTik de la empresa.';
   return raw;
 }
+
+/** The same translation, named for the MikroTik reads that are not about port speeds. */
+export const translateRouterReason = translatePortSpeedReason;

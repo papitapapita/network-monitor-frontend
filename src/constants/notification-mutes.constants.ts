@@ -13,7 +13,8 @@ export function validateMetricKey(raw: string): string | null {
 /**
  * Known wireless-evaluator metrics (business-rules/wireless-monitoring.md,
  * WLS-081/WLS-082), the ICMP down/recovery type, the backup notification
- * (BKP-061) and the port speed one (MON-148) — labelled for the mute
+ * (BKP-061), the port speed and port health ones (MON-148, MON-197) and the
+ * MikroTik reboot and health ones (MON-171, MON-174) — labelled for the mute
  * picker. Not exhaustive and not enforced: the backend accepts any
  * well-formed key, matched or not (NOT-193), so the picker also takes free
  * text for anything missing here.
@@ -40,6 +41,9 @@ export const KNOWN_MUTABLE_METRICS: Array<{ key: string; label: string }> = [
   { key: 'parent_ap_mismatch', label: 'Conectado a otro AP que el declarado' },
   { key: 'backup_failing', label: 'Respaldo de configuración fallando' },
   { key: 'port_speed_low', label: 'Puerto de MikroTik más lento de lo esperado' },
+  { key: 'port_health', label: 'Puerto de MikroTik con errores, caídas o fibra baja' },
+  { key: 'router_rebooted', label: 'MikroTik reiniciado' },
+  { key: 'router_health', label: 'Salud de MikroTik (CPU, memoria, disco, temperatura, voltaje)' },
 ];
 
 export function metricLabel(key: string): string {

@@ -189,7 +189,19 @@ import type {
   RouterPortSpeedsReadDTO,
   SetExpectedPortSpeedPayload,
 } from '../types/port-speed.types';
-import { AcceptUpstreamLinksResultDTO, TopologyDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
+import {
+  AcceptUpstreamLinksResultDTO,
+  TopologyDTO,
+  UpstreamLinkDTO,
+  UpstreamSuggestionsDTO,
+} from '../types/topology.types';
+import type {
+  RouterAuditListDTO,
+  RouterHealthThresholdsDTO,
+  RouterHealthThresholdsValues,
+  RouterSystemListDTO,
+  RouterSystemReadDTO,
+} from '../types/router-system.types';
 import {
   QuotationDTO,
   QuotationListResponse,
@@ -818,6 +830,37 @@ class ApiService {
   /** Reads the router and stores each linked port's rate as its expected speed. */
   async acceptCurrentPortSpeeds(deviceId: string): Promise<ApiResponse<RouterPortSpeedsDTO>> {
     return this.request<RouterPortSpeedsDTO>(`/routers/${deviceId}/port-speeds/accept-current`, { method: 'POST' });
+  }
+
+  // ============================================================
+  // Router System — the stored readings, except a read on demand
+  // ============================================================
+
+  /** Every company MikroTik and what it last said, at most one interval old (MON-162). */
+  async getRouterSystems(): Promise<ApiResponse<RouterSystemListDTO>> {
+    return this.request<RouterSystemListDTO>('/routers/system', { cache: 'no-store' });
+  }
+
+  /** Reads one MikroTik now and keeps the reading (MON-163). */
+  async readRouterSystem(deviceId: string): Promise<ApiResponse<RouterSystemReadDTO>> {
+    return this.request<RouterSystemReadDTO>(`/routers/${deviceId}/system`, { cache: 'no-store' });
+  }
+
+  async getRouterHealthThresholds(): Promise<ApiResponse<RouterHealthThresholdsDTO>> {
+    return this.request<RouterHealthThresholdsDTO>('/routers/health-thresholds');
+  }
+
+  /** Administrators only; answers as the GET. */
+  async saveRouterHealthThresholds(data: RouterHealthThresholdsValues): Promise<ApiResponse<RouterHealthThresholdsDTO>> {
+    return this.request<RouterHealthThresholdsDTO>('/routers/health-thresholds', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Versions and what is worth fixing on each MikroTik, from its last reading (MON-180 … MON-186). */
+  async getRouterAudit(): Promise<ApiResponse<RouterAuditListDTO>> {
+    return this.request<RouterAuditListDTO>('/routers/audit', { cache: 'no-store' });
   }
 
   // ============================================================

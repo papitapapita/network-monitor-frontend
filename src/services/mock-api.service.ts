@@ -74,7 +74,20 @@ import type {
   RouterPortSpeedsReadDTO,
   SetExpectedPortSpeedPayload,
 } from '../types/port-speed.types';
-import { AcceptUpstreamLinksResultDTO, TopologyDTO, TopologyNodeDTO, UpstreamLinkDTO, UpstreamSuggestionsDTO } from '../types/topology.types';
+import {
+  AcceptUpstreamLinksResultDTO,
+  TopologyDTO,
+  TopologyNodeDTO,
+  UpstreamLinkDTO,
+  UpstreamSuggestionsDTO,
+} from '../types/topology.types';
+import type {
+  RouterAuditListDTO,
+  RouterHealthThresholdsDTO,
+  RouterHealthThresholdsValues,
+  RouterSystemListDTO,
+  RouterSystemReadDTO,
+} from '../types/router-system.types';
 import { VendorSettingsDTO } from '../types/vendor-settings.types';
 import {
   AgentDTO,
@@ -536,6 +549,17 @@ function paginate<T>(items: T[], limit = 20, offset = 0): { items: T[]; total: n
 }
 
 let discoverySettings: DiscoverySettingsDTO = { enabled: false, intervalHours: 24, segments: [], lastRunAt: null };
+
+const ROUTER_HEALTH_DEFAULTS: RouterHealthThresholdsValues = {
+  cpuPercent: 90,
+  minFreeMemoryPercent: 10,
+  minFreeDiskPercent: 5,
+  maxTemperatureC: 75,
+  minVoltage: null,
+  flapLinkDowns: 3,
+  minSfpRxPowerDbm: -20,
+};
+let routerHealthThresholds: RouterHealthThresholdsValues = { ...ROUTER_HEALTH_DEFAULTS };
 
 class MockApiService {
   // ── Devices ────────────────────────────────────────────────
@@ -1569,6 +1593,29 @@ class MockApiService {
 
   async acceptCurrentPortSpeeds(_deviceId: string): Promise<ApiResponse<RouterPortSpeedsDTO>> {
     return { success: false, status: 404, error: 'Router not found' };
+  }
+
+  // ── Router System ──────────────────────────────────────────
+
+  async getRouterSystems(): Promise<ApiResponse<RouterSystemListDTO>> {
+    return ok({ routers: [] });
+  }
+
+  async readRouterSystem(_deviceId: string): Promise<ApiResponse<RouterSystemReadDTO>> {
+    return { success: false, status: 404, error: 'Router not found' };
+  }
+
+  async getRouterHealthThresholds(): Promise<ApiResponse<RouterHealthThresholdsDTO>> {
+    return ok({ thresholds: structuredClone(routerHealthThresholds), defaults: structuredClone(ROUTER_HEALTH_DEFAULTS) });
+  }
+
+  async saveRouterHealthThresholds(data: RouterHealthThresholdsValues): Promise<ApiResponse<RouterHealthThresholdsDTO>> {
+    routerHealthThresholds = structuredClone(data);
+    return this.getRouterHealthThresholds();
+  }
+
+  async getRouterAudit(): Promise<ApiResponse<RouterAuditListDTO>> {
+    return ok({ routers: [] });
   }
 
   // ── Power Control ──────────────────────────────────────────

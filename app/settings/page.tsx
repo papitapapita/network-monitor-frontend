@@ -11,6 +11,7 @@ import { PhoneNotificationsCard } from '@/components/settings/PhoneNotifications
 import { BillingSettingsCard } from '@/components/settings/BillingSettingsCard';
 import { AlertThresholdsCard } from '@/components/settings/AlertThresholdsCard';
 import { DiscoverySettingsCard } from '@/components/settings/DiscoverySettingsCard';
+import { RouterHealthThresholdsCard } from '@/components/settings/RouterHealthThresholdsCard';
 import { useInstallation } from '@/hooks/useInstallation';
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard';
 import { DataPurgeCard } from '@/components/settings/DataPurgeCard';
@@ -120,6 +121,10 @@ export default function SettingsPage() {
 
       <div className="mt-6">
         <AlertThresholdsCard />
+      </div>
+
+      <div className="mt-6">
+        <RouterHealthThresholdsCard />
       </div>
 
       <div className="mt-6">
