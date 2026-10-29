@@ -196,8 +196,11 @@ export interface WirelessExpectedClientsResponse {
 export type IdentitySuggestionAction = 'UPDATE' | 'REPLACE' | 'SWAP';
 
 export interface WirelessIdentitySuggestion {
-  /** `upstreamDeviceId` was `parentApDeviceId` before 2026-10-28. */
-  field: 'name' | 'macAddress' | 'upstreamDeviceId' | 'deviceModel';
+  /**
+   * `upstreamDeviceId` was `parentApDeviceId` before 2026-10-28.
+   * `serialNumber` only for MikroTiks in the hardware-changes list.
+   */
+  field: 'name' | 'macAddress' | 'serialNumber' | 'upstreamDeviceId' | 'deviceModel';
   /** From device-inventory. */
   currentValue: string | null;
   /**
@@ -232,13 +235,20 @@ export interface WirelessIdentitySuggestionsResponse {
   suggestions: WirelessIdentitySuggestion[];
 }
 
-/** One polled radio whose hardware no longer matches inventory (WLS-154). */
+/**
+ * One polled radio (WLS-154), or one MikroTik (DEV-215, DEV-216), whose
+ * hardware no longer matches inventory.
+ */
 export interface HardwareChangeDTO {
   deviceId: string;
   name: string;
-  /** The poll the comparison used. */
+  source: 'RADIO' | 'ROUTER';
+  /** When the box reported it. */
   collectedAt: string;
-  /** Only `macAddress` and `deviceModel` entries. */
+  /**
+   * A radio has `macAddress` and `deviceModel` entries; a MikroTik `name`,
+   * `serialNumber`, `deviceModel`, and `macAddress` only when it has no serial.
+   */
   suggestions: WirelessIdentitySuggestion[];
 }
 

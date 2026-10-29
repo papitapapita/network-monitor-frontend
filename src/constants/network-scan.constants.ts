@@ -51,4 +51,6 @@ export function translateScanError(status: number | undefined, error: string | u
 export const DISCOVERED_SOURCE_LABELS: Record<DiscoveredDeviceDTO['source'], string> = {
   SCAN: 'Escaneo',
   AP_STATION: 'Estación de AP',
+  ROUTER_NEIGHBOR: 'Vecino de router',
+  ROUTER_ARP: 'ARP / DHCP de router',
 };

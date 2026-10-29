@@ -60,7 +60,7 @@ export default function DiscoveredDevicesPage() {
               : `${count} ${count === 1 ? 'equipo visto en la red no está' : 'equipos vistos en la red no están'} en el inventario`
             : undefined
         }
-        info="Equipos que un escaneo de red o la lista de estaciones de un AP muestran y que el inventario no tiene. Crear el dispositivo abre el formulario con lo que se sabe de él. Ignorar uno lo saca de la lista para siempre, aunque vuelva a aparecer; se puede deshacer desde «Ignorados». Los pendientes que no se ven en 30 días se borran solos."
+        info="Equipos que un escaneo de red, la lista de estaciones de un AP, o los vecinos y la tabla ARP / DHCP de los MikroTik muestran y que el inventario no tiene. La tabla ARP solo cuenta direcciones dentro de los segmentos del escaneo programado. Crear el dispositivo abre el formulario con lo que se sabe de él. Ignorar uno lo saca de la lista para siempre, aunque vuelva a aparecer; se puede deshacer desde «Ignorados». Los pendientes que no se ven en 30 días se borran solos."
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
@@ -98,7 +98,7 @@ export default function DiscoveredDevicesPage() {
           <Card.Body>
             <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
               {tab === 'pending'
-                ? 'No hay equipos descubiertos pendientes. Aparecen aquí al escanear un segmento o cuando un AP sondeado muestra una estación que no está en el inventario.'
+                ? 'No hay equipos descubiertos pendientes. Aparecen aquí cuando un escaneo, la lista de estaciones de un AP, o los vecinos o la tabla ARP de un MikroTik muestran un equipo que no está en el inventario.'
                 : 'No hay equipos ignorados.'}
             </p>
           </Card.Body>
@@ -115,7 +115,7 @@ export default function DiscoveredDevicesPage() {
                         <span className="font-semibold text-gray-900 dark:text-gray-100 wrap-anywhere">
                           {d.hostname ?? d.manufacturer ?? 'Equipo sin nombre'}
                         </span>
-                        <Badge variant={d.source === 'AP_STATION' ? 'info' : 'neutral'}>
+                        <Badge variant={d.source === 'SCAN' ? 'neutral' : 'info'}>
                           {DISCOVERED_SOURCE_LABELS[d.source]}
                         </Badge>
                       </div>

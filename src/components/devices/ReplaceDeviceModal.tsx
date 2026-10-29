@@ -28,7 +28,7 @@ interface Props {
    * What the radio reported, when a hardware-change suggestion opened the
    * modal. Read once on mount — remount (key) to apply a different one.
    */
-  prefill?: { deviceModelId?: string; macAddress?: string };
+  prefill?: { deviceModelId?: string; macAddress?: string; serialNumber?: string };
 }
 
 const emptyForm = {
@@ -53,7 +53,11 @@ const emptyForm = {
  * for what belongs to the new box itself.
  */
 export function ReplaceDeviceModal({ isOpen, onClose, device, onReplaced, prefill }: Props) {
-  const [form, setForm] = useState(() => ({ ...emptyForm, ...prefill }));
+  // An unreported field arrives as undefined and must not blank the form's ''.
+  const [form, setForm] = useState(() => ({
+    ...emptyForm,
+    ...Object.fromEntries(Object.entries(prefill ?? {}).filter(([, v]) => v !== undefined)),
+  }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { showError, showFormErrors } = useToast();
   const [isSaving, setIsSaving] = useState(false);

@@ -207,6 +207,7 @@ const REBOOT_WINDOW_MS = 120_000;
 const SUGGESTION_FIELD_LABELS: Record<WirelessIdentitySuggestion['field'], string> = {
   name: 'Nombre',
   macAddress: 'Dirección MAC',
+  serialNumber: 'Serie',
   upstreamDeviceId: 'Depende de (AP)',
   deviceModel: 'Modelo',
 };

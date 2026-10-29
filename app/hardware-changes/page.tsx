@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api.service';
-import { Card, LoadingSpinner, PageHeader } from '@/components/ui';
+import { Badge, Card, LoadingSpinner, PageHeader } from '@/components/ui';
 import { useToast } from '@/contexts/toast.context';
 import { usePermissions } from '@/hooks/usePermissions';
 import { HARDWARE_CHANGES_QUERY_KEY, useHardwareChanges } from '@/hooks/useHardwareChanges';
@@ -24,8 +24,9 @@ type Pending =
 
 /**
  * Every polled radio whose last poll reports another MAC or model than the
- * one on file (`GET /wireless/hardware-changes`, WLS-154): one card per
- * device, with the same single action its own wireless tab offers. A swap
+ * one on file (`GET /wireless/hardware-changes`, WLS-154), and every MikroTik
+ * reporting another serial, model or name of itself (DEV-215, DEV-216): one
+ * card per device, with the same single action a radio's wireless tab offers. A swap
  * lists both devices, each pointing at the other, and fixing either fixes
  * both — so every action re-reads the list.
  */
@@ -102,11 +103,11 @@ export default function HardwareChangesPage() {
         subtitle={
           devices
             ? count === 0
-              ? 'Todas las radios coinciden con el inventario'
-              : `${count} ${count === 1 ? 'radio reporta' : 'radios reportan'} hardware distinto al registrado`
+              ? 'Todas las radios y routers coinciden con el inventario'
+              : `${count} ${count === 1 ? 'equipo reporta' : 'equipos reportan'} hardware distinto al registrado`
             : undefined
         }
-        info="Radios cuyo último sondeo reporta una MAC o un modelo distintos a los registrados: casi siempre, una unidad que se cambió en sitio sin registrarlo. Registrar el reemplazo deja el historial con la unidad que lo produjo."
+        info="Radios cuyo último sondeo reporta una MAC o un modelo distintos a los registrados, y MikroTik que reportan otra serie, otro modelo u otro nombre de sí mismos: casi siempre, una unidad que se cambió en sitio sin registrarlo. Registrar el reemplazo deja el historial con la unidad que lo produjo."
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
         lastRefreshed={dataUpdatedAt ? new Date(dataUpdatedAt) : null}
@@ -122,7 +123,7 @@ export default function HardwareChangesPage() {
         <Card>
           <Card.Body>
             <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
-              Ninguna radio reporta una MAC o un modelo distintos a los registrados.
+              Ninguna radio ni router reporta hardware distinto al registrado.
             </p>
           </Card.Body>
         </Card>
@@ -132,15 +133,19 @@ export default function HardwareChangesPage() {
             <HardwareChangeCard
               key={d.deviceId}
               suggestions={d.suggestions}
+              source={d.source}
               heading={
-                <Link
-                  href={`/devices/${d.deviceId}?tab=wireless`}
-                  className="hover:underline wrap-anywhere"
-                >
-                  {d.name}
-                </Link>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <Link
+                    href={d.source === 'ROUTER' ? `/devices/${d.deviceId}` : `/devices/${d.deviceId}?tab=wireless`}
+                    className="hover:underline wrap-anywhere"
+                  >
+                    {d.name}
+                  </Link>
+                  <Badge variant="neutral">{d.source === 'ROUTER' ? 'Router' : 'Radio'}</Badge>
+                </span>
               }
-              meta={`Sondeo del ${new Date(d.collectedAt).toLocaleString('es')}`}
+              meta={`${d.source === 'ROUTER' ? 'Lectura' : 'Sondeo'} del ${new Date(d.collectedAt).toLocaleString('es')}`}
               canWrite={canWrite}
               onReplace={(prefill) => handleReplace(d.deviceId, prefill)}
               onSwap={(otherId) => handleSwap(d.deviceId, otherId)}

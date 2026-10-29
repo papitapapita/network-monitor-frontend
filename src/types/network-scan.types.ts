@@ -39,13 +39,16 @@ export interface DiscoveredDeviceDTO {
   /** Where it was seen last. */
   ipAddress: string | null;
   manufacturer: string | null;
-  /** What saw it last. */
-  source: 'SCAN' | 'AP_STATION';
-  /** The CIDR a scan last saw it on; null if only APs saw it. */
+  /**
+   * What saw it last: a scan, an AP's station list, a MikroTik's neighbour
+   * table (DEV-217), or its ARP table and DHCP leases (DEV-218).
+   */
+  source: 'SCAN' | 'AP_STATION' | 'ROUTER_NEIGHBOR' | 'ROUTER_ARP';
+  /** The CIDR a scan last saw it on; null if only APs or routers saw it. */
   segment: string | null;
-  /** AP_STATION: the radio's own name. */
+  /** AP_STATION: the radio's own name; ROUTER_NEIGHBOR: its identity; ROUTER_ARP: the DHCP lease's host name. */
   hostname: string | null;
-  /** AP_STATION: the AirOS platform, e.g. "LiteBeam 5AC Gen2". */
+  /** AP_STATION: the AirOS platform, e.g. "LiteBeam 5AC Gen2"; ROUTER_NEIGHBOR: board, else platform. */
   model: string | null;
   accessPointId: string | null;
   /** List only; null once the AP is deleted. */
