@@ -297,8 +297,10 @@ function AlertsPageContent() {
   const [isClearingDevice, setIsClearingDevice] = useState(false);
   const [clearDeviceNotice, setClearDeviceNotice] = useState<string | null>(null);
 
-  const fetchAlerts = useCallback(async () => {
-    setIsLoading(true);
+  // A refetch after an action on the rows (resolve, delete, a ticket) is
+  // silent: the spinner would swap the table out and lose the operator's place.
+  const fetchAlerts = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setIsLoading(true);
     setError(null);
 
     const result = await apiService.listAlerts({
@@ -343,6 +345,8 @@ function AlertsPageContent() {
     setIsLoading(false);
   }, [currentPage, severityFilter, statusFilter, sourceFilter, deviceIdFilter, fromFilter, toFilter]);
 
+  const refreshAlerts = useCallback(() => fetchAlerts({ silent: true }), [fetchAlerts]);
+
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts]);
@@ -364,7 +368,7 @@ function AlertsPageContent() {
         ? `Se resolvieron ${alertCount(cleared.length)}; ${failed.length} con error (${failed[0].error}).`
         : `Se resolvieron ${alertCount(cleared.length)}.`
     );
-    await fetchAlerts();
+    await refreshAlerts();
   };
 
   const clearFilters = () =>
@@ -443,8 +447,8 @@ function AlertsPageContent() {
   );
 
   const columns = React.useMemo(
-    () => buildAlertColumns(deviceNames, visibleKeys, fetchAlerts, cascade),
-    [deviceNames, visibleKeys, fetchAlerts, cascade]
+    () => buildAlertColumns(deviceNames, visibleKeys, refreshAlerts, cascade),
+    [deviceNames, visibleKeys, refreshAlerts, cascade]
   );
 
   const hasFilters =
@@ -466,7 +470,7 @@ function AlertsPageContent() {
         hasFilters={!!hasFilters}
         onClear={clearFilters}
         activeFilterCount={[severityFilter, statusFilter, sourceFilter, deviceIdFilter, fromFilter || toFilter].filter(Boolean).length}
-        onRefresh={fetchAlerts}
+        onRefresh={() => fetchAlerts()}
         isRefreshing={isLoading}
         actions={
           <ColumnPicker
@@ -555,7 +559,7 @@ function AlertsPageContent() {
         </div>
       )}
 
-      {error && <ErrorBanner message={error} onRetry={fetchAlerts} />}
+      {error && <ErrorBanner message={error} onRetry={() => fetchAlerts()} />}
 
       <DataTable
         columns={columns}
@@ -581,7 +585,7 @@ function AlertsPageContent() {
           canWrite
             ? {
                 deleteMany: isAdmin ? deleteSelectedAlerts : undefined,
-                onFinished: fetchAlerts,
+                onFinished: refreshAlerts,
                 entity: { singular: 'alerta', plural: 'alertas', gender: 'f' },
                 confirmNote:
                   'Solo se eliminan las alertas resueltas; las que sigan abiertas se informan sin cambios. Esta acción no se puede deshacer.',
