@@ -10,15 +10,17 @@ import { useToast } from '@/contexts/toast.context';
 import { Badge, Button, Checkbox, LoadingSpinner, Select } from '@/components/ui';
 import { upstreamLinkError } from '@/constants/topology.constants';
 import { poeReason } from '@/constants/power.constants';
+import { UnreadRoutersNotice } from '@/components/topology/UnreadRoutersNotice';
 import type { UpstreamLinkResultDTO, UpstreamSuggestionDTO } from '@/types/topology.types';
 
 /**
  * Ticked when the review opens: a first link the network is sure of — a radio
- * that names its AP by MAC, or a PoE port labelled with the device's IP. An
- * IP-only match and a change to an existing link wait for the operator.
+ * that names its AP by MAC, a PoE port labelled with the device's IP, or a
+ * router port that hears only this device over its cable. An IP-only match
+ * and a change to an existing link wait for the operator.
  */
 const tickedByDefault = (s: UpstreamSuggestionDTO): boolean =>
-  !s.currentUpstreamDeviceId && (s.source === 'POE' || s.matchedBy === 'MAC');
+  !s.currentUpstreamDeviceId && (s.source !== 'WIRELESS' || s.matchedBy === 'MAC');
 
 const fmt = (iso: string) => new Date(iso).toLocaleString('es');
 
@@ -27,6 +29,13 @@ function SourceCell({ s }: { s: UpstreamSuggestionDTO }) {
     return (
       <span title="Un puerto del switch PoE de su sitio está rotulado con la IP de este equipo, y ningún otro lo está.">
         PoE · puerto <span className="font-mono">{s.port}</span>
+      </span>
+    );
+  }
+  if (s.source === 'ROUTER_NEIGHBOR') {
+    return (
+      <span title="Por este puerto del router se oye solo este equipo por cable (vecinos MNDP/CDP/LLDP).">
+        Vecino · puerto <span className="font-mono">{s.port}</span>
       </span>
     );
   }
@@ -100,9 +109,9 @@ export function TopologySuggestions() {
   return (
     <div className="p-4 sm:p-6 space-y-4 overflow-y-auto h-full">
       <p className="text-sm text-gray-600 dark:text-gray-400 max-w-3xl">
-        El sistema propone de qué equipo depende cada uno a partir de lo que ya lee: el AP que reporta cada radio cliente
-        y los puertos de los switches PoE rotulados con la IP de la antena que alimentan. Nada se enlaza hasta que lo
-        aceptes.
+        El sistema propone de qué equipo depende cada uno a partir de lo que ya lee: el AP que reporta cada radio
+        cliente, los puertos de los switches PoE rotulados con la IP de la antena que alimentan, y los vecinos que cada
+        puerto de los MikroTik oye por cable. Nada se enlaza hasta que lo aceptes.
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -146,6 +155,8 @@ export function TopologySuggestions() {
         </div>
       )}
 
+      {data && <UnreadRoutersNotice routers={data.unreadRouters} consequence="pueden faltar sugerencias por sus vecinos" />}
+
       {orphanFailures.length > 0 && (
         <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-300">
           <p className="font-medium">Enlaces rechazados</p>
@@ -164,7 +175,7 @@ export function TopologySuggestions() {
 
       {isLoading ? (
         <div className="flex justify-center py-10">
-          <LoadingSpinner message="Leyendo radios y switches PoE..." />
+          <LoadingSpinner message="Leyendo radios, switches PoE y routers..." />
         </div>
       ) : error ? (
         <p className="text-sm text-red-600 dark:text-red-400">{(error as Error).message}</p>

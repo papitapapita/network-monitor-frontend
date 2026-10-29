@@ -191,6 +191,9 @@ import type {
 } from '../types/port-speed.types';
 import {
   AcceptUpstreamLinksResultDTO,
+  AddressMismatchesDTO,
+  DeviceNetworkLocationDTO,
+  RouterNeighborsDTO,
   TopologyDTO,
   UpstreamLinkDTO,
   UpstreamSuggestionsDTO,
@@ -776,8 +779,9 @@ class ApiService {
   }
 
   /**
-   * Upstreams the network proposes from the radios and the PoE switch ports.
-   * The switches are read live, so without a location this can take seconds.
+   * Upstreams the network proposes from the radios, the PoE switch ports and
+   * the MikroTiks' neighbour tables. The switches and every MikroTik are read
+   * live, so this can take seconds.
    */
   async getUpstreamSuggestions(locationId?: string): Promise<ApiResponse<UpstreamSuggestionsDTO>> {
     const query = locationId ? `?${new URLSearchParams({ locationId })}` : '';
@@ -790,6 +794,21 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ links }),
     });
+  }
+
+  /** What each port of one MikroTik hears (MNDP/CDP/LLDP), read now (DEV-198). */
+  async getRouterNeighbors(deviceId: string): Promise<ApiResponse<RouterNeighborsDTO>> {
+    return this.request<RouterNeighborsDTO>(`/topology/routers/${deviceId}/neighbors`, { cache: 'no-store' });
+  }
+
+  /** Which router port the device's MAC came in on, from every MikroTik's bridge host table, read now (DEV-199). */
+  async getDeviceNetworkLocation(deviceId: string): Promise<ApiResponse<DeviceNetworkLocationDTO>> {
+    return this.request<DeviceNetworkLocationDTO>(`/topology/${deviceId}/location`, { cache: 'no-store' });
+  }
+
+  /** Devices whose IP the MikroTiks' ARP tables and leases give to another MAC, read now (DEV-219). */
+  async getAddressMismatches(): Promise<ApiResponse<AddressMismatchesDTO>> {
+    return this.request<AddressMismatchesDTO>('/topology/address-mismatches', { cache: 'no-store' });
   }
 
   // ============================================================

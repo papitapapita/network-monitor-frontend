@@ -14,7 +14,7 @@ import {
   SwapHardwareResultDTO,
 } from '@/types/device.types';
 import { PollingStatus } from '@/types/polling.types';
-import { Button, LoadingSpinner, Tooltip, IconButton, BackLink, TrashIcon } from '@/components/ui';
+import { Button, LoadingSpinner, Tooltip, IconButton, BackLink, TrashIcon, LocateIcon } from '@/components/ui';
 import { ConfirmModal, UndoModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/toast.context';
 import { DeviceDetailsTab } from '@/components/devices/DeviceDetailsTab';
@@ -28,6 +28,9 @@ import { DeviceCredentialsTab } from '@/components/devices/DeviceCredentialsTab'
 import { DeviceHistoryTab } from '@/components/devices/DeviceHistoryTab';
 import { DeviceBackupsTab } from '@/components/devices/DeviceBackupsTab';
 import { DeviceNotificationPolicyTab } from '@/components/devices/DeviceNotificationPolicyTab';
+import { DeviceNeighborsTab } from '@/components/devices/DeviceNeighborsTab';
+import { DeviceNetworkLocationModal } from '@/components/devices/DeviceNetworkLocationModal';
+import { isCompanyMikrotik } from '@/constants/port-speed.constants';
 import { DeviceAlertThresholdsCard } from '@/components/wireless/DeviceAlertThresholdsCard';
 import { ReplaceDeviceModal } from '@/components/devices/ReplaceDeviceModal';
 import { SwapHardwareModal } from '@/components/devices/SwapHardwareModal';
@@ -45,13 +48,14 @@ import { wirelessReadingLines } from '@/constants/wireless.constants';
 import { LINK_DIAGNOSIS_ANCHOR } from '@/components/wireless/LinkDiagnosisCard';
 import { translateStartError } from '@/hooks/useLinkDiagnosis';
 
-type Tab = 'details' | 'history' | 'polling' | 'wireless' | 'settings' | 'backups';
+type Tab = 'details' | 'history' | 'polling' | 'wireless' | 'neighbors' | 'settings' | 'backups';
 
 const TAB_LABELS: Record<Tab, string> = {
   details: 'Detalles',
   history: 'Historial',
   polling: 'Sondeo',
   wireless: 'Inalámbrico',
+  neighbors: 'Vecinos',
   settings: 'Configuración',
   backups: 'Respaldos',
 };
@@ -189,6 +193,7 @@ export default function DeviceDetailPage() {
     [activeTab, searchParams, pathname, router],
   );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [replaceResult, setReplaceResult] = useState<ReplaceDeviceResultDTO | null>(null);
@@ -324,13 +329,20 @@ export default function DeviceDetailPage() {
   // Only the company's antennas, routerboards and switches are backed up (BKP-010).
   const showBackups = isBackupTarget(device?.ownerType, device?.category, deviceModel?.deviceType);
 
+  // A company MikroTik's ports say what they hear (DEV-198).
+  const showNeighbors = isCompanyMikrotik(device, deviceModel);
+
   const canQuickPoll =
     permissions.canWrite && !!device?.ipAddress && !!device.monitoringEnabled && (serverOnSite || device.agentId !== null);
 
   // Falls back to details if the wireless or backups tab disappears while open —
   // the model can lose its wireless flag, or the device its category, mid-visit.
   const currentTab: Tab =
-    (activeTab === 'wireless' && !showWireless) || (activeTab === 'backups' && !showBackups) ? 'details' : activeTab;
+    (activeTab === 'wireless' && !showWireless) ||
+    (activeTab === 'backups' && !showBackups) ||
+    (activeTab === 'neighbors' && !showNeighbors)
+      ? 'details'
+      : activeTab;
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -459,6 +471,12 @@ export default function DeviceDetailPage() {
         }}
       />
 
+      <DeviceNetworkLocationModal
+        deviceId={device.id}
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+      />
+
       {/* Header */}
       <div className="mb-6">
         <BackLink onClick={() => goBack()} className="mb-2" />
@@ -501,6 +519,10 @@ export default function DeviceDetailPage() {
                   router.push(`/ping?${qs}`);
                 }}
               />
+            )}
+            {/* Which router port it sits behind, from the MikroTiks' bridge tables (DEV-199). */}
+            {!device.deletedAt && (
+              <IconButton icon={<LocateIcon />} label="¿Dónde está conectado?" onClick={() => setShowLocationModal(true)} />
             )}
             {/* A unit can only be swapped once — after that the successor is the
                 one to replace, and its page offers the button. */}
@@ -658,7 +680,15 @@ export default function DeviceDetailPage() {
           stretching the page, same as the table's own horizontal scroll. */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto table-scroll-x">
         <nav className="flex gap-6 w-max min-w-full">
-          {(['details', 'history', 'polling', ...(showWireless ? ['wireless' as Tab] : []), 'settings', ...(showBackups ? ['backups' as Tab] : [])] as Tab[]).map((tab) => (
+          {([
+            'details',
+            'history',
+            'polling',
+            ...(showWireless ? ['wireless' as Tab] : []),
+            ...(showNeighbors ? ['neighbors' as Tab] : []),
+            'settings',
+            ...(showBackups ? ['backups' as Tab] : []),
+          ] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -718,6 +748,8 @@ export default function DeviceDetailPage() {
           onSwapHardware={canReplace && !device.replacedByDeviceId ? openSwapModal : undefined}
         />
       )}
+
+      {currentTab === 'neighbors' && <DeviceNeighborsTab key={pollRefreshKey} deviceId={deviceId} />}
 
       {/* Set-once settings that rarely change: quiet hours, a radio's alert
           thresholds, then the logins polling and backups use. Off Detalles so secrets never load on the

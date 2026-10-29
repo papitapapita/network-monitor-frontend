@@ -6,6 +6,7 @@ import { InfoTip } from '@/components/ui';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useTopology } from '@/hooks/useTopology';
 import { TopologySuggestions } from '@/components/topology/TopologySuggestions';
+import { AddressMismatches } from '@/components/topology/AddressMismatches';
 
 // React Flow measures the window; there is nothing to render on the server.
 const NetworkGraph = dynamic(() => import('@/components/topology/NetworkGraph'), {
@@ -20,12 +21,14 @@ const NetworkGraph = dynamic(() => import('@/components/topology/NetworkGraph'),
 /** Reachability moves with the polls; a minute is about as fast as they run. */
 const REFRESH_MS = 60_000;
 
-type Tab = 'map' | 'suggestions';
-const TAB_LABELS: Record<Tab, string> = { map: 'Mapa', suggestions: 'Sugerencias' };
+type Tab = 'map' | 'suggestions' | 'conflicts';
+const TAB_LABELS: Record<Tab, string> = { map: 'Mapa', suggestions: 'Sugerencias', conflicts: 'Conflictos de IP' };
+const isTab = (v: string): v is Tab => v in TAB_LABELS;
 
 export default function TopologyPage() {
   const url = useUrlState();
-  const tab: Tab = url.get('tab') === 'suggestions' ? 'suggestions' : 'map';
+  const tabParam = url.get('tab');
+  const tab: Tab = isTab(tabParam) ? tabParam : 'map';
   // A device page's «Ver en el mapa» opens the map on it.
   const focusId = url.get('focus') || null;
   const { data, isLoading, error } = useTopology({ refreshMs: REFRESH_MS, enabled: tab === 'map' });
@@ -61,6 +64,8 @@ export default function TopologyPage() {
       <div className="flex-1 min-h-0">
         {tab === 'suggestions' ? (
           <TopologySuggestions />
+        ) : tab === 'conflicts' ? (
+          <AddressMismatches />
         ) : isLoading ? (
           <div className="flex items-center justify-center h-full">
             <LoadingSpinner size="lg" message="Cargando topología..." />

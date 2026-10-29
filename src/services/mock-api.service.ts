@@ -76,6 +76,9 @@ import type {
 } from '../types/port-speed.types';
 import {
   AcceptUpstreamLinksResultDTO,
+  AddressMismatchesDTO,
+  DeviceNetworkLocationDTO,
+  RouterNeighborsDTO,
   TopologyDTO,
   TopologyNodeDTO,
   UpstreamLinkDTO,
@@ -1558,6 +1561,7 @@ class MockApiService {
       suggestions,
       total: suggestions.length,
       unreadSwitches: [{ deviceId: 'dev-5', name: 'Switch-Floor-1', reason: 'The switch did not answer in time' }],
+      unreadRouters: [],
     });
   }
 
@@ -1616,6 +1620,20 @@ class MockApiService {
 
   async getRouterAudit(): Promise<ApiResponse<RouterAuditListDTO>> {
     return ok({ routers: [] });
+  }
+
+  // ── Router neighbours and addresses ────────────────────────
+
+  async getRouterNeighbors(_deviceId: string): Promise<ApiResponse<RouterNeighborsDTO>> {
+    return { success: false, status: 404, error: 'MikroTik router not found' };
+  }
+
+  async getDeviceNetworkLocation(deviceId: string): Promise<ApiResponse<DeviceNetworkLocationDTO>> {
+    return ok({ deviceId, deviceName: '', macAddresses: [], location: null, sightings: [], unreadRouters: [] });
+  }
+
+  async getAddressMismatches(): Promise<ApiResponse<AddressMismatchesDTO>> {
+    return ok({ mismatches: [], unreadRouters: [] });
   }
 
   // ── Power Control ──────────────────────────────────────────
