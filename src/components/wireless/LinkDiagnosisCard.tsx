@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Badge, Button, Card, LoadingSpinner, SectionTitle } from '@/components/ui';
+import React, { useEffect, useState } from 'react';
+import { Badge, Button, Card, IconButton, LoadingSpinner, SectionTitle } from '@/components/ui';
 import type { BadgeVariant } from '@/components/ui';
 import { LegendKey, Tooltip, niceAxis, useWidth } from '@/components/dashboard/charts';
 import { StreamErrorNotice, StreamIndicator } from './StreamStatus';
@@ -26,12 +26,16 @@ const DURATION_OPTIONS = [
   { value: 300, label: '5 min' },
 ];
 
-/** What a run does, shown before the first one. */
-const DIAGNOSIS_STEPS = [
-  { title: 'Ping cada segundo', text: 'Al equipo y, si es una estación, a su AP padre.' },
-  { title: 'Lectura de la radio cada 2 s', text: 'Señal, tráfico y capacidad del enlace.' },
-  { title: 'Veredicto', text: 'Si la falla está en este equipo o aguas arriba.' },
-];
+/** The card's anchor; the device header's quick start links here. */
+export const LINK_DIAGNOSIS_ANCHOR = 'link-diagnosis';
+
+function PlayIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
+    </svg>
+  );
+}
 
 const VERDICT: Record<DiagnosisVerdict, { label: string; variant: BadgeVariant }> = {
   HEALTHY: { label: 'Enlace sano', variant: 'success' },
@@ -85,169 +89,184 @@ export function LinkDiagnosisCard({ deviceId, canWrite }: Props) {
   const lastRadio = [...d.radio].reverse().find((r) => r.ok) ?? null;
   const lastRadioFailure = d.radio.at(-1)?.ok === false ? d.radio.at(-1)! : null;
 
-  return (
-    <Card>
-      <Card.Header>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <SectionTitle info="Ping cada segundo al equipo (y a su AP padre, si es una estación) y lectura de la radio cada 2 s, durante el tiempo elegido. No guarda nada ni genera alertas; el resultado se puede consultar durante 15 minutos después de terminar.">
-            Diagnóstico en vivo
-          </SectionTitle>
-          <div className="flex flex-wrap items-center gap-3">
-            {running && d.streamState && <StreamIndicator state={d.streamState} />}
-            {running && canWrite && (
-              <Button size="sm" variant="outline" onClick={d.stop} isLoading={d.isStopping}>
-                Detener
-              </Button>
-            )}
-          </div>
-        </div>
-      </Card.Header>
-      <Card.Body>
-        {d.isLoading ? (
-          <div className="flex justify-center py-4">
-            <LoadingSpinner />
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {d.error && (
-              <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
-                {d.error}
-              </p>
-            )}
-            {running && d.streamState && <StreamErrorNotice state={d.streamState} onRetry={d.retryStream} />}
+  // The header's quick start lands here by hash, but the card mounts only once
+  // the wireless config loads, after the browser's own anchor jump.
+  useEffect(() => {
+    if (window.location.hash !== `#${LINK_DIAGNOSIS_ANCHOR}`) return;
+    document.getElementById(LINK_DIAGNOSIS_ANCHOR)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
-            {!running &&
-              (canWrite ? (
-                <StartForm
-                  duration={duration}
-                  onDurationChange={setDuration}
-                  onStart={() => d.start(duration)}
-                  isStarting={d.isStarting}
-                  hasPrevious={!!d.diagnosis}
-                />
-              ) : (
-                !d.diagnosis && (
+  const showStart = !running && canWrite && !d.isLoading;
+  const hasBody =
+    d.isLoading || !!d.error || (running && !!d.streamState) || !!d.diagnosis || !canWrite;
+
+  return (
+    <div id={LINK_DIAGNOSIS_ANCHOR} className="scroll-mt-4">
+      <Card>
+        <Card.Header>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SectionTitle info="Ping cada segundo al equipo (y a su AP padre, si es una estación) y lectura de la radio cada 2 s, durante el tiempo elegido. No guarda nada ni genera alertas; el resultado se puede consultar durante 15 minutos después de terminar.">
+              Diagnóstico en vivo
+            </SectionTitle>
+            <div className="flex flex-wrap items-center gap-3">
+              {running && d.streamState && <StreamIndicator state={d.streamState} />}
+              {running && canWrite && (
+                <Button size="sm" variant="outline" onClick={d.stop} isLoading={d.isStopping}>
+                  Detener
+                </Button>
+              )}
+              {showStart && (
+                <>
+                  <DurationPicker value={duration} onChange={setDuration} />
+                  <IconButton
+                    icon={<PlayIcon />}
+                    label="Diagnóstico nuevo"
+                    onClick={() => d.start(duration)}
+                    isLoading={d.isStarting}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </Card.Header>
+        {hasBody && (
+          <Card.Body>
+            {d.isLoading ? (
+              <div className="flex justify-center py-4">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {d.error && (
+                  <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                    {d.error}
+                  </p>
+                )}
+                {running && d.streamState && <StreamErrorNotice state={d.streamState} onRetry={d.retryStream} />}
+
+                {!canWrite && !d.diagnosis && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Solo un administrador u operador puede iniciar un diagnóstico.
                   </p>
-                )
-              ))}
-
-            {d.diagnosis && d.report && (
-              <>
-                <SessionLine diagnosis={d.diagnosis} now={now} />
-
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={VERDICT[d.report.verdict].variant}>{VERDICT[d.report.verdict].label}</Badge>
-                    {FAULT_LOCATION[d.report.faultLocation] && (
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {FAULT_LOCATION[d.report.faultLocation]}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">{d.report.summary}</p>
-                </div>
-
-                {d.report.findings.length > 0 && (
-                  <ul className="space-y-1.5">
-                    {d.report.findings.map((f) => (
-                      <li
-                        key={`${f.hop}:${f.code}`}
-                        className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm sm:flex-nowrap"
-                      >
-                        <Badge variant={f.severity === 'CRITICAL' ? 'danger' : 'warning'}>
-                          {f.severity === 'CRITICAL' ? 'Crítico' : 'Advertencia'}
-                        </Badge>
-                        <span className="text-gray-500 dark:text-gray-400">{HOP_LABELS[f.hop]}</span>
-                        {/* Under its badge on a phone, beside it from sm up. */}
-                        <span className="basis-full text-gray-900 sm:basis-auto dark:text-gray-100">{f.message}</span>
-                      </li>
-                    ))}
-                  </ul>
                 )}
 
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Latencia (ping)</h3>
-                  <LatencyChart
-                    ping={d.ping}
-                    startedAt={Date.parse(d.diagnosis.startedAt)}
-                    durationSeconds={d.diagnosis.durationSeconds}
-                    targetLabel={d.diagnosis.target.name ?? d.diagnosis.target.ipAddress}
-                    parentLabel={
-                      d.diagnosis.parent ? (d.diagnosis.parent.name ?? d.diagnosis.parent.ipAddress) : null
-                    }
-                  />
-                  <StatsTable
-                    head="Destino"
-                    columns={['Enviados', 'Pérdida', 'Mín / Prom / Máx', 'Jitter', 'Picos ≥150 ms']}
-                    rows={pingRows(d.diagnosis, d.report)}
-                  />
-                </div>
+                {d.diagnosis && d.report && (
+                  <>
+                    <SessionLine diagnosis={d.diagnosis} now={now} />
 
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Tráfico y capacidad</h3>
-                  <ThroughputChart
-                    radio={d.radio}
-                    startedAt={Date.parse(d.diagnosis.startedAt)}
-                    durationSeconds={d.diagnosis.durationSeconds}
-                  />
-                  <StatsTable
-                    head="Sentido"
-                    columns={['Actual', 'Promedio', 'Pico', 'Capacidad airMAX']}
-                    rows={[
-                      {
-                        key: 'tx',
-                        label: 'Subida (TX)',
-                        color: TRAFFIC_COLORS.TX,
-                        cells: [
-                          fmtBps(lastRadio?.throughputTxBps),
-                          fmtBps(d.report.radio.throughput.avgTxBps),
-                          fmtBps(d.report.radio.throughput.peakTxBps),
-                          fmtKbps(lastRadio?.capacityTxKbps),
-                        ],
-                      },
-                      {
-                        key: 'rx',
-                        label: 'Bajada (RX)',
-                        color: TRAFFIC_COLORS.RX,
-                        cells: [
-                          fmtBps(lastRadio?.throughputRxBps),
-                          fmtBps(d.report.radio.throughput.avgRxBps),
-                          fmtBps(d.report.radio.throughput.peakRxBps),
-                          fmtKbps(lastRadio?.capacityRxKbps),
-                        ],
-                      },
-                    ]}
-                  />
-                  {d.report.radio.throughput.linkCapacityKbps !== null && (
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Capacidad del enlace (plan o manual): {fmtKbps(d.report.radio.throughput.linkCapacityKbps)}
-                    </p>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={VERDICT[d.report.verdict].variant}>{VERDICT[d.report.verdict].label}</Badge>
+                        {FAULT_LOCATION[d.report.faultLocation] && (
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {FAULT_LOCATION[d.report.faultLocation]}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{d.report.summary}</p>
+                    </div>
 
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Radio{' '}
-                    <span className="font-normal text-gray-500 dark:text-gray-400">
-                      · {d.report.radio.samples} lectura{d.report.radio.samples === 1 ? '' : 's'}
-                      {d.report.radio.failures > 0 && `, ${d.report.radio.failures} fallida${d.report.radio.failures === 1 ? '' : 's'}`}
-                    </span>
-                  </h3>
-                  {lastRadioFailure?.error && (
-                    <p className="mb-2 text-xs text-amber-700 dark:text-amber-400">
-                      Última lectura fallida: {lastRadioFailure.error}
-                    </p>
-                  )}
-                  <RadioSummary radio={lastRadio} />
-                </div>
-              </>
+                    {d.report.findings.length > 0 && (
+                      <ul className="space-y-1.5">
+                        {d.report.findings.map((f) => (
+                          <li
+                            key={`${f.hop}:${f.code}`}
+                            className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm sm:flex-nowrap"
+                          >
+                            <Badge variant={f.severity === 'CRITICAL' ? 'danger' : 'warning'}>
+                              {f.severity === 'CRITICAL' ? 'Crítico' : 'Advertencia'}
+                            </Badge>
+                            <span className="text-gray-500 dark:text-gray-400">{HOP_LABELS[f.hop]}</span>
+                            {/* Under its badge on a phone, beside it from sm up. */}
+                            <span className="basis-full text-gray-900 sm:basis-auto dark:text-gray-100">{f.message}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <div>
+                      <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Latencia (ping)</h3>
+                      <LatencyChart
+                        ping={d.ping}
+                        startedAt={Date.parse(d.diagnosis.startedAt)}
+                        durationSeconds={d.diagnosis.durationSeconds}
+                        targetLabel={d.diagnosis.target.name ?? d.diagnosis.target.ipAddress}
+                        parentLabel={
+                          d.diagnosis.parent ? (d.diagnosis.parent.name ?? d.diagnosis.parent.ipAddress) : null
+                        }
+                      />
+                      <StatsTable
+                        head="Destino"
+                        columns={['Enviados', 'Pérdida', 'Mín / Prom / Máx', 'Jitter', 'Picos ≥150 ms']}
+                        rows={pingRows(d.diagnosis, d.report)}
+                      />
+                    </div>
+
+                    <div>
+                      <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Tráfico y capacidad</h3>
+                      <ThroughputChart
+                        radio={d.radio}
+                        startedAt={Date.parse(d.diagnosis.startedAt)}
+                        durationSeconds={d.diagnosis.durationSeconds}
+                      />
+                      <StatsTable
+                        head="Sentido"
+                        columns={['Actual', 'Promedio', 'Pico', 'Capacidad airMAX']}
+                        rows={[
+                          {
+                            key: 'tx',
+                            label: 'Subida (TX)',
+                            color: TRAFFIC_COLORS.TX,
+                            cells: [
+                              fmtBps(lastRadio?.throughputTxBps),
+                              fmtBps(d.report.radio.throughput.avgTxBps),
+                              fmtBps(d.report.radio.throughput.peakTxBps),
+                              fmtKbps(lastRadio?.capacityTxKbps),
+                            ],
+                          },
+                          {
+                            key: 'rx',
+                            label: 'Bajada (RX)',
+                            color: TRAFFIC_COLORS.RX,
+                            cells: [
+                              fmtBps(lastRadio?.throughputRxBps),
+                              fmtBps(d.report.radio.throughput.avgRxBps),
+                              fmtBps(d.report.radio.throughput.peakRxBps),
+                              fmtKbps(lastRadio?.capacityRxKbps),
+                            ],
+                          },
+                        ]}
+                      />
+                      {d.report.radio.throughput.linkCapacityKbps !== null && (
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          Capacidad del enlace (plan o manual): {fmtKbps(d.report.radio.throughput.linkCapacityKbps)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Radio{' '}
+                        <span className="font-normal text-gray-500 dark:text-gray-400">
+                          · {d.report.radio.samples} lectura{d.report.radio.samples === 1 ? '' : 's'}
+                          {d.report.radio.failures > 0 && `, ${d.report.radio.failures} fallida${d.report.radio.failures === 1 ? '' : 's'}`}
+                        </span>
+                      </h3>
+                      {lastRadioFailure?.error && (
+                        <p className="mb-2 text-xs text-amber-700 dark:text-amber-400">
+                          Última lectura fallida: {lastRadioFailure.error}
+                        </p>
+                      )}
+                      <RadioSummary radio={lastRadio} />
+                    </div>
+                  </>
+                )}
+              </div>
             )}
-          </div>
+          </Card.Body>
         )}
-      </Card.Body>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -763,75 +782,33 @@ function ThroughputChart({
   );
 }
 
-/**
- * Duration as a segmented choice and the start button. Before the first run it
- * also says what the run does; after one, it stays a compact row above the result.
- */
-function StartForm({
-  duration,
-  onDurationChange,
-  onStart,
-  isStarting,
-  hasPrevious,
-}: {
-  duration: number;
-  onDurationChange: (seconds: number) => void;
-  onStart: () => void;
-  isStarting: boolean;
-  hasPrevious: boolean;
-}) {
+/** The run's length as a compact segmented choice, beside the start button. */
+function DurationPicker({ value, onChange }: { value: number; onChange: (seconds: number) => void }) {
   return (
-    <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
-      {!hasPrevious && (
-        <ol className="grid gap-3 sm:grid-cols-3">
-          {DIAGNOSIS_STEPS.map((step, i) => (
-            <li key={step.title} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
-                {i + 1}
-              </span>
-              <div className="min-w-0 text-sm">
-                <p className="font-medium text-gray-900 dark:text-gray-100">{step.title}</p>
-                <p className="text-gray-500 dark:text-gray-400">{step.text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p id="diagnosis-duration-label" className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-            Duración
-          </p>
-          <div
-            role="radiogroup"
-            aria-labelledby="diagnosis-duration-label"
-            className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5 dark:border-gray-600 dark:bg-gray-800"
+    <div
+      role="radiogroup"
+      aria-label="Duración"
+      className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5 dark:border-gray-600 dark:bg-gray-800"
+    >
+      {DURATION_OPTIONS.map((o) => {
+        const selected = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(o.value)}
+            className={`rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+              selected
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+            }`}
           >
-            {DURATION_OPTIONS.map((o) => {
-              const selected = o.value === duration;
-              return (
-                <button
-                  key={o.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => onDurationChange(o.value)}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-                    selected
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <Button onClick={onStart} isLoading={isStarting}>
-          {hasPrevious ? 'Nuevo diagnóstico' : 'Iniciar diagnóstico'}
-        </Button>
-      </div>
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -41,6 +41,9 @@ import { isBackupTarget } from '@/constants/backup.constants';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useInstallation } from '@/hooks/useInstallation';
 import { agentPollFailure } from '@/constants/agent.constants';
+import { wirelessReadingLines } from '@/constants/wireless.constants';
+import { LINK_DIAGNOSIS_ANCHOR } from '@/components/wireless/LinkDiagnosisCard';
+import { translateStartError } from '@/hooks/useLinkDiagnosis';
 
 type Tab = 'details' | 'history' | 'polling' | 'wireless' | 'settings' | 'backups';
 
@@ -81,6 +84,14 @@ function WirelessPollIcon() {
   return (
     <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+    </svg>
+  );
+}
+
+function DiagnosisIcon() {
+  return (
+    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h4l3-8 4 16 3-8h4" />
     </svg>
   );
 }
@@ -161,6 +172,7 @@ export default function DeviceDetailPage() {
   const { serverOnSite } = useInstallation();
   const [isPolling, setIsPolling] = useState(false);
   const [isWirelessPolling, setIsWirelessPolling] = useState(false);
+  const [isStartingDiagnosis, setIsStartingDiagnosis] = useState(false);
   // Bumped after a quick poll so the open tab remounts and reads the new data.
   const [pollRefreshKey, setPollRefreshKey] = useState(0);
   const tabParam = searchParams.get('tab');
@@ -259,15 +271,44 @@ export default function DeviceDetailPage() {
   const handleQuickWirelessPoll = async () => {
     setIsWirelessPolling(true);
     const result = await apiService.triggerWirelessPoll(deviceId);
-    setIsWirelessPolling(false);
     if (result.success && result.data) {
       const r = result.data;
       setPollRefreshKey((k) => k + 1);
-      if (r.skipped) showError('Sondeo inalámbrico omitido: el monitoreo está deshabilitado.');
-      else showSuccess(`Sondeo inalámbrico completado — alertas activadas: ${r.alertsTriggered}, resueltas: ${r.alertsCleared}.`);
+      if (r.skipped) {
+        showError('Sondeo inalámbrico omitido: el monitoreo está deshabilitado.');
+      } else if (!r.metricsCollected) {
+        showError('Sondeo inalámbrico completado, pero el equipo no devolvió métricas.');
+      } else {
+        // The poll answers only with alert counts; the readings themselves are
+        // in the snapshot it just wrote, so show those without a trip to the tab.
+        const status = await apiService.getWirelessStatus(deviceId);
+        const details = status.success && status.data ? wirelessReadingLines(status.data) : [];
+        if (r.alertsTriggered || r.alertsCleared) {
+          details.push(`Alertas nuevas: ${r.alertsTriggered} · resueltas: ${r.alertsCleared}`);
+        }
+        showSuccess('Sondeo inalámbrico completado', { details, duration: 10000 });
+      }
     } else {
       showError(agentPollFailure(result.status, result.error) ?? result.error ?? 'Error al sondear el equipo');
     }
+    setIsWirelessPolling(false);
+  };
+
+  // Starts (or joins) a one-minute live diagnosis and opens the wireless tab
+  // on its card, which picks the running session up and streams it.
+  const handleQuickDiagnosis = async () => {
+    setIsStartingDiagnosis(true);
+    const result = await apiService.startLinkDiagnosis(deviceId, 60);
+    setIsStartingDiagnosis(false);
+    if (!result.success || !result.data) {
+      showError(translateStartError(result.status, result.error));
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', 'wireless');
+    router.push(`${pathname}?${params}#${LINK_DIAGNOSIS_ANCHOR}`, { scroll: false });
+    // Already on the tab: remount the card so it joins the new session.
+    setPollRefreshKey((k) => k + 1);
   };
 
   useEffect(() => {
@@ -439,6 +480,14 @@ export default function DeviceDetailPage() {
                 label="Sondeo inalámbrico rápido"
                 onClick={handleQuickWirelessPoll}
                 isLoading={isWirelessPolling}
+              />
+            )}
+            {canQuickPoll && showWireless && (
+              <IconButton
+                icon={<DiagnosisIcon />}
+                label="Diagnóstico en vivo"
+                onClick={handleQuickDiagnosis}
+                isLoading={isStartingDiagnosis}
               />
             )}
             {/* The ping tool, from where this device is polled. */}

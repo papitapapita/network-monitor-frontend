@@ -29,7 +29,7 @@ export interface UseLinkDiagnosisResult {
   retryStream: () => void;
 }
 
-function translateStartError(status: number | undefined, error: string | undefined): string {
+export function translateStartError(status: number | undefined, error: string | undefined): string {
   // request() swaps a 429 for the generic rate-limit wording, but here it means
   // the server is already running its maximum number of sessions.
   if (status === 429) {

@@ -1,7 +1,7 @@
 import type { SseState } from '@/services/sse';
 import type { BadgeVariant } from '@/components/ui';
 import type { DeviceCategory, DeviceStatus } from '@/types/device.types';
-import type { LinkCapacitySource } from '@/types/wireless.types';
+import type { LinkCapacitySource, WirelessStatusDTO } from '@/types/wireless.types';
 import {
   DEVICE_STATUS_LABELS,
   RETIRED_STATUSES,
@@ -119,6 +119,39 @@ export function fmtBps(val: number | null | undefined): string {
   if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)} Mbps`;
   if (val >= 1_000) return `${(val / 1_000).toFixed(1)} Kbps`;
   return `${val} bps`;
+}
+
+/**
+ * A snapshot as a few short lines — signal, traffic, clients, alerts — for
+ * places that report a poll without room for the wireless tab's cards.
+ * A metric the radio did not report is left out rather than shown as "—".
+ */
+export function wirelessReadingLines(status: WirelessStatusDTO): string[] {
+  const m = status.metrics;
+  const join = (parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
+  const radio = join([
+    m.signalRxDbm != null ? `Señal ${m.signalRxDbm} dBm` : null,
+    m.snrDb != null ? `SNR ${m.snrDb} dB` : null,
+    m.ccqPercent != null ? `CCQ ${m.ccqPercent} %` : null,
+  ]);
+  const traffic =
+    m.throughputRxBps != null || m.throughputTxBps != null
+      ? `Tráfico ↓ ${fmtBps(m.throughputRxBps)} · ↑ ${fmtBps(m.throughputTxBps)}`
+      : '';
+  const link = join([
+    status.deviceType === 'ACCESS_POINT' && m.clientsConnected != null
+      ? `${m.clientsConnected} cliente${m.clientsConnected === 1 ? '' : 's'}`
+      : null,
+    status.deviceType === 'STATION' && (m.remoteApName || m.remoteApMac) ? `Conectado a ${m.remoteApName ?? m.remoteApMac}` : null,
+    m.distanceM != null ? `${(m.distanceM / 1000).toLocaleString('es', { maximumFractionDigits: 1 })} km` : null,
+  ]);
+  const alerts = status.activeAlerts.length;
+  return [
+    radio,
+    traffic,
+    link,
+    alerts > 0 ? `${alerts} alerta${alerts === 1 ? '' : 's'} activa${alerts === 1 ? '' : 's'}` : 'Sin alertas activas',
+  ].filter(Boolean);
 }
 
 /** Kilobits per second, as provisioned capacities are entered. */
